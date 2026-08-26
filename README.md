@@ -1,0 +1,3 @@
+# JIJINBOARD
+
+TRPG統合WEBアプリです。
