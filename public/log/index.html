@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,noarchive,max-image-preview:large">
+  <meta name="description" content="ログにリアルタイムでコメントを付けるサイトです。">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="TRPG LOG MARKER">
+  <meta property="og:title" content="TRPG LOG MARKER">
+  <meta property="og:description" content="ログにリアルタイムでコメントを付けるサイトです。">
+  <meta property="og:image" content="https://logcomments.pages.dev/twitter-card.png?v=20260821">
+  <meta property="og:image:secure_url" content="https://logcomments.pages.dev/twitter-card.png?v=20260821">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="TRPG LOG MARKER">
+  <meta name="twitter:description" content="ログにリアルタイムでコメントを付けるサイトです。">
+  <meta name="twitter:image" content="https://logcomments.pages.dev/twitter-card.png?v=20260821">
+  <meta name="twitter:image:alt" content="TRPG LOG MARKER">
+  <title>TRPG LOG MARKER</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">TRPG LOG MARKER</a>
+    <div id="presenceBar" class="presence-bar" aria-label="入室中のPL"></div>
+    <div class="top-actions">
+      <button id="themeBtn" class="icon-btn" title="表示切替">◐</button>
+      <button id="profileBtn" class="quiet hidden">発言者</button>
+    </div>
+  </header>
+
+  <main>
+    <section id="homeView" class="home card">
+      <p class="eyebrow">PRIVATE SHARED READING ROOM</p>
+      <h1><a class="home-title-link" href="https://logcomments.pages.dev/">TRPG LOG MARKER</a></h1>
+      <p class="lead">ログにリアルタイムでコメントを付けるサイトです。</p>
+      <label class="dropzone" id="dropzone">
+        <input id="fileInput" type="file" accept=".html,text/html">
+        <span class="drop-title">HTMLログを選択</span>
+        <span class="drop-note">または、ここへドロップ</span>
+      </label>
+      <label class="archive-open">保存した部屋を開く<input id="archiveInput" type="file" accept=".zip,.trpglog,application/zip,application/json"></label>
+      <div id="importPreview" class="import-preview hidden">
+        <div><strong id="importTitle"></strong><span id="importCount"></span></div>
+        <button id="createRoomBtn" class="primary">秘密の部屋を作る</button>
+      </div>
+      <p id="homeStatus" class="status"></p>
+      <p class="privacy">ログをアップロードすると、専用URLが発行されます</p>
+      <section id="ownedRooms" class="owned-rooms hidden">
+        <div class="owned-rooms-head"><strong>作成した部屋</strong><small>明示的に削除するまで保存されます。</small></div>
+        <div id="ownedRoomList" class="owned-room-list"></div>
+      </section>
+      <section id="recentRooms" class="owned-rooms hidden">
+        <div class="owned-rooms-head"><strong>最近見た部屋</strong><small>このブラウザで開いた部屋</small></div>
+        <div id="recentRoomList" class="owned-room-list"></div>
+      </section>
+    </section>
+
+    <section id="roomView" class="room hidden">
+      <aside class="room-tools">
+        <h1 id="roomTitle"></h1>
+        <div class="filters">
+          <select id="viewMode"><option value="compact">詰めたモード</option><option value="timeline">共有時間軸モード</option></select>
+          <select id="tabFilter" aria-label="メインタブ" title="メインタブを選択"><option value="">メインタブを選択</option></select>
+          <input id="searchInput" type="search" placeholder="ログ内検索">
+          <label class="font-size-control" title="ログの文字サイズ"><span>A−</span><input id="fontSize" type="range" min="10" max="20" step="0.5" aria-label="ログの文字サイズ"><span>A＋</span></label>
+          <button id="shareBtn" class="primary small">共有URLをコピー</button>
+          <button id="exportRoomBtn" class="quiet small">部屋を保存</button>
+        </div>
+        <p id="roomStatus" class="status"></p>
+      </aside>
+
+      <div class="reader-grid">
+        <article id="logPane" class="log-pane" aria-label="TRPGログ"></article>
+        <aside id="tabSuggestions" class="tab-suggestions hidden" aria-label="別タブの発言"></aside>
+        <aside id="commentsPane" class="comments-pane">
+          <div class="comments-head"><strong>COMMENTS</strong><span id="commentCount">0</span></div>
+          <div id="commentsList" class="comments-list"><p class="empty">マーカーされた感想がここに並びます。</p></div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <div id="selectionBar" class="selection-bar hidden">
+    <span id="selectedQuote"></span><button id="markBtn" class="primary small">マーカー＋感想</button>
+  </div>
+
+  <dialog id="commentDialog">
+    <form id="commentForm" method="dialog">
+      <div class="comment-persona-picker"><span id="commentPersonaAvatar" class="comment-input-avatar"></span><select id="personaSelect" aria-label="発言者"></select></div>
+      <textarea id="commentBody" rows="5" maxlength="4000" aria-label="感想"></textarea>
+      <button id="commentDeleteBtn" class="comment-edit-delete hidden" type="button">このコメントを削除</button>
+    </form>
+  </dialog>
+
+  <dialog id="imageDialog" class="image-dialog"><button type="button" class="image-dialog-close" data-close aria-label="閉じる">×</button><img id="expandedCommentImage" alt="コメント画像"></dialog>
+
+  <dialog id="deleteRoomDialog">
+    <form method="dialog"><div class="dialog-head"><strong id="deleteRoomTitle">部屋を削除しますか？</strong><button type="button" class="icon-btn" data-close>×</button></div><p class="delete-room-note">ログと感想は元に戻せません。</p><div class="delete-room-actions"><button id="saveDeleteRoomBtn" type="button" class="primary">保存して削除</button><button id="deleteOnlyRoomBtn" type="button" class="danger-quiet">削除だけ</button><button type="button" class="quiet" data-close>キャンセル</button></div></form>
+  </dialog>
+
+  <dialog id="profileDialog">
+    <form id="profileForm" method="dialog">
+      <div class="dialog-head"><strong>発言者の設定</strong><button type="button" class="icon-btn" data-close>×</button></div>
+      <label>あなたのPL名<input id="plName" maxlength="80" required></label>
+      <label class="avatar-upload"><span id="plIconPreview" class="avatar-preview"></span><span>PLアイコンを選択</span><input id="plIconInput" type="file" accept="image/*"></label>
+      <label class="marker-color-field">PLのマーカー色<input id="plMarkerColor" type="color" value="#ffe66b"></label>
+      <div id="personaList"></div>
+      <div class="inline-fields"><input id="newPersonaName" maxlength="80" placeholder="キャラクター名"><select id="newPersonaType"><option value="PC">PC</option><option value="NPC">NPC</option></select><input id="newPersonaColor" type="color" value="#ffe66b" title="マーカー色"><label class="mini-upload">画像<input id="newPersonaIcon" type="file" accept="image/*"></label><button type="button" id="savePersonaBtn" class="quiet">追加</button></div>
+      <button type="submit" class="primary">保存</button>
+    </form>
+  </dialog>
+  <script src="app.js"></script>
+</body>
+</html>
