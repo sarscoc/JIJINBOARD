@@ -1,178 +1,71 @@
-# TRPG LOG MARKER
+# JIJINBOARD
 
-## 統合版の構成
+LOGCOMMENTSを核に、MAGIA MATRIXとCHARA DATA HUBをまとめたTRPG統合WEBアプリです。
 
-- `/` — TRPG PROJECT TOP、Session一覧、共通PL／PC／NPCマスター
-- `/log/` — 既存TRPG LOG MARKER本体
+## いちばん簡単なCloudflare導入
+
+### 0. R2を有効にする（新規アカウントのみ）
+
+Cloudflare Dashboardの `Storage & databases` → `R2` を開き、R2の利用開始手続きを完了します。
+
+R2には無料枠がありますが、Cloudflare側の仕様として最初にR2 subscriptionのcheckoutが必要です。
+
+### 1. GitHubから取り込む
+
+1. Cloudflare Dashboardの `Workers & Pages` を開く
+2. `Create application` を押す
+3. `Import a repository` を選ぶ
+4. GitHubを接続し、`sarscoc/JIJINBOARD` を選ぶ
+5. Worker名を聞かれた場合は **`jijinboard`** にする
+6. Build commandは空欄、Deploy commandは **`npx wrangler deploy`** のまま `Save and Deploy`
+
+これだけで、初回デプロイ時に以下がまとめて準備されます。
+
+- 画面一式（Static Assets）
+- D1データベース（部屋、コメント、返信、♡）
+- R2バケット（ログ本文、重複排除した人物アイコン）
+- Durable Objects（入室者、入力中、更新通知）
+- WebSocketリアルタイム更新
+- D1の初期テーブル
+
+デプロイ後は `https://jijinboard.<アカウントのサブドメイン>.workers.dev` で開けます。以降はJIJINBOARDの `main` を更新するとCloudflareが自動デプロイします。
+
+## URL構成
+
+- `/` — TRPG PROJECT TOP、Session一覧、共通PL／PC／NPC
+- `/log/` — TRPG LOG MARKER本体
 - `/matrix/` — MAGIA MATRIX
 - `/spreadsheet/` — CHARA DATA HUB
 
-LOGのD1／R2／Durable Objects／WebSocketの責務分担は維持し、TOPと制作ツールをその外側へ追加しています。
+## 保存とリアルタイムの役割
 
-Tekeyの全タブHTMLログを読み込み、秘密の共有URL上で本文へマーカーと感想を付けるCloudflare Pagesアプリです。
+- 永続データ: D1 / R2
+- リアルタイム通知: Durable Objects / WebSocket
 
-## 主な機能
+Durable Objectsにコメント本文やログ本文は保存しません。通知が一時的に切れてもD1/R2上のデータは残ります。
 
-- Tekey全タブHTMLの読み込み
-- Tekey元HTMLのタブ一覧順をそのまま保持
-- 白背景・黒文字／黒背景・白文字への表示統一
-- タブ絞り込み・ログ内検索
-- 全タブを横につないだ無限ページカルーセル（閲覧中の時刻を保って別タブへ移動）
-- カルーセルは現在・前・次の3ページだけを生成し、移動先を直前に遅延読込
-- 左右の矢印キーで、端から端へ途切れず循環移動
-- 共有時間軸モード（タブを別ページのまま同じ時刻の高さへ配置）と詰めたモード
-- 現在地が分かるクリック可能な全タブ一覧
-- 半透明のガラス調UIと右端の薄い時刻表示
-- 秘密URLを現在開いている人をPL名・アイコンで表示
-- コメントを書いているPLを「入力中…」で表示
-- Durable Objects＋WebSocketで、入退室・入力中・投稿・編集・削除・♡をイベント発生時だけ即時通知
-- WebSocket切断時は自動再接続し、再接続時に取りこぼしたコメントを復旧
-- リアルタイム機能が未接続の間だけ、60秒間隔の軽量な保険確認へ自動切替
-- コメントのPL名と同じ行の右端に投稿日時を表示
-- コメント日時の前に対象タブ名を表示
-- PL・PC・NPCごとのマーカー色とコメント端のカラーライン
-- コメント欄は発言者と本文だけの最小表示（欄外クリックで投稿）
-- 不足しているD1列と入室者テーブルを自動補完
-- コメント一覧をマーカー対象のログ時系列順に表示
-- 任意のメインタブを設定し、戻った時だけ同時刻付近の別タブ発言を半透明表示
-- 共有時間軸で画面内の空白位置にある別タブ発言を優先表示
-- メインタブの各空白時間へ、別タブ名つきの描写を直接表示
-- マーカー色変更を同じ発言者の過去マーカーへ一括反映
-- 入室中PLを最上部ブランド横へ表示
-- PL設定は全ページ共通、PC・NPCは部屋URLごとに保存
-- 部屋ごとに最後に使った発言者を記憶
-- コメントへの返信と入れ子表示
-- 別タブ描写は移動リンクにせず、タブ名と内容の案内だけを表示
-- タブ名クリック時にカルーセルを再構築せず直接移動
-- コメント一覧のログ時系列位置へ、選択中キャラの入力中表示
-- ログ本文をCloudflare R2へ保存し、D1には部屋情報・コメント・♡などだけを保存
-- 旧版でD1に保存されたログは、最初に開いたとき安全にR2へ自動移行
-- Tekeyの文字色を保持
-- PL・PC・NPCごとのアイコン登録
-- 同じ発言者アイコンはR2へ1画像だけ保存し、各コメントは参照だけを保持
-- アイコン画像を切らずに丸枠内へ全体表示
-- 発言者名から複数のPL・PC発言をまたいで選択可能
-- 本文選択の横に背景を暗くしない最小の感想欄を表示し、欄外クリックで投稿
-- 選択範囲へのマーカーとコメント
-- 本文と右コメント欄の相互ジャンプ
-- PL名と任意のPC・NPC発言者
-- 接続中の定期的なコメント確認・入室確認を廃止
-- 別タブ候補は画面内に見えている時刻行だけ遅延生成
-- 推測困難な共有URL
-- 複数Sessionを作成可能
-- アプリ側の保存期限・自動削除なし
-- 部屋を、閲覧用HTMLと再読込用データをまとめたZIPとして保存
-- 削除前に「保存して削除／削除だけ／キャンセル」を選択可能
+統合版には7日TTL、自動削除、期限延長、期限切れRoom cleanup、部屋数制限を設けていません。ユーザーが明示的に削除するまで保持します。
 
-## 保存・リアルタイムの役割分担
+## ローカル確認（必要な場合だけ）
 
-このアプリは、保存とリアルタイム通知を分離しています。
+```bash
+npm install
+npm run dev
+```
 
-- **D1**: 部屋情報、コメント、返信、♡などの確実に残すデータ
-- **R2**: ログ本文と、重複排除した発言者アイコン
-- **Durable Object**: その部屋を今開いている人、入力中状態、更新通知だけを担当
-- **WebSocket**: 開いているブラウザへイベントを即時配信
+通常の導入ではローカル操作は不要です。
 
-Durable Objectにはコメント本文やログ本文を保存しません。リアルタイム通知が一時的に切れてもD1/R2側の保存データは失われず、再接続後に取りこぼした更新を取得します。
+## 構成
 
-### なぜ定期ポーリングより軽いのか
+- `public/` — TOP、LOG、MATRIX、Spreadsheet
+- `src/index.js` — Static Assetsと既存LOG APIをつなぐ薄いWorker
+- `functions/api/[[path]].js` — LOGCOMMENTSの既存API
+- `realtime-worker/src/index.js` — 既存RoomHub（Durable Objects / WebSocket）
+- `src/schema.js` — 新しいD1を初回アクセス時に初期化
+- `wrangler.jsonc` — Cloudflare一括デプロイ設定
 
-以前の3秒・20秒ごとの定期確認は廃止し、通常時はWebSocketを1本だけ接続します。
+Cloudflare公式資料:
 
-- 接続時にWebSocket Upgradeが発生
-- 入室・入力中・コメント投稿・編集・削除・♡など、何か起きた時だけ通信
-- サーバーから接続中クライアントへのWebSocket送信はDurable Objectsのリクエスト課金対象外
-- Durable Objectsへ入るWebSocketメッセージは、リクエスト課金上20メッセージ＝1リクエスト相当で計算
-- Hibernation APIを使っているため、アイドル状態でhibernate可能な時間はDurable ObjectのDuration課金対象外
-- 何も操作されていない間に3秒ごとの確認を繰り返さない
-
-Cloudflare Workers Free planのDurable Objectsはリクエストが1日100,000までです。WebSocketの初回接続は1リクエストとして数えられ、受信WebSocketメッセージには20:1の課金比率が適用されます。なお、このアプリではD1保存成功後にPagesからDurable Objectへ更新通知を送る処理もあるため、コメント等の各更新がすべて20:1になるわけではありません。それでも、常時ポーリングする方式より通信回数を大幅に抑えられます。
-
-Cloudflare公式: https://developers.cloudflare.com/durable-objects/platform/pricing/
-
-## 保存期限
-
-統合版にはアプリ側の保存期限、TTL、期限延長、自動削除、期限切れRoom cleanupを設けません。ユーザーが明示的に削除するまでSessionを保持します。これはCloudflareの契約状態や容量制限まで永久性を保証するものではありません。
-
-## Cloudflare Pagesへの公開
-
-### Twitterカード画像
-
-好きな1200×630pxのPNG画像を `public/twitter-card.png` という名前で追加すると、Twitter/Xなどの共有カードへ使用されます。画像を差し替える場合も、同じファイル名で上書きします。
-
-### 1. GitHubへ入れる
-
-このフォルダの中身をGitHubリポジトリへアップロードします。
-
-### 2. Pagesプロジェクトを作る
-
-Cloudflare Dashboardで `Workers & Pages` → `Create` → `Pages` → `Connect to Git` と進み、リポジトリを選びます。
-
-- Framework preset: `None`
-- Build command: 空欄
-- Build output directory: `public`
-
-### 3. D1データベースを作る
-
-Dashboardで `Storage & Databases` → `D1 SQL database` → `Create`。
-名前は `trpg-log-marker-db` などで構いません。
-
-作成したデータベースのConsoleへ `schema.sql` の内容を貼り付けて実行します。
-
-### 4. PagesとD1を接続する
-
-Pagesプロジェクトの `Settings` → `Bindings` → `Add` → `D1 database`。
-
-- Variable name: `DB`
-- D1 database: 手順3で作ったもの
-
-### 5. R2ログストレージを作って接続する
-
-Dashboardで `Storage & Databases` → `R2 Object Storage` → `Create bucket` と進み、`trpg-log-marker-logs` などの名前でバケットを作成します。
-
-Pagesプロジェクトの `Settings` → `Bindings` → `Add` → `R2 bucket`。
-
-- Variable name: `LOGS`
-- R2 bucket: 作成したバケット
-
-必ず `LOGS` という大文字のBinding名にしてください。接続後、`Deployments` から再デプロイします。新しい部屋のログ本文は最初からR2へ保存され、既存のD1内ログは部屋を開いたときにR2へ順次移行します。
-
-### 6. リアルタイムWorkerを作る
-
-同じGitHubリポジトリ内の `realtime-worker` が、Durable Objects＋WebSocket専用のWorkerです。
-
-Cloudflare Dashboardの `Workers & Pages` → `Create` からGitHubリポジトリ `sarscoc/LOGCOMMENTS` をもう一度選択し、Workerとして接続します。
-
-- Worker name: `trpg-log-marker-realtime`
-- Root directory: `realtime-worker`
-- Deploy command: `npx wrangler deploy`
-
-`realtime-worker/wrangler.jsonc` がDurable Object namespaceを作成します。Pagesプロジェクトとは別のWorkerとしてデプロイしてください。
-
-### 7. PagesとDurable Objectを接続する
-
-Pagesプロジェクト `logcomments` の `Settings` → `Bindings` → `Add` → `Durable Object`。
-
-- Variable name: `ROOMS`
-- Durable Object namespace: `trpg-log-marker-realtime` の `RoomHub`
-
-必ず `ROOMS` という大文字のBinding名にしてください。Productionへ追加したあと、Pagesを再デプロイします。Realtime接続用URLや共有シークレットは不要です。
-
-接続に成功すると、通常時の定期通信は止まり、入退室・入力中・コメント・編集・削除・♡・返信が起きた時だけ通信します。Bindingが未設定または一時切断中でも、コメント機能そのものは止まらず、60秒間隔の保険確認へ切り替わります。
-
-## 部屋の保存と復元
-
-- 部屋内の「部屋を保存」でZIPをダウンロードできます。
-- ZIP内の `index.html` はアプリ本体・デザイン・部屋データ・アイコンを内包し、Cloudflareへ接続せず同じ閲覧機能で読めます。
-- 保存時のライト／ダークテーマを保存版の初期表示へ引き継ぎます。
-- コメント画像は保存時に取得できたものをHTML内へ埋め込みます。画像配信元が外部取得を禁止している場合は、元URLをリンクとして残します。
-- ZIP内の `room.trpglog` は、トップページの「保存した部屋を開く」から同じ画面へ読み込めます。
-- 保存版は読み取り専用で、クラウドの部屋数やD1容量を消費しません。
-
-## 注意
-
-共有URLは十分長く推測困難ですが、URLを転送された相手も閲覧できます。ログ本文と重複排除した発言者アイコンはCloudflare R2へ、部屋情報・感想本文・♡などはD1へ保存されます。Durable Objectはリアルタイム通知だけを担当し、コメント本文は保存しません。
-
-## 以前の版から更新する場合
-
-不足している列やテーブルはアプリが自動補完します。新しいファイルをGitHubへ反映し、Cloudflareの再デプロイ完了後にサイトを再読み込みしてください。既存の `last_activity_at` 列がD1に残っていても統合版では参照せず、既存Sessionは期限切れになりません。
+- [Workers BuildsのGit連携](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/)
+- [D1/R2の自動プロビジョニング](https://developers.cloudflare.com/workers/wrangler/configuration/)
+- [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)

@@ -1,12 +1,12 @@
 {
-  "name": "trpg-log-marker",
+  "name": "jijinboard",
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "wrangler pages dev public --d1 DB=trpg-log-marker-db",
-    "deploy": "wrangler pages deploy public"
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.45.0"
   }
 }
