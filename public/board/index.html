@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,noarchive">
+  <title>JIJINBOARD</title>
+  <link rel="stylesheet" href="board.css">
+  <link rel="stylesheet" href="participant.css">
+</head>
+<body>
+  <header class="topbar">
+    <a id="ownerTopLink" class="brand hidden" href="/">JIJINBOARD</a><span id="guestBrand" class="brand">TRPG LOG MARKER</span>
+    <div id="presenceBar" class="presence-bar"></div>
+    <nav class="app-tabs" aria-label="ページ切り替え">
+      <button class="active" data-tool="log">LOGCOMMENTS</button><button data-tool="matrix">MAGIA MATRIX</button><button data-tool="spreadsheet">SPREADSHEET</button>
+    </nav>
+    <div class="top-actions"><button id="participantButton" class="quiet hidden">参加PC</button><button id="shareBoard" class="quiet">共有URL</button><button id="themeButton" class="icon-btn">◐</button><button id="profileButton" class="quiet">発言者</button></div>
+  </header>
+  <div class="board-layout">
+    <aside class="log-sidebar">
+      <div class="board-heading"><span>PRIVATE ROOM</span><strong id="boardName">読み込み中…</strong></div>
+      <div class="log-list-head"><span>LOGS</span><button id="addLogButton" class="hidden" type="button">＋</button></div>
+      <div id="logList" class="log-list"></div>
+      <p id="emptyLogs" class="empty-note">まだログはありません。</p>
+      <button id="uploadLogButton" class="upload-log hidden" type="button">＋ HTMLログを追加</button>
+    </aside>
+    <main class="tool-stage">
+      <section id="welcome" class="welcome"><p>左の一覧からログを選択してください。</p></section>
+      <iframe id="logFrame" class="tool-frame hidden" title="LOGCOMMENTS"></iframe>
+      <iframe id="matrixFrame" class="tool-frame hidden" title="MAGIA MATRIX"></iframe>
+      <iframe id="spreadsheetFrame" class="tool-frame hidden" title="SPREADSHEET"></iframe>
+    </main>
+  </div>
+  <dialog id="spoilerDialog"><div class="spoiler-card"><p>UNOPENED LOG</p><span id="spoilerLabel">LOG</span><h2 id="spoilerTitle"></h2><strong>この先にはシナリオのネタバレを含みます。</strong><div><button id="cancelOpen" class="quiet">戻る</button><button id="confirmOpen" class="primary">ログを開く</button></div></div></dialog>
+  <dialog id="participantDialog"><form id="participantForm" class="participant-card"><div class="participant-head"><strong>このシナリオの参加PC</strong><button id="closeParticipants" type="button">×</button></div><p>発言者設定へ登録したPCから選択します。</p><div id="participantChoices" class="participant-choices"></div><button class="primary" type="submit">保存</button></form></dialog>
+  <script src="board.js"></script>
+</body>
+</html>

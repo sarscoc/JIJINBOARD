@@ -19,7 +19,7 @@ R2には無料枠がありますが、Cloudflare側の仕様として最初にR2
 5. Worker名を聞かれた場合は **`jijinboard`** にする
 6. Build commandは空欄、Deploy commandは **`npx wrangler deploy`** のまま `Save and Deploy`
 
-これだけで、初回デプロイ時に以下がまとめて準備されます。
+これだけで、初回デプロイ時に以下がまとめて準備されます。Workers URLが無効の場合は、Workerの `Domains` でProductionの `workers.dev` をONにします。
 
 - 画面一式（Static Assets）
 - D1データベース（部屋、コメント、返信、♡）
@@ -32,10 +32,13 @@ R2には無料枠がありますが、Cloudflare側の仕様として最初にR2
 
 ## URL構成
 
-- `/` — TRPG PROJECT TOP、Session一覧、共通PL／PC／NPC
-- `/log/` — TRPG LOG MARKER本体
-- `/matrix/` — MAGIA MATRIX
-- `/spreadsheet/` — CHARA DATA HUB
+- `/` — 部屋主専用の管理TOP（このブラウザが管理鍵を持つ自陣だけを表示）
+- `/board/?id=...` — 参加者へ共有する自陣の部屋。複数ログと3機能タブを表示
+- `/log/` — 既存TRPG LOG MARKER本体（統合画面内でも既存処理をそのまま利用）
+- `/matrix/` — MAGIA MATRIX本体
+- `/spreadsheet/` — CHARA DATA HUB本体
+
+各自陣は複数ログを持てます。左のログ一覧ではシナリオ名、開封状態、参加PCを確認でき、未開封ログを開く前にネタバレ注意を表示します。参加PCは各PLがLOGの発言者設定へ登録したPCから選びます。
 
 ## 保存とリアルタイムの役割
 
@@ -57,7 +60,7 @@ npm run dev
 
 ## 構成
 
-- `public/` — TOP、LOG、MATRIX、Spreadsheet
+- `public/` — 部屋主管理TOP、統合部屋、LOG、MATRIX、Spreadsheet
 - `src/index.js` — Static Assetsと既存LOG APIをつなぐ薄いWorker
 - `functions/api/[[path]].js` — LOGCOMMENTSの既存API
 - `realtime-worker/src/index.js` — 既存RoomHub（Durable Objects / WebSocket）

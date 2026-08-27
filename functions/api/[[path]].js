@@ -40,6 +40,14 @@ const ensureRoomRevisionColumn = async db => {
   const info=await db.prepare("PRAGMA table_info(rooms)").all(),names=new Set((info.results||[]).map(column=>column.name));
   if(!names.has("annotation_version")){try{await db.prepare("ALTER TABLE rooms ADD COLUMN annotation_version INTEGER NOT NULL DEFAULT 0").run()}catch(error){if(!String(error).includes("duplicate column"))throw error}}
 };
+const ensureBoardsSchema = async db => {
+  await db.batch([
+    db.prepare("CREATE TABLE IF NOT EXISTS boards (id TEXT PRIMARY KEY,name TEXT NOT NULL,admin_token TEXT NOT NULL,owner_id TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS board_logs (board_id TEXT NOT NULL,room_id TEXT NOT NULL,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id),FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE,FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_board_logs_order ON board_logs(board_id,sort_order,created_at)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS board_log_participants (board_id TEXT NOT NULL,room_id TEXT NOT NULL,author_id TEXT NOT NULL,persona_id TEXT NOT NULL,pl_name TEXT NOT NULL DEFAULT '',persona_name TEXT NOT NULL,persona_icon TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id,author_id,persona_id),FOREIGN KEY(board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE)")
+  ]);
+};
 const annotationSchemaReady=new WeakMap();
 const ensureAnnotationSchema = db => {
   let task=annotationSchemaReady.get(db);
@@ -108,6 +116,54 @@ export async function onRequest(context) {
   const parts = Array.isArray(params.path) ? params.path : String(params.path || "").split("/").filter(Boolean);
   const method = request.method;
 
+  if (parts[0] === "boards") {
+    await ensureBoardsSchema(env.DB);
+    if (method === "POST" && parts.length === 1) {
+      const body=await safeBody(request),name=String(body?.name||"").trim().slice(0,120),ownerId=String(body?.ownerId||"").slice(0,100);
+      if(!name)return json({error:"自陣の名前を入力してください"},400);
+      if(!ownerId)return json({error:"作成者情報がありません"},400);
+      const id=randomToken(20),adminToken=randomToken(24);
+      await env.DB.prepare("INSERT INTO boards(id,name,admin_token,owner_id) VALUES(?,?,?,?)").bind(id,name,adminToken,ownerId).run();
+      return json({id,adminToken,name},201);
+    }
+    if (parts[1]) {
+      const board=await env.DB.prepare("SELECT id,name,created_at FROM boards WHERE id=?").bind(parts[1]).first();
+      if(!board)return json({error:"自陣の部屋が見つかりません"},404);
+      if(method==="GET"&&parts.length===2){
+        const [result,participantResult]=await Promise.all([env.DB.prepare("SELECT room_id,sort_order,created_at FROM board_logs WHERE board_id=? ORDER BY sort_order,created_at").bind(parts[1]).all(),env.DB.prepare("SELECT room_id,author_id,persona_id,pl_name,persona_name,persona_icon FROM board_log_participants WHERE board_id=? ORDER BY updated_at,persona_name").bind(parts[1]).all()]);
+        const participants=new Map();for(const item of participantResult.results||[]){const list=participants.get(item.room_id)||[];list.push({authorId:item.author_id,personaId:item.persona_id,plName:item.pl_name,name:item.persona_name,icon:publicPersonaIcon(item.room_id,item.persona_icon)});participants.set(item.room_id,list)}
+        return json({id:board.id,name:board.name,createdAt:board.created_at,logs:(result.results||[]).map((item,index)=>({roomId:item.room_id,order:Number(item.sort_order)||index,createdAt:item.created_at,participants:participants.get(item.room_id)||[]}))});
+      }
+      if(method==="POST"&&parts[2]==="logs"&&parts[3]&&parts[4]==="participants"&&parts.length===5){
+        const body=await safeBody(request),authorId=String(body?.authorId||"").slice(0,100),plName=String(body?.plName||"").slice(0,80),personas=Array.isArray(body?.personas)?body.personas.slice(0,12):[];
+        if(!authorId||!plName)return json({error:"先に発言者を登録してください"},400);
+        const linked=await env.DB.prepare("SELECT 1 FROM board_logs WHERE board_id=? AND room_id=?").bind(parts[1],parts[3]).first();if(!linked)return json({error:"この自陣にないログです"},404);
+        const normalized=[];for(let index=0;index<personas.length;index++){const persona=personas[index];normalized.push({id:String(persona?.id||`persona-${index}`).slice(0,100),name:String(persona?.name||"").slice(0,80),icon:env.LOGS?await storePersonaIcon(env.LOGS,String(persona?.icon||"")):""})}
+        await env.DB.prepare("DELETE FROM board_log_participants WHERE board_id=? AND room_id=? AND author_id=?").bind(parts[1],parts[3],authorId).run();
+        const inserts=normalized.map(persona=>env.DB.prepare("INSERT INTO board_log_participants(board_id,room_id,author_id,persona_id,pl_name,persona_name,persona_icon) VALUES(?,?,?,?,?,?,?)").bind(parts[1],parts[3],authorId,persona.id,plName,persona.name,persona.icon));
+        if(inserts.length)await env.DB.batch(inserts);return json({ok:true});
+      }
+      const token=request.headers.get("x-board-admin-token")||"",admin=await env.DB.prepare("SELECT admin_token FROM boards WHERE id=?").bind(parts[1]).first();
+      if(!admin||token!==admin.admin_token)return json({error:"この自陣を編集できるのは部屋主だけです"},403);
+      if(method==="PATCH"&&parts.length===2){
+        const body=await safeBody(request),name=String(body?.name||"").trim().slice(0,120);if(!name)return json({error:"自陣の名前を入力してください"},400);
+        await env.DB.prepare("UPDATE boards SET name=? WHERE id=?").bind(name,parts[1]).run();return json({ok:true,name});
+      }
+      if(method==="POST"&&parts[2]==="logs"&&parts.length===3){
+        const body=await safeBody(request),roomId=String(body?.roomId||""),roomAdminToken=String(body?.roomAdminToken||"");
+        const room=await env.DB.prepare("SELECT id,admin_token FROM rooms WHERE id=?").bind(roomId).first();
+        if(!room)return json({error:"追加するログが見つかりません"},404);
+        if(!roomAdminToken||roomAdminToken!==room.admin_token)return json({error:"自分が作成したログだけ追加できます"},403);
+        const last=await env.DB.prepare("SELECT COALESCE(MAX(sort_order),-1) AS value FROM board_logs WHERE board_id=?").bind(parts[1]).first();
+        await env.DB.prepare("INSERT OR IGNORE INTO board_logs(board_id,room_id,sort_order) VALUES(?,?,?)").bind(parts[1],roomId,Number(last?.value)+1).run();
+        return json({ok:true,roomId},201);
+      }
+      if(method==="DELETE"&&parts[2]==="logs"&&parts[3]&&parts.length===4){
+        await env.DB.prepare("DELETE FROM board_logs WHERE board_id=? AND room_id=?").bind(parts[1],parts[3]).run();return json({ok:true});
+      }
+    }
+  }
+
   if (method === "POST" && parts[0] === "rooms" && parts.length === 1) {
     if(!env.LOGS)return json({error:"R2ログストレージが接続されていません（Binding名: LOGS）"},500);
     const body = await safeBody(request);
@@ -135,7 +191,7 @@ export async function onRequest(context) {
     return json({ id: room.id, title: room.title, createdAt: room.created_at, ...log });
   }
 
-  if(method==="DELETE"&&parts[0]==="rooms"&&parts[1]&&parts.length===2){const room=await env.DB.prepare("SELECT admin_token,log_json FROM rooms WHERE id=?").bind(parts[1]).first();if(!room)return json({error:"部屋が見つかりません"},404);if(!request.headers.get("x-admin-token")||request.headers.get("x-admin-token")!==room.admin_token)return json({error:"部屋主だけが削除できます"},403);const log=JSON.parse(room.log_json||"{}");if(log.storage==="r2"){if(!env.LOGS)return json({error:"R2ログストレージが接続されていません"},500);await env.LOGS.delete(log.key||roomLogKey(parts[1]))}await ensureLogChunksTable(env.DB);await ensurePresenceTable(env.DB);await env.DB.batch([env.DB.prepare("DELETE FROM annotations WHERE room_id=?").bind(parts[1]),env.DB.prepare("DELETE FROM presence WHERE room_id=?").bind(parts[1]),env.DB.prepare("DELETE FROM room_log_chunks WHERE room_id=?").bind(parts[1]),env.DB.prepare("DELETE FROM rooms WHERE id=?").bind(parts[1])]);notifyRoomDeleted(context,env,parts[1]);return json({ok:true})}
+  if(method==="DELETE"&&parts[0]==="rooms"&&parts[1]&&parts.length===2){const room=await env.DB.prepare("SELECT admin_token,log_json FROM rooms WHERE id=?").bind(parts[1]).first();if(!room)return json({error:"部屋が見つかりません"},404);if(!request.headers.get("x-admin-token")||request.headers.get("x-admin-token")!==room.admin_token)return json({error:"部屋主だけが削除できます"},403);const log=JSON.parse(room.log_json||"{}");if(log.storage==="r2"){if(!env.LOGS)return json({error:"R2ログストレージが接続されていません"},500);await env.LOGS.delete(log.key||roomLogKey(parts[1]))}await ensureLogChunksTable(env.DB);await ensurePresenceTable(env.DB);await ensureBoardsSchema(env.DB);await env.DB.batch([env.DB.prepare("DELETE FROM board_logs WHERE room_id=?").bind(parts[1]),env.DB.prepare("DELETE FROM annotations WHERE room_id=?").bind(parts[1]),env.DB.prepare("DELETE FROM presence WHERE room_id=?").bind(parts[1]),env.DB.prepare("DELETE FROM room_log_chunks WHERE room_id=?").bind(parts[1]),env.DB.prepare("DELETE FROM rooms WHERE id=?").bind(parts[1])]);notifyRoomDeleted(context,env,parts[1]);return json({ok:true})}
 
   if(method==="GET"&&parts[0]==="rooms"&&parts[1]&&parts[2]==="realtime"&&parts.length===3){
     if(request.headers.get("Upgrade")?.toLowerCase()!=="websocket")return json({error:"WebSocket接続が必要です"},426);

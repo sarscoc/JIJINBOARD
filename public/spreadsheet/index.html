@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CHARA DATA HUB v142</title>
+<script>(function(){const p=new URL(location.href).searchParams,b=p.get('board');if(p.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;const prefix=`board:${b}:spreadsheet:`,shared=k=>k==='trpgProjectPeople.v1'||k==='trpgMarkerProfile'||String(k).startsWith('personas:');for(const method of ['getItem','setItem','removeItem']){const raw=Storage.prototype[method];Storage.prototype[method]=function(key,...args){return raw.call(this,this===localStorage&&!shared(key)?prefix+key:key,...args)}}})()</script>
 <style>
 :root{
   --bg:#f6f7f9;--panel:#fff;--text:#23262b;--muted:#818895;--line:#e6e8ec;
@@ -14,6 +15,7 @@ body{
   margin:0;background:var(--bg);color:var(--text);
   font-family:Inter,"Noto Sans JP",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
 }
+.embedded .compact-topbar{display:none!important}.embedded .app{padding-top:0!important}
 button,input,select{font:inherit}
 button{cursor:pointer}
 .topbar{

@@ -55,6 +55,35 @@ const statements = [
     messages_json TEXT NOT NULL,
     PRIMARY KEY(room_id,chunk_index),
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS boards (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    admin_token TEXT NOT NULL,
+    owner_id TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+  )`,
+  `CREATE TABLE IF NOT EXISTS board_logs (
+    board_id TEXT NOT NULL,
+    room_id TEXT NOT NULL,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (board_id,room_id),
+    FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+  )`,
+  "CREATE INDEX IF NOT EXISTS idx_board_logs_order ON board_logs(board_id,sort_order,created_at)",
+  `CREATE TABLE IF NOT EXISTS board_log_participants (
+    board_id TEXT NOT NULL,
+    room_id TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    persona_id TEXT NOT NULL,
+    pl_name TEXT NOT NULL DEFAULT '',
+    persona_name TEXT NOT NULL,
+    persona_icon TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (board_id,room_id,author_id,persona_id),
+    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
   )`
 ];
 

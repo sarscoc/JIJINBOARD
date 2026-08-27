@@ -4,35 +4,35 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,noarchive">
-  <meta name="description" content="LOG、MAGIA MATRIX、Character Dataをまとめて管理するTRPGプロジェクトです。">
-  <title>TRPG PROJECT</title>
+  <title>JIJINBOARD 管理TOP</title>
   <link rel="stylesheet" href="project.css">
 </head>
 <body>
-  <header class="project-bar"><a class="project-brand" href="/">TRPG PROJECT</a><nav aria-label="機能一覧"><a href="#sessions">LOG</a><a href="/matrix/">MAGIA MATRIX</a><a href="/spreadsheet/">SPREADSHEET</a></nav></header>
+  <header class="project-bar"><span class="project-brand">TRPG LOG MARKER</span><span class="owner-badge">ROOM OWNER</span></header>
   <main class="project-main">
-    <section class="hero"><p class="eyebrow">PRIVATE TRPG ARCHIVE</p><h1>TRPG PROJECT</h1><p>ログ、人物、相関図、Character Dataをひとつのプロジェクトで管理します。</p></section>
-    <section class="project-section" id="sessions">
-      <div class="section-head"><div><p class="eyebrow">LOG</p><h2>SESSIONS</h2></div><a class="primary-button" href="/log/">＋ SESSION</a></div>
-      <div id="sessionList" class="session-grid"></div><p id="sessionEmpty" class="empty-copy">まだSessionはありません。LOGからTekey HTMLを読み込んでください。</p>
+    <section class="hero"><p class="eyebrow">PRIVATE OWNER DASHBOARD</p><h1>JIJINBOARD</h1><p>自陣ごとにログ、MAGIA MATRIX、Spreadsheetをまとめる管理TOPです。このブラウザで作成した部屋だけを表示します。</p></section>
+    <section class="project-section" id="boards">
+      <div class="section-head"><div><p class="eyebrow">MY ROOMS</p><h2>自陣の部屋</h2></div><button class="primary-button" id="addBoardButton" type="button">＋ 自陣の部屋</button></div>
+      <div id="boardList" class="session-grid"></div><p id="boardEmpty" class="empty-copy">まだ自陣の部屋はありません。右上から作成してください。</p><p id="boardStatus" class="status-copy"></p>
     </section>
     <section class="project-section" id="people">
       <div class="section-head"><div><p class="eyebrow">SHARED MASTER</p><h2>PEOPLE</h2></div><button class="plain-button" id="addPersonButton" type="button">＋ 人物</button></div>
-      <p class="section-note">ここで登録したPL・PC・NPCをMAGIA MATRIXとSpreadsheetから共通参照します。名前を変更しても内部IDは変わりません。</p>
-      <div id="peopleGroups" class="people-groups"></div><p id="peopleEmpty" class="empty-copy">人物はまだ登録されていません。LOGに保存済みの発言者は自動的に取り込みます。</p>
-    </section>
-    <section class="tool-grid" aria-label="制作ツール">
-      <a class="tool-card matrix" href="/matrix/"><span>IMAGE WORKSPACE</span><strong>MAGIA MATRIX</strong><p>共通人物とMATRIX専用素材をテンプレートへ配置します。</p><i>開く ›</i></a>
-      <a class="tool-card spreadsheet" href="/spreadsheet/"><span>CHARACTER DATABASE</span><strong>SPREADSHEET</strong><p>共通PC・NPCへ質問、評価、画像などの追加情報を紐付けます。</p><i>開く ›</i></a>
+      <p class="section-note">共通PL・PC・NPCです。LOG、MAGIA MATRIX、Spreadsheetから同じ人物IDを参照します。</p>
+      <div id="peopleGroups" class="people-groups"></div><p id="peopleEmpty" class="empty-copy">人物はまだ登録されていません。LOGの発言者もここへ取り込まれます。</p>
     </section>
   </main>
+  <dialog id="boardDialog"><form id="boardForm" method="dialog">
+    <div class="dialog-head"><strong>自陣の部屋を作る</strong><button type="button" class="close-button" id="closeBoardDialog">×</button></div>
+    <label>管理TOPで使う名前<input id="boardName" maxlength="120" placeholder="例：いつもの自陣" required></label>
+    <p class="dialog-note">参加者には、このあと部屋内の「共有URL」を渡します。管理TOPの一覧は共有されません。</p>
+    <div class="dialog-actions"><button class="primary-button" type="submit">作成</button></div>
+  </form></dialog>
   <dialog id="personDialog"><form id="personForm" method="dialog">
-    <div class="dialog-head"><strong id="personDialogTitle">人物を追加</strong><button type="button" class="close-button" id="closePersonDialog" aria-label="閉じる">×</button></div>
+    <div class="dialog-head"><strong id="personDialogTitle">人物を追加</strong><button type="button" class="close-button" id="closePersonDialog">×</button></div>
     <input id="personId" type="hidden"><label>種別<select id="personType"><option value="PL">PL</option><option value="PC">PC</option><option value="NPC">NPC</option></select></label><label>名前<input id="personName" maxlength="80" required></label>
-    <label id="personOwnerRow">所属PL<select id="personOwner"><option value="">なし</option></select></label><label class="image-field"><span id="personIconPreview" class="person-icon large"></span><span>アイコンを選択</span><input id="personIcon" type="file" accept="image/*"></label><label id="personColorRow">マーカー色<input id="personColor" type="color" value="#ffe66b"></label>
+    <label id="personOwnerRow">所属PL<select id="personOwner"><option value="">なし</option></select></label><label class="image-field"><span id="personIconPreview" class="person-icon large"></span><span>アイコンを選択</span><input id="personIcon" type="file" accept="image/*"></label><label>マーカー色<input id="personColor" type="color" value="#ffe66b"></label>
     <div class="dialog-actions"><button id="deletePersonButton" class="danger-button hidden" type="button">削除</button><button class="primary-button" type="submit">保存</button></div>
   </form></dialog>
-  <dialog id="spoilerDialog" class="spoiler-dialog"><div class="spoiler-inner"><p class="eyebrow" id="spoilerSessionLabel">SESSION</p><h2 id="spoilerTitle">シナリオ名</h2><div id="spoilerParticipants" class="spoiler-participants"></div><p class="spoiler-warning">この先にはシナリオのネタバレを含みます。</p><div class="dialog-actions"><button id="closeSpoilerDialog" class="plain-button" type="button">戻る</button><a id="openSessionLink" class="primary-button" href="/log/">LOGを開く</a></div></div></dialog>
   <script src="shared/project-data.js"></script><script src="project.js"></script>
 </body>
 </html>

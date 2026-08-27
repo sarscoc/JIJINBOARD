@@ -18,6 +18,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Magia Matrix</title>
+<script>(function(){const p=new URL(location.href).searchParams,b=p.get('board');if(p.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;const prefix=`board:${b}:matrix:`,shared=k=>k==='trpgProjectPeople.v1'||k==='trpgMarkerProfile'||String(k).startsWith('personas:');for(const method of ['getItem','setItem','removeItem']){const raw=Storage.prototype[method];Storage.prototype[method]=function(key,...args){return raw.call(this,this===localStorage&&!shared(key)?prefix+key:key,...args)}}})()</script>
 <style>
 :root{
   --bg:#f5f6f7;--panel:#fff;--ink:#202327;--muted:#70777e;--line:#d9dde1;
@@ -3134,6 +3135,7 @@ button{cursor:pointer}
 
 /* v117: ZIP icon crop parity + name included in square output */
 .header-wrap{display:none!important}
+.embedded .project-matrix-bar{display:none!important}
 .project-matrix-bar{height:42px;display:flex;align-items:center;gap:8px;padding:0 12px;border-bottom:1px solid #e3e7e9;background:rgba(255,255,255,.96)}
 .project-matrix-bar a{color:#313a40;text-decoration:none;font-size:11px;font-weight:900;letter-spacing:.08em}
 .project-matrix-bar strong{margin-left:8px;font-size:11px}.project-matrix-bar .matrix-spacer{flex:1}
