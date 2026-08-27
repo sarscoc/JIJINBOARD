@@ -5801,6 +5801,8 @@ function startPlacedDrag(e,id,el){
         renderTemplateTabs().catch(console.warn);
       }
       setTimeout(()=>{el._draggedByPointer=false},120);
+    }else if(typeof window.openMatrixIconComment==='function'){
+      window.openMatrixIconComment(id);
     }
   };
 
