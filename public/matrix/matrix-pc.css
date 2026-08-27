@@ -1,1 +1,13 @@
-.project-matrix-bar #matrixPcButton{border:1px solid #dfe3e6;background:#fff;border-radius:7px;padding:6px 9px;font-size:10px;cursor:pointer}.project-matrix-bar #matrixPcButton{margin-left:auto}#matrixPcDialog{width:min(440px,calc(100vw - 24px));border:1px solid #dfe3e6;border-radius:12px;padding:0;box-shadow:0 20px 60px rgba(20,30,40,.25)}#matrixPcDialog form{padding:18px;display:grid;gap:12px}#matrixPcDialog form>div{display:flex;justify-content:space-between}#matrixPcDialog form>div button{border:0;background:transparent;font-size:20px;cursor:pointer}#matrixPcDialog p{font-size:11px;color:#667078;margin:0}#matrixPcDialog section{display:grid;gap:6px}#matrixPcDialog label{display:flex;justify-content:space-between;align-items:center;padding:8px;border:1px solid #e3e7e9;border-radius:8px;font-size:11px}#matrixPcDialog label span{display:flex;align-items:center;gap:8px}#matrixPcDialog img{width:30px;height:30px;object-fit:contain;border-radius:50%;background:#f2f4f5}
+/* Board mode: PC selection belongs in the header; the left rail is templates only. */
+body:has(.project-matrix-bar) #showIconsTab,body:has(.project-matrix-bar) #iconsPage{display:none!important}
+body:has(.project-matrix-bar) #showTemplatesTab{display:none!important}
+body:has(.project-matrix-bar) #templatesPage{display:flex!important}
+body:has(.project-matrix-bar) #libraryPane{min-width:190px}
+.project-matrix-bar .matrix-pc-controls{margin-left:auto;display:flex;align-items:center;gap:6px}
+.matrix-pc-controls label{font-size:10px;color:#667078;display:flex;align-items:center;gap:5px}
+.matrix-pc-controls select,.matrix-pc-controls button{border:1px solid #dfe3e6;background:#fff;border-radius:7px;padding:6px 9px;font-size:10px;cursor:pointer;max-width:160px}
+.matrix-pc-controls #matrixPlacePc{background:#181b20;color:#fff;border-color:#181b20}
+.matrix-pc-controls.empty #matrixPlacePc{opacity:.55}
+#matrixPcDialog{width:min(440px,calc(100vw - 24px));border:1px solid #dfe3e6;border-radius:12px;padding:0;box-shadow:0 20px 60px rgba(20,30,40,.25)}
+#matrixPcDialog form{padding:18px;display:grid;gap:12px}#matrixPcDialog form>div{display:flex;justify-content:space-between}#matrixPcDialog form>div button{border:0;background:transparent;font-size:20px;cursor:pointer}#matrixPcDialog p{font-size:11px;color:#667078;margin:0}#matrixPcDialog section{display:grid;gap:6px}#matrixPcDialog label{display:flex;justify-content:space-between;align-items:center;padding:8px;border:1px solid #e3e7e9;border-radius:8px;font-size:11px}#matrixPcDialog label span{display:flex;align-items:center;gap:8px}#matrixPcDialog img{width:30px;height:30px;object-fit:contain;border-radius:50%;background:#f2f4f5}
+@media(max-width:720px){.project-matrix-bar .matrix-pc-controls{margin-left:0;width:100%;justify-content:flex-end}.matrix-pc-controls label{flex:1}.matrix-pc-controls select{width:100%;max-width:none}}
