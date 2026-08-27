@@ -1,0 +1,7 @@
+"use strict";
+const profileDialog=document.querySelector("#boardProfileDialog"),profileForm=document.querySelector("#boardProfileForm");
+function savedProfile(){try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}}
+function openBoardProfile(){const profile=savedProfile();if(profile?.plName)return;document.querySelector("#boardProfileTitle").textContent=`${document.querySelector("#boardName")?.textContent||"この部屋"} に入る`;profileDialog.showModal()}
+async function compactIcon(file){if(!file)return"";const bitmap=await createImageBitmap(file),canvas=document.createElement("canvas");canvas.width=canvas.height=96;const ctx=canvas.getContext("2d"),scale=Math.min(96/bitmap.width,96/bitmap.height),w=bitmap.width*scale,h=bitmap.height*scale;ctx.drawImage(bitmap,(96-w)/2,(96-h)/2,w,h);bitmap.close?.();return canvas.toDataURL("image/webp",.82)}
+profileForm.addEventListener("submit",async event=>{event.preventDefault();const current=savedProfile()||{},name=document.querySelector("#boardPlName").value.trim();if(!name)return;const file=document.querySelector("#boardPlIcon").files?.[0],icon=file?await compactIcon(file):(current.plIcon||"");localStorage.setItem("trpgMarkerProfile",JSON.stringify({id:current.id||crypto.randomUUID(),plName:name,plIcon:icon,plColor:document.querySelector("#boardPlColor").value||"#ffe66b"}));profileDialog.close();const frame=document.querySelector("#logFrame");if(frame?.src)frame.src=frame.src});
+setTimeout(openBoardProfile,120);

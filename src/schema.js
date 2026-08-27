@@ -67,6 +67,7 @@ const statements = [
     board_id TEXT NOT NULL,
     room_id TEXT NOT NULL,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    spoiler INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (board_id,room_id),
     FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
@@ -84,7 +85,26 @@ const statements = [
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (board_id,room_id,author_id,persona_id),
     FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
-  )`
+  )`,
+  `CREATE TABLE IF NOT EXISTS board_matrix_states (
+    board_id TEXT NOT NULL,
+    room_id TEXT NOT NULL,
+    state_json TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (board_id,room_id),
+    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
+  )`,
+  `CREATE TABLE IF NOT EXISTS board_matrix_comments (
+    id TEXT PRIMARY KEY,
+    board_id TEXT NOT NULL,
+    room_id TEXT NOT NULL,
+    author_id TEXT NOT NULL,
+    author_name TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
+  )`,
+  "CREATE INDEX IF NOT EXISTS idx_matrix_comments_room ON board_matrix_comments(board_id,room_id,created_at)"
 ];
 
 const ready = new WeakMap();

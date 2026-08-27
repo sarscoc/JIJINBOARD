@@ -43,10 +43,15 @@ const ensureRoomRevisionColumn = async db => {
 const ensureBoardsSchema = async db => {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS boards (id TEXT PRIMARY KEY,name TEXT NOT NULL,admin_token TEXT NOT NULL,owner_id TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
-    db.prepare("CREATE TABLE IF NOT EXISTS board_logs (board_id TEXT NOT NULL,room_id TEXT NOT NULL,sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id),FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE,FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS board_logs (board_id TEXT NOT NULL,room_id TEXT NOT NULL,sort_order INTEGER NOT NULL DEFAULT 0,spoiler INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id),FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE,FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE)"),
     db.prepare("CREATE INDEX IF NOT EXISTS idx_board_logs_order ON board_logs(board_id,sort_order,created_at)"),
-    db.prepare("CREATE TABLE IF NOT EXISTS board_log_participants (board_id TEXT NOT NULL,room_id TEXT NOT NULL,author_id TEXT NOT NULL,persona_id TEXT NOT NULL,pl_name TEXT NOT NULL DEFAULT '',persona_name TEXT NOT NULL,persona_icon TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id,author_id,persona_id),FOREIGN KEY(board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE)")
+    db.prepare("CREATE TABLE IF NOT EXISTS board_log_participants (board_id TEXT NOT NULL,room_id TEXT NOT NULL,author_id TEXT NOT NULL,persona_id TEXT NOT NULL,pl_name TEXT NOT NULL DEFAULT '',persona_name TEXT NOT NULL,persona_icon TEXT NOT NULL DEFAULT '',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id,author_id,persona_id),FOREIGN KEY(board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS board_matrix_states (board_id TEXT NOT NULL,room_id TEXT NOT NULL,state_json TEXT NOT NULL DEFAULT '{}',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id),FOREIGN KEY(board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS board_matrix_comments (id TEXT PRIMARY KEY,board_id TEXT NOT NULL,room_id TEXT NOT NULL,author_id TEXT NOT NULL,author_name TEXT NOT NULL,body TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE)"),
+    db.prepare("CREATE INDEX IF NOT EXISTS idx_matrix_comments_room ON board_matrix_comments(board_id,room_id,created_at)")
   ]);
+  const cols=await db.prepare("PRAGMA table_info(board_logs)").all();
+  if(!(cols.results||[]).some(col=>col.name==="spoiler")){try{await db.prepare("ALTER TABLE board_logs ADD COLUMN spoiler INTEGER NOT NULL DEFAULT 0").run()}catch(error){if(!String(error).includes("duplicate column"))throw error}}
 };
 const annotationSchemaReady=new WeakMap();
 const ensureAnnotationSchema = db => {
@@ -130,9 +135,14 @@ export async function onRequest(context) {
       const board=await env.DB.prepare("SELECT id,name,created_at FROM boards WHERE id=?").bind(parts[1]).first();
       if(!board)return json({error:"自陣の部屋が見つかりません"},404);
       if(method==="GET"&&parts.length===2){
-        const [result,participantResult]=await Promise.all([env.DB.prepare("SELECT room_id,sort_order,created_at FROM board_logs WHERE board_id=? ORDER BY sort_order,created_at").bind(parts[1]).all(),env.DB.prepare("SELECT room_id,author_id,persona_id,pl_name,persona_name,persona_icon FROM board_log_participants WHERE board_id=? ORDER BY updated_at,persona_name").bind(parts[1]).all()]);
+        const [result,participantResult]=await Promise.all([env.DB.prepare("SELECT room_id,sort_order,spoiler,created_at FROM board_logs WHERE board_id=? ORDER BY sort_order,created_at").bind(parts[1]).all(),env.DB.prepare("SELECT room_id,author_id,persona_id,pl_name,persona_name,persona_icon FROM board_log_participants WHERE board_id=? ORDER BY updated_at,persona_name").bind(parts[1]).all()]);
         const participants=new Map();for(const item of participantResult.results||[]){const list=participants.get(item.room_id)||[];list.push({authorId:item.author_id,personaId:item.persona_id,plName:item.pl_name,name:item.persona_name,icon:publicPersonaIcon(item.room_id,item.persona_icon)});participants.set(item.room_id,list)}
-        return json({id:board.id,name:board.name,createdAt:board.created_at,logs:(result.results||[]).map((item,index)=>({roomId:item.room_id,order:Number(item.sort_order)||index,createdAt:item.created_at,participants:participants.get(item.room_id)||[]}))});
+        return json({id:board.id,name:board.name,createdAt:board.created_at,logs:(result.results||[]).map((item,index)=>({roomId:item.room_id,order:Number(item.sort_order)||index,spoiler:!!item.spoiler,createdAt:item.created_at,participants:participants.get(item.room_id)||[]}))});
+      }
+      if(parts[2]==="matrix"&&parts[3]&&parts.length===4){
+        const roomId=parts[3],linked=await env.DB.prepare("SELECT 1 FROM board_logs WHERE board_id=? AND room_id=?").bind(parts[1],roomId).first();if(!linked)return json({error:"この自陣にないログです"},404);
+        if(method==="GET"){const [stateRow,comments]=await Promise.all([env.DB.prepare("SELECT state_json,updated_at FROM board_matrix_states WHERE board_id=? AND room_id=?").bind(parts[1],roomId).first(),env.DB.prepare("SELECT id,author_id,author_name,body,created_at FROM board_matrix_comments WHERE board_id=? AND room_id=? ORDER BY created_at,id").bind(parts[1],roomId).all()]);return json({state:stateRow?JSON.parse(stateRow.state_json||"{}"):null,updatedAt:stateRow?.updated_at||"",comments:comments.results||[]})}
+        if(method==="POST"){const body=await safeBody(request),authorId=String(body?.authorId||"").slice(0,100),authorName=String(body?.authorName||"").trim().slice(0,80),matrixState=body?.state;if(!authorId||!authorName)return json({error:"先に発言者を登録してください"},400);if(matrixState&&JSON.stringify(matrixState).length>1_500_000)return json({error:"MATRIXの保存データが大きすぎます"},413);if(matrixState!==undefined)await env.DB.prepare("INSERT INTO board_matrix_states(board_id,room_id,state_json,updated_at) VALUES(?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(board_id,room_id) DO UPDATE SET state_json=excluded.state_json,updated_at=CURRENT_TIMESTAMP").bind(parts[1],roomId,JSON.stringify(matrixState||{})).run();const comment=String(body?.comment||"").trim().slice(0,2000);if(comment)await env.DB.prepare("INSERT INTO board_matrix_comments(id,board_id,room_id,author_id,author_name,body) VALUES(?,?,?,?,?,?)").bind(randomToken(16),parts[1],roomId,authorId,authorName,comment).run();return json({ok:true})}
       }
       if(method==="POST"&&parts[2]==="logs"&&parts[3]&&parts[4]==="participants"&&parts.length===5){
         const body=await safeBody(request),authorId=String(body?.authorId||"").slice(0,100),plName=String(body?.plName||"").slice(0,80),personas=Array.isArray(body?.personas)?body.personas.slice(0,12):[];
@@ -150,12 +160,12 @@ export async function onRequest(context) {
         await env.DB.prepare("UPDATE boards SET name=? WHERE id=?").bind(name,parts[1]).run();return json({ok:true,name});
       }
       if(method==="POST"&&parts[2]==="logs"&&parts.length===3){
-        const body=await safeBody(request),roomId=String(body?.roomId||""),roomAdminToken=String(body?.roomAdminToken||"");
+        const body=await safeBody(request),roomId=String(body?.roomId||""),roomAdminToken=String(body?.roomAdminToken||""),spoiler=body?.spoiler?1:0;
         const room=await env.DB.prepare("SELECT id,admin_token FROM rooms WHERE id=?").bind(roomId).first();
         if(!room)return json({error:"追加するログが見つかりません"},404);
         if(!roomAdminToken||roomAdminToken!==room.admin_token)return json({error:"自分が作成したログだけ追加できます"},403);
         const last=await env.DB.prepare("SELECT COALESCE(MAX(sort_order),-1) AS value FROM board_logs WHERE board_id=?").bind(parts[1]).first();
-        await env.DB.prepare("INSERT OR IGNORE INTO board_logs(board_id,room_id,sort_order) VALUES(?,?,?)").bind(parts[1],roomId,Number(last?.value)+1).run();
+        await env.DB.prepare("INSERT OR IGNORE INTO board_logs(board_id,room_id,sort_order,spoiler) VALUES(?,?,?,?)").bind(parts[1],roomId,Number(last?.value)+1,spoiler).run();
         return json({ok:true,roomId},201);
       }
       if(method==="DELETE"&&parts[2]==="logs"&&parts[3]&&parts.length===4){

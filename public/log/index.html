@@ -35,29 +35,18 @@
 
   <main>
     <section id="homeView" class="home card">
-      <p class="eyebrow">PRIVATE SHARED READING ROOM</p>
-      <h1><a class="home-title-link" href="https://logcomments.pages.dev/">TRPG LOG MARKER</a></h1>
-      <p class="lead">ログにリアルタイムでコメントを付けるサイトです。</p>
       <label class="dropzone" id="dropzone">
         <input id="fileInput" type="file" accept=".html,text/html">
         <span class="drop-title">HTMLログを選択</span>
         <span class="drop-note">または、ここへドロップ</span>
       </label>
-      <label class="archive-open">保存した部屋を開く<input id="archiveInput" type="file" accept=".zip,.trpglog,application/zip,application/json"></label>
+      <label class="spoiler-setting"><input id="spoilerInput" type="checkbox"> この部屋をネタバレ有りにする</label>
+      <p class="participant-note">参加PCは、ログを開いたときのPL設定で登録します。</p>
       <div id="importPreview" class="import-preview hidden">
         <div><strong id="importTitle"></strong><span id="importCount"></span></div>
         <button id="createRoomBtn" class="primary">秘密の部屋を作る</button>
       </div>
       <p id="homeStatus" class="status"></p>
-      <p class="privacy">ログをアップロードすると、専用URLが発行されます</p>
-      <section id="ownedRooms" class="owned-rooms hidden">
-        <div class="owned-rooms-head"><strong>作成した部屋</strong><small>明示的に削除するまで保存されます。</small></div>
-        <div id="ownedRoomList" class="owned-room-list"></div>
-      </section>
-      <section id="recentRooms" class="owned-rooms hidden">
-        <div class="owned-rooms-head"><strong>最近見た部屋</strong><small>このブラウザで開いた部屋</small></div>
-        <div id="recentRoomList" class="owned-room-list"></div>
-      </section>
     </section>
 
     <section id="roomView" class="room hidden">
