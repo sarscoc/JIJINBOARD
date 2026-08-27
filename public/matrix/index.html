@@ -5374,6 +5374,10 @@ function openInlineCommentEditor(id,el){
 }
 
 function setupPlacedClickBehavior(el,id){
+  el.addEventListener('click',e=>{
+    if(isMobileLayout()||el._draggedByPointer||e.target.closest('.inline-comment-editor'))return;
+    if(typeof window.openMatrixIconComment==='function'){e.preventDefault();e.stopPropagation();window.openMatrixIconComment(id)}
+  });
   el.addEventListener('dblclick',e=>{
     if(isMobileLayout())return;
     if(e.target.closest('.inline-comment-editor'))return;
@@ -7177,5 +7181,7 @@ loadProjectMatrixLibrary().catch(err=>console.warn('project library failed',err)
 <script src="board-integration.js"></script>
 <link rel="stylesheet" href="matrix-pc.css">
 <script src="matrix-pc.js"></script>
+<link rel="stylesheet" href="matrix-icon-comments.css">
+<script src="matrix-icon-comments.js"></script>
 </body>
 </html>

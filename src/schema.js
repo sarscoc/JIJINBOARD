@@ -105,7 +105,20 @@ const statements = [
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
   )`,
-  "CREATE INDEX IF NOT EXISTS idx_matrix_comments_room ON board_matrix_comments(board_id,room_id,created_at)"
+  "CREATE INDEX IF NOT EXISTS idx_matrix_comments_room ON board_matrix_comments(board_id,room_id,created_at)",
+  `CREATE TABLE IF NOT EXISTS board_matrix_icon_comments (
+    id TEXT PRIMARY KEY, board_id TEXT NOT NULL, room_id TEXT NOT NULL, target_id TEXT NOT NULL,
+    parent_id TEXT NOT NULL DEFAULT '', author_id TEXT NOT NULL, author_name TEXT NOT NULL,
+    persona_name TEXT NOT NULL, persona_type TEXT NOT NULL, persona_icon TEXT NOT NULL DEFAULT '',
+    body TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
+  )`,
+  "CREATE INDEX IF NOT EXISTS idx_matrix_icon_comments_room ON board_matrix_icon_comments(board_id,room_id,created_at)",
+  `CREATE TABLE IF NOT EXISTS board_matrix_icon_comment_likes (
+    comment_id TEXT NOT NULL, author_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(comment_id,author_id)
+  )`
 ];
 
 const ready = new WeakMap();
