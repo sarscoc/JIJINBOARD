@@ -10199,7 +10199,8 @@ function renderDataTable(){
   const {groups,buckets}=normalizedGroups(items);
 
   if(!chars.length){
-    root.innerHTML='<div class="empty">Characterを作成または読み込むと、ここに表が表示されます</div>';
+    root.innerHTML='<div class="empty">Characterを作成または読み込むと、ここに表が表示されます<br><br><button class="btn" type="button" data-open-sheet-character>Characterを追加・インポート</button></div>';
+    root.querySelector('[data-open-sheet-character]')?.addEventListener('click',()=>openCharacterManage());
     $('jumpNav').innerHTML='';
     return;
   }
@@ -10249,8 +10250,8 @@ function renderDataTable(){
           }</div>
         </th>
         ${chars.map(ch=>type==='text'
-          ? `<td><input class="sheet-input" data-item-key="${esc(item.key)}" data-char-id="${ch.id}" value="${esc(getValueForItem(item,ch.id))}" placeholder=""></td>`
-          : `<td class="part-cell">${renderTypedItem(item,ch,'table')}</td>`
+          ? `<td data-sheet-cell="${esc(item.key)}:${ch.id}"><input class="sheet-input" data-item-key="${esc(item.key)}" data-char-id="${ch.id}" value="${esc(getValueForItem(item,ch.id))}" placeholder=""></td>`
+          : `<td class="part-cell" data-sheet-cell="${esc(item.key)}:${ch.id}">${renderTypedItem(item,ch,'table')}</td>`
         ).join('')}
       </tr>`;
     }
@@ -10265,7 +10266,7 @@ function renderDataTable(){
               : '画像'}
           </div>
         </th>
-        ${chars.map(ch=>`<td class="part-cell">${renderPartCell(part,itemMap,ch,'table')}</td>`).join('')}
+        ${chars.map(ch=>`<td class="part-cell" data-sheet-cell="part:${esc(part.id)}:${ch.id}">${renderPartCell(part,itemMap,ch,'table')}</td>`).join('')}
       </tr>`;
     }
 
@@ -10878,6 +10879,10 @@ document.addEventListener('keydown',e=>{
 });
 
 </script>
+<link rel="stylesheet" href="sheet-comments.css">
+<link rel="stylesheet" href="sheet-comment-mode.css">
+<script>if(!localStorage.getItem('sheetCommentMode'))localStorage.setItem('sheetCommentMode','comment');</script>
+<script src="sheet-comments.js"></script>
 <div id="toast" class="toast-mini"></div>
 </body>
 </html>
