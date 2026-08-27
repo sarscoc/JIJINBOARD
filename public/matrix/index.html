@@ -3150,7 +3150,7 @@ button{cursor:pointer}
     <div class="header-mini-left">
       <div class="brand">
         <strong>MAGIA MATRIX</strong>
-        <span class="brand-sub">via Notion</span>
+        <span class="brand-sub">参加PC</span>
         <span class="brand-sub" id="lastDataStatus"></span>
       </div>
       <span class="status" id="connectionStatus"></span>
@@ -3594,7 +3594,7 @@ function updateLastDataStatus(count){
 }
 
 // 公開者が一度だけ設定する中継Worker URL。
-const WORKER_URL = "https://cold-shadow-63ca.sarscoc.workers.dev";
+const WORKER_URL = "";
 
 const $=s=>document.querySelector(s);
 const API_TOKEN_STORE='magiaMatrix.notion.apiToken.v1';
@@ -5037,7 +5037,7 @@ function startLibraryDrag(e,it,card){
     window.removeEventListener('pointercancel',up);
 
     if(!moved){
-      openLeftCropEditor(it.id);
+      placeItem(it.id,50,50);
       return;
     }
 
@@ -5666,6 +5666,8 @@ function renderPlaced(){
   renderMobilePlacementTray();
 }
 function startPlacedDrag(e,id,el){
+  const item=items.find(entry=>entry.id===id),mine=(()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')?.id||''}catch{return''}})();
+  if(item?.ownerId&&item.ownerId!==mine)return;
   if(isMobileLayout()){startMobilePlacedInteraction(e,id,el);return;}
   if(e.button!=null&&e.button!==0)return;
   if(e.target.closest('.inline-comment-editor,textarea,input,select,button'))return;
@@ -6719,7 +6721,7 @@ function bindDisplay(){
     });
 }
 
-$('#loadBtn').onclick=loadNotion;
+$('#loadBtn').onclick=()=>alert('Notion連携は廃止されました。参加PCはLOGCOMMENTSの発言者設定から追加してください。');
 
 $('#apiHelpBtn').onclick=e=>{
   e.preventDefault();
@@ -7145,5 +7147,7 @@ loadProjectMatrixLibrary().catch(err=>console.warn('project library failed',err)
 </script>
 <link rel="stylesheet" href="board-integration.css">
 <script src="board-integration.js"></script>
+<link rel="stylesheet" href="matrix-pc.css">
+<script src="matrix-pc.js"></script>
 </body>
 </html>

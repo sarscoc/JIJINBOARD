@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS board_log_participants (
   pl_name TEXT NOT NULL DEFAULT '',
   persona_name TEXT NOT NULL,
   persona_icon TEXT NOT NULL DEFAULT '',
+  matrix_icon TEXT NOT NULL DEFAULT '',
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (board_id, room_id, author_id, persona_id),
   FOREIGN KEY (board_id, room_id) REFERENCES board_logs(board_id, room_id) ON DELETE CASCADE
