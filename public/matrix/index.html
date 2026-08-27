@@ -1142,25 +1142,19 @@ button{cursor:pointer}
   background:var(--soft);
 }
 .past-template-grid .template-tab{
-  padding-bottom:28px !important;
+  padding-bottom:6px !important;
 }
-.template-delete-btn{
-  position:absolute;
-  left:6px;
-  right:6px;
-  bottom:6px;
-  height:20px;
-  border:1px solid #e2e5e7;
-  border-radius:5px;
-  background:rgba(255,255,255,.94);
-  color:#8a5555;
-  font-size:8px;
-  cursor:pointer;
-}
-.template-delete-btn:hover{
-  background:#fff4f4;
-  border-color:#e5caca;
-}
+.template-tab-preview{position:relative;width:100%;aspect-ratio:1;overflow:hidden;border-radius:5px;background:#f1f3f4;margin-bottom:5px;isolation:isolate}
+.template-tab-preview .template-tab-thumb{width:100%;height:100%;object-fit:cover;margin:0;border-radius:0}
+.template-preview-grid{position:absolute;inset:0;z-index:1;background-image:linear-gradient(rgba(255,255,255,.38) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.38) 1px,transparent 1px);background-size:33.333% 33.333%;pointer-events:none}
+.template-preview-icon{position:absolute;z-index:2;width:14px;height:14px;object-fit:cover;border-radius:50%;border:1px solid rgba(255,255,255,.92);background:#fff;transform:translate(-50%,-50%);box-shadow:0 1px 2px rgba(0,0,0,.28)}
+.template-preview-dot{position:absolute;z-index:2;width:7px;height:7px;border-radius:50%;background:#3d4850;border:1px solid #fff;transform:translate(-50%,-50%)}
+.template-unplaced{display:flex;gap:2px;min-height:15px;overflow:hidden;padding-top:3px}
+.template-unplaced img,.template-unplaced i{width:13px;height:13px;border-radius:50%;object-fit:cover;background:#e5e9eb;border:1px solid #fff;flex:0 0 auto}
+.template-unplaced i{display:block;background:#aeb8be}
+.template-unplaced:empty{display:none}
+.template-delete-current{border:1px solid #efd3d3;background:#fff7f7;color:#954c4c;border-radius:6px;padding:5px 7px;font-size:9px;cursor:pointer;margin:0 8px 8px auto}
+.template-delete-current[hidden]{display:none!important}
 
 
 .template-empty-thumb{
@@ -3299,6 +3293,7 @@ button{cursor:pointer}
             <div class="display-head-title">表示設定</div>
             <button class="settings-close-btn" id="displaySettingsToggle" type="button" title="閉じる">×</button>
           </div>
+          <button class="template-delete-current" id="deleteCurrentTemplateBtn" type="button" hidden>このテンプレを削除</button>
           <div class="display-settings-body" id="displaySettingsBody">
 
             <section class="settings-panel-section settings-icon-section">
@@ -4200,6 +4195,7 @@ async function createNewTemplate(){
   renderPlaced();
   resetIconEditor();
   await renderTemplateTabs();
+  await updateCurrentTemplateDeleteButton();
 }
 
 async function renderTemplateTabs(){
@@ -4219,6 +4215,7 @@ async function renderTemplateTabs(){
   box.innerHTML='';
   if(!meaningful.length){
     box.innerHTML='<div class="template-tab-empty">まだありません</div>';
+    await updateCurrentTemplateDeleteButton();
     return;
   }
 
@@ -4231,12 +4228,30 @@ async function renderTemplateTabs(){
     open.className='template-tab'+(rec.id===current?' active':'');
     open.title='このテンプレを編集';
 
+    const preview=document.createElement('div');
+    preview.className='template-tab-preview';
     if(rec.dataUrl){
       const im=document.createElement('img');
       im.className='template-tab-thumb';
       im.src=rec.dataUrl;
-      open.appendChild(im);
+      preview.appendChild(im);
     }
+    const grid=document.createElement('i');
+    grid.className='template-preview-grid';
+    preview.appendChild(grid);
+    const stateItems=states[rec.id]?.items||{};
+    const known=new Map(items.map(item=>[item.id,item]));
+    Object.entries(stateItems).filter(([,local])=>local?.placed).forEach(([id,local])=>{
+      const pointX=Number(local.coordVersion===2?local.templateX:local.x),pointY=Number(local.coordVersion===2?local.templateY:local.y);
+      const item=known.get(id),icon=item?displayImage(item):'';
+      const marker=document.createElement(icon?'img':'i');
+      marker.className=icon?'template-preview-icon':'template-preview-dot';
+      marker.style.left=`${Number.isFinite(pointX)?pointX:50}%`;
+      marker.style.top=`${Number.isFinite(pointY)?pointY:50}%`;
+      if(icon)marker.src=icon;
+      preview.appendChild(marker);
+    });
+    open.appendChild(preview);
 
     const nm=document.createElement('span');
     nm.className='template-tab-name';
@@ -4250,19 +4265,25 @@ async function renderTemplateTabs(){
       await switchTemplate(rec.id);
     };
 
-    const del=document.createElement('button');
-    del.type='button';
-    del.className='template-delete-btn';
-    del.textContent='削除';
-    del.onclick=async e=>{
-      e.preventDefault();
-      e.stopPropagation();
-      await deleteSavedTemplate(rec.id);
-    };
-
-    card.append(open,del);
+    const unplaced=document.createElement('div');
+    unplaced.className='template-unplaced';
+    items.filter(item=>!stateItems[item.id]?.placed).forEach(item=>{
+      const icon=displayImage(item),mini=document.createElement(icon?'img':'i');
+      mini.title=`未配置：${item.name}`;
+      if(icon)mini.src=icon;
+      unplaced.append(mini);
+    });
+    card.append(open,unplaced);
     box.appendChild(card);
   });
+  updateCurrentTemplateDeleteButton();
+}
+
+async function updateCurrentTemplateDeleteButton(){
+  const button=$('#deleteCurrentTemplateBtn');
+  if(!button)return;
+  const rec=await tplGetRecord(currentTemplateId());
+  button.hidden=!rec?.dataUrl;
 }
 
 async function deleteSavedTemplate(id){
@@ -4307,6 +4328,7 @@ async function deleteSavedTemplate(id){
   }
 
   await renderTemplateTabs();
+  await updateCurrentTemplateDeleteButton();
 }
 
 async function switchTemplate(id){
@@ -4322,6 +4344,7 @@ async function switchTemplate(id){
   showTemplateRecord(rec);
   restoreTemplatePlacementState(id);
   await renderTemplateTabs();
+  await updateCurrentTemplateDeleteButton();
 }
 
 function showTemplateRecord(rec){
@@ -4399,6 +4422,7 @@ async function saveTemplateFile(file){
   saveCurrentTemplateState();
   showTemplateRecord(rec);
   await renderTemplateTabs();
+  await updateCurrentTemplateDeleteButton();
   return id;
 }
 async function clearCurrentTemplate(){
@@ -5089,6 +5113,7 @@ function placeItem(id,x,y,isTemplatePoint=templateSpaceReady()){
   });
   const it=items.find(x=>x.id===id);if(it)it.local=appState().items[id];
   renderPlaced();
+  renderTemplateTabs().catch(console.warn);
 }
 
 function normalizedCrop(c){
@@ -5752,6 +5777,7 @@ function startPlacedDrag(e,id,el){
         const it=items.find(z=>z.id===id);
         if(it)it.local=appState().items[id];
         renderPlaced();
+        renderTemplateTabs().catch(console.warn);
       }else{
         const x=parseFloat(el.style.left)||startPctX;
         const y=parseFloat(el.style.top)||startPctY;
@@ -5768,6 +5794,7 @@ function startPlacedDrag(e,id,el){
         });
         const it=items.find(z=>z.id===id);
         if(it)it.local=appState().items[id];
+        renderTemplateTabs().catch(console.warn);
       }
       setTimeout(()=>{el._draggedByPointer=false},120);
     }
@@ -7080,6 +7107,7 @@ $('#iconExportModal').addEventListener('pointerdown',e=>{
   if(e.target===$('#iconExportModal'))$('#iconExportModal').classList.remove('open');
 });
 $('#newTemplateBtn').onclick=createNewTemplate;
+$('#deleteCurrentTemplateBtn').onclick=()=>deleteSavedTemplate(currentTemplateId());
 $('#useFavicon').addEventListener('change',syncFaviconDisplayState);
 
 window.addEventListener('beforeunload',()=>saveCurrentTemplateState());
