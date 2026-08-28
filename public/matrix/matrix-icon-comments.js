@@ -1,10 +1,13 @@
 "use strict";
 (()=>{
   let comments=[],targetId="",replyTo="",editingId="",posting=false;
+  const TARGET_SEP="@@matrix-template@@";
   const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const ctx=()=>window.matrixBoardContext;
   const profile=()=>ctx()?.profile?.();
-  const targetItem=id=>items.find(item=>item.id===id);
+  function targetParts(value){const raw=String(value||""),at=raw.indexOf(TARGET_SEP);return at>=0?{templateId:raw.slice(0,at),itemId:raw.slice(at+TARGET_SEP.length)}:{templateId:"",itemId:raw}}
+  function storedTarget(value){const parts=targetParts(value);if(parts.templateId)return value;const tid=typeof currentTemplateId==="function"?currentTemplateId():"";return tid?`${tid}${TARGET_SEP}${parts.itemId}`:parts.itemId}
+  const targetItem=id=>items.find(item=>item.id===targetParts(id).itemId);
   const targetImage=id=>displayImage(targetItem(id))||"";
   const targetName=id=>targetItem(id)?.name||"PC";
   const pcList=()=>{const p=profile();return [{name:p?.plName||"PL",type:"PL",icon:p?.plIcon||""},...(p?.personas||[])];};
@@ -22,20 +25,29 @@
   }
 
   function dialog(){let d=document.querySelector("#matrixIconCommentDialog");if(d)return d;d=document.createElement("dialog");d.id="matrixIconCommentDialog";d.innerHTML='<form method="dialog"><div class="matrix-dialog-head"><b id="matrixCommentTarget"></b><button value="cancel" type="button" data-close-matrix-comment>×</button></div><div class="matrix-comment-persona"><select id="matrixCommentPersona"></select></div><textarea id="matrixCommentBody" maxlength="4000" placeholder="感想を書く"></textarea><div class="matrix-dialog-actions"><button value="cancel" type="button" data-close-matrix-comment>閉じる</button><button id="matrixCommentDelete" type="button" hidden>削除</button><button id="matrixCommentSubmit" value="default" type="submit">投稿</button></div></form>';document.body.append(d);d.querySelectorAll("[data-close-matrix-comment]").forEach(b=>b.onclick=()=>d.close());d.querySelector("form").onsubmit=post;d.querySelector("#matrixCommentDelete").onclick=remove;return d}
-  function flash(id){const el=document.querySelector(`.placed[data-id="${CSS.escape(id)}"]`);if(!el)return false;el.classList.remove("matrix-comment-flash");void el.offsetWidth;el.classList.add("matrix-comment-flash");el.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});return true}
+  function flash(id){const itemId=targetParts(id).itemId,el=document.querySelector(`.placed[data-id="${CSS.escape(itemId)}"]`);if(!el)return false;el.classList.remove("matrix-comment-flash");void el.offsetWidth;el.classList.add("matrix-comment-flash");el.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});return true}
   async function revealTarget(id){
     if(!id)return;
-    if(flash(id))return;
+    const parts=targetParts(id),itemId=parts.itemId;
+    if(parts.templateId){
+      try{
+        const current=typeof currentTemplateId==="function"?currentTemplateId():"";
+        if(parts.templateId!==current&&typeof switchTemplate==="function")await switchTemplate(parts.templateId);
+      }catch(error){console.warn(error)}
+      requestAnimationFrame(()=>requestAnimationFrame(()=>flash(itemId)));
+      return;
+    }
+    if(flash(itemId))return;
     try{
       const current=typeof currentTemplateId==="function"?currentTemplateId():"";
       const states=typeof templateStates==="function"?templateStates():{};
       let targetTemplate="";
       for(const [templateId,saved] of Object.entries(states||{})){
-        if(saved?.items?.[id]?.placed){targetTemplate=templateId;if(templateId===current)break}
+        if(saved?.items?.[itemId]?.placed){targetTemplate=templateId;if(templateId===current)break}
       }
       if(targetTemplate&&targetTemplate!==current&&typeof switchTemplate==="function")await switchTemplate(targetTemplate);
     }catch(error){console.warn(error)}
-    requestAnimationFrame(()=>requestAnimationFrame(()=>flash(id)));
+    requestAnimationFrame(()=>requestAnimationFrame(()=>flash(itemId)));
   }
   function commentHtml(c,depth=0,children=new Map()){const mine=c.author_id===profile()?.id,avatar=c.persona_icon?`<img class="matrix-comment-avatar" src="${esc(c.persona_icon)}" alt="">`:'<span class="matrix-comment-avatar"></span>',target=targetImage(c.target_id),replies=children.get(c.id)||[];return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" data-comment-target="${esc(c.target_id)}"><div class="matrix-comment-target">${target?`<img src="${esc(target)}" alt="">`:""}<span>${esc(targetName(c.target_id))}</span></div><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em><time>${esc(new Date(c.created_at).toLocaleString())}</time>${mine?`<button data-matrix-edit="${esc(c.id)}">✎</button>`:""}<button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}">↩</button></div><p>${esc(c.body).replace(/\n/g,"<br>")}</p></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`}
   function render(){const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(comments.map(c=>c.id));comments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=comments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=comments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">配置したPCへの感想がここに並びます。</p>'}
@@ -50,7 +62,7 @@
     const submit=d.querySelector("#matrixCommentSubmit");if(submit)submit.disabled=true;
     try{
       if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
-      else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments`,{method:"POST",body:JSON.stringify({targetId,parentId:replyTo,authorId:p.id,authorName:p.plName,personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
+      else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
       d.close();await load();
     }catch(error){alert(error.message)}finally{posting=false;if(submit)submit.disabled=false}
   }
