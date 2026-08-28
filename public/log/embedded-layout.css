@@ -1,0 +1,68 @@
+/* JIJINBOARD embed: keep the reader exactly within the iframe.
+   Comments may grow internally, but must never grow the document itself. */
+@media (min-width:801px){
+  html.embedded,
+  html.embedded body{
+    width:100%;
+    height:100%;
+    min-height:0;
+    overflow:hidden!important;
+  }
+
+  html.embedded body>main{
+    width:100%;
+    height:100%;
+    min-height:0;
+    overflow:hidden;
+  }
+
+  html.embedded #roomView.room:not(.hidden){
+    display:grid!important;
+    grid-template-rows:auto minmax(0,1fr);
+    width:100%;
+    height:100%;
+    min-height:0;
+    max-width:none;
+    margin:0;
+    overflow:hidden;
+  }
+
+  html.embedded .room-tools{
+    min-height:0;
+    margin-bottom:8px;
+  }
+
+  html.embedded .reader-grid{
+    height:100%;
+    min-height:0;
+    overflow:hidden;
+    align-items:stretch;
+  }
+
+  html.embedded .log-pane,
+  html.embedded .comments-pane{
+    position:relative!important;
+    top:auto!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:hidden!important;
+  }
+
+  html.embedded .comments-pane{
+    display:flex;
+    flex-direction:column;
+  }
+
+  html.embedded .comments-head{
+    flex:0 0 auto;
+  }
+
+  html.embedded .comments-list{
+    flex:1 1 auto;
+    min-height:0;
+    max-height:none!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain;
+  }
+}
