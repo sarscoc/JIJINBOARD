@@ -40,6 +40,7 @@ const ensureRoomRevisionColumn = async db => {
   const info=await db.prepare("PRAGMA table_info(rooms)").all(),names=new Set((info.results||[]).map(column=>column.name));
   if(!names.has("annotation_version")){try{await db.prepare("ALTER TABLE rooms ADD COLUMN annotation_version INTEGER NOT NULL DEFAULT 0").run()}catch(error){if(!String(error).includes("duplicate column"))throw error}}
 };
+const ensureProfileTransfers = async db => {await db.prepare("CREATE TABLE IF NOT EXISTS profile_transfers (code TEXT PRIMARY KEY,profile_json TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run()};
 const ensureBoardsSchema = async db => {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS boards (id TEXT PRIMARY KEY,name TEXT NOT NULL,admin_token TEXT NOT NULL,owner_id TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
@@ -127,6 +128,12 @@ export async function onRequest(context) {
   if (!env.DB) return json({ error: "D1データベースが接続されていません" }, 500);
   const parts = Array.isArray(params.path) ? params.path : String(params.path || "").split("/").filter(Boolean);
   const method = request.method;
+
+  if(parts[0]==="profile-transfers"){
+    await ensureProfileTransfers(env.DB);
+    if(method==="POST"&&parts.length===1){const body=await safeBody(request),profile=body?.profile;if(!profile?.id||!profile?.plName)return json({error:"PL情報が足りません"},400);const code=randomToken(9).toUpperCase(),expires=new Date(Date.now()+30*60*1000).toISOString();await env.DB.prepare("INSERT INTO profile_transfers(code,profile_json,expires_at) VALUES(?,?,?)").bind(code,JSON.stringify(profile),expires).run();return json({code,expiresAt:expires})}
+    if(method==="POST"&&parts[1]){const code=String(parts[1]).toUpperCase(),row=await env.DB.prepare("SELECT profile_json,expires_at,used_at FROM profile_transfers WHERE code=?").bind(code).first();if(!row||row.used_at)return json({error:"コードが無効、または使用済みです"},404);if(Date.parse(row.expires_at)<=Date.now())return json({error:"コードの有効期限（30分）が切れています"},410);await env.DB.prepare("UPDATE profile_transfers SET used_at=CURRENT_TIMESTAMP WHERE code=? AND used_at='' ").bind(code).run();return json({profile:JSON.parse(row.profile_json)})}
+  }
 
   if (parts[0] === "boards") {
     await ensureBoardsSchema(env.DB);
