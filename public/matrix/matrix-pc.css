@@ -35,6 +35,32 @@ body:has(.stage-toolbar-primary) .past-template-grid .template-tab-preview{margi
 .stage-toolbar-primary{display:flex!important;align-items:center!important;gap:8px!important}
 .stage-toolbar-primary .toolbar-scale-check{margin:0!important}
 
+/* Shared toolbar baseline with LOGCOMMENTS: 30px row / 28px controls / 9px type. */
+html.embedded .stage-area-toolbar .btn,
+html.embedded .stage-area-toolbar button,
+html.embedded .stage-area-toolbar select,
+html.embedded .stage-area-toolbar input:not([type="checkbox"]){
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  font-size:9px!important;
+  line-height:1.2!important;
+}
+html.embedded .stage-area-toolbar .btn,
+html.embedded .stage-area-toolbar button{
+  padding-top:0!important;
+  padding-bottom:0!important;
+}
+html.embedded .stage-area-toolbar .toolbar-scale-check{
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  display:flex!important;
+  align-items:center!important;
+  font-size:9px!important;
+  line-height:1!important;
+}
+
 @media(max-width:720px){
   body:has(.stage-toolbar-primary) #libraryPane{min-width:150px}
   body:has(.stage-toolbar-primary) #templatesPage .past-template-grid{grid-template-columns:repeat(auto-fill,minmax(76px,94px))!important;gap:5px!important;padding:5px!important}
