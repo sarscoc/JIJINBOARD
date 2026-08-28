@@ -197,6 +197,11 @@ export async function onRequest(context) {
       }
       const token=request.headers.get("x-board-admin-token")||"",admin=await env.DB.prepare("SELECT admin_token FROM boards WHERE id=?").bind(parts[1]).first();
       if(!admin||token!==admin.admin_token)return json({error:"この自陣を編集できるのは部屋主だけです"},403);
+      if(method==="PATCH"&&parts[2]==="logs"&&parts[3]&&parts.length===4){
+        const body=await safeBody(request),spoiler=body?.spoiler?1:0,scenarioTitle=String(body?.scenarioTitle||"").trim().slice(0,120),scenarioParticipants=String(body?.scenarioParticipants||"").trim().slice(0,300);
+        const changed=await env.DB.prepare("UPDATE board_logs SET spoiler=?,scenario_title=?,scenario_participants=? WHERE board_id=? AND room_id=?").bind(spoiler,scenarioTitle,scenarioParticipants,parts[1],parts[3]).run();
+        if(!changed.meta?.changes)return json({error:"ログが見つかりません"},404);return json({ok:true});
+      }
       if(method==="PATCH"&&parts.length===2){
         const body=await safeBody(request),name=String(body?.name||"").trim().slice(0,120);if(!name)return json({error:"自陣の名前を入力してください"},400);
         await env.DB.prepare("UPDATE boards SET name=? WHERE id=?").bind(name,parts[1]).run();return json({ok:true,name});
@@ -211,7 +216,11 @@ export async function onRequest(context) {
         return json({ok:true,roomId},201);
       }
       if(method==="DELETE"&&parts[2]==="logs"&&parts[3]&&parts.length===4){
-        await env.DB.prepare("DELETE FROM board_logs WHERE board_id=? AND room_id=?").bind(parts[1],parts[3]).run();return json({ok:true});
+        const room=await env.DB.prepare("SELECT log_json FROM rooms WHERE id=?").bind(parts[3]).first();if(!room)return json({error:"ログが見つかりません"},404);
+        const log=JSON.parse(room.log_json||"{}");if(log.storage==="r2"&&env.LOGS)await env.LOGS.delete(log.key||roomLogKey(parts[3]));
+        await ensureLogChunksTable(env.DB);await ensurePresenceTable(env.DB);
+        await env.DB.batch([env.DB.prepare("DELETE FROM board_logs WHERE room_id=?").bind(parts[3]),env.DB.prepare("DELETE FROM annotations WHERE room_id=?").bind(parts[3]),env.DB.prepare("DELETE FROM presence WHERE room_id=?").bind(parts[3]),env.DB.prepare("DELETE FROM room_log_chunks WHERE room_id=?").bind(parts[3]),env.DB.prepare("DELETE FROM rooms WHERE id=?").bind(parts[3])]);
+        notifyRoomDeleted(context,env,parts[3]);return json({ok:true});
       }
     }
   }
