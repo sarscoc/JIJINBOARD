@@ -5,6 +5,7 @@
   let activeRoom=params.get("room")||"",participants=[],selectedPersonaId="";
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
+  const localPcs=()=>{try{return (JSON.parse(localStorage.getItem(`personas:${activeRoom}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
   const preferredImage=person=>person?.matrixIcon||person?.baseIcon||person?.icon||"";
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
   const escHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -20,11 +21,32 @@
     saveState(state);renderLibrary();renderPlaced();renderPcControls();
   }
 
+  function localParticipantRows(){
+    const profile=me();if(!profile?.id)return[];
+    return localPcs().map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:""}));
+  }
+
+  async function syncLocalPcsIfNeeded(entry){
+    const profile=me(),local=localPcs();if(!profile?.id||!profile?.plName||!local.length||!activeRoom)return false;
+    const current=(entry?.participants||[]).filter(person=>person.authorId===profile.id);
+    const currentKey=current.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
+    const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
+    if(currentKey===localKey)return false;
+    await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(activeRoom)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
+    return true;
+  }
+
   async function load(room){
     activeRoom=room||activeRoom||"";
     if(!activeRoom){setParticipants([]);return}
-    const board=await api(`/api/boards/${encodeURIComponent(boardId)}`),entry=(board.logs||[]).find(log=>log.roomId===activeRoom);
-    setParticipants(entry?.participants||[]);
+    let board=await api(`/api/boards/${encodeURIComponent(boardId)}`),entry=(board.logs||[]).find(log=>log.roomId===activeRoom);
+    if(await syncLocalPcsIfNeeded(entry).catch(()=>false)){
+      board=await api(`/api/boards/${encodeURIComponent(boardId)}`);entry=(board.logs||[]).find(log=>log.roomId===activeRoom);
+    }
+    let list=entry?.participants||[];
+    const profile=me();
+    if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows()];
+    setParticipants(list);
   }
 
   function selected(){const own=mine();return own.find(person=>person.personaId===selectedPersonaId)||own[0]}
