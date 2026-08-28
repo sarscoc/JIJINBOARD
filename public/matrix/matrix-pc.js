@@ -1,4 +1,36 @@
 "use strict";
+
+// Template-follow scaling is now a fixed MATRIX behavior rather than a user option.
+(() => {
+  if (typeof appState !== "function" || typeof saveState !== "function") return;
+  const rawAppState = appState;
+  const rawSaveState = saveState;
+
+  appState = function() {
+    const state = rawAppState();
+    state.display ||= {};
+    state.display.scaleWithTemplate = true;
+    return state;
+  };
+
+  saveState = function(state) {
+    if (state) {
+      state.display ||= {};
+      state.display.scaleWithTemplate = true;
+    }
+    return rawSaveState(state);
+  };
+
+  const checkbox = document.querySelector("#scaleWithTemplate");
+  if (checkbox) {
+    checkbox.checked = true;
+    checkbox.disabled = true;
+  }
+
+  const state = appState();
+  saveState(state);
+})();
+
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");
   if(!boardId)return;
