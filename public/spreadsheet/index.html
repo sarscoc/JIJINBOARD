@@ -7,7 +7,7 @@
 <script>(function(){const p=new URL(location.href).searchParams,b=p.get('board');if(p.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;const prefix=`board:${b}:spreadsheet:`,shared=k=>k==='trpgProjectPeople.v1'||k==='trpgMarkerProfile'||String(k).startsWith('personas:');for(const method of ['getItem','setItem','removeItem']){const raw=Storage.prototype[method];Storage.prototype[method]=function(key,...args){return raw.call(this,this===localStorage&&!shared(key)?prefix+key:key,...args)}}})()</script>
 <style>
 :root{
-  --bg:#f6f7f9;--panel:#fff;--text:#23262b;--muted:#818895;--line:#e6e8ec;
+  --bg:#fff;--panel:#fff;--text:#23262b;--muted:#818895;--line:#e6e8ec;
   --accent:#8da8ff;--accent-bg:#eef3ff;--danger:#c45d6b;--ok:#32765c
 }
 *{box-sizing:border-box}
@@ -7600,8 +7600,14 @@ function ensureLayoutShape(){
 
   if(!state.layout.design || typeof state.layout.design!=='object')state.layout.design={};
   const design=state.layout.design;
-  if(!design.outerBg)design.outerBg='#f5f6f8';
+  if(!design.outerBg)design.outerBg='#ffffff';
   if(!design.pageBg)design.pageBg='#ffffff';
+  /* v143: stock gray canvas becomes white. Existing intentional custom colors stay untouched. */
+  if(!design.v143WhiteOuterBg){
+    if(String(design.outerBg||'').toLowerCase()==='#f5f6f8')design.outerBg='#ffffff';
+    design.v143WhiteOuterBg=true;
+    saveLayoutState();
+  }
   if(!design.textColor)design.textColor='#20252d';
   if(!design.questionTextColor)design.questionTextColor=design.textColor||'#20252d';
   if(!design.answerTextColor)design.answerTextColor=design.textColor||'#20252d';
@@ -7702,8 +7708,8 @@ function applyGlobalTheme(){
   document.documentElement.style.setProperty('--user-accent-soft',hexToRgba(c,.16));
   document.documentElement.style.setProperty('--user-accent-faint',hexToRgba(c,.07));
 
-  document.documentElement.style.setProperty('--outer-bg',normalizeHexColor(d.outerBg,'#f5f6f8'));
-  document.documentElement.style.setProperty('--app-bg',normalizeHexColor(d.outerBg,'#f5f6f8'));
+  document.documentElement.style.setProperty('--outer-bg',normalizeHexColor(d.outerBg,'#ffffff'));
+  document.documentElement.style.setProperty('--app-bg',normalizeHexColor(d.outerBg,'#ffffff'));
   document.documentElement.style.setProperty('--base-page-bg',normalizeHexColor(d.pageBg,'#ffffff'));
   const baseQuestionText=normalizeHexColor(d.questionTextColor,normalizeHexColor(d.textColor,'#20252d'));
   const baseAnswerText=normalizeHexColor(d.answerTextColor,normalizeHexColor(d.textColor,'#20252d'));

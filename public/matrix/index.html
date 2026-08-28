@@ -21,7 +21,7 @@
 <script>(function(){const p=new URL(location.href).searchParams,b=p.get('board');if(p.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;const prefix=`board:${b}:matrix:`,shared=k=>k==='trpgProjectPeople.v1'||k==='trpgMarkerProfile'||String(k).startsWith('personas:');for(const method of ['getItem','setItem','removeItem']){const raw=Storage.prototype[method];Storage.prototype[method]=function(key,...args){return raw.call(this,this===localStorage&&!shared(key)?prefix+key:key,...args)}}})()</script>
 <style>
 :root{
-  --bg:#f5f6f7;--panel:#fff;--ink:#202327;--muted:#70777e;--line:#d9dde1;
+  --bg:#fff;--panel:#fff;--ink:#202327;--muted:#70777e;--line:#d9dde1;
   --accent:#84b5d3;--soft:#edf5fa;--shadow:0 10px 30px rgba(25,35,45,.09);
   --sidebar:300px;--settings:190px;--icon-size:72px;
 }
@@ -172,7 +172,7 @@ button{cursor:pointer}
   box-shadow:var(--shadow);display:grid;grid-template-columns:1fr var(--settings);overflow:hidden;position:relative
 }
 .canvas{
-  position:relative;min-width:0;background:#fafafa;overflow:hidden
+  position:relative;min-width:0;background:#fff;overflow:hidden
 }
 .template-drop{
   position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#9aa1a7;font-size:14px;
