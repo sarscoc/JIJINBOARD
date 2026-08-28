@@ -1,7 +1,7 @@
 "use strict";
 
 // Board-wide tab order/visibility. Local tab hiding remains in state.hiddenTabs
-// and localStorage; shared-hidden tabs are removed from the rail entirely.
+// and localStorage; shared-hidden tabs are removed from every tab list entirely.
 (() => {
   let pending = null;
   let retryTimer = null;
@@ -15,6 +15,17 @@
     const fromMessages = unique((state.room?.messages || []).map(message => message.tab));
     const current = unique(state.room?.tabs || []);
     return unique([...(order || []), ...current, ...fromMessages]);
+  }
+
+  function rebuildTabSelector() {
+    const select = document.querySelector("#tabFilter");
+    if (!select) return;
+    const tabs = state.room?.tabs || [];
+    const previous = state.mainTab || "";
+    select.innerHTML = '<option value="">メインタブを選択</option>' + tabs.map(tab => `<option>${esc(tab)}</option>`).join("");
+    if (previous && tabs.includes(previous)) state.mainTab = previous;
+    else state.mainTab = tabs.find(tab => /^メイン$/i.test(tab)) || tabs[0] || "";
+    select.value = state.mainTab;
   }
 
   function applyPending(attempt = 0) {
@@ -41,6 +52,7 @@
     if (state.mainTab && hidden.has(state.mainTab)) state.mainTab = visible[0] || "";
     const nextIndex = currentTab ? visible.indexOf(currentTab) : -1;
     state.activeTabIndex = nextIndex >= 0 ? nextIndex : 0;
+    rebuildTabSelector();
 
     const anchor = typeof currentReadingTime === "function" ? currentReadingTime() : "";
     if (typeof renderLog === "function") renderLog(anchor);
