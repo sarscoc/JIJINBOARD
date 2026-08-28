@@ -24,7 +24,7 @@ body:has(.stage-toolbar-primary) .past-template-grid .template-tab-preview{margi
 .matrix-pc-empty{width:22px;height:22px;border-radius:6px;background:#f0f2f3;color:#949ca2;display:grid;place-items:center;font-size:7px;font-weight:800}
 #matrixPlacePc{padding:0 10px;background:#252a2e;color:#fff;border-color:#252a2e;font-weight:700}
 #matrixPlacePc:disabled{opacity:.4;cursor:default}
-.matrix-pc-menu{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:220;width:max(150px,100%);max-width:230px;max-height:240px;overflow:auto;padding:4px;border:1px solid #dfe3e6;border-radius:9px;background:#fff;box-shadow:0 12px 30px rgba(25,35,45,.16)}
+.matrix-pc-menu{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:220;width:max(150px,100%);max-width:230px;max-height:240px;overflow:auto;padding:4px;border:1px solid #dfe3e6;border-radius:9px;background:rgba(255,255,255,.94);box-shadow:none}
 .matrix-pc-menu.open{display:grid;gap:2px}
 .matrix-pc-option{width:100%;border:0;background:transparent;border-radius:6px;padding:4px;display:grid;grid-template-columns:22px minmax(0,1fr);align-items:center;gap:6px;text-align:left;cursor:pointer}
 .matrix-pc-option:hover{background:#f2f5f6}
@@ -59,6 +59,17 @@ html.embedded .stage-area-toolbar .toolbar-scale-check{
   align-items:center!important;
   font-size:9px!important;
   line-height:1!important;
+}
+
+/* Flat board styling: controls rely on border + translucency, not elevation. */
+html.embedded .stage-area-toolbar .btn,
+html.embedded .stage-area-toolbar button,
+html.embedded .stage-area-toolbar select,
+html.embedded #matrixPcPickerBtn,
+html.embedded #matrixPlacePc,
+html.embedded .matrix-pc-menu,
+html.embedded .template-tab{
+  box-shadow:none!important;
 }
 
 @media(max-width:720px){
