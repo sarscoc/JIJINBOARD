@@ -6,6 +6,7 @@
   state.sharedTabSettings = state.sharedTabSettings || {};
   let editTabs = [];
   let editHidden = new Set();
+  let editTabsLoaded = false;
   let draggedIndex = -1;
 
   const endpoint = roomId => `/api/boards/${encodeURIComponent(boardId)}/log-tab-settings/${encodeURIComponent(roomId)}`;
@@ -25,6 +26,10 @@
     ensureEditorUi();
     const list = $("#sharedTabList");
     if (!list) return;
+    if (!editTabsLoaded) {
+      list.innerHTML = '<p class="shared-tab-loading">タブを読み込み中…</p>';
+      return;
+    }
     if (!editTabs.length) {
       list.innerHTML = '<p class="shared-tab-loading">タブ情報がありません。</p>';
       return;
@@ -123,6 +128,7 @@
     ensureEditorUi();
     editTabs = [];
     editHidden = new Set();
+    editTabsLoaded = false;
     renderSharedTabs();
     $("#logEditDialog").showModal();
     try {
@@ -130,6 +136,7 @@
       if (state.editingRoom !== roomId || !$("#logEditDialog").open) return;
       editTabs = [...(settings.order?.length ? settings.order : settings.sourceTabs || [])];
       editHidden = new Set(settings.hidden || []);
+      editTabsLoaded = true;
       renderSharedTabs();
     } catch (error) {
       const list = $("#sharedTabList");
@@ -144,13 +151,16 @@
     const item = state.board?.logs?.find(log => log.roomId === roomId);
     const spoiler = $("#logSpoilerInput").checked;
     const hidden = editTabs.filter(tab => editHidden.has(tab));
-    if (editTabs.length && hidden.length >= editTabs.length) return alert("少なくとも1つのタブを表示してください。");
+    if (editTabsLoaded && editTabs.length && hidden.length >= editTabs.length) return alert("少なくとも1つのタブを表示してください。");
     try {
-      const shared = await api(endpoint(roomId), {
-        method: "PATCH",
-        headers: { "x-board-admin-token": adminToken() },
-        body: JSON.stringify({ order: editTabs, hidden })
-      });
+      let shared = state.sharedTabSettings[roomId] || null;
+      if (editTabsLoaded) {
+        shared = await api(endpoint(roomId), {
+          method: "PATCH",
+          headers: { "x-board-admin-token": adminToken() },
+          body: JSON.stringify({ order: editTabs, hidden })
+        });
+      }
       await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`, {
         method: "PATCH",
         headers: { "x-board-admin-token": adminToken() },
@@ -160,12 +170,12 @@
           scenarioParticipants: $("#logScenarioParticipants").value
         })
       });
-      state.sharedTabSettings[roomId] = shared;
+      if (shared) state.sharedTabSettings[roomId] = shared;
       state.board = await api(`/api/boards/${encodeURIComponent(boardId)}`);
       if (spoiler && !item?.spoiler) { delete state.opened[roomId]; saveOpened(); }
       renderLogs();
       $("#logEditDialog").close();
-      sendSettings(roomId, shared);
+      if (shared) sendSettings(roomId, shared);
       if (spoiler && !item?.spoiler && state.activeRoom === roomId) requestOpen(roomId);
     } catch (error) { alert(error.message); }
   }
