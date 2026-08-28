@@ -105,13 +105,11 @@
           <span class="profile-image-text">画像</span>
           <input id="plIconInput" type="file" accept="image/*">
         </label>
-        <label class="profile-marker-control" title="マーカー色">
+        <div class="profile-marker-control" aria-label="PLのマーカー色">
           <span class="profile-marker-label">マーカー色</span>
-          <span class="profile-marker-samples" id="plMarkerSamples">
-            <i class="marker-sample light"><b></b></i><i class="marker-sample dark"><b></b></i>
-          </span>
-          <input id="plMarkerColor" type="color" value="#ffe66b" aria-label="PLのマーカー色">
-        </label>
+          <label class="marker-choice light" title="白背景用の色"><span>白</span><b id="plMarkerLightPreview"></b><input id="plMarkerColor" type="color" value="#ffe66b" aria-label="白背景用マーカー色"></label>
+          <label class="marker-choice dark" title="黒背景用の色"><span>黒</span><b id="plMarkerDarkPreview"></b><input id="plMarkerColorDark" type="color" value="#ffe66b" aria-label="黒背景用マーカー色"></label>
+        </div>
       </div>
 
       <div id="personaList" class="profile-persona-list"></div>
@@ -124,13 +122,11 @@
           <span class="profile-image-text">画像</span>
           <input id="newPersonaIcon" type="file" accept="image/*">
         </label>
-        <label class="profile-marker-control" title="マーカー色">
+        <div class="profile-marker-control" aria-label="PCのマーカー色">
           <span class="profile-marker-label">マーカー色</span>
-          <span class="profile-marker-samples" id="newPersonaMarkerSamples">
-            <i class="marker-sample light"><b></b></i><i class="marker-sample dark"><b></b></i>
-          </span>
-          <input id="newPersonaColor" type="color" value="#ffe66b" aria-label="PCのマーカー色">
-        </label>
+          <label class="marker-choice light" title="白背景用の色"><span>白</span><b id="newPersonaMarkerLightPreview"></b><input id="newPersonaColor" type="color" value="#ffe66b" aria-label="白背景用マーカー色"></label>
+          <label class="marker-choice dark" title="黒背景用の色"><span>黒</span><b id="newPersonaMarkerDarkPreview"></b><input id="newPersonaColorDark" type="color" value="#ffe66b" aria-label="黒背景用マーカー色"></label>
+        </div>
         <button type="button" id="savePersonaBtn" class="profile-add-button">＋</button>
       </div>
 
