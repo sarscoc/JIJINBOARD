@@ -1,8 +1,9 @@
 "use strict";
 
-// Load the selected spoiler log underneath the veil so the warning screen also
-// doubles as useful loading time. If the warning is abandoned, restore the
-// previously opened log so an unopened log can never be exposed accidentally.
+// Show the spoiler warning immediately, then load the selected log underneath
+// the veil so the warning screen also doubles as useful loading time. If the
+// warning is abandoned, restore the previously opened log so an unopened log
+// can never be exposed accidentally.
 (() => {
   const baseRequestOpen = requestOpen;
   const baseCloseSpoiler = closeSpoiler;
@@ -64,6 +65,10 @@
     people.textContent = item.scenarioParticipants ? `参加PC：${item.scenarioParticipants}` : "";
     people.classList.toggle("hidden", !item.scenarioParticipants);
 
+    // The warning must become visible before any iframe navigation starts.
+    const dialog = $("#spoilerDialog");
+    if (!dialog.open) dialog.show();
+
     const src = logSrc(roomId);
     setLogActive(frame, false);
     if (frame.dataset.room !== roomId || frame.getAttribute("src") !== src) {
@@ -73,9 +78,6 @@
     $("#welcome").classList.add("hidden");
     selectTool("log");
     setLogActive(frame, false);
-
-    const dialog = $("#spoilerDialog");
-    if (!dialog.open) dialog.show();
   };
 
   $("#confirmOpen").onclick = async () => {
