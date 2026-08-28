@@ -1,4 +1,4 @@
-/* Board mode: the left rail is templates only. PC selection lives in the template toolbar. */
+/* Board mode: the left rail is templates only. PC images live in the template toolbar. */
 body:has(.stage-toolbar-primary) #showIconsTab,body:has(.stage-toolbar-primary) #iconsPage{display:none!important}
 body:has(.stage-toolbar-primary) #showTemplatesTab{display:none!important}
 body:has(.stage-toolbar-primary) #templatesPage{display:flex!important}
@@ -14,25 +14,20 @@ body:has(.stage-toolbar-primary) .past-template-grid .template-tab-name,body:has
 body:has(.stage-toolbar-primary) .past-template-grid .template-tab{padding:4px!important;margin:0!important}
 body:has(.stage-toolbar-primary) .past-template-grid .template-tab-preview{margin:0!important}
 
-.matrix-pc-controls{display:flex;align-items:center;gap:5px;flex:0 0 auto;position:relative}
-.matrix-pc-picker{position:relative}
-#matrixPcPickerBtn,#matrixPlacePc{height:28px;border:1px solid #dfe3e6;background:#fff;border-radius:7px;font-size:9px;cursor:pointer}
-#matrixPcPickerBtn{min-width:112px;max-width:180px;padding:2px 7px 2px 3px;display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:5px;text-align:left}
-#matrixPcPickerBtn img,.matrix-pc-option img{width:22px;height:22px;object-fit:contain;border-radius:6px;background:#f2f4f5;display:block}
-#matrixPcPickerBtn b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
-#matrixPcPickerBtn i{font-style:normal;color:#7e878e;font-size:10px}
-.matrix-pc-empty{width:22px;height:22px;border-radius:6px;background:#f0f2f3;color:#949ca2;display:grid;place-items:center;font-size:7px;font-weight:800}
-#matrixPlacePc{padding:0 10px;background:#252a2e;color:#fff;border-color:#252a2e;font-weight:700}
-#matrixPlacePc:disabled{opacity:.4;cursor:default}
-.matrix-pc-menu{display:none;position:absolute;left:0;top:calc(100% + 4px);z-index:220;width:max(150px,100%);max-width:230px;max-height:240px;overflow:auto;padding:4px;border:1px solid #dfe3e6;border-radius:9px;background:rgba(255,255,255,.94);box-shadow:none}
-.matrix-pc-menu.open{display:grid;gap:2px}
-.matrix-pc-option{width:100%;border:0;background:transparent;border-radius:6px;padding:4px;display:grid;grid-template-columns:22px minmax(0,1fr);align-items:center;gap:6px;text-align:left;cursor:pointer}
-.matrix-pc-option:hover{background:#f2f5f6}
-.matrix-pc-option b{font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.matrix-pc-menu-empty{padding:8px;color:#8b9399;font-size:9px;text-align:center}
+/* PC source strip: images only, dragged directly onto the MATRIX. */
+.stage-toolbar-primary{display:flex!important;align-items:center!important;gap:8px!important;min-width:0!important;flex:1 1 auto!important;overflow:hidden!important}
+.matrix-pc-controls{display:flex;align-items:center;min-width:0;max-width:100%;height:30px;flex:1 1 auto;overflow:hidden}
+.matrix-pc-strip{display:flex;align-items:center;gap:12px;min-width:0;max-width:100%;height:30px;overflow-x:auto;overflow-y:hidden;padding:1px 2px;scrollbar-width:none;overscroll-behavior-inline:contain}
+.matrix-pc-strip::-webkit-scrollbar{display:none}
+.matrix-pc-source{width:28px;height:28px;min-width:28px;display:grid;place-items:center;cursor:grab;user-select:none;touch-action:none;border:0;background:transparent;border-radius:6px;padding:0;opacity:1;transition:opacity .12s ease,background .12s ease}
+.matrix-pc-source:hover{background:rgba(255,255,255,.58)}
+.matrix-pc-source.dragging{opacity:.42;cursor:grabbing}
+.matrix-pc-source img{display:block;width:26px;height:26px;object-fit:contain;pointer-events:none;background:transparent;border-radius:5px}
+.matrix-pc-empty{width:26px;height:26px;border-radius:5px;background:#f0f2f3;color:#949ca2;display:grid;place-items:center;font-size:7px;font-weight:800}
+.matrix-pc-menu-empty{padding:0 4px;color:#8b9399;font-size:9px;white-space:nowrap;line-height:28px}
+html.embedded .canvas.matrix-pc-dragover{outline:1px solid rgba(102,126,146,.42);outline-offset:-2px;background-color:rgba(255,255,255,.10)!important}
 
 /* Template-follow scaling is always ON; the old checkbox is no longer a setting. */
-.stage-toolbar-primary{display:flex!important;align-items:center!important;gap:8px!important}
 .stage-toolbar-primary .toolbar-scale-check{display:none!important}
 
 /* Shared toolbar baseline with LOGCOMMENTS: 30px row / 28px controls / 9px type. */
@@ -51,14 +46,12 @@ html.embedded .stage-area-toolbar button{
   padding-top:0!important;
   padding-bottom:0!important;
 }
+html.embedded .stage-toolbar-actions{flex:0 0 auto!important}
 
 /* Flat board styling: controls rely on border + translucency, not elevation. */
 html.embedded .stage-area-toolbar .btn,
 html.embedded .stage-area-toolbar button,
 html.embedded .stage-area-toolbar select,
-html.embedded #matrixPcPickerBtn,
-html.embedded #matrixPlacePc,
-html.embedded .matrix-pc-menu,
 html.embedded .template-tab{
   box-shadow:none!important;
 }
@@ -66,7 +59,7 @@ html.embedded .template-tab{
 @media(max-width:720px){
   body:has(.stage-toolbar-primary) #libraryPane{min-width:150px}
   body:has(.stage-toolbar-primary) #templatesPage .past-template-grid{grid-template-columns:repeat(auto-fill,minmax(76px,94px))!important;gap:5px!important;padding:5px!important}
-  .matrix-pc-controls{flex:0 1 auto;min-width:0}
-  #matrixPcPickerBtn{min-width:94px;max-width:145px}
-  #matrixPlacePc{padding:0 7px}
+  .matrix-pc-strip{gap:10px}
+  .matrix-pc-source{width:26px;height:26px;min-width:26px}
+  .matrix-pc-source img,.matrix-pc-empty{width:24px;height:24px}
 }
