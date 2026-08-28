@@ -34,7 +34,7 @@
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");
   if(!boardId)return;
-  let activeRoom=params.get("room")||"",participants=[],selectedPersonaId="";
+  let activeRoom=params.get("room")||"",participants=[],draggingPcId="";
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const localPcs=()=>{try{return (JSON.parse(localStorage.getItem(`personas:${activeRoom}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
@@ -71,7 +71,7 @@
       if(!state.items[id])state.items[id]=makeLocalItemState(id);
       return{id,name:person.name,url:"",baseImage:image,imageSignature:`participant:${person.personaId}:${image}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
-    saveState(state);renderLibrary();renderPlaced();renderPcControls();
+    saveState(state);renderLibrary();renderPlaced();renderPcSources();
   }
 
   function localParticipantRows(){
@@ -102,36 +102,85 @@
     setParticipants(list);
   }
 
-  function selected(){const own=mine();return own.find(person=>person.personaId===selectedPersonaId)||own[0]}
-  function placeSelected(){const person=selected();if(!person)return alert("先にLOGCOMMENTSの発言者設定からPCを追加してください。");selectedPersonaId=person.personaId;placeItem(`participant:${person.authorId}:${person.personaId}`,50,50);renderPcControls()}
-
-  function pcOptionHtml(person){const image=preferredImage(person);return `<button type="button" class="matrix-pc-option" data-persona="${escHtml(person.personaId)}">${image?`<img src="${escHtml(image)}" alt="">`:'<span class="matrix-pc-empty">PC</span>'}<b>${escHtml(person.name||"PC")}</b></button>`}
-  function currentButtonHtml(person){const image=preferredImage(person);return `${image?`<img src="${escHtml(image)}" alt="">`:'<span class="matrix-pc-empty">PC</span>'}<b>${escHtml(person?.name||"PCなし")}</b><i>⌄</i>`}
-
-  function renderPcControls(){
-    const controls=document.querySelector(".matrix-pc-controls");if(!controls)return;
-    const own=mine();
-    if(!own.some(person=>person.personaId===selectedPersonaId))selectedPersonaId=own[0]?.personaId||"";
-    const current=selected();
-    const picker=document.querySelector("#matrixPcPickerBtn"),menu=document.querySelector("#matrixPcMenu"),place=document.querySelector("#matrixPlacePc");
-    if(picker)picker.innerHTML=currentButtonHtml(current);
-    if(menu)menu.innerHTML=own.map(pcOptionHtml).join("")||'<span class="matrix-pc-menu-empty">PCがありません</span>';
-    if(place)place.disabled=!current;
-    controls.classList.toggle("empty",!current);
+  function sourceHtml(person){
+    const image=preferredImage(person),id=`participant:${person.authorId}:${person.personaId}`,name=person.name||"PC";
+    return `<span class="matrix-pc-source" draggable="true" data-matrix-pc-id="${escHtml(id)}" title="${escHtml(name)}をドラッグして配置" aria-label="${escHtml(name)}をドラッグして配置">${image?`<img src="${escHtml(image)}" alt="">`:'<span class="matrix-pc-empty">PC</span>'}</span>`;
   }
 
-  function closePicker(){document.querySelector("#matrixPcMenu")?.classList.remove("open");document.querySelector("#matrixPcPickerBtn")?.setAttribute("aria-expanded","false")}
+  function renderPcSources(){
+    const strip=document.querySelector("#matrixPcStrip");if(!strip)return;
+    const own=mine();
+    strip.innerHTML=own.length?own.map(sourceHtml).join(""):'<span class="matrix-pc-menu-empty">PCなし</span>';
+  }
+
+  function dropPercent(event,canvas){
+    const rect=canvas.getBoundingClientRect();
+    let left=0,top=0,width=rect.width,height=rect.height;
+    try{
+      const geom=typeof templateGeometry==="function"?templateGeometry():null;
+      if(geom?.visible&&Number(geom.visible.width)>0&&Number(geom.visible.height)>0){
+        left=Number(geom.visible.left)||0;
+        top=Number(geom.visible.top)||0;
+        width=Number(geom.visible.width);
+        height=Number(geom.visible.height);
+      }
+    }catch{}
+    const clamp=n=>Math.max(0,Math.min(100,n));
+    return {
+      x:clamp(((event.clientX-rect.left-left)/Math.max(1,width))*100),
+      y:clamp(((event.clientY-rect.top-top)/Math.max(1,height))*100)
+    };
+  }
+
+  function setupCanvasDrop(){
+    const canvas=document.querySelector(".canvas");if(!canvas||canvas.dataset.matrixPcDropReady)return;
+    canvas.dataset.matrixPcDropReady="1";
+    canvas.addEventListener("dragover",event=>{
+      if(!draggingPcId)return;
+      event.preventDefault();
+      if(event.dataTransfer)event.dataTransfer.dropEffect="move";
+      canvas.classList.add("matrix-pc-dragover");
+    });
+    canvas.addEventListener("dragleave",event=>{
+      if(!canvas.contains(event.relatedTarget))canvas.classList.remove("matrix-pc-dragover");
+    });
+    canvas.addEventListener("drop",event=>{
+      const id=draggingPcId||event.dataTransfer?.getData("text/x-matrix-pc")||"";
+      if(!id)return;
+      event.preventDefault();
+      canvas.classList.remove("matrix-pc-dragover");
+      const pos=dropPercent(event,canvas);
+      if(typeof placeItem==="function")placeItem(id,pos.x,pos.y);
+      draggingPcId="";
+    });
+  }
+
   function setupPcControls(){
-    const toolbar=document.querySelector(".stage-toolbar-primary");if(!toolbar||document.querySelector(".matrix-pc-controls"))return;
+    const toolbar=document.querySelector(".stage-toolbar-primary");if(!toolbar)return;
     toolbar.querySelector(".stage-area-label")?.remove();
-    const controls=document.createElement("div");controls.className="matrix-pc-controls";
-    controls.innerHTML='<div class="matrix-pc-picker"><button id="matrixPcPickerBtn" type="button" aria-haspopup="listbox" aria-expanded="false"><span class="matrix-pc-empty">PC</span><b>PCなし</b><i>⌄</i></button><div id="matrixPcMenu" class="matrix-pc-menu" role="listbox"></div></div><button id="matrixPlacePc" type="button">配置</button>';
+    toolbar.querySelector(".matrix-pc-controls")?.remove();
+    const controls=document.createElement("div");
+    controls.className="matrix-pc-controls";
+    controls.innerHTML='<div id="matrixPcStrip" class="matrix-pc-strip" aria-label="配置するPC"></div>';
     toolbar.prepend(controls);
-    document.querySelector("#matrixPlacePc").onclick=placeSelected;
-    document.querySelector("#matrixPcPickerBtn").onclick=event=>{event.stopPropagation();const menu=document.querySelector("#matrixPcMenu"),open=!menu.classList.contains("open");menu.classList.toggle("open",open);event.currentTarget.setAttribute("aria-expanded",String(open))};
-    document.querySelector("#matrixPcMenu").onclick=event=>{const option=event.target.closest("[data-persona]");if(!option)return;selectedPersonaId=option.dataset.persona;closePicker();renderPcControls()};
-    document.addEventListener("click",event=>{if(!event.target.closest(".matrix-pc-picker"))closePicker()});
-    renderPcControls();
+
+    controls.addEventListener("dragstart",event=>{
+      const source=event.target.closest("[data-matrix-pc-id]");if(!source)return;
+      draggingPcId=source.dataset.matrixPcId||"";
+      source.classList.add("dragging");
+      if(event.dataTransfer){
+        event.dataTransfer.effectAllowed="move";
+        event.dataTransfer.setData("text/x-matrix-pc",draggingPcId);
+        event.dataTransfer.setData("text/plain",draggingPcId);
+      }
+    });
+    controls.addEventListener("dragend",event=>{
+      event.target.closest("[data-matrix-pc-id]")?.classList.remove("dragging");
+      document.querySelector(".canvas")?.classList.remove("matrix-pc-dragover");
+      draggingPcId="";
+    });
+    setupCanvasDrop();
+    renderPcSources();
   }
 
   setupPcControls();
