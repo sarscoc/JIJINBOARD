@@ -36,8 +36,8 @@
   <main>
     <section id="homeView" class="home card">
       <label class="dropzone" id="dropzone">
-        <input id="fileInput" type="file" accept=".html,text/html">
-        <span class="drop-title">HTMLログを選択</span>
+        <input id="fileInput" type="file" accept=".html,text/html,.trpglog,.trpg.log,application/json,text/plain">
+        <span class="drop-title">HTML / TRPGログを選択</span>
         <span class="drop-note">または、ここへドロップ</span>
       </label>
       <label class="spoiler-setting"><input id="spoilerInput" type="checkbox"> この部屋をネタバレ有りにする</label>
@@ -54,11 +54,11 @@
       <aside class="room-tools">
         <h1 id="roomTitle"></h1>
         <div class="filters">
-          <select id="viewMode"><option value="compact">詰めたモード</option><option value="timeline">共有時間軸モード</option></select>
+          <select id="viewMode"><option value="compact">通常</option><option value="timeline">共有時間軸モード</option></select>
           <select id="tabFilter" aria-label="メインタブ" title="メインタブを選択"><option value="">メインタブを選択</option></select>
           <input id="searchInput" type="search" placeholder="ログ内検索">
           <label class="font-size-control" title="ログの文字サイズ"><span>A−</span><input id="fontSize" type="range" min="10" max="20" step="0.5" aria-label="ログの文字サイズ"><span>A＋</span></label>
-          <button id="shareBtn" class="primary small">共有URLをコピー</button>
+          <button id="shareBtn" class="primary small hidden">共有URLをコピー</button>
           <button id="exportRoomBtn" class="quiet small">部屋を保存</button>
         </div>
         <p id="roomStatus" class="status"></p>
@@ -107,6 +107,7 @@
   </dialog>
   <script src="app.js"></script>
   <script src="flat-log-parser.js"></script>
+  <script src="trpg-log-import.js"></script>
   <script src="virtual-log.js"></script>
   <script src="virtual-scroll-stability.js"></script>
   <script src="shared-tab-settings.js"></script>
