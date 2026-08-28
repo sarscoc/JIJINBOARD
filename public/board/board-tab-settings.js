@@ -186,4 +186,9 @@
     const roomId = $("#logFrame").dataset.room;
     if (roomId) sendCurrentSettings(roomId);
   });
+  addEventListener("message", event => {
+    if (event.origin !== location.origin) return;
+    const message = event.data || {};
+    if (message.type === "jijinboard-refresh-shared-tabs" && message.roomId) sendCurrentSettings(String(message.roomId), true);
+  });
 })();
