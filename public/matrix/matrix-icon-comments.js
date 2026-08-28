@@ -8,7 +8,19 @@
   const targetImage=id=>displayImage(targetItem(id))||"";
   const targetName=id=>targetItem(id)?.name||"PC";
   const pcList=()=>{const p=profile();return [{name:p?.plName||"PL",type:"PL",icon:p?.plIcon||""},...(p?.personas||[])];};
-  function panel(){let p=document.querySelector("#matrixIconComments");if(p)return p;p=document.createElement("aside");p.id="matrixIconComments";p.innerHTML='<div class="matrix-comment-head"><b>COMMENTS</b><span id="matrixIconCommentCount">0</span><button type="button" title="コメントを閉じる">×</button></div><section id="matrixIconCommentList"></section>';p.querySelector("button").onclick=()=>p.hidden=true;document.body.append(p);return p}
+
+  function panel(){
+    let p=document.querySelector("#matrixIconComments");
+    const host=document.querySelector(".stage-shell")||document.body;
+    if(p){if(host!==document.body&&p.parentNode!==host)host.append(p);return p}
+    p=document.createElement("aside");
+    p.id="matrixIconComments";
+    p.innerHTML='<div class="matrix-comment-head"><b>COMMENTS</b><span id="matrixIconCommentCount">0</span><button type="button" title="コメントを閉じる">×</button></div><section id="matrixIconCommentList"></section>';
+    p.querySelector("button").onclick=()=>p.hidden=true;
+    host.append(p);
+    return p;
+  }
+
   function dialog(){let d=document.querySelector("#matrixIconCommentDialog");if(d)return d;d=document.createElement("dialog");d.id="matrixIconCommentDialog";d.innerHTML='<form method="dialog"><div class="matrix-dialog-head"><b id="matrixCommentTarget"></b><button value="cancel" type="button" data-close-matrix-comment>×</button></div><div class="matrix-comment-persona"><select id="matrixCommentPersona"></select></div><textarea id="matrixCommentBody" maxlength="4000" placeholder="感想を書く"></textarea><div class="matrix-dialog-actions"><button value="cancel" type="button" data-close-matrix-comment>閉じる</button><button id="matrixCommentDelete" type="button" hidden>削除</button><button id="matrixCommentSubmit" value="default" type="submit">投稿</button></div></form>';document.body.append(d);d.querySelectorAll("[data-close-matrix-comment]").forEach(b=>b.onclick=()=>d.close());d.querySelector("form").onsubmit=post;d.querySelector("#matrixCommentDelete").onclick=remove;return d}
   function flash(id){const el=document.querySelector(`.placed[data-id="${CSS.escape(id)}"]`);if(!el)return;el.classList.remove("matrix-comment-flash");void el.offsetWidth;el.classList.add("matrix-comment-flash");el.scrollIntoView({behavior:"smooth",block:"center",inline:"center"})}
   function commentHtml(c,depth=0,children=new Map()){const mine=c.author_id===profile()?.id,avatar=c.persona_icon?`<img class="matrix-comment-avatar" src="${esc(c.persona_icon)}" alt="">`:'<span class="matrix-comment-avatar"></span>',target=targetImage(c.target_id),replies=children.get(c.id)||[];return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" data-comment-target="${esc(c.target_id)}"><div class="matrix-comment-target">${target?`<img src="${esc(target)}" alt="">`:""}<span>${esc(targetName(c.target_id))}</span></div><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em><time>${esc(new Date(c.created_at).toLocaleString())}</time>${mine?`<button data-matrix-edit="${esc(c.id)}">✎</button>`:""}<button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}">↩</button></div><p>${esc(c.body).replace(/\n/g,"<br>")}</p></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`}
