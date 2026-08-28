@@ -37,28 +37,34 @@
     overflow:hidden;
   }
 
-  /* The empty status paragraph used to participate in the grid and could add a few px. */
-  html.embedded #roomStatus{
-    display:none!important;
-  }
+  /* The empty status paragraph must never add height to the toolbar row. */
+  html.embedded #roomStatus{display:none!important}
 
+  /* Use the same single-line toolbar model as MAGIA MATRIX.
+     Important: flex prevents the controls' max-content width from creating an
+     oversized grid track and pushing the whole filter group off-screen. */
   html.embedded .room-tools{
-    display:grid!important;
-    grid-template-columns:minmax(150px,1fr) auto!important;
-    grid-template-rows:var(--embed-toolbar-height)!important;
+    display:flex!important;
     align-items:center!important;
     gap:8px!important;
     width:100%!important;
     height:var(--embed-toolbar-height)!important;
     min-height:var(--embed-toolbar-height)!important;
     max-height:var(--embed-toolbar-height)!important;
+    min-width:0!important;
     margin:0!important;
     padding:0!important;
+    overflow:visible!important;
   }
 
-  /* Match the compact MAGIA MATRIX toolbar typography. */
   html.embedded .room-tools h1{
+    flex:1 1 auto!important;
+    min-width:80px!important;
+    max-width:none!important;
     margin:0!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    white-space:nowrap!important;
     font-size:11px!important;
     line-height:1.2!important;
     font-weight:700!important;
@@ -66,11 +72,16 @@
   }
 
   html.embedded .filters{
+    flex:0 1 auto!important;
+    min-width:0!important;
+    max-width:calc(100% - 96px)!important;
     display:flex!important;
     align-items:center!important;
+    justify-content:flex-end!important;
     gap:5px!important;
     height:var(--embed-control-height)!important;
     min-height:var(--embed-control-height)!important;
+    overflow:visible!important;
   }
 
   html.embedded .filters input,
@@ -78,6 +89,7 @@
   html.embedded .filters button,
   html.embedded .filters .quiet,
   html.embedded .filters .primary{
+    box-sizing:border-box!important;
     height:var(--embed-control-height)!important;
     min-height:var(--embed-control-height)!important;
     max-height:var(--embed-control-height)!important;
@@ -85,9 +97,18 @@
     border-radius:7px!important;
     font-size:9px!important;
     line-height:1.2!important;
+    flex:0 1 auto!important;
   }
 
+  html.embedded #viewMode{width:108px!important;min-width:82px!important}
+  html.embedded #tabFilter{width:108px!important;min-width:82px!important}
+  html.embedded #searchInput{width:138px!important;min-width:90px!important}
+  html.embedded #exportRoomBtn{white-space:nowrap!important}
+
   html.embedded .filters .font-size-control{
+    flex:0 1 128px!important;
+    width:128px!important;
+    min-width:94px!important;
     height:var(--embed-control-height)!important;
     min-height:var(--embed-control-height)!important;
     margin:0!important;
@@ -100,10 +121,13 @@
   }
 
   html.embedded .filters .font-size-control input{
+    width:72px!important;
+    min-width:38px!important;
     height:auto!important;
     min-height:0!important;
     max-height:none!important;
     padding:0!important;
+    flex:1 1 auto!important;
   }
 
   html.embedded .reader-grid{
@@ -128,15 +152,8 @@
     overflow:hidden!important;
   }
 
-  html.embedded .comments-pane{
-    display:flex;
-    flex-direction:column;
-  }
-
-  html.embedded .comments-head{
-    flex:0 0 auto;
-  }
-
+  html.embedded .comments-pane{display:flex;flex-direction:column}
+  html.embedded .comments-head{flex:0 0 auto}
   html.embedded .comments-list{
     flex:1 1 auto;
     min-height:0;
