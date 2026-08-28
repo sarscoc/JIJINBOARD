@@ -58,6 +58,28 @@
     if (typeof renderLog === "function") renderLog(anchor);
   }
 
+  function requestFreshSettings() {
+    if (parent === window || !state.roomId) return;
+    parent.postMessage({ type: "jijinboard-refresh-shared-tabs", roomId: state.roomId }, location.origin);
+  }
+
+  function attachRealtimeListener(socket) {
+    if (!socket || socket.__jijinboardSharedTabs) return;
+    socket.__jijinboardSharedTabs = true;
+    socket.addEventListener("message", event => {
+      let data; try { data = JSON.parse(event.data); } catch { return; }
+      if (data?.type === "refresh" && data.action === "tab-settings") requestFreshSettings();
+    });
+  }
+
+  const baseConnectRealtime = connectRealtime;
+  connectRealtime = function() {
+    const result = baseConnectRealtime();
+    attachRealtimeListener(state.realtime);
+    return result;
+  };
+  attachRealtimeListener(state.realtime);
+
   addEventListener("message", event => {
     if (event.origin !== location.origin) return;
     const message = event.data || {};
