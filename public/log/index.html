@@ -41,7 +41,8 @@
         <span class="drop-note">または、ここへドロップ</span>
       </label>
       <label class="spoiler-setting"><input id="spoilerInput" type="checkbox"> この部屋をネタバレ有りにする</label>
-      <div id="spoilerDetails" class="spoiler-details hidden"><label>シナリオタイトル（スポイラー表示用）<input id="scenarioTitleInput" maxlength="120" placeholder="例：月無館殺戮遊戯"></label><label>参加PC（スポイラー表示用）<input id="scenarioParticipantsInput" maxlength="300" placeholder="例：PC A / PC B / PC C"></label></div>
+      <div class="spoiler-details"><label>シナリオタイトル<input id="scenarioTitleInput" maxlength="120" placeholder="ログタイトルから自動入力"></label></div>
+      <div id="spoilerDetails" class="spoiler-details hidden"><label>参加PC<input id="scenarioParticipantsInput" maxlength="300" placeholder="例：PC A / PC B / PC C"></label></div>
       <div id="importPreview" class="import-preview hidden">
         <div><strong id="importTitle"></strong><span id="importCount"></span></div>
         <button id="createRoomBtn" class="primary">アップロードする</button>
@@ -106,5 +107,7 @@
   </dialog>
   <script src="app.js"></script>
   <script src="virtual-log.js"></script>
+  <script src="virtual-scroll-stability.js"></script>
+  <script src="upload-title-default.js"></script>
 </body>
 </html>
