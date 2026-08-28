@@ -10,9 +10,30 @@
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
   const escHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+  function pruneRemovedParticipants(validIds,state){
+    state.items||={};
+    let changed=false;
+    Object.keys(state.items).forEach(id=>{
+      if(id.startsWith("participant:")&&!validIds.has(id)){delete state.items[id];changed=true}
+    });
+    if(typeof templateStates==="function"&&typeof setTemplateStates==="function"){
+      const all=templateStates();let templatesChanged=false;
+      Object.values(all||{}).forEach(saved=>{
+        const stored=saved?.items;if(!stored)return;
+        Object.keys(stored).forEach(id=>{
+          if(id.startsWith("participant:")&&!validIds.has(id)){delete stored[id];templatesChanged=true}
+        });
+      });
+      if(templatesChanged)setTemplateStates(all);
+    }
+    return changed;
+  }
+
   function setParticipants(list){
     participants=list||[];
     const state=appState();state.items||={};
+    const validIds=new Set(participants.map(person=>`participant:${person.authorId}:${person.personaId}`));
+    pruneRemovedParticipants(validIds,state);
     items=participants.map(person=>{
       const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person);
       if(!state.items[id])state.items[id]=makeLocalItemState(id);
