@@ -104,7 +104,7 @@
 
   function sourceHtml(person){
     const image=preferredImage(person),id=`participant:${person.authorId}:${person.personaId}`,name=person.name||"PC";
-    return `<span class="matrix-pc-source" draggable="true" data-matrix-pc-id="${escHtml(id)}" title="${escHtml(name)}をドラッグして配置" aria-label="${escHtml(name)}をドラッグして配置">${image?`<img src="${escHtml(image)}" alt="">`:'<span class="matrix-pc-empty">PC</span>'}</span>`;
+    return `<span class="matrix-pc-source" draggable="true" data-matrix-pc-id="${escHtml(id)}" title="${escHtml(name)}をドラッグして配置" aria-label="${escHtml(name)}をドラッグして配置">${image?`<img src="${escHtml(image)}" alt="" draggable="false">`:'<span class="matrix-pc-empty">PC</span>'}</span>`;
   }
 
   function renderPcSources(){
@@ -132,27 +132,49 @@
     };
   }
 
+  function isPcDrag(event){
+    if(draggingPcId)return true;
+    const types=Array.from(event.dataTransfer?.types||[]);
+    return types.includes("text/x-matrix-pc");
+  }
+
+  function stopPcDropEvent(event){
+    event.preventDefault();
+    event.stopPropagation();
+    if(typeof event.stopImmediatePropagation==="function")event.stopImmediatePropagation();
+  }
+
   function setupCanvasDrop(){
     const canvas=document.querySelector(".canvas");if(!canvas||canvas.dataset.matrixPcDropReady)return;
     canvas.dataset.matrixPcDropReady="1";
+
+    // Capture PC drags before the original template-image drop handler can see them.
+    canvas.addEventListener("dragenter",event=>{
+      if(!isPcDrag(event))return;
+      stopPcDropEvent(event);
+      canvas.classList.add("matrix-pc-dragover");
+    },true);
     canvas.addEventListener("dragover",event=>{
-      if(!draggingPcId)return;
-      event.preventDefault();
+      if(!isPcDrag(event))return;
+      stopPcDropEvent(event);
       if(event.dataTransfer)event.dataTransfer.dropEffect="move";
       canvas.classList.add("matrix-pc-dragover");
-    });
-    canvas.addEventListener("dragleave",event=>{
-      if(!canvas.contains(event.relatedTarget))canvas.classList.remove("matrix-pc-dragover");
-    });
+    },true);
     canvas.addEventListener("drop",event=>{
+      if(!isPcDrag(event))return;
       const id=draggingPcId||event.dataTransfer?.getData("text/x-matrix-pc")||"";
-      if(!id)return;
-      event.preventDefault();
+      stopPcDropEvent(event);
       canvas.classList.remove("matrix-pc-dragover");
-      const pos=dropPercent(event,canvas);
-      if(typeof placeItem==="function")placeItem(id,pos.x,pos.y);
+      if(id){
+        const pos=dropPercent(event,canvas);
+        if(typeof placeItem==="function")placeItem(id,pos.x,pos.y);
+      }
       draggingPcId="";
-    });
+    },true);
+    canvas.addEventListener("dragleave",event=>{
+      if(!isPcDrag(event))return;
+      if(!canvas.contains(event.relatedTarget))canvas.classList.remove("matrix-pc-dragover");
+    },true);
   }
 
   function setupPcControls(){
@@ -170,8 +192,8 @@
       source.classList.add("dragging");
       if(event.dataTransfer){
         event.dataTransfer.effectAllowed="move";
+        event.dataTransfer.clearData();
         event.dataTransfer.setData("text/x-matrix-pc",draggingPcId);
-        event.dataTransfer.setData("text/plain",draggingPcId);
       }
     });
     controls.addEventListener("dragend",event=>{
