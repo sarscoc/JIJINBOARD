@@ -1,6 +1,14 @@
-/* JIJINBOARD embed: keep the reader exactly within the iframe.
-   Comments may grow internally, but must never grow the document itself. */
+/* JIJINBOARD embed: exact shared geometry with MAGIA MATRIX.
+   Desktop baseline: 12px outer inset -> 30px toolbar -> 8px gap -> reader/comments. */
 @media (min-width:801px){
+  :root{
+    --embed-page-pad:12px;
+    --embed-toolbar-height:30px;
+    --embed-control-height:28px;
+    --embed-gap:8px;
+    --embed-comments-width:320px;
+  }
+
   html.embedded,
   html.embedded body{
     width:100%;
@@ -18,22 +26,92 @@
 
   html.embedded #roomView.room:not(.hidden){
     display:grid!important;
-    grid-template-rows:auto minmax(0,1fr);
+    grid-template-rows:var(--embed-toolbar-height) minmax(0,1fr)!important;
+    row-gap:var(--embed-gap)!important;
     width:100%;
     height:100%;
     min-height:0;
     max-width:none;
-    margin:0;
+    margin:0!important;
+    padding:var(--embed-page-pad)!important;
     overflow:hidden;
   }
 
+  /* The empty status paragraph used to participate in the grid and could add a few px. */
+  html.embedded #roomStatus{
+    display:none!important;
+  }
+
   html.embedded .room-tools{
-    min-height:0;
-    margin-bottom:8px;
+    display:grid!important;
+    grid-template-columns:minmax(150px,1fr) auto!important;
+    grid-template-rows:var(--embed-toolbar-height)!important;
+    align-items:center!important;
+    gap:8px!important;
+    width:100%!important;
+    height:var(--embed-toolbar-height)!important;
+    min-height:var(--embed-toolbar-height)!important;
+    max-height:var(--embed-toolbar-height)!important;
+    margin:0!important;
+    padding:0!important;
+  }
+
+  /* Match the compact MAGIA MATRIX toolbar typography. */
+  html.embedded .room-tools h1{
+    margin:0!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+    font-weight:700!important;
+    letter-spacing:0!important;
+  }
+
+  html.embedded .filters{
+    display:flex!important;
+    align-items:center!important;
+    gap:5px!important;
+    height:var(--embed-control-height)!important;
+    min-height:var(--embed-control-height)!important;
+  }
+
+  html.embedded .filters input,
+  html.embedded .filters select,
+  html.embedded .filters button,
+  html.embedded .filters .quiet,
+  html.embedded .filters .primary{
+    height:var(--embed-control-height)!important;
+    min-height:var(--embed-control-height)!important;
+    max-height:var(--embed-control-height)!important;
+    padding:0 8px!important;
+    border-radius:7px!important;
+    font-size:9px!important;
+    line-height:1.2!important;
+  }
+
+  html.embedded .filters .font-size-control{
+    height:var(--embed-control-height)!important;
+    min-height:var(--embed-control-height)!important;
+    margin:0!important;
+    padding:0 6px!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:4px!important;
+    font-size:8px!important;
+    line-height:1!important;
+  }
+
+  html.embedded .filters .font-size-control input{
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    padding:0!important;
   }
 
   html.embedded .reader-grid{
-    height:100%;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) var(--embed-comments-width)!important;
+    gap:var(--embed-gap)!important;
+    width:100%!important;
+    height:100%!important;
     min-height:0;
     overflow:hidden;
     align-items:stretch;
@@ -46,6 +124,7 @@
     height:100%!important;
     min-height:0!important;
     max-height:none!important;
+    margin:0!important;
     overflow:hidden!important;
   }
 
