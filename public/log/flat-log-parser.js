@@ -32,8 +32,11 @@
     return clone.textContent
       .replace(/\u00a0/g, " ")
       .replace(/\r/g, "")
+      // CCFOLIA pretty-prints each message span on its own indented line.
+      // Remove only that wrapper indentation; keep intentional <br> line breaks.
+      .replace(/^\n[\t ]*/, "")
+      .replace(/\n[\t ]*$/, "")
       .replace(/[\t ]+\n/g, "\n")
-      .replace(/^\n+|\n+$/g, "")
       .trimEnd();
   }
 
@@ -110,8 +113,7 @@
       if (!speaker && !text) return;
       const color = row.style.color || row.getAttribute("style")?.match(/(?:^|;)\s*color\s*:\s*([^;]+)/i)?.[1]?.trim() || "";
 
-      // sourceIndex is intentionally preserved as the global chronology key.
-      // Per-tab views filter these messages without re-sorting them.
+      // sourceIndex is the global chronology key. Never regroup/re-sort by tab.
       messages.push({
         id: `m${sourceIndex}`,
         speaker,
