@@ -22,6 +22,13 @@ const normalize=(sourceTabs,order,hidden)=>{
   return {sourceTabs:source,order:normalizedOrder,hidden:normalizedHidden};
 };
 
+async function broadcastChange(env,roomId){
+  try{
+    const id=env.ROOMS.idFromName(roomId),hub=env.ROOMS.get(id);
+    await hub.fetch("https://room/notify",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action:"tab-settings"})});
+  }catch{}
+}
+
 export async function handleLogTabSettings(request,env,boardId,roomId){
   await ensureTable(env.DB);
   const linked=await env.DB.prepare(`SELECT b.admin_token,r.log_json
@@ -44,5 +51,6 @@ export async function handleLogTabSettings(request,env,boardId,roomId){
     VALUES(?,?,?,?,CURRENT_TIMESTAMP)
     ON CONFLICT(board_id,room_id) DO UPDATE SET tab_order_json=excluded.tab_order_json,hidden_tabs_json=excluded.hidden_tabs_json,updated_at=CURRENT_TIMESTAMP`)
     .bind(boardId,roomId,JSON.stringify(next.order),JSON.stringify(next.hidden)).run();
+  await broadcastChange(env,roomId);
   return json({...next,ok:true});
 }
