@@ -22,7 +22,6 @@
   <title>TRPG LOG MARKER</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="profile-compact.css">
-  <link rel="stylesheet" href="profile-dual-color.css">
   <script>if(new URL(location.href).searchParams.get("embedded")==="1")document.documentElement.classList.add("embedded")</script>
 </head>
 <body>
@@ -101,35 +100,24 @@
 
       <div class="profile-person-row profile-pl-row">
         <input id="plName" maxlength="80" required placeholder="PL名" aria-label="PL名">
-        <label class="profile-image-control" title="PL画像を選択">
-          <span id="plIconPreview" class="profile-image-preview">画像</span>
-          <span class="profile-image-text">画像</span>
-          <input id="plIconInput" type="file" accept="image/*">
-        </label>
-        <div class="profile-marker-control" aria-label="PLのマーカー色">
-          <span class="profile-marker-label">マーカー色</span>
-          <label class="marker-choice light" title="白背景用の色"><span>白</span><b id="plMarkerLightPreview"></b><input id="plMarkerColor" type="color" value="#ffe66b" aria-label="白背景用マーカー色"></label>
-          <label class="marker-choice dark" title="黒背景用の色"><span>黒</span><b id="plMarkerDarkPreview"></b><input id="plMarkerColorDark" type="color" value="#ffe66b" aria-label="黒背景用マーカー色"></label>
+        <div class="profile-image-pair">
+          <label class="profile-image-control" title="アイコン画像">
+            <span id="plIconPreview" class="profile-image-preview">画像</span>
+            <input id="plIconInput" type="file" accept="image/*">
+          </label>
+          <span class="profile-image-control profile-matrix-spacer" aria-hidden="true"></span>
         </div>
+        <div class="profile-color-pair">
+          <label class="marker-choice light" title="白背景用"><b id="plMarkerLightPreview"></b><input id="plMarkerColor" type="color" value="#ffe66b" aria-label="白背景用マーカー色"></label>
+          <label class="marker-choice dark" title="黒背景用"><b id="plMarkerDarkPreview"></b><input id="plMarkerColorDark" type="color" value="#ffe66b" aria-label="黒背景用マーカー色"></label>
+        </div>
+        <span class="profile-row-spacer" aria-hidden="true"></span>
       </div>
 
       <div id="personaList" class="profile-persona-list"></div>
+      <div class="profile-add-wrap"><button type="button" id="savePersonaBtn" class="profile-add-button" aria-label="キャラクターを追加">＋</button></div>
 
-      <div class="profile-person-row profile-add-row">
-        <input id="newPersonaName" maxlength="80" placeholder="PC名" aria-label="PC名">
-        <input id="newPersonaType" type="hidden" value="PC">
-        <label class="profile-image-control" title="PC画像を選択">
-          <span id="newPersonaImagePreview" class="profile-image-preview">画像</span>
-          <span class="profile-image-text">画像</span>
-          <input id="newPersonaIcon" type="file" accept="image/*">
-        </label>
-        <div class="profile-marker-control" aria-label="PCのマーカー色">
-          <span class="profile-marker-label">マーカー色</span>
-          <label class="marker-choice light" title="白背景用の色"><span>白</span><b id="newPersonaMarkerLightPreview"></b><input id="newPersonaColor" type="color" value="#ffe66b" aria-label="白背景用マーカー色"></label>
-          <label class="marker-choice dark" title="黒背景用の色"><span>黒</span><b id="newPersonaMarkerDarkPreview"></b><input id="newPersonaColorDark" type="color" value="#ffe66b" aria-label="黒背景用マーカー色"></label>
-        </div>
-        <button type="button" id="savePersonaBtn" class="profile-add-button">＋</button>
-      </div>
+      <input id="newPersonaName" type="hidden"><input id="newPersonaType" type="hidden" value="PC"><input id="newPersonaIcon" type="file" accept="image/*" hidden><input id="newPersonaColor" type="hidden" value="#ffe66b"><input id="newPersonaColorDark" type="hidden" value="#ffe66b">
 
       <div class="profile-transfer">
         <button type="button" id="transferToggle" class="profile-transfer-toggle">引き継ぎ設定</button>
