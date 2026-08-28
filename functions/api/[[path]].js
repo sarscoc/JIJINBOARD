@@ -41,7 +41,8 @@ const ensureRoomRevisionColumn = async db => {
   if(!names.has("annotation_version")){try{await db.prepare("ALTER TABLE rooms ADD COLUMN annotation_version INTEGER NOT NULL DEFAULT 0").run()}catch(error){if(!String(error).includes("duplicate column"))throw error}}
 };
 const ensureProfileTransfers = async db => {await db.prepare("CREATE TABLE IF NOT EXISTS profile_transfers (code TEXT PRIMARY KEY,profile_json TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run()};
-const ensureBoardsSchema = async db => {
+const boardSchemaReady=new WeakMap();
+const ensureBoardsSchemaNow = async db => {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS boards (id TEXT PRIMARY KEY,name TEXT NOT NULL,admin_token TEXT NOT NULL,owner_id TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
     db.prepare("CREATE TABLE IF NOT EXISTS board_logs (board_id TEXT NOT NULL,room_id TEXT NOT NULL,sort_order INTEGER NOT NULL DEFAULT 0,spoiler INTEGER NOT NULL DEFAULT 0,scenario_title TEXT NOT NULL DEFAULT '',scenario_participants TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(board_id,room_id),FOREIGN KEY(board_id) REFERENCES boards(id) ON DELETE CASCADE,FOREIGN KEY(room_id) REFERENCES rooms(id) ON DELETE CASCADE)"),
@@ -62,6 +63,11 @@ const ensureBoardsSchema = async db => {
   if(!(cols.results||[]).some(col=>col.name==="scenario_participants")){try{await db.prepare("ALTER TABLE board_logs ADD COLUMN scenario_participants TEXT NOT NULL DEFAULT ''").run()}catch(error){if(!String(error).includes("duplicate column"))throw error}}
   const participantCols=await db.prepare("PRAGMA table_info(board_log_participants)").all();
   if(!(participantCols.results||[]).some(col=>col.name==="matrix_icon")){try{await db.prepare("ALTER TABLE board_log_participants ADD COLUMN matrix_icon TEXT NOT NULL DEFAULT ''").run()}catch(error){if(!String(error).includes("duplicate column"))throw error}}
+};
+const ensureBoardsSchema = db => {
+  let task=boardSchemaReady.get(db);
+  if(!task){task=ensureBoardsSchemaNow(db);boardSchemaReady.set(db,task);task.catch(()=>boardSchemaReady.delete(db))}
+  return task;
 };
 const annotationSchemaReady=new WeakMap();
 const ensureAnnotationSchema = db => {
@@ -151,9 +157,9 @@ export async function onRequest(context) {
       const board=await env.DB.prepare("SELECT id,name,created_at FROM boards WHERE id=?").bind(parts[1]).first();
       if(!board)return json({error:"自陣の部屋が見つかりません"},404);
       if(method==="GET"&&parts.length===2){
-        const [result,participantResult]=await Promise.all([env.DB.prepare("SELECT room_id,sort_order,spoiler,scenario_title,scenario_participants,created_at FROM board_logs WHERE board_id=? ORDER BY sort_order,created_at").bind(parts[1]).all(),env.DB.prepare("SELECT room_id,author_id,persona_id,pl_name,persona_name,persona_icon,matrix_icon FROM board_log_participants WHERE board_id=? ORDER BY updated_at,persona_name").bind(parts[1]).all()]);
+        const [result,participantResult]=await Promise.all([env.DB.prepare("SELECT bl.room_id,bl.sort_order,bl.spoiler,bl.scenario_title,bl.scenario_participants,bl.created_at,r.title AS room_title FROM board_logs bl JOIN rooms r ON r.id=bl.room_id WHERE bl.board_id=? ORDER BY bl.sort_order,bl.created_at").bind(parts[1]).all(),env.DB.prepare("SELECT room_id,author_id,persona_id,pl_name,persona_name,persona_icon,matrix_icon FROM board_log_participants WHERE board_id=? ORDER BY updated_at,persona_name").bind(parts[1]).all()]);
         const participants=new Map();for(const item of participantResult.results||[]){const list=participants.get(item.room_id)||[];list.push({authorId:item.author_id,personaId:item.persona_id,plName:item.pl_name,name:item.persona_name,icon:publicPersonaIcon(item.room_id,item.matrix_icon||item.persona_icon),baseIcon:publicPersonaIcon(item.room_id,item.persona_icon),matrixIcon:publicPersonaIcon(item.room_id,item.matrix_icon)});participants.set(item.room_id,list)}
-        return json({id:board.id,name:board.name,createdAt:board.created_at,logs:(result.results||[]).map((item,index)=>({roomId:item.room_id,order:Number(item.sort_order)||index,spoiler:!!item.spoiler,scenarioTitle:item.scenario_title||"",scenarioParticipants:item.scenario_participants||"",createdAt:item.created_at,participants:participants.get(item.room_id)||[]}))});
+        return json({id:board.id,name:board.name,createdAt:board.created_at,logs:(result.results||[]).map((item,index)=>({roomId:item.room_id,title:item.room_title||"LOG",order:Number(item.sort_order)||index,spoiler:!!item.spoiler,scenarioTitle:item.scenario_title||"",scenarioParticipants:item.scenario_participants||"",createdAt:item.created_at,participants:participants.get(item.room_id)||[]}))});
       }
       if(parts[2]==="spreadsheet"&&parts[3]==="comments"){
         const viewer=new URL(request.url).searchParams.get("authorId")||"",id=parts[4]||"",action=parts[5]||"";
