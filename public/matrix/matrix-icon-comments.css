@@ -89,20 +89,146 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
   flex-direction:column;
   min-width:0;
   overflow:hidden;
-  background:var(--matrix-glass);
-  border:1px solid color-mix(in srgb,var(--matrix-line) 65%,transparent);
+  background:var(--matrix-glass-strong);
+  border:1px solid var(--matrix-line);
   border-radius:12px;
   box-shadow:none;
   backdrop-filter:blur(22px) saturate(135%);
   -webkit-backdrop-filter:blur(22px) saturate(135%);
-  font:12px/1.55 system-ui,-apple-system,"Noto Sans JP",sans-serif;
+  font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif;
   color:var(--matrix-ink);
 }
-.matrix-comment-head{display:flex;flex:0 0 auto;justify-content:space-between;align-items:center;padding:13px 15px;border-bottom:1px solid color-mix(in srgb,var(--matrix-line) 65%,transparent);background:var(--matrix-glass-strong);font-size:11px;letter-spacing:.12em}
-.matrix-comment-head span{font-size:12px;letter-spacing:0;margin-left:auto}
+
+/* Match LOGCOMMENTS header exactly: same padding, type, divider and no extra tint. */
+.matrix-comment-head{
+  display:flex;
+  flex:0 0 auto;
+  justify-content:space-between;
+  align-items:center;
+  padding:13px 15px;
+  border-bottom:1px solid var(--matrix-line);
+  background:transparent;
+  font-size:11px;
+  line-height:1.5;
+  letter-spacing:.12em;
+}
+.matrix-comment-head span{font:inherit;letter-spacing:inherit;margin-left:auto}
 .matrix-comment-head>button{display:none!important}
-.matrix-comment-head+section{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:10px;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--matrix-ink) 28%,transparent) transparent}
-.matrix-comment-thread{margin-bottom:9px}.matrix-comment-thread.matrix-reply{margin-left:15px;border-left:2px solid #edf0f2;padding-left:7px}.matrix-comment-card{padding:10px;border:1px solid color-mix(in srgb,var(--matrix-line) 75%,transparent);border-radius:9px;background:color-mix(in srgb,var(--matrix-glass-strong) 82%,transparent);cursor:pointer;box-shadow:none}.matrix-comment-card:hover{border-color:color-mix(in srgb,var(--matrix-ink) 28%,var(--matrix-line))}.matrix-comment-target{display:flex;gap:5px;align-items:center;font-size:10px;color:var(--matrix-muted);margin-bottom:6px}.matrix-comment-target img{width:17px;height:17px;border-radius:50%;object-fit:cover}.matrix-comment-author{display:flex;align-items:center;gap:5px;font-size:11px}.matrix-comment-avatar{width:22px;height:22px;border-radius:50%;object-fit:cover;background:#e5e9eb}.matrix-comment-author em{font-style:normal;font-size:8px;border:1px solid var(--matrix-line);border-radius:3px;padding:0 3px}.matrix-comment-author time{margin-left:auto;color:#899197;font-size:9px}.matrix-comment-author button{border:0;background:transparent;font-size:12px;cursor:pointer;padding:1px;color:#59636a}.matrix-comment-author button.liked{color:#d45a68}.matrix-comment-card p{margin:7px 0 0;white-space:normal;overflow-wrap:anywhere}.matrix-comment-empty{color:#8a9299;padding:24px 10px;text-align:center;font-size:11px}
+
+/* LOGCOMMENTS compact density: 6px list inset, 8px cards, 6px between cards. */
+.matrix-comment-head+section{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:6px;
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--matrix-ink) 32%,transparent) transparent;
+}
+.matrix-comment-thread{margin-bottom:6px}
+.matrix-comment-thread.matrix-reply{margin-left:14px}
+.matrix-comment-card{
+  padding:8px;
+  border:1px solid var(--matrix-line);
+  border-radius:9px;
+  background:var(--matrix-glass-strong);
+  cursor:pointer;
+  box-shadow:none;
+}
+.matrix-comment-card:hover{border-color:var(--matrix-ink)}
+
+/* Author row follows LOGCOMMENTS: avatar, name/type, edit, date, like, reply. */
+.matrix-comment-author{
+  display:flex;
+  align-items:center;
+  gap:4px;
+  flex-wrap:nowrap;
+  white-space:nowrap;
+  font-weight:750;
+  font-size:12px;
+  min-width:0;
+}
+.matrix-comment-avatar{
+  width:24px;
+  height:24px;
+  flex:0 0 24px;
+  border-radius:50%;
+  object-fit:contain;
+  overflow:hidden;
+  background:var(--matrix-soft);
+  border:1px solid var(--matrix-line);
+}
+.matrix-comment-author>b{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.matrix-comment-author em{
+  font-style:normal;
+  font-size:9px;
+  line-height:1.2;
+  border:1px solid var(--matrix-line);
+  border-radius:4px;
+  padding:0 3px;
+  margin-left:3px;
+  font-weight:400;
+}
+.matrix-comment-author time{
+  margin-left:auto;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  color:var(--matrix-muted);
+  opacity:.58;
+  font-size:8px;
+  font-weight:400;
+  letter-spacing:.02em;
+}
+.matrix-comment-author button{
+  flex:0 0 auto;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+  padding:0 2px;
+  line-height:1;
+  color:var(--matrix-muted);
+}
+.matrix-comment-author button[data-matrix-edit]{font-size:9px}
+.matrix-comment-author button[data-matrix-like]{font-size:11px;color:#fff;text-shadow:0 0 1px rgba(0,0,0,.8)}
+.matrix-comment-author button[data-matrix-like].liked{color:#e73152;text-shadow:none}
+.matrix-comment-author button[data-matrix-reply]{font-size:13px;opacity:.55}
+.matrix-comment-author button[data-matrix-reply]:hover{color:var(--matrix-ink);opacity:1}
+
+/* MATRIX-specific lower row: target icon > comment body. Target name is intentionally hidden. */
+.matrix-comment-body-row{
+  display:grid;
+  grid-template-columns:24px 10px minmax(0,1fr);
+  align-items:start;
+  gap:4px;
+  margin-top:4px;
+  min-width:0;
+}
+.matrix-comment-target-icon{
+  display:block;
+  width:24px;
+  height:24px;
+  border-radius:50%;
+  object-fit:contain;
+  background:var(--matrix-soft);
+  border:1px solid var(--matrix-line);
+}
+.matrix-comment-target-empty{display:block}
+.matrix-comment-target-arrow{
+  color:var(--matrix-muted);
+  font-size:14px;
+  line-height:24px;
+  text-align:center;
+  opacity:.7;
+}
+.matrix-comment-body-row p{
+  min-width:0;
+  margin:2px 0 0;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  line-height:1.5;
+}
+.matrix-comment-empty{color:var(--matrix-muted);padding:32px 8px;text-align:center;font-size:12px}
 
 /* Comment jump: exactly one soft pulse around the image alpha silhouette. */
 .matrix-comment-flash .placed-avatar{box-shadow:none!important;outline:0!important}
