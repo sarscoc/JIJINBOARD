@@ -1,13 +1,13 @@
 "use strict";
 
 // Import TRPG LOG MARKER's JSON log files through the same upload flow as HTML.
-// Accept both historical `.trpglog` and the friendlier `.trpg.log` spelling.
+// Accept historical `.trpglog`, `.trpg.log`, and the literal `trpg.log` filename.
 (() => {
   const baseHandleFile = handleFile;
 
   function isTrpgLogFile(file) {
     const name = String(file?.name || "").toLowerCase();
-    return name.endsWith(".trpglog") || name.endsWith(".trpg.log");
+    return name === "trpg.log" || name.endsWith(".trpglog") || name.endsWith(".trpg.log");
   }
 
   function unique(values) {
@@ -39,6 +39,7 @@
     const fallbackTitle = String(filename || "TRPGログ")
       .replace(/\.trpg\.log$/i, "")
       .replace(/\.trpglog$/i, "")
+      .replace(/^trpg\.log$/i, "TRPG LOG")
       .trim();
 
     return {
