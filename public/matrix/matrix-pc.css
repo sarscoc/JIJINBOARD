@@ -31,9 +31,9 @@ body:has(.stage-toolbar-primary) .past-template-grid .template-tab-preview{margi
 .matrix-pc-option b{font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .matrix-pc-menu-empty{padding:8px;color:#8b9399;font-size:9px;text-align:center}
 
-/* Keep the existing template-scale control beside the PC picker. */
+/* Template-follow scaling is always ON; the old checkbox is no longer a setting. */
 .stage-toolbar-primary{display:flex!important;align-items:center!important;gap:8px!important}
-.stage-toolbar-primary .toolbar-scale-check{margin:0!important}
+.stage-toolbar-primary .toolbar-scale-check{display:none!important}
 
 /* Shared toolbar baseline with LOGCOMMENTS: 30px row / 28px controls / 9px type. */
 html.embedded .stage-area-toolbar .btn,
@@ -50,15 +50,6 @@ html.embedded .stage-area-toolbar .btn,
 html.embedded .stage-area-toolbar button{
   padding-top:0!important;
   padding-bottom:0!important;
-}
-html.embedded .stage-area-toolbar .toolbar-scale-check{
-  height:28px!important;
-  min-height:28px!important;
-  max-height:28px!important;
-  display:flex!important;
-  align-items:center!important;
-  font-size:9px!important;
-  line-height:1!important;
 }
 
 /* Flat board styling: controls rely on border + translucency, not elevation. */
