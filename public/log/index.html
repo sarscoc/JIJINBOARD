@@ -41,10 +41,10 @@
         <span class="drop-note">または、ここへドロップ</span>
       </label>
       <label class="spoiler-setting"><input id="spoilerInput" type="checkbox"> この部屋をネタバレ有りにする</label>
-      <p class="participant-note">参加PCは、ログを開いたときのPL設定で登録します。</p>
+      <div id="spoilerDetails" class="spoiler-details hidden"><label>シナリオタイトル（スポイラー表示用）<input id="scenarioTitleInput" maxlength="120" placeholder="例：月無館殺戮遊戯"></label><label>参加PC（スポイラー表示用）<input id="scenarioParticipantsInput" maxlength="300" placeholder="例：PC A / PC B / PC C"></label></div>
       <div id="importPreview" class="import-preview hidden">
         <div><strong id="importTitle"></strong><span id="importCount"></span></div>
-        <button id="createRoomBtn" class="primary">秘密の部屋を作る</button>
+        <button id="createRoomBtn" class="primary">アップロードする</button>
       </div>
       <p id="homeStatus" class="status"></p>
     </section>

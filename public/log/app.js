@@ -86,9 +86,9 @@ async function createRoom() {
     const result = await api("/api/rooms", { method: "POST",headers:{"x-site-owner-key":localStorage.getItem("trpgMarkerSiteOwnerKey")||""}, body: JSON.stringify({...state.parsed,creatorId:state.profile.id}) });
     localStorage.setItem(`admin:${result.id}`, result.adminToken);
     const owned=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}");owned[result.id]={title:state.parsed.title,createdAt:new Date().toISOString()};localStorage.setItem("trpgMarkerOwnedRooms",JSON.stringify(owned));
-    if(integrationEmbedded&&integrationBoardId&&parent!==window)parent.postMessage({type:"jijinboard-room-created",roomId:result.id,adminToken:result.adminToken,title:state.parsed.title,spoiler:!!$("#spoilerInput")?.checked},location.origin);
+    if(integrationEmbedded&&integrationBoardId&&parent!==window)parent.postMessage({type:"jijinboard-room-created",roomId:result.id,adminToken:result.adminToken,title:state.parsed.title,spoiler:!!$("#spoilerInput")?.checked,scenarioTitle:$("#scenarioTitleInput")?.value.trim()||"",scenarioParticipants:$("#scenarioParticipantsInput")?.value.trim()||""},location.origin);
     else location.href = `/log/?room=${encodeURIComponent(result.id)}`;
-  } catch (e) { $("#homeStatus").textContent = e.message; btn.disabled = false; btn.textContent = "秘密の部屋を作る"; }
+  } catch (e) { $("#homeStatus").textContent = e.message; btn.disabled = false; btn.textContent = "アップロードする"; }
 }
 async function renderOwnedRooms(){const ids=[];for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith("admin:"))ids.push(key.slice(6))}const box=$("#ownedRooms"),list=$("#ownedRoomList");if(!ids.length){box.classList.add("hidden");return}const saved=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}"),rooms=await Promise.all(ids.map(async id=>{try{const room=await api(`/api/rooms/${encodeURIComponent(id)}?summary=1`);return{id,title:room.title,createdAt:room.createdAt,available:true}}catch{return{id,title:saved[id]?.title||"読み込めない部屋",createdAt:saved[id]?.createdAt||"",available:false}}}));rooms.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));list.innerHTML=rooms.map(room=>`<div class="owned-room ${room.available?"":"unavailable"}" data-owned-room="${esc(room.id)}"><a href="/log/?room=${encodeURIComponent(room.id)}"><span><b>${esc(room.title)}</b><small>${room.createdAt?esc(formatCommentDate(room.createdAt)):""}</small></span><i>${room.available?"開く ›":"確認できません"}</i></a><button type="button" class="room-delete" data-delete-room="${esc(room.id)}" data-room-title="${esc(room.title)}" title="部屋を削除">×</button></div>`).join("");box.classList.remove("hidden")}
 function rememberRecentRoom(room){const recent=JSON.parse(localStorage.getItem("trpgMarkerRecentRooms")||"[]").filter(item=>item.id!==room.id);recent.unshift({id:room.id,title:room.title,visitedAt:new Date().toISOString()});localStorage.setItem("trpgMarkerRecentRooms",JSON.stringify(recent.slice(0,20)))}
@@ -356,6 +356,7 @@ loadProfile();
 function applyTheme(theme){document.documentElement.classList.toggle("dark",theme==="dark")}applyTheme(localStorage.getItem("theme")||"light");
 $("#themeBtn").onclick=()=>{const theme=document.documentElement.classList.contains("dark")?"light":"dark";applyTheme(theme);localStorage.setItem(state.roomId?`theme:${state.roomId}`:"theme",theme)};
 $("#fileInput").onchange=e=>e.target.files[0]&&handleFile(e.target.files[0]);
+$("#spoilerInput").onchange=e=>$("#spoilerDetails").classList.toggle("hidden",!e.target.checked);
 for(const ev of ["dragenter","dragover"]){$("#dropzone").addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.add("drag")})}
 for(const ev of ["dragleave","drop"]){$("#dropzone").addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.remove("drag")})}
 $("#dropzone").addEventListener("drop",e=>e.dataTransfer.files[0]&&handleFile(e.dataTransfer.files[0]));

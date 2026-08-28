@@ -4248,7 +4248,7 @@ async function renderTemplateTabs(){
       marker.className=icon?'template-preview-icon':'template-preview-dot';
       marker.style.left=`${Number.isFinite(pointX)?pointX:50}%`;
       marker.style.top=`${Number.isFinite(pointY)?pointY:50}%`;
-      if(icon)marker.src=icon;
+      if(icon){marker.src=icon;applyShapeClass(marker);bindIconImage(marker,local?.crop,currentIconShape())}
       preview.appendChild(marker);
     });
     open.appendChild(preview);
