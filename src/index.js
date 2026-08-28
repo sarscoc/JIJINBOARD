@@ -1,6 +1,7 @@
 import { onRequest as handleApi } from "../functions/api/[[path]].js";
 import { RoomHub } from "../realtime-worker/src/index.js";
 import { ensureSchema } from "./schema.js";
+import { handleLogTabSettings } from "./log-tab-settings.js";
 
 export { RoomHub };
 
@@ -22,6 +23,12 @@ export default {
     }
 
     await ensureSchema(env.DB);
+
+    const tabSettingsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/log-tab-settings\/([^/]+)$/);
+    if(tabSettingsMatch){
+      return handleLogTabSettings(request,env,decodeURIComponent(tabSettingsMatch[1]),decodeURIComponent(tabSettingsMatch[2]));
+    }
+
     const path = url.pathname.slice("/api/".length).split("/").filter(Boolean);
 
     return handleApi({
