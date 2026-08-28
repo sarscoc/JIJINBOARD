@@ -21,6 +21,7 @@
   <meta name="twitter:image:alt" content="TRPG LOG MARKER">
   <title>TRPG LOG MARKER</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="profile-compact.css">
   <script>if(new URL(location.href).searchParams.get("embedded")==="1")document.documentElement.classList.add("embedded")</script>
 </head>
 <body>
@@ -93,19 +94,60 @@
     <form method="dialog"><div class="dialog-head"><strong id="deleteRoomTitle">部屋を削除しますか？</strong><button type="button" class="icon-btn" data-close>×</button></div><p class="delete-room-note">ログと感想は元に戻せません。</p><div class="delete-room-actions"><button id="saveDeleteRoomBtn" type="button" class="primary">保存して削除</button><button id="deleteOnlyRoomBtn" type="button" class="danger-quiet">削除だけ</button><button type="button" class="quiet" data-close>キャンセル</button></div></form>
   </dialog>
 
-  <dialog id="profileDialog">
+  <dialog id="profileDialog" class="compact-profile-dialog">
     <form id="profileForm" method="dialog">
-      <div class="dialog-head"><strong>発言者の設定</strong><button type="button" class="icon-btn" data-close>×</button></div>
-      <label>あなたのPL名<input id="plName" maxlength="80" required></label>
-      <label class="avatar-upload"><span id="plIconPreview" class="avatar-preview"></span><span>PLアイコンを選択</span><input id="plIconInput" type="file" accept="image/*"></label>
-      <label class="marker-color-field">PLのマーカー色<input id="plMarkerColor" type="color" value="#ffe66b"></label>
-      <div id="personaList"></div>
-      <div class="inline-fields"><input id="newPersonaName" maxlength="80" placeholder="キャラクター名"><select id="newPersonaType"><option value="PC">PC</option><option value="NPC">NPC</option></select><input id="newPersonaColor" type="color" value="#ffe66b" title="マーカー色"><label class="mini-upload">画像<input id="newPersonaIcon" type="file" accept="image/*"></label><button type="button" id="savePersonaBtn" class="quiet">追加</button></div>
-      <div class="inline-fields"><button type="button" id="issueTransferBtn" class="quiet">別端末へ引き継ぐ</button><input id="transferCodeInput" maxlength="20" placeholder="引き継ぎコード"><button type="button" id="redeemTransferBtn" class="quiet">引き継ぐ</button></div>
-      <button type="submit" class="primary">保存</button>
+      <div class="profile-close-row"><button type="button" class="icon-btn" data-close aria-label="閉じる">×</button></div>
+
+      <div class="profile-person-row profile-pl-row">
+        <input id="plName" maxlength="80" required placeholder="PL名" aria-label="PL名">
+        <label class="profile-image-control" title="PL画像を選択">
+          <span id="plIconPreview" class="profile-image-preview">画像</span>
+          <span class="profile-image-text">画像</span>
+          <input id="plIconInput" type="file" accept="image/*">
+        </label>
+        <label class="profile-marker-control" title="マーカー色">
+          <span class="profile-marker-label">マーカー色</span>
+          <span class="profile-marker-samples" id="plMarkerSamples">
+            <i class="marker-sample light"><b></b></i><i class="marker-sample dark"><b></b></i>
+          </span>
+          <input id="plMarkerColor" type="color" value="#ffe66b" aria-label="PLのマーカー色">
+        </label>
+      </div>
+
+      <div id="personaList" class="profile-persona-list"></div>
+
+      <div class="profile-person-row profile-add-row">
+        <input id="newPersonaName" maxlength="80" placeholder="PC名" aria-label="PC名">
+        <input id="newPersonaType" type="hidden" value="PC">
+        <label class="profile-image-control" title="PC画像を選択">
+          <span id="newPersonaImagePreview" class="profile-image-preview">画像</span>
+          <span class="profile-image-text">画像</span>
+          <input id="newPersonaIcon" type="file" accept="image/*">
+        </label>
+        <label class="profile-marker-control" title="マーカー色">
+          <span class="profile-marker-label">マーカー色</span>
+          <span class="profile-marker-samples" id="newPersonaMarkerSamples">
+            <i class="marker-sample light"><b></b></i><i class="marker-sample dark"><b></b></i>
+          </span>
+          <input id="newPersonaColor" type="color" value="#ffe66b" aria-label="PCのマーカー色">
+        </label>
+        <button type="button" id="savePersonaBtn" class="profile-add-button">＋</button>
+      </div>
+
+      <div class="profile-transfer">
+        <button type="button" id="transferToggle" class="profile-transfer-toggle">引き継ぎ設定</button>
+        <div id="transferPanel" class="profile-transfer-panel hidden">
+          <button type="button" id="issueTransferBtn" class="quiet">別端末へ引き継ぐ</button>
+          <input id="transferCodeInput" maxlength="20" placeholder="引き継ぎコード">
+          <button type="button" id="redeemTransferBtn" class="quiet">引き継ぐ</button>
+        </div>
+      </div>
+
+      <button type="submit" class="primary profile-save">保存</button>
     </form>
   </dialog>
   <script src="app.js"></script>
+  <script src="profile-compact.js"></script>
   <script src="flat-log-parser.js"></script>
   <script src="trpg-log-import.js"></script>
   <script src="virtual-log.js"></script>
