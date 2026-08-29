@@ -97,8 +97,49 @@
     if(window.ResizeObserver){const ro=new ResizeObserver(place);ro.observe(layout)}
     if(window.MutationObserver){const mo=new MutationObserver(place);mo.observe(layout,{attributes:true,attributeFilter:['class','style']})}
   }
-  function setMode(next){mode=next;localStorage.setItem('sheetCommentMode',mode);document.body.classList.toggle('sheet-comment-mode',mode==='comment');document.querySelectorAll('[data-sheet-mode]').forEach(b=>b.classList.toggle('on',b.dataset.sheetMode===mode))}
-  function controls(){if(document.querySelector('#sheetCommentModes'))return;const el=document.createElement('div');el.id='sheetCommentModes';el.innerHTML='<button data-sheet-mode="edit">編集</button><button data-sheet-mode="comment">コメント</button><button type="button" data-open-sheet-comments>COMMENTS</button>';document.querySelector('.table-actions')?.prepend(el);el.querySelectorAll('[data-sheet-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.sheetMode));el.querySelector('[data-open-sheet-comments]').onclick=()=>ui().hidden=false;setMode(mode)}
+
+  function syncModeToggle(){
+    const head=document.querySelector('.data-sheet thead .item-col');
+    if(!head)return;
+    let button=head.querySelector('#sheetModeToggle');
+    if(!button){
+      head.textContent='';
+      button=document.createElement('button');
+      button.type='button';
+      button.id='sheetModeToggle';
+      button.onclick=event=>{event.preventDefault();event.stopPropagation();setMode(mode==='comment'?'edit':'comment')};
+      const label=document.createElement('span');
+      label.className='sheet-item-heading-label';
+      label.textContent='項目';
+      head.append(button,label);
+    }
+    button.textContent=mode==='comment'?'コメント':'編集';
+    button.dataset.mode=mode;
+    button.title=mode==='comment'?'クリックで編集モードへ':'クリックでコメントモードへ';
+  }
+  function setMode(next){
+    mode=next;
+    localStorage.setItem('sheetCommentMode',mode);
+    document.body.classList.toggle('sheet-comment-mode',mode==='comment');
+    syncModeToggle();
+  }
+  function controls(){
+    let el=document.querySelector('#sheetCommentModes');
+    if(!el){
+      el=document.createElement('div');
+      el.id='sheetCommentModes';
+      el.innerHTML='<button type="button" data-open-sheet-comments>COMMENTS</button>';
+      document.querySelector('.table-actions')?.prepend(el);
+      el.querySelector('[data-open-sheet-comments]').onclick=()=>ui().hidden=false;
+    }
+    syncModeToggle();
+    const root=document.getElementById('dataTableRoot');
+    if(root&&!root.dataset.modeToggleObserved){
+      root.dataset.modeToggleObserved='1';
+      new MutationObserver(syncModeToggle).observe(root,{childList:true,subtree:true});
+    }
+    setMode(mode);
+  }
   function ui(){let a=document.querySelector('#sheetComments');if(a)return a;a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head"><b>COMMENTS <span></span></b><button type="button" title="コメントを閉じる">×</button></div><section><p>読み込み中…</p></section>';a.querySelector('button').onclick=()=>a.hidden=true;document.body.append(a);return a}
   function card(c){return `<article data-cell="${c.cell_id}"><small>${c.persona_name} [${c.persona_type}]</small><p>${c.body}</p><button data-like="${c.id}">${c.liked_by_me?'♥':'♡'}${c.like_count||''}</button><button data-reply="${c.id}">↩</button>${c.author_id===me()?.id?`<button data-edit="${c.id}">✎</button>`:''}</article>`}
   async function load(){try{comments=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(me()?.id||'')}`)).comments||[]}catch(error){console.warn('Spreadsheet comments load failed',error);comments=[]}const a=ui();a.querySelector('b span').textContent=comments.length;a.querySelector('section').innerHTML=comments.map(card).join('')||'<p>セルへのコメントがここに並びます。</p>'}
