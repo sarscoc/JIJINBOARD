@@ -4,6 +4,7 @@ import { ensureSchema } from "./schema.js";
 import { handleLogTabSettings } from "./log-tab-settings.js";
 import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
 import { handleBoardTheme } from "./board-theme.js";
+import { handleGroupRowColors } from "./group-row-colors.js";
 
 export { RoomHub };
 
@@ -60,6 +61,11 @@ export default {
     const themeMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/theme$/);
     if(themeMatch){
       return handleBoardTheme(request,env,decodeURIComponent(themeMatch[1]));
+    }
+
+    const groupColorsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);
+    if(groupColorsMatch){
+      return handleGroupRowColors(request,env,decodeURIComponent(groupColorsMatch[1]));
     }
 
     const matrixTemplateCommentsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);
