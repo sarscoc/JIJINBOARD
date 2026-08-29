@@ -3,6 +3,7 @@ import { RoomHub } from "../realtime-worker/src/index.js";
 import { ensureSchema } from "./schema.js";
 import { handleLogTabSettings } from "./log-tab-settings.js";
 import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
+import { handleBoardTheme } from "./board-theme.js";
 
 export { RoomHub };
 
@@ -54,6 +55,11 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/profile-transfers") {
       return createProfileTransfer(request, env);
+    }
+
+    const themeMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/theme$/);
+    if(themeMatch){
+      return handleBoardTheme(request,env,decodeURIComponent(themeMatch[1]));
     }
 
     const matrixTemplateCommentsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);
