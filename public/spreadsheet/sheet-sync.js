@@ -1,5 +1,8 @@
 (()=>{
-  const board=new URL(location.href).searchParams.get('board');if(!board)return;
+  const pageParams=new URL(location.href).searchParams;
+  const board=pageParams.get('board');if(!board)return;
+  const embedded=pageParams.get('embedded')==='1';
+  let boardActive=!embedded;
 
   const keys=['charaHub.characters','charaHub.sources','charaHub.layoutV1'];
   const emptyFor=k=>k==='charaHub.layoutV1'?{}:[];
@@ -9,8 +12,6 @@
   const meaningful=s=>(s?.['charaHub.characters']||[]).length||(s?.['charaHub.sources']||[]).length||(s?.['charaHub.layoutV1']?.localItems||[]).length||(s?.['charaHub.layoutV1']?.parts||[]).length||(s?.['charaHub.layoutV1']?.groups||[]).length;
   const endpoint=`/api/boards/${encodeURIComponent(board)}/spreadsheet/state`;
 
-  // Character data belongs to the Character manager only. Never resurrect old
-  // project/person records that were automatically injected by the old bootstrap.
   const autoKeys=new Set(['id','projectPersonId','name','alias','key','base','sources','local']);
   const isAutoProjectCharacter=ch=>!!ch&&ch.local===true&&ch.base==null&&Array.isArray(ch.sources)&&ch.sources.length===0&&!String(ch.alias||'').trim()&&!!ch.projectPersonId&&ch.id===ch.projectPersonId&&Object.keys(ch).every(k=>autoKeys.has(k));
   function sanitizeSnapshot(input){
@@ -32,7 +33,7 @@
     return out;
   }
 
-  let timer=0,loading=true;
+  let timer=0,loading=true,readySent=false,secondaryRenderQueued=false;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
   const pushNow=async()=>{if(loading)return;clearTimeout(timer);timer=0;try{await api(endpoint,{method:'POST',body:JSON.stringify({state:sanitizeSnapshot(read())})})}catch(error){console.warn('Spreadsheet sync save failed',error)}};
   const push=()=>{if(loading)return;clearTimeout(timer);timer=setTimeout(pushNow,700)};
@@ -41,7 +42,7 @@
     const name=String(key),result=rawSetItem.call(this,key,value);
     if(this!==localStorage||!keys.includes(name))return result;
     if(name==='charaHub.characters'){
-      const next=Array.isArray(parse(name,value))?parse(name,value):[];
+      const parsed=parse(name,value),next=Array.isArray(parsed)?parsed:[];
       const nextIds=new Set(next.map(ch=>ch?.id).filter(Boolean));
       const deleted=[...lastCharacterIds].some(id=>!nextIds.has(id));
       lastCharacterIds=nextIds;
@@ -50,6 +51,18 @@
     push();
     return result;
   };
+
+  function queueSecondaryRender(){
+    if(secondaryRenderQueued)return;
+    secondaryRenderQueued=true;
+    const run=()=>{
+      secondaryRenderQueued=false;
+      try{if(typeof renderCharacters==='function')renderCharacters()}catch(error){console.warn(error)}
+      try{if(typeof renderSources==='function')renderSources()}catch(error){console.warn(error)}
+    };
+    if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:1200});
+    else setTimeout(run,80);
+  }
 
   function applyRemote(remote){
     const clean=sanitizeSnapshot(remote||{});
@@ -62,15 +75,11 @@
     lastCharacterIds=new Set(state.characters.map(ch=>ch.id));
     try{if(typeof ensureLayoutShape==='function')ensureLayoutShape()}catch(error){console.warn(error)}
     try{if(typeof migrateCharacters==='function')migrateCharacters()}catch(error){console.warn(error)}
-    try{if(typeof renderCharacters==='function')renderCharacters()}catch(error){console.warn(error)}
-    try{if(typeof renderSources==='function')renderSources()}catch(error){console.warn(error)}
     try{if(typeof setMainView==='function')setMainView();else if(typeof renderDataTable==='function')renderDataTable()}catch(error){console.warn(error)}
+    queueSecondaryRender();
     return clean;
   }
 
-  // Always open the Character manager first. Previously openCharacterManage()
-  // rendered the list before showing the modal, so one bad Character render made
-  // the toolbar button look permanently dead after a Character had been created.
   const characterManageButton=document.getElementById('characterManageBtn');
   if(characterManageButton){
     characterManageButton.onclick=()=>{
@@ -82,11 +91,8 @@
     };
   }
 
-  // Character sheet answers use textareas, but every text item should behave like
-  // ordinary text: one line when empty/short, then grow only by the wrapped lines.
-  // Clear legacy row/field minimum heights here so every layout follows one rule.
   const fitCharacterField=el=>{
-    if(!el)return;
+    if(!el||!boardActive||loading)return;
     el.setAttribute('wrap','soft');
     el.style.setProperty('white-space','pre-wrap','important');
     el.style.setProperty('overflow-wrap','anywhere','important');
@@ -113,23 +119,48 @@
     const contentHeight=el.scrollHeight+borderY;
     el.style.setProperty('height',`${Math.ceil(Math.max(oneLine,contentHeight))}px`,'important');
   };
-  let characterFitRaf=0;
+  let characterFitRaf=0,characterFitObserver=null;
+  const fullCharacterRoot=document.getElementById('fullCharacterMode');
   const fitCharacterFields=()=>{
-    if(characterFitRaf)return;
+    if(!boardActive||loading||characterFitRaf)return;
     characterFitRaf=requestAnimationFrame(()=>{
       characterFitRaf=0;
+      if(!boardActive||loading)return;
       document.querySelectorAll('#fullCharacterMode .character-sheet-edit,.connected-character-page .character-sheet-edit,.character-popup .character-sheet-edit').forEach(fitCharacterField);
     });
   };
-  document.addEventListener('input',event=>{
-    if(event.target?.matches?.('.character-sheet-edit'))fitCharacterField(event.target);
-  },true);
-  const fullCharacterRoot=document.getElementById('fullCharacterMode');
-  if(fullCharacterRoot&&window.MutationObserver){
-    new MutationObserver(fitCharacterFields).observe(fullCharacterRoot,{childList:true,subtree:true});
+  function syncFitObserver(){
+    if(characterFitObserver){characterFitObserver.disconnect();characterFitObserver=null}
+    if(!boardActive||loading||!fullCharacterRoot||!window.MutationObserver)return;
+    characterFitObserver=new MutationObserver(fitCharacterFields);
+    characterFitObserver.observe(fullCharacterRoot,{childList:true,subtree:true});
   }
-  window.addEventListener('resize',fitCharacterFields,{passive:true});
-  fitCharacterFields();
+  function setBoardActive(next){
+    boardActive=!!next;
+    if(!boardActive){
+      if(characterFitRaf){cancelAnimationFrame(characterFitRaf);characterFitRaf=0}
+      syncFitObserver();
+      return;
+    }
+    syncFitObserver();
+    fitCharacterFields();
+  }
+  document.addEventListener('input',event=>{
+    if(boardActive&&event.target?.matches?.('.character-sheet-edit'))fitCharacterField(event.target);
+  },true);
+  window.addEventListener('resize',()=>{if(boardActive)fitCharacterFields()},{passive:true});
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin)return;
+    if(event.data?.type==='jijinboard-spreadsheet-active')setBoardActive(event.data.active);
+  });
+
+  function notifyReady(){
+    if(readySent)return;
+    readySent=true;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      try{parent.postMessage({type:'jijinboard-spreadsheet-ready'},location.origin)}catch{}
+    }));
+  }
 
   (async()=>{
     let remote=null,cleanRemote=null;
@@ -147,8 +178,9 @@
       console.warn('Spreadsheet initial sync failed',error);
     }finally{
       loading=false;
-      fitCharacterFields();
-      requestAnimationFrame(()=>{if(window.frameElement)window.frameElement.style.visibility=''});
+      syncFitObserver();
+      if(boardActive)fitCharacterFields();
+      notifyReady();
     }
     if(remote&&JSON.stringify(remote)!==JSON.stringify(cleanRemote))pushNow();
   })();
