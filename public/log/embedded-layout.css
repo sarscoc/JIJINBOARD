@@ -1,6 +1,9 @@
 /* JIJINBOARD embed: exact shared geometry with MAGIA MATRIX.
    Desktop baseline: 12px outer inset -> 30px toolbar -> 8px gap -> reader/comments. */
 
+/* JIJINBOARD owns white/black per log. Never expose the old per-viewer toggle. */
+html.embedded #themeBtn{display:none!important}
+
 @media (min-width:801px){
   :root{
     --embed-page-pad:12px;
@@ -174,4 +177,12 @@
     overscroll-behavior:contain;
     scrollbar-gutter:auto!important;
   }
+  /* Chrome can paint a themed scrollbar even in the compact empty state.
+     Suppress it explicitly; once comments exist overflow:auto takes over and
+     the bar only appears when the available screen height is actually exceeded. */
+  html.embedded .comments-pane:has(.comments-list>.empty) .comments-list{
+    overflow-y:hidden!important;
+    scrollbar-width:none!important;
+  }
+  html.embedded .comments-pane:has(.comments-list>.empty) .comments-list::-webkit-scrollbar{display:none!important}
 }
