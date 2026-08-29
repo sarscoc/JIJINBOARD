@@ -1,1 +1,70 @@
 #sheetCommentModes{display:flex;align-items:center;gap:3px;margin:0;height:28px;flex:0 0 auto}#sheetCommentModes button{box-sizing:border-box;height:28px;min-height:28px;max-height:28px;border:1px solid #e2e7ed;background:rgba(255,255,255,.82);border-radius:7px;padding:0 8px;font-size:9px;line-height:1.2;cursor:pointer;box-shadow:none;white-space:nowrap}#sheetCommentModes button.on{background:#20252b;color:#fff;border-color:#20252b}.sheet-comment-mode [data-sheet-cell]{cursor:comment}.sheet-comment-mode [data-sheet-cell] input,.sheet-comment-mode [data-sheet-cell] textarea,.sheet-comment-mode [data-sheet-cell] select{pointer-events:none}.sheet-comment-mode [data-sheet-cell]:hover{outline:2px solid #cad4ff;outline-offset:-2px}
+
+/* Embedded GROUP navigator: live only in the 12px gradient gutter.
+   #databaseLayout has backdrop-filter, so position:fixed inside it is NOT viewport-fixed.
+   Keep the existing TOC DOM, move it one page-padding to the left, and let only the
+   sheet itself handle scrolling. */
+@media(min-width:801px){
+  html.embedded body .app #tablePanel{overflow:visible!important}
+  html.embedded body .app #tablePanel #databaseLayout{overflow:visible!important}
+  html.embedded body .app #tablePanel #databaseLayout>.database-main{
+    overflow:hidden!important;
+    border-radius:12px!important
+  }
+  html.embedded body .app #tablePanel #databaseLayout>.database-toc{
+    display:block!important;
+    position:absolute!important;
+    top:0!important;
+    bottom:0!important;
+    left:calc(-1 * var(--sheet-page-pad))!important;
+    width:var(--sheet-page-pad)!important;
+    min-width:var(--sheet-page-pad)!important;
+    height:auto!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+    overflow:visible!important;
+    z-index:70!important;
+    cursor:pointer!important
+  }
+  html.embedded body .app #tablePanel #databaseLayout>.database-toc::before{
+    content:"︙"!important;
+    position:absolute!important;
+    left:50%!important;
+    top:50%!important;
+    width:auto!important;
+    height:auto!important;
+    transform:translate(-50%,-50%)!important;
+    display:block!important;
+    padding:0!important;
+    margin:0!important;
+    color:rgba(73,82,96,.55)!important;
+    background:transparent!important;
+    border:0!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    font-size:14px!important;
+    line-height:1!important;
+    pointer-events:none!important
+  }
+  html.embedded body .app #tablePanel #databaseLayout>.database-toc:hover::before{
+    color:rgba(40,47,58,.86)!important
+  }
+  html.embedded body .app #tablePanel #databaseLayout>.database-toc>.database-toc-inner{
+    position:absolute!important;
+    top:50%!important;
+    left:var(--sheet-page-pad)!important;
+    width:154px!important;
+    max-width:154px!important;
+    max-height:calc(100% - 16px)!important;
+    transform:translate(-5px,-50%)!important
+  }
+  html.embedded body .app #tablePanel #databaseLayout>.database-toc:hover>.database-toc-inner,
+  html.embedded body .app #tablePanel #databaseLayout>.database-toc:focus-within>.database-toc-inner{
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:translate(0,-50%)!important
+  }
+}
