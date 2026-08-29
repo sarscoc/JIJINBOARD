@@ -1,0 +1,25 @@
+#boardSettingsOverlay .board-settings-panel:has(.scoped-theme-ui){
+  width:min(520px,calc(100vw - 20px))!important;
+  height:min(350px,calc(100vh - 62px))!important;
+  min-height:0!important;
+}
+#boardSettingsOverlay .scoped-theme-ui{gap:5px!important;padding:6px!important;font-size:8px!important}
+#boardSettingsOverlay .scoped-theme-section{gap:5px!important;padding:7px!important;border-radius:8px!important}
+#boardSettingsOverlay .scoped-theme-head{gap:6px!important}
+#boardSettingsOverlay .scoped-theme-head b{font-size:9px!important}
+#boardSettingsOverlay .scoped-theme-head span{font-size:7px!important}
+#boardSettingsOverlay .scoped-theme-grid{gap:5px!important}
+#boardSettingsOverlay .scoped-theme-grid:has(#scopedColor1){grid-template-columns:1fr!important}
+#boardSettingsOverlay .scoped-theme-grid:has(#scopedAlt){grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)!important}
+#boardSettingsOverlay .scoped-theme-field{min-height:31px!important;padding:4px 6px!important;border-radius:7px!important}
+#boardSettingsOverlay .scoped-theme-field input[type=color]{width:36px!important;height:23px!important;border-radius:5px!important}
+#boardSettingsOverlay .scoped-bg-modes{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:4px!important}
+#boardSettingsOverlay .scoped-bg-modes label{padding:5px!important;border-radius:7px!important;font-size:8px!important}
+#boardSettingsOverlay .scoped-theme-row{grid-template-columns:minmax(0,.9fr) minmax(0,1.35fr) auto!important;gap:5px!important}
+#boardSettingsOverlay .scoped-theme-ui button{height:27px!important;padding:0 8px!important;font-size:8px!important;border-radius:6px!important}
+#boardSettingsOverlay .scoped-theme-actions{margin-top:0!important}
+@media(max-width:620px){
+  #boardSettingsOverlay .board-settings-panel:has(.scoped-theme-ui){width:calc(100vw - 14px)!important;height:min(390px,calc(100vh - 57px))!important}
+  #boardSettingsOverlay .scoped-bg-modes{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  #boardSettingsOverlay .scoped-theme-row{grid-template-columns:1fr!important}
+}
