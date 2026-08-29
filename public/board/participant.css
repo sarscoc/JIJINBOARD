@@ -29,7 +29,9 @@
 }
 #boardSettingsOverlay .board-settings-tabs{padding:9px 5px!important}
 #boardSettingsOverlay .board-settings-tab{min-height:36px!important;font-size:7px!important}
-#boardSettingsOverlay .board-settings-main{grid-template-rows:minmax(0,1fr)!important}
+#boardSettingsOverlay .board-settings-main{display:grid!important;grid-template-rows:minmax(0,1fr)!important;height:100%!important;min-height:0!important}
+#boardSettingsOverlay .board-settings-pages{height:100%!important;min-height:0!important}
+#boardSettingsOverlay .board-settings-page{height:100%!important;min-height:0!important}
 #boardSettingsOverlay .board-settings-head{display:none!important}
 #boardSettingsOverlay .board-settings-page{padding:8px 9px 9px!important}
 #boardSettingsOverlay .board-settings-general{gap:7px!important}
