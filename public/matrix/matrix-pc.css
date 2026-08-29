@@ -30,6 +30,34 @@ html.embedded .canvas.matrix-pc-dragover{outline:1px solid rgba(102,126,146,.42)
 /* Template-follow scaling is always ON; the old checkbox is no longer a setting. */
 .stage-toolbar-primary .toolbar-scale-check{display:none!important}
 
+/* Board UI cleanup: icon ZIP export is not exposed here. */
+#exportIconsBtn{display:none!important}
+
+/* Destructive template action lives after every Display Settings option.
+   Keep it as quiet text at the lower-right, not as a button block. */
+#displaySettingsBody #deleteCurrentTemplateBtn:not([hidden]){
+  display:block!important;
+  grid-column:1/-1!important;
+  justify-self:end!important;
+  width:max-content!important;
+  height:auto!important;
+  min-height:0!important;
+  margin:9px 2px 2px auto!important;
+  padding:3px 0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:#9a6666!important;
+  font-size:8.5px!important;
+  font-weight:500!important;
+  line-height:1.35!important;
+  text-align:right!important;
+  text-decoration:none!important;
+}
+#displaySettingsBody #deleteCurrentTemplateBtn:not([hidden]):hover{color:#7f4444!important;text-decoration:underline!important;background:transparent!important}
+#displaySettingsBody #deleteCurrentTemplateBtn[hidden]{display:none!important}
+
 /* Shared toolbar baseline with LOGCOMMENTS: 30px row / 28px controls / 9px type. */
 html.embedded .stage-area-toolbar .btn,
 html.embedded .stage-area-toolbar button,
