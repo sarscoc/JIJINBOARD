@@ -1,6 +1,7 @@
 :root{
   --sheet-glass:rgba(255,255,255,.64);
   --sheet-glass-strong:rgba(255,255,255,.82);
+  --sheet-cell:rgba(255,255,255,.90);
   --sheet-line:#e2e7ed;
   --sheet-soft:#f0f3f6;
   --sheet-ink:#171a1f;
@@ -16,7 +17,7 @@
 
 #sheetComments[hidden]{display:none!important}
 
-/* JIJINBOARD embed uses the exact same desktop geometry as LOGCOMMENTS / MATRIX:
+/* JIJINBOARD embed uses the same desktop geometry as LOGCOMMENTS / MATRIX:
    12px outer inset -> 30px toolbar -> 8px gap -> sheet + 320px COMMENTS. */
 @media(min-width:801px){
   html.embedded,
@@ -115,16 +116,16 @@
     flex:0 0 auto!important;
   }
 
-  /* Main spreadsheet surface: fixed to the remaining viewport. Only its contents scroll. */
+  /* One fixed sheet surface. No legacy GROUP column / two-column grid. */
   html.embedded #databaseLayout{
     grid-row:2!important;
+    display:block!important;
     width:calc(100% - var(--sheet-comments-width) - var(--sheet-gap))!important;
     height:100%!important;
     min-width:0!important;
     min-height:0!important;
     margin:0!important;
     padding:0!important;
-    align-self:stretch!important;
     overflow:hidden!important;
     border:1px solid color-mix(in srgb,var(--sheet-line) 65%,transparent)!important;
     border-radius:12px!important;
@@ -133,56 +134,70 @@
     -webkit-backdrop-filter:blur(22px) saturate(135%);
     box-shadow:none!important;
   }
-  html.embedded .database-toc{
+  html.embedded .database-toc{display:none!important}
+  html.embedded .database-main{
     position:relative!important;
     inset:auto!important;
+    grid-column:auto!important;
+    grid-row:auto!important;
+    justify-self:stretch!important;
     align-self:stretch!important;
-    width:auto!important;
+    width:100%!important;
     height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+    background:transparent!important;
+  }
+  html.embedded #sheetWrap{
+    position:relative!important;
+    inset:auto!important;
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
     min-height:0!important;
     max-height:none!important;
     margin:0!important;
     padding:0!important;
-    overflow:hidden!important;
-    background:rgba(255,255,255,.34)!important;
-    border-right:1px solid color-mix(in srgb,var(--sheet-line) 65%,transparent)!important;
-  }
-  html.embedded .database-toc-inner{
-    position:static!important;
-    inset:auto!important;
-    width:100%!important;
-    height:100%!important;
-    min-height:0!important;
-    max-height:none!important;
-    margin:0!important;
-    padding:9px 8px!important;
-    overflow-y:auto!important;
-    overflow-x:hidden!important;
-    overscroll-behavior:contain!important;
-    background:transparent!important;
-    border:0!important;
-    box-shadow:none!important;
-    scrollbar-gutter:stable!important;
-  }
-  html.embedded .database-main{
-    width:100%!important;
-    height:100%!important;
-    min-width:0!important;
-    min-height:0!important;
-    overflow:hidden!important;
-  }
-  html.embedded #sheetWrap{
-    width:100%!important;
-    height:100%!important;
-    min-width:0!important;
-    min-height:0!important;
-    max-height:none!important;
-    margin:0!important;
     overflow:auto!important;
     overscroll-behavior:contain!important;
     scrollbar-gutter:stable!important;
+    background:transparent!important;
   }
-  html.embedded #dataTableRoot{min-width:max-content}
+  html.embedded #dataTableRoot{
+    width:100%!important;
+    min-width:100%!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  html.embedded .data-sheet{
+    width:max-content!important;
+    min-width:100%!important;
+    margin:0!important;
+    background:var(--sheet-cell)!important;
+  }
+
+  /* Embedded spreadsheet is visually flat: borders distinguish cells, not fills. */
+  html.embedded .data-sheet th,
+  html.embedded .data-sheet td,
+  html.embedded .data-sheet thead th,
+  html.embedded .data-sheet .item-col,
+  html.embedded .data-sheet thead .item-col,
+  html.embedded .data-sheet tbody tr:not(.group-row):nth-child(even) td,
+  html.embedded .data-sheet tbody tr:not(.group-row):nth-child(even) .item-col,
+  html.embedded .group-row td{
+    background:var(--sheet-cell)!important;
+    background-image:none!important;
+    box-shadow:none!important;
+  }
+  html.embedded .data-sheet th,
+  html.embedded .data-sheet td{
+    border-right:1px solid var(--sheet-line)!important;
+    border-bottom:1px solid var(--sheet-line)!important;
+  }
+  html.embedded .group-row td{color:inherit!important}
 
   /* Character full-sheet mode uses the same fixed left work area. */
   html.embedded #fullCharacterMode{
