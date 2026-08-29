@@ -138,47 +138,48 @@
   }
   html.embedded .database-toc{
     display:block!important;
-    position:absolute!important;
-    top:0!important;
-    bottom:0!important;
+    position:fixed!important;
+    top:calc(var(--sheet-page-pad) + var(--sheet-toolbar-height) + var(--sheet-gap))!important;
+    bottom:var(--sheet-page-pad)!important;
     left:0!important;
-    width:16px!important;
-    min-width:16px!important;
+    width:18px!important;
+    min-width:18px!important;
     margin:0!important;
     padding:0!important;
     border:0!important;
     background:transparent!important;
     overflow:visible!important;
-    z-index:30!important;
+    z-index:60!important;
   }
   html.embedded .database-toc::before{
     content:"︙";
     position:absolute;
-    left:1px;
+    left:0;
     top:50%;
     width:14px;
-    height:34px;
+    height:24px;
     transform:translateY(-50%);
     display:grid;
     place-items:center;
-    border-radius:0 6px 6px 0;
     color:rgba(73,82,96,.55);
-    background:rgba(255,255,255,.52);
-    border:1px solid rgba(168,178,198,.20);
-    border-left:0;
+    background:transparent;
+    border:0;
+    border-radius:0;
+    box-shadow:none;
     font-size:13px;
     line-height:1;
     cursor:default;
-    transition:background .12s ease,color .12s ease;
+    pointer-events:none;
+    transition:color .12s ease;
   }
   html.embedded .database-toc:hover::before{
-    color:rgba(40,47,58,.82);
-    background:rgba(255,255,255,.88);
+    color:rgba(40,47,58,.86);
+    background:transparent;
   }
   html.embedded .database-toc-inner{
     position:absolute!important;
     top:8px!important;
-    left:15px!important;
+    left:14px!important;
     width:154px!important;
     max-width:154px!important;
     max-height:calc(100% - 16px)!important;
