@@ -206,3 +206,33 @@ html.embedded .view-switch{display:none!important}
     color:#303843!important;
   }
 }
+
+/* Inline character-sheet rows must grow with long questions instead of letting
+   the old 48px/nowrap rule draw the label over the answer. */
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-row{
+  grid-template-columns:minmax(72px,36%) minmax(0,1fr)!important;
+  align-items:start!important;
+  min-height:auto!important;
+}
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-label{
+  min-width:0!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+  line-height:1.35!important;
+}
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-value{
+  min-width:0!important;
+  align-self:start!important;
+}
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-edit{
+  width:100%!important;
+  height:auto!important;
+  min-height:1.5em!important;
+  overflow:hidden!important;
+  white-space:pre-wrap!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}
