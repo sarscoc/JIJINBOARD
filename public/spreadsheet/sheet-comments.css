@@ -1,1 +1,285 @@
-#sheetComments{position:fixed;right:12px;bottom:12px;width:320px;height:240px;display:flex;flex-direction:column;overflow:hidden;background:#fff;border:1px solid #dfe3e6;border-radius:12px;box-shadow:0 16px 45px rgba(30,40,55,.18);z-index:50;font:11px/1.55 system-ui}#sheetComments[hidden]{display:none}.sheet-comments-head{display:flex;align-items:center;padding:13px 15px;border-bottom:1px solid #e5e8ec;font-size:11px;letter-spacing:.12em}.sheet-comments-head b{display:flex;gap:8px}.sheet-comments-head b span{font-size:12px;letter-spacing:0}.sheet-comments-head>button{margin-left:auto;border:0;background:transparent;color:#677078;font-size:17px;line-height:1;cursor:pointer;padding:0}#sheetComments section{overflow:auto;padding:10px}#sheetComments article{border-bottom:1px solid #edf0f2;padding:8px 0;cursor:pointer}#sheetComments p{white-space:pre-wrap;margin:5px 0}#sheetComments button{border:0;background:transparent;cursor:pointer}#sheetCommentDialog{width:min(390px,calc(100vw - 24px));border:1px solid #dfe3e6;border-radius:10px}#sheetCommentDialog form{display:grid;gap:8px}#sheetCommentDialog textarea,#sheetCommentDialog select{padding:8px;border:1px solid #dfe3e6;border-radius:6px}#sheetCommentDialog textarea{min-height:110px}.sheet-comment-flash{outline:3px solid #ffe66b!important;animation:sheetflash 1.1s}@keyframes sheetflash{50%{background:#fff7b8}}@media(max-width:720px){#sheetComments{position:static;width:auto;height:300px;margin:8px}}
+:root{
+  --sheet-glass:rgba(255,255,255,.64);
+  --sheet-glass-strong:rgba(255,255,255,.82);
+  --sheet-line:#e2e7ed;
+  --sheet-soft:#f0f3f6;
+  --sheet-ink:#171a1f;
+  --sheet-muted:#79818d;
+  --sheet-glow:rgba(103,163,255,.24);
+  --sheet-page-pad:12px;
+  --sheet-gap:8px;
+  --sheet-comments-width:320px;
+  --sheet-toolbar-height:30px;
+  --sheet-control-height:28px;
+  --sheet-comments-min-height:160px;
+}
+
+#sheetComments[hidden]{display:none}
+
+/* JIJINBOARD embed uses the exact same desktop geometry as LOGCOMMENTS / MATRIX:
+   12px outer inset -> 30px toolbar -> 8px gap -> sheet + 320px COMMENTS. */
+@media(min-width:801px){
+  html.embedded,
+  html.embedded body{
+    width:100%;
+    height:100%;
+    min-height:0;
+    overflow:hidden!important;
+  }
+  html.embedded body{
+    background-color:#f5f7fa!important;
+    background-image:radial-gradient(circle at 12% 8%,var(--sheet-glow),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.12),transparent 30%)!important;
+    background-attachment:fixed!important;
+  }
+  html.embedded .app{
+    position:relative!important;
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:var(--sheet-page-pad)!important;
+    overflow:hidden!important;
+    box-sizing:border-box!important;
+  }
+  html.embedded #tablePanel{
+    display:grid!important;
+    grid-template-rows:var(--sheet-toolbar-height) minmax(0,1fr)!important;
+    row-gap:var(--sheet-gap)!important;
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    max-width:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    overflow:hidden!important;
+  }
+
+  html.embedded .table-toolbar{
+    grid-row:1!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:8px!important;
+    width:100%!important;
+    height:var(--sheet-toolbar-height)!important;
+    min-height:var(--sheet-toolbar-height)!important;
+    max-height:var(--sheet-toolbar-height)!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+    overflow:hidden!important;
+    flex-wrap:nowrap!important;
+  }
+  html.embedded .table-toolbar .jump-nav{display:none!important}
+  html.embedded .table-actions{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    gap:5px!important;
+    width:auto!important;
+    max-width:100%!important;
+    height:var(--sheet-toolbar-height)!important;
+    min-width:0!important;
+    margin:0 0 0 auto!important;
+    flex-wrap:nowrap!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scrollbar-width:none!important;
+  }
+  html.embedded .table-actions::-webkit-scrollbar{display:none}
+  html.embedded .table-actions :is(.btn,button,select,input){
+    box-sizing:border-box!important;
+    height:var(--sheet-control-height)!important;
+    min-height:var(--sheet-control-height)!important;
+    max-height:var(--sheet-control-height)!important;
+    padding:0 8px!important;
+    border-radius:7px!important;
+    font-size:9px!important;
+    line-height:1.2!important;
+    white-space:nowrap!important;
+    box-shadow:none!important;
+  }
+  html.embedded :is(.main-mode-switch,.view-switch){
+    display:flex!important;
+    align-items:center!important;
+    gap:3px!important;
+    height:var(--sheet-control-height)!important;
+    flex:0 0 auto!important;
+  }
+
+  /* Main spreadsheet surface: fixed to the remaining viewport. Only its contents scroll. */
+  html.embedded #databaseLayout{
+    grid-row:2!important;
+    width:calc(100% - var(--sheet-comments-width) - var(--sheet-gap))!important;
+    height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    align-self:stretch!important;
+    overflow:hidden!important;
+    border:1px solid color-mix(in srgb,var(--sheet-line) 65%,transparent)!important;
+    border-radius:12px!important;
+    background:var(--sheet-glass)!important;
+    backdrop-filter:blur(22px) saturate(135%);
+    -webkit-backdrop-filter:blur(22px) saturate(135%);
+    box-shadow:none!important;
+  }
+  html.embedded .database-toc{
+    position:relative!important;
+    inset:auto!important;
+    align-self:stretch!important;
+    width:auto!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:hidden!important;
+    background:rgba(255,255,255,.34)!important;
+    border-right:1px solid color-mix(in srgb,var(--sheet-line) 65%,transparent)!important;
+  }
+  html.embedded .database-toc-inner{
+    position:static!important;
+    inset:auto!important;
+    width:100%!important;
+    height:100%!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:9px 8px!important;
+    overflow-y:auto!important;
+    overflow-x:hidden!important;
+    overscroll-behavior:contain!important;
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+    scrollbar-gutter:stable!important;
+  }
+  html.embedded .database-main{
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    overflow:hidden!important;
+  }
+  html.embedded #sheetWrap{
+    width:100%!important;
+    height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    overflow:auto!important;
+    overscroll-behavior:contain!important;
+    scrollbar-gutter:stable!important;
+  }
+  html.embedded #dataTableRoot{min-width:max-content}
+
+  /* Character full-sheet mode uses the same fixed left work area. */
+  html.embedded #fullCharacterMode{
+    grid-row:2!important;
+    width:calc(100% - var(--sheet-comments-width) - var(--sheet-gap))!important;
+    height:100%!important;
+    min-width:0!important;
+    min-height:0!important;
+    margin:0!important;
+    overflow:auto!important;
+    overscroll-behavior:contain!important;
+    border:1px solid color-mix(in srgb,var(--sheet-line) 65%,transparent)!important;
+    border-radius:12px!important;
+    background:var(--sheet-glass)!important;
+    box-shadow:none!important;
+  }
+
+  /* Fixed COMMENTS rail, same x/y/width as MATRIX. */
+  html.embedded #sheetComments{
+    position:fixed!important;
+    top:calc(var(--sheet-page-pad) + var(--sheet-toolbar-height) + var(--sheet-gap))!important;
+    right:var(--sheet-page-pad)!important;
+    bottom:auto!important;
+    left:auto!important;
+    width:var(--sheet-comments-width)!important;
+    height:auto!important;
+    min-height:var(--sheet-comments-min-height)!important;
+    max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;
+    margin:0!important;
+    display:flex!important;
+    flex-direction:column!important;
+    min-width:0!important;
+    overflow:hidden!important;
+    background:var(--sheet-glass-strong)!important;
+    border:1px solid var(--sheet-line)!important;
+    border-radius:12px!important;
+    box-shadow:none!important;
+    backdrop-filter:blur(22px) saturate(135%);
+    -webkit-backdrop-filter:blur(22px) saturate(135%);
+    z-index:50!important;
+    font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
+    color:var(--sheet-ink)!important;
+  }
+}
+
+.sheet-comments-head{
+  display:flex;
+  flex:0 0 auto;
+  align-items:center;
+  min-height:0;
+  padding:13px 15px;
+  border-bottom:1px solid var(--sheet-line);
+  background:transparent;
+  font-size:11px;
+  line-height:1.5;
+  letter-spacing:.12em;
+}
+.sheet-comments-head b{display:flex;align-items:center;gap:8px;font:inherit;letter-spacing:inherit}
+.sheet-comments-head b span{font:inherit;letter-spacing:inherit}
+.sheet-comments-head>button{margin-left:auto;border:0;background:transparent;color:var(--sheet-muted);font-size:15px;line-height:1;cursor:pointer;padding:0}
+#sheetComments section{
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  padding:6px;
+  scrollbar-gutter:stable;
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--sheet-ink) 32%,transparent) transparent;
+}
+#sheetComments article{
+  margin:0 0 6px;
+  padding:8px;
+  border:1px solid var(--sheet-line);
+  border-radius:9px;
+  background:var(--sheet-glass-strong);
+  cursor:pointer;
+  box-shadow:none;
+}
+#sheetComments article:last-child{margin-bottom:0}
+#sheetComments article:hover{border-color:var(--sheet-ink)}
+#sheetComments article small{color:var(--sheet-muted);font-size:9px}
+#sheetComments p{white-space:pre-wrap;overflow-wrap:anywhere;margin:5px 0;line-height:1.5}
+#sheetComments button{border:0;background:transparent;cursor:pointer;color:var(--sheet-muted)}
+
+#sheetCommentDialog{width:min(390px,calc(100vw - 24px));border:1px solid var(--sheet-line);border-radius:12px;padding:0;background:var(--sheet-glass-strong);box-shadow:none;backdrop-filter:blur(24px) saturate(145%);-webkit-backdrop-filter:blur(24px) saturate(145%)}
+#sheetCommentDialog form{display:grid;gap:8px;padding:16px}
+#sheetCommentDialog textarea,#sheetCommentDialog select{padding:8px;border:1px solid var(--sheet-line);border-radius:7px;background:rgba(255,255,255,.78)}
+#sheetCommentDialog textarea{min-height:110px}
+.sheet-comment-flash{outline:3px solid #ffe66b!important;animation:sheetflash 1.1s}
+@keyframes sheetflash{50%{background:#fff7b8}}
+
+@media(max-width:800px){
+  :root{--sheet-page-pad:5px;--sheet-comments-width:100%;--sheet-toolbar-height:30px}
+  html.embedded .app{padding:var(--sheet-page-pad)!important;overflow:auto!important}
+  html.embedded #tablePanel{height:auto!important;min-height:100%!important;overflow:visible!important}
+  html.embedded .table-toolbar{overflow-x:auto!important}
+  html.embedded #databaseLayout,html.embedded #fullCharacterMode{width:100%!important;height:calc(100vh - 47px)!important}
+  html.embedded #sheetComments{position:relative!important;top:auto!important;right:auto!important;width:100%!important;height:220px!important;max-height:220px!important;margin:6px 0 0!important}
+}
