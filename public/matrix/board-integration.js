@@ -1,28 +1,56 @@
 "use strict";
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");if(!boardId)return;
-  let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=true,applyingRemote=false;
+  const embedded=params.get("embedded")==="1";
+  let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false;
+  let saveLoopTimer=0,loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const matrixPath=()=>`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(roomId)}`;
+  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   window.matrixBoardContext={boardId,get roomId(){return roomId},api,profile,isActive:()=>active,saveNow:()=>requestSave(0)};
 
+  function notifyReady(){
+    if(readySent)return;
+    readySent=true;
+    try{parent.postMessage({type:"jijinboard-matrix-ready",roomId},location.origin)}catch{}
+    if(active)queueHelpers();
+  }
+
   async function loadRoom(nextRoom){
+    loadRequested=true;
+    const seq=++loadSeq;
     roomId=nextRoom||"";
+    readySent=false;
+    loadedRoom="";
     window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
-    if(!roomId)return;
-    const matrix=await api(matrixPath());
-    applyingRemote=true;
+    if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
     try{
-      if(matrix.state&&Object.keys(matrix.state).length){saveState(matrix.state);restoreDisplay();restorePaneWidth();renderLibrary();renderPlaced()}
-      lastState=JSON.stringify(matrix.state||{});
+      const [matrix]=await Promise.all([api(matrixPath()),wait(180)]);
+      if(seq!==loadSeq)return;
+      applyingRemote=true;
+      try{
+        if(matrix.state&&Object.keys(matrix.state).length){
+          saveState(matrix.state);
+          restoreDisplay();
+          restorePaneWidth();
+          renderLibrary();
+          renderPlaced();
+        }
+        lastState=JSON.stringify(matrix.state||{});
+        loadedRoom=roomId;
+      }finally{
+        applyingRemote=false;
+      }
+    }catch(error){
+      console.warn(error);
     }finally{
-      applyingRemote=false;
+      if(seq===loadSeq)requestAnimationFrame(()=>requestAnimationFrame(notifyReady));
     }
   }
 
   async function save(){
-    if(!roomId||applyingRemote)return;
+    if(!roomId||applyingRemote||loadedRoom!==roomId)return;
     if(saving){saveQueued=true;return}
     const me=profile();if(!me?.plName)return;
     const state=appState(),serial=JSON.stringify(state);
@@ -43,8 +71,19 @@
     saveTimer=setTimeout(()=>save(),Math.max(0,delay));
   }
 
+  function stopSaveLoop(){clearTimeout(saveLoopTimer);saveLoopTimer=0}
+  function startSaveLoop(){
+    stopSaveLoop();
+    if(!active)return;
+    saveLoopTimer=setTimeout(async()=>{
+      if(!active)return;
+      await save();
+      startSaveLoop();
+    },5000);
+  }
+
   function saveOnPagehide(){
-    if(!roomId||applyingRemote)return;
+    if(!roomId||applyingRemote||loadedRoom!==roomId)return;
     const me=profile();if(!me?.plName)return;
     const state=appState(),serial=JSON.stringify(state);
     if(serial===lastState)return;
@@ -58,9 +97,6 @@
     try{fetch(matrixPath(),{method:"POST",headers:{"content-type":"application/json"},body:payload,keepalive:true}).catch(()=>{})}catch{}
   }
 
-  // MATRIX's original editor commits icon comments and placement data through
-  // saveState(). Mirror every completed local state write to the shared board
-  // immediately so a quick reload cannot restore an older blank item.comment.
   if(typeof window.saveState==="function"&&!window.saveState.__jijinboardImmediateSync){
     const rawSaveState=window.saveState;
     const syncedSaveState=function(state){
@@ -72,31 +108,15 @@
     window.saveState=syncedSaveState;
   }
 
-  // Keep the explicit visibility hook too; it also covers browsers where the
-  // control event fires before another UI helper finishes its own redraw.
   const showComment=document.querySelector("#showComment");
   if(showComment){
     showComment.addEventListener("input",()=>requestSave(0));
     showComment.addEventListener("change",()=>requestSave(0));
   }
 
-  window.addEventListener("message",event=>{
-    if(event.origin!==location.origin)return;
-    if(event.data?.type==="jijinboard-active-room")loadRoom(event.data.roomId).catch(console.warn);
-    if(event.data?.type==="jijinboard-matrix-active"){
-      active=!!event.data.active;
-      if(active){window.dispatchEvent(new CustomEvent("matrix-board-active"));requestSave(0)}
-    }
-  });
-  setTimeout(()=>loadRoom(roomId).catch(console.warn),300);
-  setInterval(()=>{if(active)save()},5000);
-  window.addEventListener("pagehide",saveOnPagehide);
-  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")requestSave(0)});
-
-  // Load board-only behavior after the original MATRIX scripts are ready.
-  // Dynamic scripts are marked non-async so persistence/delete hooks are installed
-  // before the click/right-click interaction override starts handling input.
-  window.addEventListener("load",()=>{
+  function loadHelpers(){
+    if(helpersLoaded)return;
+    helpersLoaded=true;
     const helpers=[
       ["matrix-display-comment-persistence.js","matrixDisplayCommentPersistence"],
       ["matrix-template-comment-cleanup.js","matrixTemplateCommentCleanup"],
@@ -110,5 +130,42 @@
       script.dataset[key]="1";
       document.body.append(script);
     });
-  },{once:true});
+  }
+
+  function queueHelpers(){
+    if(helpersQueued||helpersLoaded||!active)return;
+    helpersQueued=true;
+    const run=()=>{helpersQueued=false;if(active)loadHelpers()};
+    if("requestIdleCallback" in window)requestIdleCallback(run,{timeout:900});
+    else setTimeout(run,80);
+  }
+
+  function setActive(next){
+    const wasActive=active;
+    active=!!next;
+    if(active){
+      window.dispatchEvent(new CustomEvent("matrix-board-active"));
+      if(loadedRoom!==roomId)loadRoom(roomId).catch(console.warn);else requestSave(0);
+      startSaveLoop();
+      if(readySent)queueHelpers();
+    }else{
+      stopSaveLoop();
+      if(wasActive)requestSave(0);
+    }
+  }
+
+  window.addEventListener("message",event=>{
+    if(event.origin!==location.origin)return;
+    if(event.data?.type==="jijinboard-active-room"){
+      const nextRoom=event.data.roomId||"";
+      if(active||!embedded)loadRoom(nextRoom).catch(console.warn);
+      else{loadRequested=true;roomId=nextRoom;loadedRoom="";readySent=false;window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}))}
+    }
+    if(event.data?.type==="jijinboard-matrix-active")setActive(event.data.active);
+  });
+
+  setTimeout(()=>{if(!loadRequested)loadRoom(roomId).catch(console.warn)},80);
+  if(active){startSaveLoop();if(readySent)queueHelpers()}
+  window.addEventListener("pagehide",saveOnPagehide);
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")requestSave(0)});
 })();
