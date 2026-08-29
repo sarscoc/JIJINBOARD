@@ -16,7 +16,7 @@
       html.embedded{--matrix-glass:rgba(255,255,255,.70)!important;--matrix-glass-strong:rgba(255,255,255,.87)!important}
       html.embedded #matrixIconComments{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .matrix-comment-head{background:#fff!important}
-      html.embedded .matrix-comment-head+section{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+      html.embedded #matrixIconComments>section{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       /* Slightly less transparent than before, while keeping the glass look. */
       html.embedded .stage{background:var(--matrix-glass)!important}
       html.embedded .stage-area-toolbar :is(.btn,button),html.embedded .toolbar-scale-check{background:var(--matrix-glass-strong)!important}
