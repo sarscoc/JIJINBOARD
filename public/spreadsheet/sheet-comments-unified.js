@@ -1,6 +1,6 @@
 (()=>{
   const bridge=window.__jijinSheetCommentBridge||{comments:[],ready:false};
-  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const profile=()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')}catch{return null}};
   const people=()=>{const p=profile()||{};return [{name:p.plName||'PL',type:'PL',icon:p.plIcon||''},...(p.personas||[]).map(person=>({name:person.name||'',type:person.type||'PC',icon:person.icon||''}))]};
   const iconFor=c=>c.persona_icon||people().find(person=>person.name===c.persona_name&&person.type===c.persona_type)?.icon||'';
