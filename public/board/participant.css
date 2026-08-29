@@ -84,9 +84,9 @@
 }
 
 /* The Basic settings tab has little content, so do not keep the full Design-panel height. */
-#boardSettingsOverlay .board-settings-panel:has(.board-settings-general:not([hidden])){height:min(390px,calc(100vh - 62px))!important;min-height:300px!important}
+#boardSettingsOverlay .board-settings-panel:has(.board-settings-general:not([hidden])){height:min(300px,calc(100vh - 62px))!important;min-height:260px!important}
 #boardSettingsOverlay .board-settings-general{grid-template-rows:auto minmax(0,1fr)!important;gap:5px!important}
 #boardSettingsOverlay .board-settings-page{padding:6px 7px 7px!important}
 #boardSettingsOverlay .board-settings-section-head{padding:5px 7px!important}
 #boardSettingsOverlay .board-share-body{padding:5px 7px!important}
-@media(max-width:720px){#boardSettingsOverlay .board-settings-panel:has(.board-settings-general:not([hidden])){height:min(410px,calc(100vh - 57px))!important;min-height:0!important}}
+@media(max-width:720px){#boardSettingsOverlay .board-settings-panel:has(.board-settings-general:not([hidden])){height:min(340px,calc(100vh - 57px))!important;min-height:0!important}}
