@@ -1,6 +1,6 @@
 (()=>{
   const bridge=window.__jijinSheetCommentBridge||{comments:[],ready:false};
-  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const profile=()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')}catch{return null}};
   const people=()=>{const p=profile()||{};return [{name:p.plName||'PL',type:'PL',icon:p.plIcon||''},...(p.personas||[]).map(person=>({name:person.name||'',type:person.type||'PC',icon:person.icon||''}))]};
   const iconFor=c=>c.persona_icon||people().find(person=>person.name===c.persona_name&&person.type===c.persona_type)?.icon||'';
@@ -33,38 +33,46 @@
   function syncDialogAvatar(dialog){
     const select=dialog.querySelector('select'),avatar=dialog.querySelector('.sheet-comment-input-avatar');if(!select||!avatar)return;
     const person=people()[Number(select.value)||0],icon=person?.icon||'';
-    avatar.style.backgroundImage=icon?`url("${String(icon).replace(/["\\\n\r]/g,'')}")`:'';
-    avatar.classList.toggle('has-image',!!icon);
+    avatar.innerHTML=icon?`<img src="${esc(icon)}" alt="">`:'';
   }
-  function enhanceDialog(kind='new'){
+  let pendingAnchor=null;
+  function positionDialog(dialog){
+    if(!pendingAnchor||innerWidth<=800){dialog.style.left='';dialog.style.top='';return}
+    const width=Math.min(390,innerWidth-24),height=Math.min(dialog.offsetHeight||230,innerHeight-24);
+    let left=pendingAnchor.right+12;
+    if(left+width>innerWidth-12)left=Math.max(12,pendingAnchor.left-width-12);
+    const top=Math.min(Math.max(12,pendingAnchor.top-24),Math.max(12,innerHeight-height-12));
+    dialog.style.left=`${left}px`;dialog.style.top=`${top}px`;
+  }
+  function enhanceDialog(){
     const dialog=document.getElementById('sheetCommentDialog'),form=dialog?.querySelector('form');if(!dialog||!form)return;
-    if(!form.dataset.unified){
-      form.dataset.unified='1';form.classList.add('sheet-comment-unified-form');
-      const title=form.querySelector('b'),select=form.querySelector('select'),textarea=form.querySelector('textarea'),submit=[...form.querySelectorAll('button')].find(b=>!b.hasAttribute('type')),close=form.querySelector('[data-close]'),del=form.querySelector('[data-delete]');
-      const head=document.createElement('div');head.className='sheet-dialog-head';
-      const x=document.createElement('button');x.type='button';x.className='sheet-dialog-x';x.textContent='×';x.onclick=()=>dialog.close();
-      head.append(title,x);
-      const persona=document.createElement('div');persona.className='sheet-comment-persona';
-      const avatar=document.createElement('span');avatar.className='sheet-comment-input-avatar';persona.append(avatar,select);
-      const actions=document.createElement('div');actions.className='sheet-dialog-actions';
-      if(close){close.textContent='閉じる';actions.append(close)}if(del){del.textContent='削除';actions.append(del)}if(submit){submit.id='sheetCommentSubmit';actions.append(submit)}
-      form.replaceChildren(head,persona,textarea,actions);
+    if(!form.dataset.logcommentsBox){
+      form.dataset.logcommentsBox='1';form.className='sheet-comment-log-form';
+      const select=form.querySelector('select'),textarea=form.querySelector('textarea'),del=form.querySelector('[data-delete]');
+      const persona=document.createElement('div');persona.className='comment-persona-picker';
+      const avatar=document.createElement('span');avatar.className='sheet-comment-input-avatar comment-input-avatar';
+      persona.append(avatar,select);
+      if(del){del.className='comment-edit-delete';del.textContent='このコメントを削除';}
+      textarea.removeAttribute('placeholder');textarea.setAttribute('rows','5');textarea.setAttribute('maxlength','4000');textarea.setAttribute('aria-label','感想');
+      form.replaceChildren(persona,textarea,...(del?[del]:[]));
       select.addEventListener('change',()=>syncDialogAvatar(dialog));
     }
-    const title=dialog.querySelector('.sheet-dialog-head b'),submit=dialog.querySelector('#sheetCommentSubmit'),del=dialog.querySelector('[data-delete]');
-    if(title)title.textContent=kind==='reply'?'返信':kind==='edit'?'コメントを編集':'セルにコメント';
-    if(submit)submit.textContent=kind==='reply'?'返信':kind==='edit'||(del&&!del.hidden)?'保存':'投稿';
-    syncDialogAvatar(dialog);
+    if(dialog.matches?.(':modal')){dialog.close();dialog.show()}
+    syncDialogAvatar(dialog);positionDialog(dialog);
     setTimeout(()=>dialog.querySelector('textarea')?.focus(),0);
   }
 
-  let nextKind='new';
   document.addEventListener('click',event=>{
-    if(event.target.closest('[data-reply]'))nextKind='reply';
-    else if(event.target.closest('[data-edit]'))nextKind='edit';
-    else if(event.target.closest('[data-sheet-cell]'))nextKind='new';
-    else return;
-    setTimeout(()=>enhanceDialog(nextKind),0);
+    const target=event.target.closest('[data-reply],[data-edit],[data-sheet-cell]');
+    if(!target)return;
+    const anchor=target.closest('.sheet-comment-card,[data-sheet-cell]')||target;
+    pendingAnchor=anchor.getBoundingClientRect();
+    setTimeout(enhanceDialog,0);
+  });
+  document.addEventListener('pointerdown',event=>{
+    const dialog=document.getElementById('sheetCommentDialog');if(!dialog?.open||dialog.contains(event.target))return;
+    const form=dialog.querySelector('form'),textarea=dialog.querySelector('textarea');
+    if(textarea?.value.trim())form?.requestSubmit();else dialog.close();
   });
   window.addEventListener('jijin-sheet-comments-data',event=>render(event.detail?.comments||[]));
   const root=document.getElementById('dataTableRoot');
