@@ -1,9 +1,6 @@
 /* JIJINBOARD embed: exact shared geometry with MAGIA MATRIX.
    Desktop baseline: 12px outer inset -> 30px toolbar -> 8px gap -> reader/comments. */
 
-/* Keep comment text/card width stable before and after vertical overflow appears. */
-html.embedded .comments-list{scrollbar-gutter:stable}
-
 @media (min-width:801px){
   :root{
     --embed-page-pad:12px;
@@ -44,9 +41,7 @@ html.embedded .comments-list{scrollbar-gutter:stable}
   /* The empty status paragraph must never add height to the toolbar row. */
   html.embedded #roomStatus{display:none!important}
 
-  /* Use the same single-line toolbar model as MAGIA MATRIX.
-     Important: flex prevents the controls' max-content width from creating an
-     oversized grid track and pushing the whole filter group off-screen. */
+  /* Use the same single-line toolbar model as MAGIA MATRIX. */
   html.embedded .room-tools{
     display:flex!important;
     align-items:center!important;
@@ -142,11 +137,10 @@ html.embedded .comments-list{scrollbar-gutter:stable}
     height:100%!important;
     min-height:0;
     overflow:hidden;
-    align-items:stretch;
+    align-items:start!important;
   }
 
-  html.embedded .log-pane,
-  html.embedded .comments-pane{
+  html.embedded .log-pane{
     position:relative!important;
     top:auto!important;
     height:100%!important;
@@ -156,13 +150,28 @@ html.embedded .comments-list{scrollbar-gutter:stable}
     overflow:hidden!important;
   }
 
-  html.embedded .comments-pane{display:flex;flex-direction:column}
+  /* COMMENTS grows with its content. Only after it reaches the reader height
+     does the comment list itself become scrollable. No empty scrollbar/gutter. */
+  html.embedded .comments-pane{
+    position:relative!important;
+    top:auto!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-self:start!important;
+    width:100%!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:100%!important;
+    margin:0!important;
+    overflow:hidden!important;
+  }
   html.embedded .comments-head{flex:0 0 auto}
   html.embedded .comments-list{
-    flex:1 1 auto;
-    min-height:0;
-    max-height:none!important;
+    flex:0 1 auto!important;
+    min-height:0!important;
+    max-height:calc(100vh - (var(--embed-page-pad) * 2) - var(--embed-toolbar-height) - var(--embed-gap) - 48px)!important;
     overflow-y:auto!important;
     overscroll-behavior:contain;
+    scrollbar-gutter:auto!important;
   }
 }
