@@ -10,7 +10,9 @@
   background:transparent!important;
   backdrop-filter:none!important;
   -webkit-backdrop-filter:none!important;
+  pointer-events:none!important;
 }
+#boardSettingsOverlay.board-settings-overlay[hidden]{display:none!important}
 #boardSettingsOverlay .board-settings-panel{
   position:fixed!important;
   top:50px!important;
@@ -23,17 +25,49 @@
   box-shadow:0 16px 46px rgba(24,31,43,.18)!important;
   transform-origin:top right;
   animation:boardSettingsMenuIn .11s ease-out;
+  pointer-events:auto!important;
 }
 #boardSettingsOverlay .board-settings-tabs{padding:9px 5px!important}
 #boardSettingsOverlay .board-settings-tab{min-height:36px!important;font-size:7px!important}
-#boardSettingsOverlay .board-settings-main{grid-template-rows:40px minmax(0,1fr)!important}
-#boardSettingsOverlay .board-settings-head{padding:0 10px!important}
-#boardSettingsOverlay .board-settings-head strong{font-size:10px!important}
-#boardSettingsOverlay .board-settings-close{width:27px!important;height:27px!important;font-size:15px!important}
+#boardSettingsOverlay .board-settings-main{grid-template-rows:minmax(0,1fr)!important}
+#boardSettingsOverlay .board-settings-head{display:none!important}
 #boardSettingsOverlay .board-settings-page{padding:8px 9px 9px!important}
 #boardSettingsOverlay .board-settings-general{gap:7px!important}
 #boardSettingsOverlay .board-settings-section-head{padding:6px 8px!important}
 #boardSettingsOverlay .board-share-body{padding:6px 8px!important}
+
+/* The top-right settings control is a small line-art gear, not a button-shaped chip. */
+#boardSettingsButton.board-settings-trigger{
+  position:relative!important;
+  display:grid!important;
+  place-items:center!important;
+  width:28px!important;
+  min-width:28px!important;
+  height:28px!important;
+  min-height:28px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:var(--ink)!important;
+  font-size:0!important;
+  line-height:1!important;
+  opacity:.76;
+}
+#boardSettingsButton.board-settings-trigger::before{
+  content:"";
+  display:block;
+  width:18px;
+  height:18px;
+  background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-3v-.08a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 6.6 15a1.7 1.7 0 0 0-1.56-1.03H5v-3h.08A1.7 1.7 0 0 0 6.64 9.9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.12-2.12.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56V4h3v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.12 2.12-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H20v3h-.08A1.7 1.7 0 0 0 19.4 15z'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-3v-.08a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 6.6 15a1.7 1.7 0 0 0-1.56-1.03H5v-3h.08A1.7 1.7 0 0 0 6.64 9.9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.12-2.12.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56V4h3v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.12 2.12-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H20v3h-.08A1.7 1.7 0 0 0 19.4 15z'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+#boardSettingsButton.board-settings-trigger:hover{opacity:1!important;background:transparent!important}
+#boardSettingsButton.board-settings-trigger:active{transform:scale(.94)}
+
 @keyframes boardSettingsMenuIn{from{opacity:0;transform:translateY(-3px) scale(.985)}to{opacity:1;transform:none}}
 @media(max-width:720px){
   #boardSettingsOverlay .board-settings-panel{
