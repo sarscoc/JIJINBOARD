@@ -287,3 +287,45 @@ html.embedded .full-character-page .character-sheet-row.long .character-sheet-ed
 html.embedded .connected-character-page .character-sheet-row.long .character-sheet-edit{
   min-height:2.6em!important;
 }
+
+/* v2 character-sheet spacing correction.
+   Grid rows already stretch to the tallest item; forcing each item to height:100%
+   can create feedback against auto-growing textareas and leave large blank bands. */
+html.embedded .full-character-page .character-sheet-group[data-layout="free"] .character-sheet-row,
+html.embedded .full-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row,
+html.embedded .connected-character-page .character-sheet-group[data-layout="free"] .character-sheet-row,
+html.embedded .connected-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row{
+  height:auto!important;
+}
+
+/* Compact list layout: keep label/value readable but remove the old roomy row rhythm. */
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-rows,
+html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-rows{
+  gap:1px!important;
+  padding:1px 0!important;
+}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-row,
+html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-row{
+  grid-template-columns:minmax(112px,28%) minmax(0,1fr)!important;
+  align-items:start!important;
+  gap:8px!important;
+  min-height:0!important;
+  padding:2px 0 3px!important;
+}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-label,
+html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-label{
+  margin:0!important;
+  padding:1px 0!important;
+  line-height:1.25!important;
+}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-value,
+html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-value{
+  align-self:start!important;
+  min-width:0!important;
+}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-edit,
+html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-edit{
+  min-height:18px!important;
+  padding:1px 0 2px!important;
+  line-height:1.25!important;
+}
