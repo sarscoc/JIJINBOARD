@@ -7,7 +7,6 @@
   const themeEndpoint=`/api/boards/${encodeURIComponent(boardId)}/theme`;
   const defaults={
     color1:"#171a20",
-    textColor2:"#171a20",
     backgroundMode:"white-gradient",
     backgroundColor:"#f5f7fa",
     backgroundImage:"",
@@ -19,12 +18,16 @@
   let uiBuilt=false;
 
   const validColor=value=>/^#[0-9a-f]{6}$/i.test(String(value||""));
+  const hasLegacyColors=value=>!!value&&typeof value==="object"&&(
+    Object.prototype.hasOwnProperty.call(value,"color2")||
+    Object.prototype.hasOwnProperty.call(value,"textColor2")
+  );
   function normalize(value){
     if(!value||typeof value!=="object")return {...defaults};
     const next={...defaults,...value};
     delete next.color2;
+    delete next.textColor2;
     next.color1=validColor(next.color1)?next.color1:defaults.color1;
-    next.textColor2=validColor(next.textColor2)?next.textColor2:defaults.textColor2;
     next.backgroundColor=validColor(next.backgroundColor)?next.backgroundColor:defaults.backgroundColor;
     next.alternateCellColor=validColor(next.alternateCellColor)?next.alternateCellColor:defaults.alternateCellColor;
     next.backgroundMode=["white-gradient","black-gradient","color","image"].includes(next.backgroundMode)?next.backgroundMode:defaults.backgroundMode;
@@ -38,7 +41,7 @@
       const raw=JSON.parse(localStorage.getItem(storageKey)||"null");
       if(!raw)return null;
       const clean=normalize(raw);
-      if(Object.prototype.hasOwnProperty.call(raw,"color2"))localStorage.setItem(storageKey,JSON.stringify(clean));
+      if(hasLegacyColors(raw))localStorage.setItem(storageKey,JSON.stringify(clean));
       return clean;
     }catch{return null}
   }
@@ -56,9 +59,9 @@
   }
 
   function parentCss(value){return `
-    .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button{color:${value.color1}!important}
+    .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button,
+    .board-heading>span,.log-list-head>span{color:${value.color1}!important}
     .log-sidebar{background:#fff!important}
-    .board-heading #boardName,.log-list .log-item{color:${value.textColor2}!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
@@ -75,7 +78,6 @@
     html.embedded .filters input::placeholder{color:#79818d!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
 
-    /* LOG's own :root.dark decides whether these surfaces are light or dark. */
     html.embedded .log-pane,
     html.embedded .comments-pane{
       background:color-mix(in srgb,var(--paper) 85%,transparent)!important;
@@ -181,10 +183,12 @@
       if(!response.ok)return;
       const body=await response.json().catch(()=>({}));
       if(body.theme){
+        const legacy=hasLegacyColors(body.theme);
         const next=normalize(body.theme);
         const changed=JSON.stringify(next)!==JSON.stringify(theme);
         theme=next;writeLocal();
         if(changed){applyAll();syncUi()}
+        if(legacy&&adminToken())scheduleSave();
       }
     }catch(error){console.warn("Theme load failed",error)}
   }
@@ -231,7 +235,7 @@
       .scoped-theme-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;align-items:center}.scoped-image-state{font-size:8px;color:#8a929d;white-space:nowrap}
       .scoped-theme-ui button{height:30px;padding:0 10px;border:1px solid #dfe3e8;border-radius:7px;background:#fff;color:#303640;font-size:9px;cursor:pointer}.scoped-theme-ui button:hover{background:#f7f8fa}
       .scoped-check{justify-content:flex-start}.scoped-check input{width:15px;height:15px;margin:0}
-      .scoped-theme-note{font-size:8px;line-height:1.55;color:#8a929d}.scoped-theme-actions{display:flex;justify-content:flex-end}
+      .scoped-theme-actions{display:flex;justify-content:flex-end}
       @media(max-width:620px){.scoped-theme-grid{grid-template-columns:1fr}.scoped-bg-modes{grid-template-columns:repeat(2,minmax(0,1fr))}.scoped-theme-row{grid-template-columns:1fr}}
     `;document.head.append(style);
   }
@@ -244,7 +248,6 @@
           <div class="scoped-theme-head"><b>共通カラー</b><span>指定した場所だけを変更します。</span></div>
           <div class="scoped-theme-grid">
             <label class="scoped-theme-field"><span>文字色1</span><input id="scopedColor1" type="color"></label>
-            <label class="scoped-theme-field"><span>文字色2</span><input id="scopedTextColor2" type="color"></label>
           </div>
           <div class="scoped-theme-grid">
             <label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label>
@@ -265,15 +268,10 @@
             <button id="scopedBgImageRemove" type="button">画像を削除</button>
           </div>
         </section>
-        <section class="scoped-theme-section">
-          <div class="scoped-theme-head"><b>Character個別ページ</b><span>ここは共通設定の対象外です。</span></div>
-          <div class="scoped-theme-note">個別ページは今まで通り、各Characterの設定から色・背景画像などを自由に変更できます。既存の個別設定にも触れません。</div>
-        </section>
         <div class="scoped-theme-actions"><button id="scopedThemeReset" type="button">この共通デザインを初期状態に戻す</button></div>
       </div>`;
     uiBuilt=true;
     slot.querySelector("#scopedColor1").addEventListener("input",e=>update({color1:e.target.value}));
-    slot.querySelector("#scopedTextColor2").addEventListener("input",e=>update({textColor2:e.target.value}));
     slot.querySelector("#scopedAlt").addEventListener("change",e=>update({alternateCells:e.target.checked}));
     slot.querySelector("#scopedAltColor").addEventListener("input",e=>update({alternateCellColor:e.target.value}));
     slot.querySelector("#scopedBgColor").addEventListener("input",e=>update({backgroundColor:e.target.value,backgroundMode:"color"}));
@@ -281,13 +279,13 @@
     const file=slot.querySelector("#scopedBgImage");slot.querySelector("#scopedBgImageBtn").onclick=()=>file.click();
     file.addEventListener("change",async()=>{const picked=file.files?.[0];if(!picked)return;try{const data=await imageToData(picked);update({backgroundImage:data,backgroundMode:"image"})}catch(error){alert(error.message)}finally{file.value=""}});
     slot.querySelector("#scopedBgImageRemove").onclick=()=>update({backgroundImage:"",backgroundMode:theme.backgroundMode==="image"?"white-gradient":theme.backgroundMode});
-    slot.querySelector("#scopedThemeReset").onclick=()=>{if(confirm("共通デザイン設定を初期状態に戻しますか？\nCharacter個別ページの設定は消えません。"))resetTheme()};
+    slot.querySelector("#scopedThemeReset").onclick=()=>{if(confirm("共通デザイン設定を初期状態に戻しますか？"))resetTheme()};
     syncUi();
   }
   function syncUi(){
     if(!uiBuilt)return;const slot=document.getElementById("boardDesignSlot");if(!slot)return;
     const set=(id,v)=>{const el=slot.querySelector(`#${id}`);if(el)el.value=v};
-    set("scopedColor1",theme.color1);set("scopedTextColor2",theme.textColor2);set("scopedAltColor",theme.alternateCellColor);set("scopedBgColor",theme.backgroundColor);
+    set("scopedColor1",theme.color1);set("scopedAltColor",theme.alternateCellColor);set("scopedBgColor",theme.backgroundColor);
     const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!theme.alternateCells;
     slot.querySelectorAll('input[name="scopedBgMode"]').forEach(input=>input.checked=input.value===theme.backgroundMode);
     const state=slot.querySelector("#scopedBgImageState");if(state)state.textContent=theme.backgroundImage?"設定済み":"未設定";
