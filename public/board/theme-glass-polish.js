@@ -17,13 +17,13 @@
 
   function logCss(theme){
     const black=theme?.backgroundMode==="black-gradient";
-    const surface=black?"rgba(53,53,53,.85)":"rgba(255,255,255,.85)";
+    const surface=black?"rgba(0,0,0,.85)":"rgba(255,255,255,.85)";
     return `
       html.embedded .log-pane{
         background:${surface}!important;
         backdrop-filter:blur(14px) saturate(120%)!important;
         -webkit-backdrop-filter:blur(14px) saturate(120%)!important;
-        ${black?"--paper:#353535;--ink:#f2f4f7;--muted:#b3b3b3;--line:#5b5b5b;--soft:#4a4a4a;color:#f2f4f7!important;":""}
+        ${black?"--paper:#000;--ink:#f2f4f7;--muted:#b3b3b3;--line:#333;--soft:#181818;color:#f2f4f7!important;":""}
       }
       html.embedded .cylinder-nav,
       html.embedded .page-title,
