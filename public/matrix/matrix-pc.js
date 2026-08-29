@@ -41,6 +41,8 @@
   const preferredImage=person=>person?.matrixIcon||person?.baseIcon||person?.icon||"";
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
   const escHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const clone=value=>{if(value===undefined)return undefined;try{return structuredClone(value)}catch{try{return JSON.parse(JSON.stringify(value))}catch{return value}}};
+  const placementOnlyKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth","mobileSelected"]);
 
   function setupBoardUi(){
     // Board mode no longer needs the icon ZIP export in the top toolbar.
@@ -51,6 +53,48 @@
     const settingsBody=document.querySelector("#displaySettingsBody");
     const deleteButton=document.querySelector("#deleteCurrentTemplateBtn");
     if(settingsBody&&deleteButton&&deleteButton.parentNode!==settingsBody)settingsBody.append(deleteButton);
+  }
+
+  function savedItemState(id){
+    try{
+      if(typeof currentTemplateId!=="function"||typeof templateStates!=="function")return null;
+      const tid=currentTemplateId();if(!tid)return null;
+      return templateStates()?.[tid]?.items?.[id]||null;
+    }catch{return null}
+  }
+
+  function annotationStateForPlacement(id){
+    const live=appState()?.items?.[id]||null;
+    const saved=savedItemState(id);
+    // Saved template state is authoritative for page-specific annotations.
+    // Fall back to the live state when the template snapshot has not been made yet.
+    const source=saved||live;
+    if(!source)return null;
+    const preserved={};
+    Object.entries(source).forEach(([key,value])=>{
+      if(!placementOnlyKeys.has(key))preserved[key]=clone(value);
+    });
+    return preserved;
+  }
+
+  function placePcPreservingState(id,x,y){
+    if(typeof placeItem!=="function")return;
+    const preserved=annotationStateForPlacement(id);
+    placeItem(id,x,y);
+    if(!preserved)return;
+
+    // placeItem owns only the placement coordinates. Restore every non-placement
+    // field afterwards so comments, comment position, crop and other per-icon
+    // settings survive an unplace -> drag -> place cycle.
+    const state=appState();
+    state.items||={};
+    const local=state.items[id]||(state.items[id]=makeLocalItemState(id));
+    Object.assign(local,preserved);
+    saveState(state);
+    if(typeof saveCurrentTemplateState==="function")saveCurrentTemplateState(state);
+    const item=items.find(entry=>entry.id===id);
+    if(item)item.local=local;
+    if(typeof renderPlaced==="function")renderPlaced();
   }
 
   function pruneRemovedParticipants(validIds,state){
@@ -79,7 +123,9 @@
     pruneRemovedParticipants(validIds,state);
     items=participants.map(person=>{
       const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person);
-      if(!state.items[id])state.items[id]=makeLocalItemState(id);
+      // A participant refresh must not replace an already-saved per-template
+      // annotation with a fresh blank local state.
+      if(!state.items[id])state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);
       return{id,name:person.name,url:"",baseImage:image,imageSignature:`participant:${person.personaId}:${image}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     saveState(state);renderLibrary();renderPlaced();renderPcSources();
@@ -178,7 +224,7 @@
       canvas.classList.remove("matrix-pc-dragover");
       if(id){
         const pos=dropPercent(event,canvas);
-        if(typeof placeItem==="function")placeItem(id,pos.x,pos.y);
+        placePcPreservingState(id,pos.x,pos.y);
       }
       draggingPcId="";
     },true);
