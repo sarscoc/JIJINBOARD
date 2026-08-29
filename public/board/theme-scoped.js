@@ -6,7 +6,7 @@
   const storageKey=`jijinboardScopedTheme:${boardId}`;
   const defaults={
     color1:"#171a20",
-    color2:"#ffffff",
+    color2:"#f5f6f7",
     backgroundMode:"white-gradient",
     backgroundColor:"#f5f7fa",
     backgroundImage:"",
@@ -46,13 +46,14 @@
   }
 
   function parentCss(value){return `
-    /* Only the red/yellow-marked board-shell targets are themed. */
+    /* Board shell: only the annotated text and left LOG surface. */
     .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button{color:${value.color1}!important}
     .log-sidebar{background:${value.color2}!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function logCss(value){return `
+    /* Background setting touches only the area that already owns the gradient. */
     html.embedded body{${backgroundRules(value)}}
     html.embedded .filters :is(input,select,button,.quiet,.primary),
     html.embedded .filters .font-size-control,
@@ -60,7 +61,6 @@
     html.embedded .comments-head{color:${value.color1}!important}
     html.embedded .filters input::placeholder{color:${value.color1}!important;opacity:.48!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
-    html.embedded:not(.dark) .comments-list{background:${value.color2}!important}
     html.embedded .page-scroll,html.embedded .comments-list{scrollbar-color:${value.color1} transparent!important}
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
   `}
@@ -78,9 +78,9 @@
     html.embedded .data-sheet thead th,
     html.embedded .data-sheet .item-col,
     html.embedded .group-row td,
-    html.embedded #sheetModeToggle,
     html.embedded .sheet-comments-head,
     html.embedded .table-actions > :is(.btn,button){color:${value.color1}!important}
+    html.embedded .data-sheet thead .item-col #sheetModeToggle{color:${value.color1}!important}
     html.embedded .main-mode-switch .btn:not(.on)::after{color:${value.color1}!important}
     html.embedded .group-row td{background:${value.color2}!important;background-image:none!important}
     html.embedded #sheetComments>section{background:${value.color2}!important}
@@ -135,7 +135,7 @@
       if(!response.ok)return;
       const body=await response.json().catch(()=>({}));
       if(body.theme){theme=normalize(body.theme);writeLocal();applyAll();syncUi()}
-      else if(!theme){clearAll()}
+      else{theme=null;writeLocal();clearAll();syncUi()}
     }catch(error){console.warn("Theme load failed",error)}
   }
   async function resetTheme(){
@@ -177,7 +177,7 @@
       .scoped-theme-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
       .scoped-theme-field{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:6px 8px;border:1px solid #e5e8ed;border-radius:8px;background:#fafbfc;font-weight:750}
       .scoped-theme-field input[type=color]{width:42px;height:28px;padding:0;border:1px solid #dfe3e8;border-radius:6px;background:transparent}
-      .scoped-bg-modes{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.scoped-bg-modes label{display:flex;align-items:center;gap:5px;padding:7px;border:1px solid #e5e8ed;border-radius:8px;background:#fafbfc;cursor:pointer}
+      .scoped-bg-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.scoped-bg-modes label{display:flex;align-items:center;gap:5px;padding:7px;border:1px solid #e5e8ed;border-radius:8px;background:#fafbfc;cursor:pointer}
       .scoped-theme-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;align-items:center}.scoped-image-state{font-size:8px;color:#8a929d;white-space:nowrap}
       .scoped-theme-ui button{height:30px;padding:0 10px;border:1px solid #dfe3e8;border-radius:7px;background:#fff;color:#303640;font-size:9px;cursor:pointer}.scoped-theme-ui button:hover{background:#f7f8fa}
       .scoped-check{justify-content:flex-start}.scoped-check input{width:15px;height:15px;margin:0}
