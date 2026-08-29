@@ -52,6 +52,7 @@
   `}
   function logCss(value){return `
     html.embedded body{${whiteGradient}}
+    html.embedded #roomTitle{color:#000!important}
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
     html.embedded .filters .font-size-control{
       background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;
