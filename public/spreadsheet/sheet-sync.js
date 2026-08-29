@@ -9,9 +9,8 @@
   const meaningful=s=>(s?.['charaHub.characters']||[]).length||(s?.['charaHub.sources']||[]).length||(s?.['charaHub.layoutV1']?.localItems||[]).length||(s?.['charaHub.layoutV1']?.parts||[]).length||(s?.['charaHub.layoutV1']?.groups||[]).length;
   const endpoint=`/api/boards/${encodeURIComponent(board)}/spreadsheet/state`;
 
-  // The old spreadsheet bootstrap imported every project PC/NPC into Character.
-  // Those generated rows have this exact empty/local shape. They are not sheet
-  // data, so do not let them become authoritative or resurrect after deletion.
+  // Character data belongs to the Character manager only. Never resurrect old
+  // project/person records that were automatically injected by the old bootstrap.
   const autoKeys=new Set(['id','projectPersonId','name','alias','key','base','sources','local']);
   const isAutoProjectCharacter=ch=>!!ch&&ch.local===true&&ch.base==null&&Array.isArray(ch.sources)&&ch.sources.length===0&&!String(ch.alias||'').trim()&&!!ch.projectPersonId&&ch.id===ch.projectPersonId&&Object.keys(ch).every(k=>autoKeys.has(k));
   function sanitizeSnapshot(input){
@@ -68,28 +67,6 @@
     try{if(typeof setMainView==='function')setMainView();else if(typeof renderDataTable==='function')renderDataTable()}catch(error){console.warn(error)}
     return clean;
   }
-
-  // Detected source column names are not Character names. Keep them only as
-  // import metadata and let the user type each new Character name themselves.
-  function applyManualCharacterNames(){
-    if(typeof state==='undefined'||state?.mode!=='new')return;
-    document.querySelectorAll('.newName[data-i]').forEach(input=>{
-      const row=state.pending?.parsed?.names?.[Number(input.dataset.i)];
-      if(!row)return;
-      input.value=Object.prototype.hasOwnProperty.call(row,'manualName')?String(row.manualName||''):'';
-    });
-  }
-  if(typeof renderDetected==='function'){
-    const rawRenderDetected=renderDetected;
-    renderDetected=function(...args){const result=rawRenderDetected.apply(this,args);applyManualCharacterNames();return result};
-  }
-  document.addEventListener('input',event=>{
-    const input=event.target.closest?.('.newName[data-i]');
-    if(!input||typeof state==='undefined')return;
-    const row=state.pending?.parsed?.names?.[Number(input.dataset.i)];
-    if(row)row.manualName=input.value;
-  });
-  applyManualCharacterNames();
 
   // Always open the Character manager first. Previously openCharacterManage()
   // rendered the list before showing the modal, so one bad Character render made
