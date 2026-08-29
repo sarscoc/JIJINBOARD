@@ -15,31 +15,29 @@
     return `rgba(${n>>16},${(n>>8)&255},${n&255},${alpha})`;
   }
 
-  function logCss(theme){
-    const black=theme?.backgroundMode==="black-gradient";
-    const surface=black?"rgba(0,0,0,.85)":"rgba(255,255,255,.85)";
+  function logCss(){
     return `
-      html.embedded .log-pane{
-        background:${surface}!important;
+      /* LOG light/dark comes from LOG itself (:root / :root.dark), not board background mode. */
+      html.embedded .log-pane,
+      html.embedded .comments-pane{
+        background:color-mix(in srgb,var(--paper) 85%,transparent)!important;
+        color:var(--ink)!important;
+        border-color:var(--line)!important;
         backdrop-filter:blur(14px) saturate(120%)!important;
         -webkit-backdrop-filter:blur(14px) saturate(120%)!important;
-        ${black?"--paper:#000;--ink:#f2f4f7;--muted:#b3b3b3;--line:#333;--soft:#181818;color:#f2f4f7!important;":""}
+      }
+      html.embedded.dark .log-pane,
+      html.embedded.dark .comments-pane{
+        background:rgba(53,53,53,.85)!important;
       }
       html.embedded .cylinder-nav,
       html.embedded .page-title,
-      html.embedded .tab-navigation{background:transparent!important}
-      html.embedded .comments-pane{
-        --paper:#fff;--ink:#171a1f;--muted:#79818d;--line:#e2e7ed;--soft:#f0f3f6;
-        color:#171a1f!important;
-        background:rgba(255,255,255,.85)!important;
-        backdrop-filter:blur(14px) saturate(120%)!important;
-        -webkit-backdrop-filter:blur(14px) saturate(120%)!important;
-      }
+      html.embedded .tab-navigation,
       html.embedded .comments-head,
       html.embedded .comments-list{background:transparent!important}
       html.embedded .tab-arrow,
       html.embedded .slide-btn,
-      html.embedded .cylinder-nav button{background:#fff!important}
+      html.embedded .cylinder-nav button{background:#fff!important;color:#596168!important}
     `;
   }
 
@@ -81,7 +79,7 @@
       let style=doc.getElementById(styleId);
       if(!style){style=doc.createElement("style");style.id=styleId;doc.head.append(style)}
       const theme=readTheme();
-      style.textContent=scope==="log"?logCss(theme):scope==="matrix"?matrixCss(theme):sheetCss(theme);
+      style.textContent=scope==="log"?logCss():scope==="matrix"?matrixCss(theme):sheetCss(theme);
     }catch{}
   }
   function applyAll(){
