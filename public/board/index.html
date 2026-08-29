@@ -8,10 +8,11 @@
   <link rel="stylesheet" href="board.css">
   <link rel="stylesheet" href="board-extra.css">
   <link rel="stylesheet" href="participant.css?v=20260829-3">
+  <link rel="stylesheet" href="theme-settings-compact.css?v=20260830-1">
   <style>
     .log-sidebar{background:#fff!important}
-    .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button{color:var(--jijin-pre-color1,#171a20)!important}
-    .board-heading #boardName,.log-list .log-item{color:var(--jijin-pre-text2,#171a20)!important}
+    .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button,
+    .board-heading>span,.log-list-head>span{color:var(--jijin-pre-color1,#171a20)!important}
   </style>
   <script>
     (()=>{
@@ -19,7 +20,6 @@
       try{
         const value=JSON.parse(localStorage.getItem(`jijinboardScopedTheme:${id}`)||'null');
         if(/^#[0-9a-f]{6}$/i.test(value?.color1||''))document.documentElement.style.setProperty('--jijin-pre-color1',value.color1);
-        if(/^#[0-9a-f]{6}$/i.test(value?.textColor2||''))document.documentElement.style.setProperty('--jijin-pre-text2',value.textColor2);
       }catch{}
     })();
   </script>
@@ -68,7 +68,7 @@
   <script src="board-log-meta.js?v=20260829-2"></script>
   <script src="board-tab-settings.js?v=20260829-2"></script>
   <script src="board-profile.js?v=20260829-5"></script>
-  <script src="theme-scoped.js?v=20260829-5"></script>
+  <script src="theme-scoped.js?v=20260830-1"></script>
   <script>
     const __spreadsheetFrame=document.getElementById('spreadsheetFrame');
     __spreadsheetFrame?.addEventListener('load',()=>{
