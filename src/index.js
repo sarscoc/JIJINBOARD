@@ -2,6 +2,7 @@ import { onRequest as handleApi } from "../functions/api/[[path]].js";
 import { RoomHub } from "../realtime-worker/src/index.js";
 import { ensureSchema } from "./schema.js";
 import { handleLogTabSettings } from "./log-tab-settings.js";
+import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
 
 export { RoomHub };
 
@@ -23,6 +24,18 @@ export default {
     }
 
     await ensureSchema(env.DB);
+
+    const matrixTemplateCommentsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);
+    if(matrixTemplateCommentsMatch){
+      return handleMatrixTemplateComments(
+        request,
+        env,
+        decodeURIComponent(matrixTemplateCommentsMatch[1]),
+        decodeURIComponent(matrixTemplateCommentsMatch[2]),
+        decodeURIComponent(matrixTemplateCommentsMatch[3]),
+        executionContext
+      );
+    }
 
     const tabSettingsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/log-tab-settings\/([^/]+)$/);
     if(tabSettingsMatch){
