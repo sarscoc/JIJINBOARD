@@ -208,16 +208,18 @@
 
   (async()=>{
     let remote=null,cleanRemote=null,remoteString='';
+    const cleanLocal=sanitizeSnapshot(read());
+    const localString=JSON.stringify(cleanLocal);
+    const hasLocal=!!meaningful(cleanLocal);
+    if(embedded&&hasLocal)notifyReady();
     try{
-      const cleanLocal=sanitizeSnapshot(read());
-      const localString=JSON.stringify(cleanLocal);
       remote=(await api(endpoint)).state;
       cleanRemote=sanitizeSnapshot(remote||{});
       remoteString=JSON.stringify(cleanRemote);
 
       if(remote&&meaningful(cleanRemote)){
         if(remoteString!==localString)applyRemote(cleanRemote);
-      }else if(meaningful(cleanLocal)){
+      }else if(hasLocal){
         await api(endpoint,{method:'POST',body:JSON.stringify({state:cleanLocal})});
       }
     }catch(error){
