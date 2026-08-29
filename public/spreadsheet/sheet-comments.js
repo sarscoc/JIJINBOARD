@@ -132,49 +132,189 @@
     setMode(mode);
   }
 
+  function installDuplicateSafeItems(){
+    const duplicateAwareCollect=()=>{
+      const map=new Map();
+      const chars=state.characters;
+      const ensureItem=(key,label,sourceName,sourceKind,sourceRef)=>{
+        if(!map.has(key))map.set(key,{key,label,sourceName,sourceKind,sourceRef,cells:{}});
+        return map.get(key);
+      };
+      const keyForRow=(sourceKey,row,src,seen)=>{
+        const label=String(row.label||'').trim();
+        const count=(seen.get(label)||0)+1;
+        seen.set(label,count);
+        const base=itemKeyFor(sourceKey,row.label);
+        if(count===1)return base;
+        const axisPos=src?.questionDirection==='column'?row.col:row.row;
+        return `${base}::dup:${count}${Number.isFinite(Number(axisPos))?`@${axisPos}`:''}`;
+      };
+
+      for(const ch of chars){
+        if(!ch.base?.matrix)continue;
+        const src=ch.base,sk=sourceIdentity(src,'base');
+        const result=getCharacterRows(src.matrix,src,[ch.key,ch.alias,ch.name]);
+        if(result.invalid||result.notFound)continue;
+        const seen=new Map();
+        for(const r of result.rows){
+          const key=keyForRow(sk,r,src,seen);
+          const item=ensureItem(key,r.label,'','base',ch.id);
+          item.cells[ch.id]={value:String(r.value??''),kind:'base',ownerId:ch.id,row:r.row,col:r.col};
+        }
+      }
+
+      for(const src of state.sources){
+        const sk=sourceIdentity(src,'linked');
+        for(const ch of chars){
+          const detectedName=Object.keys(src.mapping||{}).find(k=>src.mapping[k]===ch.id);
+          if(!detectedName)continue;
+          const result=getCharacterRows(src.matrix||[],src,[ch.key,detectedName,ch.alias,ch.name]);
+          if(result.invalid||result.notFound)continue;
+          const seen=new Map();
+          for(const r of result.rows){
+            const key=keyForRow(sk,r,src,seen);
+            const item=ensureItem(key,r.label,src.name||'Data Source','linked',src.id);
+            item.cells[ch.id]={value:String(r.value??''),kind:'linked',ownerId:src.id,row:r.row,col:r.col};
+          }
+        }
+      }
+
+      for(const li of state.layout.localItems||[]){
+        const key=`local::${li.id}`;
+        const item=ensureItem(key,li.label,'ローカル','local',li.id);
+        for(const ch of chars){
+          const lv=ensureLocalValues(ch);
+          item.cells[ch.id]={value:String(lv[key]??''),kind:'local',ownerId:ch.id,itemKey:key};
+        }
+      }
+
+      for(const item of map.values()){
+        for(const ch of chars){
+          if(item.cells[ch.id])continue;
+          const lv=ensureLocalValues(ch);
+          item.cells[ch.id]={value:String(lv[item.key]??''),kind:'override',ownerId:ch.id,itemKey:item.key};
+        }
+      }
+      return [...map.values()].filter(item=>!state.layout.deletedItems?.[item.key]);
+    };
+
+    collectUnifiedItems=duplicateAwareCollect;
+    if(typeof renderDataTable==='function')renderDataTable();
+    if(state.layout.mainMode==='characters'&&typeof renderFullCharacterMode==='function')renderFullCharacterMode();
+  }
+
   function setupOrganizeShiftGrouping(){
     const selected=new Set();
+    let anchorKey='';
     const style=document.createElement('style');
     style.textContent='#organizeGrid .item-chip.bulk-selected{background:#eef3ff!important;border-color:#b9c9ff!important;box-shadow:inset 3px 0 0 #8da8ff!important}';
     document.head.appendChild(style);
 
+    const chips=()=>[...document.querySelectorAll('#organizeGrid .item-chip[data-item-key]')];
     const paint=()=>{
-      document.querySelectorAll('#organizeGrid .item-chip[data-item-key]').forEach(chip=>{
+      for(const chip of chips()){
         chip.classList.toggle('bulk-selected',selected.has(chip.dataset.itemKey));
-        chip.title='Shift＋クリックでまとめて選択';
-      });
+        chip.title='クリックで選択 / Shift＋クリックで範囲選択';
+      }
     };
+    const clearSelection=()=>{selected.clear();anchorKey='';paint()};
 
     document.addEventListener('click',e=>{
-      if(!e.shiftKey)return;
       const chip=e.target.closest?.('#organizeGrid .item-chip[data-item-key]');
       if(!chip)return;
-      if(e.target.closest('select,button,input,textarea'))return;
+      if(e.target.closest('select,button,input,textarea,.drag-handle'))return;
       e.preventDefault();
       e.stopPropagation();
       const key=chip.dataset.itemKey;
-      if(selected.has(key))selected.delete(key);else selected.add(key);
+      const all=chips();
+
+      if(e.shiftKey&&anchorKey){
+        const from=all.findIndex(x=>x.dataset.itemKey===anchorKey);
+        const to=all.findIndex(x=>x.dataset.itemKey===key);
+        if(from>=0&&to>=0){
+          selected.clear();
+          for(const row of all.slice(Math.min(from,to),Math.max(from,to)+1))selected.add(row.dataset.itemKey);
+        }else{
+          selected.clear();selected.add(key);anchorKey=key;
+        }
+      }else{
+        selected.clear();
+        selected.add(key);
+        anchorKey=key;
+      }
       paint();
     },true);
 
     document.addEventListener('change',e=>{
       const sel=e.target.closest?.('#organizeGrid .item-group-select[data-item-key]');
-      if(!sel||!selected.has(sel.dataset.itemKey)||selected.size<2)return;
+      if(!sel||!selected.has(sel.dataset.itemKey)||!selected.size)return;
       e.stopImmediatePropagation();
-      const gid=sel.value;
-      const keys=[...selected];
+      const gid=sel.value,keys=[...selected];
       for(const key of keys){
         if(gid==='ungrouped')delete state.layout.assignments[key];
         else state.layout.assignments[key]=gid;
         moveItemToGroupOrder(key,gid);
       }
-      selected.clear();
+      selected.clear();anchorKey='';
       saveState();
       renderOrganizeModal();
       renderDataTable();
       renderQuestionView();
       renderCharacterView();
+      if(state.layout.mainMode==='characters')renderFullCharacterMode();
       showToast(`${keys.length}項目をまとめて移動しました`);
+    },true);
+
+    document.addEventListener('click',e=>{
+      const btn=e.target.closest?.('#organizeGrid [data-delete-item]');
+      if(!btn||selected.size<2||!selected.has(btn.dataset.deleteItem))return;
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      const keys=[...selected];
+      if(!confirm(`選択した${keys.length}項目を削除しますか？\n\n元のGoogle Sheets / CSVそのものは変更しません。`))return;
+
+      for(const itemKey of keys){
+        if(String(itemKey).startsWith('local::')){
+          const localId=String(itemKey).slice('local::'.length);
+          state.layout.localItems=(state.layout.localItems||[]).filter(li=>li.id!==localId);
+        }else{
+          state.layout.deletedItems[itemKey]=true;
+        }
+        delete state.layout.assignments[itemKey];
+        removeItemFromAllOrders(itemKey);
+        delete state.layout.hiddenItems[itemKey];
+        delete state.layout.itemTypes[itemKey];
+
+        const visualId=itemVisualId(itemKey);
+        delete state.layout.radarItems?.[visualId];
+        delete state.layout.ratingItems?.[visualId];
+        delete state.layout.bipolarItems?.[visualId];
+        delete state.layout.distributionItems?.[visualId];
+        delete state.layout.relationItems?.[visualId];
+        delete state.layout.relationData?.[visualId];
+        delete state.layout.timelineItems?.[visualId];
+        delete state.layout.comparisonItems?.[visualId];
+        delete state.layout.imageCaptions?.[visualId];
+
+        for(const ch of state.characters||[]){
+          const lv=ensureLocalValues(ch);
+          delete lv[itemKey];
+          for(const localKey of Object.keys(lv)){
+            if(localKey.startsWith(`radar::${visualId}::`))delete lv[localKey];
+            if(localKey===`bipolar::${visualId}`||localKey===`distribution::${visualId}`||localKey===`timeline::${visualId}`)delete lv[localKey];
+          }
+        }
+      }
+
+      clearSelection();
+      saveState();
+      renderOrganizeModal();
+      renderDataTable();
+      renderQuestionView();
+      renderCharacterView();
+      if(state.layout.mainMode==='characters')renderFullCharacterMode();
+      showToast(`${keys.length}項目を削除しました`);
     },true);
 
     const grid=document.getElementById('organizeGrid');
@@ -190,6 +330,7 @@
   async function post(e){e.preventDefault();const d=dialog(),p=me(),person=people()[d.querySelector('select').value],body=d.querySelector('textarea').value.trim();if(!body)return;try{if(edit)await api(`/api/boards/${board}/spreadsheet/comments/${edit}`,{method:'PATCH',body:JSON.stringify({authorId:p.id,body})});else await api(`/api/boards/${board}/spreadsheet/comments`,{method:'POST',body:JSON.stringify({cellId:cell,parentId:reply,authorId:p.id,personaName:person.name,personaType:person.type,body})});d.close();load()}catch(x){alert(x.message)}}
   async function remove(){if(!confirm('このコメントを削除しますか？'))return;await api(`/api/boards/${board}/spreadsheet/comments/${edit}`,{method:'DELETE',body:JSON.stringify({authorId:me().id})});dialog().close();load()}
 
+  installDuplicateSafeItems();
   document.body.classList.toggle('sheet-comment-mode',mode==='comment');
   setupTocOverlay();
   controls();
