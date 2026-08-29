@@ -5,13 +5,13 @@
     log:`
       /* Shared background must remain visible below the embedded UI. */
       html.embedded body>main,html.embedded #roomView,html.embedded .reader-grid{background:transparent!important}
-      /* 85% white glass for the main reading surface and comment cards. */
+      /* 85% white glass for the main reading surface. */
       html.embedded .log-pane{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
-      /* Same COMMENTS rule in every tab: white header, transparent body, 85% cards. */
+      /* Same COMMENTS rule in every tab: white header, 85% body, solid white cards. */
       html.embedded .comments-pane{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .comments-head{background:#fff!important}
-      html.embedded .comments-list{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-      html.embedded .comment-card{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px) saturate(120%)}
+      html.embedded .comments-list{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
+      html.embedded .comment-card{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .tab-arrow,html.embedded .slide-btn{background:#fff!important}
       html.embedded .tab-navigation{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(10px) saturate(125%);-webkit-backdrop-filter:blur(10px) saturate(125%)}
       html.embedded .page-title{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
@@ -26,8 +26,8 @@
       /* Same COMMENTS rule in every tab. */
       html.embedded #matrixIconComments{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .matrix-comment-head{background:#fff!important}
-      html.embedded #matrixIconComments>section{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-      html.embedded .matrix-comment-card{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px) saturate(120%)}
+      html.embedded #matrixIconComments>section{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
+      html.embedded .matrix-comment-card{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
     `,
     sheet:`
       html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important}
@@ -37,8 +37,8 @@
       /* Same COMMENTS rule in every tab. */
       html.embedded #sheetComments{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .sheet-comments-head{background:#fff!important}
-      html.embedded #sheetComments>section{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-      html.embedded #sheetComments article{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px) saturate(120%)}
+      html.embedded #sheetComments>section{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
+      html.embedded #sheetComments article{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
     `
   };
 
