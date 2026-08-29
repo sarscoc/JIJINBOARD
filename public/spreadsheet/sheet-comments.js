@@ -62,10 +62,16 @@
         popover.style.top=`${top}px`;
       });
     };
-    const openAt=clientY=>{placePopoverAt(clientY);rail.classList.add('open')};
-    const close=()=>rail.classList.remove('open');
+    let closeTimer=0;
+    const cancelClose=()=>{if(closeTimer){clearTimeout(closeTimer);closeTimer=0}};
+    const openAt=clientY=>{cancelClose();placePopoverAt(clientY);rail.classList.add('open')};
+    const close=()=>{cancelClose();rail.classList.remove('open')};
+    const scheduleClose=()=>{cancelClose();closeTimer=setTimeout(close,650)};
 
-    rail.addEventListener('mouseenter',event=>{if(!rail.classList.contains('open'))openAt(event.clientY)});
+    rail.addEventListener('mouseenter',event=>{cancelClose();if(!rail.classList.contains('open'))openAt(event.clientY)});
+    rail.addEventListener('mouseleave',scheduleClose);
+    popover.addEventListener('mouseenter',cancelClose);
+    popover.addEventListener('mouseleave',scheduleClose);
     popover.addEventListener('click',event=>{
       const link=event.target.closest('.database-toc-link[data-db-jump]');
       if(!link)return;
@@ -75,7 +81,9 @@
       const target=document.getElementById(`group-${link.dataset.dbJump}`),wrap=document.getElementById('sheetWrap');
       if(target&&wrap){
         const wr=wrap.getBoundingClientRect(),tr=target.getBoundingClientRect();
-        const top=wrap.scrollTop+(tr.top-wr.top);
+        const stickyCell=[...wrap.querySelectorAll('thead th')].find(el=>getComputedStyle(el).position==='sticky');
+        const stickyHeight=stickyCell?.getBoundingClientRect().height||0;
+        const top=wrap.scrollTop+(tr.top-wr.top)-stickyHeight-1;
         wrap.scrollTo({top:Math.max(0,top),behavior:'smooth'});
       }
       close();
