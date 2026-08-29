@@ -62,11 +62,14 @@
     html.embedded body{${whiteGradient}}
     html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
     html.embedded #databaseLayout,html.embedded #sheetComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
-    html.embedded .table-actions > :is(.btn,button),html.embedded .table-actions .btn,html.embedded .main-mode-switch .btn,html.embedded .view-switch .btn,
+    html.embedded .table-actions > :is(.btn,button),html.embedded .table-actions .btn,html.embedded .view-switch .btn,
     html.embedded .data-sheet thead th,html.embedded .data-sheet .item-col,html.embedded .group-row td,
     html.embedded .item-main,html.embedded .item-source,html.embedded .part-value,html.embedded .mini,html.embedded .status,
     html.embedded .axis-label,html.embedded .axis-label span,html.embedded .jump-btn{color:${uiInk}!important}
-    html.embedded .sheet-comments-head{color:${value.color1}!important}
+    html.embedded #mainDatabaseModeBtn,html.embedded #mainCharacterModeBtn,
+    html.embedded #mainDatabaseModeBtn::before,html.embedded #mainDatabaseModeBtn::after,
+    html.embedded #mainCharacterModeBtn::before,html.embedded #mainCharacterModeBtn::after{color:${uiInk}!important}
+    html.embedded .sheet-comments-head,html.embedded .sheet-comments-head :is(b,strong,span){color:${value.color1}!important}
     html.embedded .data-sheet thead .item-col #sheetModeToggle,html.embedded .main-mode-switch .btn:not(.on)::after{color:${uiInk}!important}
     html.embedded .group-row td{background:rgba(255,255,255,.85)!important;background-image:none!important}
     html.embedded .sheet-comments-head,html.embedded #sheetComments .sheet-comments-body{background:transparent!important;${noBlur}}
