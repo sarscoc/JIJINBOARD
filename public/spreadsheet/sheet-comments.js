@@ -7,10 +7,37 @@
 
   function setupTocOverlay(){
     if(!document.documentElement.classList.contains('embedded'))return;
-    const toc=document.querySelector('#databaseLayout>.database-toc'),app=document.querySelector('.app');
-    if(!toc||!app||toc.dataset.overlayReady==='1')return;
-    toc.dataset.overlayReady='1';
-    app.appendChild(toc);
+    if(document.querySelector('#sheetTocRail'))return;
+    const source=document.querySelector('#databaseLayout>.database-toc');
+    const inner=source?.querySelector('.database-toc-inner');
+    const layout=document.querySelector('#databaseLayout');
+    if(!source||!inner||!layout)return;
+
+    const rail=document.createElement('div');
+    rail.id='sheetTocRail';
+    rail.innerHTML='<span class="sheet-toc-handle" aria-hidden="true">︙</span><div id="sheetTocPopover"></div>';
+    rail.querySelector('#sheetTocPopover').appendChild(inner);
+    source.remove();
+    document.body.appendChild(rail);
+
+    const place=()=>{
+      const target=document.querySelector('#databaseLayout');
+      if(!target)return;
+      const cs=getComputedStyle(target),rect=target.getBoundingClientRect();
+      const hidden=cs.display==='none'||cs.visibility==='hidden'||rect.width<1||rect.height<1;
+      rail.hidden=hidden;
+      if(hidden)return;
+      const top=Math.max(0,rect.top);
+      const bottom=Math.min(window.innerHeight,rect.bottom);
+      rail.style.top=`${top}px`;
+      rail.style.height=`${Math.max(0,bottom-top)}px`;
+    };
+    place();
+    requestAnimationFrame(place);
+    window.addEventListener('resize',place,{passive:true});
+    document.addEventListener('click',()=>requestAnimationFrame(place));
+    if(window.ResizeObserver){const ro=new ResizeObserver(place);ro.observe(layout)}
+    if(window.MutationObserver){const mo=new MutationObserver(place);mo.observe(layout,{attributes:true,attributeFilter:['class','style']})}
   }
   function setMode(next){mode=next;localStorage.setItem('sheetCommentMode',mode);document.body.classList.toggle('sheet-comment-mode',mode==='comment');document.querySelectorAll('[data-sheet-mode]').forEach(b=>b.classList.toggle('on',b.dataset.sheetMode===mode))}
   function controls(){if(document.querySelector('#sheetCommentModes'))return;const el=document.createElement('div');el.id='sheetCommentModes';el.innerHTML='<button data-sheet-mode="edit">編集</button><button data-sheet-mode="comment">コメント</button><button type="button" data-open-sheet-comments>COMMENTS</button>';document.querySelector('.table-actions')?.prepend(el);el.querySelectorAll('[data-sheet-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.sheetMode));el.querySelector('[data-open-sheet-comments]').onclick=()=>ui().hidden=false;setMode(mode)}
