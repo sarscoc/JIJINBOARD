@@ -6,6 +6,7 @@
   const storageKey=`jijinboardScopedTheme:${boardId}`;
   const defaults={
     color1:"#171a20",
+    textColor2:"#171a20",
     color2:"#f5f6f7",
     backgroundMode:"white-gradient",
     backgroundColor:"#f5f7fa",
@@ -22,6 +23,7 @@
     if(!value||typeof value!=="object")return null;
     const next={...defaults,...value};
     next.color1=validColor(next.color1)?next.color1:defaults.color1;
+    next.textColor2=validColor(next.textColor2)?next.textColor2:defaults.textColor2;
     next.color2=validColor(next.color2)?next.color2:defaults.color2;
     next.backgroundColor=validColor(next.backgroundColor)?next.backgroundColor:defaults.backgroundColor;
     next.alternateCellColor=validColor(next.alternateCellColor)?next.alternateCellColor:defaults.alternateCellColor;
@@ -46,16 +48,14 @@
   }
 
   function parentCss(value){return `
-    /* Board shell: only the annotated text and left LOG surface. */
     .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button{color:${value.color1}!important}
     .log-sidebar{background:${value.color2}!important}
+    .board-heading #boardName,.log-list .log-item{color:${value.textColor2}!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function logCss(value){return `
-    /* Background setting touches only the area that already owns the gradient. */
     html.embedded body{${backgroundRules(value)}}
-    /* Toolbar controls stay light even when the workspace background is black. */
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
     html.embedded .filters .font-size-control{
       background:#fff!important;
@@ -68,14 +68,15 @@
     html.embedded .comments-head{color:${value.color1}!important}
     html.embedded .filters input::placeholder{color:#79818d!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
+    html.embedded .comments-list{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    html.embedded .tab-arrow{background:#fff!important}
     html.embedded .page-scroll,html.embedded .comments-list{scrollbar-color:${value.color1} transparent!important}
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
   `}
   function matrixCss(value){return `
     html.embedded body{${backgroundRules(value)}}
     html.embedded .library{background:${value.color2}!important}
-    /* COMMENTS originally uses a translucent glass surface; keep that translucency. */
-    html.embedded #matrixIconComments>section{background:color-mix(in srgb,${value.color2} 82%,transparent)!important;backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
+    html.embedded #matrixIconComments>section{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
     html.embedded .stage-area-toolbar :is(button,.btn,.stage-area-label,.toolbar-scale-check),
     html.embedded .matrix-comment-head{color:${value.color1}!important}
     html.embedded .library,html.embedded #matrixIconComments>section,html.embedded .template-tabs{scrollbar-color:${value.color1} transparent!important}
@@ -91,12 +92,10 @@
     html.embedded .data-sheet thead .item-col #sheetModeToggle{color:${value.color1}!important}
     html.embedded .main-mode-switch .btn:not(.on)::after{color:${value.color1}!important}
     html.embedded .group-row td{background:${value.color2}!important;background-image:none!important}
-    /* COMMENTS keeps the old glass feel instead of becoming a solid block. */
-    html.embedded #sheetComments>section{background:color-mix(in srgb,${value.color2} 82%,transparent)!important;backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
+    html.embedded #sheetComments>section{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
     ${value.alternateCells?`html.embedded .data-sheet tbody tr:not(.group-row):nth-child(even) td:not(.item-col){background:${value.alternateCellColor}!important;background-image:none!important}`:""}
     html.embedded #sheetWrap,html.embedded #sheetComments>section{scrollbar-color:${value.color1} transparent!important}
     html.embedded #sheetWrap::-webkit-scrollbar-thumb,html.embedded #sheetComments>section::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
-    /* Character individual pages are deliberately not targeted here. */
   `}
 
   function styleIn(doc,id,css){
@@ -203,10 +202,11 @@
           <div class="scoped-theme-head"><b>共通カラー</b><span>指定した場所だけを変更します。</span></div>
           <div class="scoped-theme-grid">
             <label class="scoped-theme-field"><span>文字色1</span><input id="scopedColor1" type="color"></label>
-            <label class="scoped-theme-field"><span>色2</span><input id="scopedColor2" type="color"></label>
-            <label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label>
+            <label class="scoped-theme-field"><span>文字色2</span><input id="scopedTextColor2" type="color"></label>
+            <label class="scoped-theme-field"><span>面の色2</span><input id="scopedColor2" type="color"></label>
           </div>
           <div class="scoped-theme-grid">
+            <label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label>
             <label class="scoped-theme-field"><span>交互マスの色</span><input id="scopedAltColor" type="color"></label>
           </div>
         </section>
@@ -232,6 +232,7 @@
       </div>`;
     uiBuilt=true;
     slot.querySelector("#scopedColor1").addEventListener("input",e=>update({color1:e.target.value}));
+    slot.querySelector("#scopedTextColor2").addEventListener("input",e=>update({textColor2:e.target.value}));
     slot.querySelector("#scopedColor2").addEventListener("input",e=>update({color2:e.target.value}));
     slot.querySelector("#scopedAlt").addEventListener("change",e=>update({alternateCells:e.target.checked}));
     slot.querySelector("#scopedAltColor").addEventListener("input",e=>update({alternateCellColor:e.target.value}));
@@ -247,7 +248,7 @@
     if(!uiBuilt)return;const slot=document.getElementById("boardDesignSlot");if(!slot)return;
     const value=theme||defaults;
     const set=(id,v)=>{const el=slot.querySelector(`#${id}`);if(el)el.value=v};
-    set("scopedColor1",value.color1);set("scopedColor2",value.color2);set("scopedAltColor",value.alternateCellColor);set("scopedBgColor",value.backgroundColor);
+    set("scopedColor1",value.color1);set("scopedTextColor2",value.textColor2);set("scopedColor2",value.color2);set("scopedAltColor",value.alternateCellColor);set("scopedBgColor",value.backgroundColor);
     const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!value.alternateCells;
     slot.querySelectorAll('input[name="scopedBgMode"]').forEach(input=>input.checked=input.value===value.backgroundMode);
     const state=slot.querySelector("#scopedBgImageState");if(state)state.textContent=value.backgroundImage?"設定済み":"未設定";
