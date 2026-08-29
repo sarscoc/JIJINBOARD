@@ -115,13 +115,15 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 .matrix-comment-head span{font:inherit;letter-spacing:inherit;margin-left:auto}
 .matrix-comment-head>button{display:none!important}
 
-/* LOGCOMMENTS compact density: 6px list inset, 8px cards, 6px between cards. */
+/* LOGCOMMENTS compact density: 6px list inset, 8px cards, 6px between cards.
+   Reserve the right scrollbar gutter from the start so card/text width never jumps. */
 .matrix-comment-head+section{
   flex:1 1 auto;
   min-height:0;
   overflow-y:auto;
   overscroll-behavior:contain;
   padding:6px;
+  scrollbar-gutter:stable;
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb,var(--matrix-ink) 32%,transparent) transparent;
 }
