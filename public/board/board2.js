@@ -3,7 +3,7 @@
 const $=selector=>document.querySelector(selector),params=new URL(location.href).searchParams,boardId=params.get("id");
 const state={board:null,tool:"log",activeRoom:params.get("room")||"",pendingRoom:"",editingRoom:"",summaries:{},opened:{},profile:null};
 
-function esc(value=""){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;","^":"&gt;",'"':"&quot;","'":"&#39;"}[c])||c)}
+function esc(value=""){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 async function api(path,options={}){const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body}
 function adminToken(){return localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||""}
 function openedKey(){return `jijinboardOpenedLogs:${boardId}`}
