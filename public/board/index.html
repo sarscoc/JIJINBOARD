@@ -30,7 +30,7 @@
       <section id="welcome" class="welcome"><p>左の一覧からログを選択してください。</p></section>
       <iframe id="logFrame" class="tool-frame hidden" title="LOGCOMMENTS"></iframe>
       <iframe id="matrixFrame" class="tool-frame hidden" title="MAGIA MATRIX"></iframe>
-      <iframe id="spreadsheetFrame" class="tool-frame hidden" title="SPREADSHEET"></iframe>
+      <iframe id="spreadsheetFrame" class="tool-frame hidden" title="SPREADSHEET" style="visibility:hidden"></iframe>
     </main>
   </div>
   <dialog id="spoilerDialog"><div class="spoiler-card"><p>UNOPENED LOG</p><span id="spoilerLabel" class="hidden">LOG</span><h2 id="spoilerTitle"></h2><small id="spoilerParticipants" class="hidden"></small><strong>この先にはシナリオのネタバレを含みます。</strong><div><button id="confirmOpen" class="primary">ログを開く</button></div></div></dialog>
@@ -41,7 +41,6 @@
     if(__boardIdForOpenedState)sessionStorage.removeItem(`jijinboardOpenedLogs:${__boardIdForOpenedState}`);
   </script>
   <script src="board2.js"></script>
-  <script src="board-spreadsheet-ready.js"></script>
   <script src="board-profile-overlay.js"></script>
   <script src="matrix-icon-bridge.js"></script>
   <script src="board-spoiler-preview.js"></script>
