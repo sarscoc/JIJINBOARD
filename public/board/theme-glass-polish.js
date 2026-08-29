@@ -3,31 +3,42 @@
   const styleId="jijinboardGlassPolish";
   const frameStyles={
     log:`
-      /* Same COMMENTS rule in every embedded tool: white header, transparent body. */
+      /* Shared background must remain visible below the embedded UI. */
+      html.embedded body>main,html.embedded #roomView,html.embedded .reader-grid{background:transparent!important}
+      /* 85% white glass for the main reading surface and comment cards. */
+      html.embedded .log-pane{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(18px) saturate(125%);-webkit-backdrop-filter:blur(18px) saturate(125%)}
+      /* Same COMMENTS rule in every tab: white header, transparent body, 85% cards. */
       html.embedded .comments-pane{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .comments-head{background:#fff!important}
       html.embedded .comments-list{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-      html.embedded .tab-arrow{background:#fff!important}
-      /* Keep the remaining translucent navigation just a little easier to read. */
-      html.embedded .tab-navigation{background:color-mix(in srgb,var(--paper,#fff) 92%,transparent)!important;backdrop-filter:blur(10px) saturate(125%);-webkit-backdrop-filter:blur(10px) saturate(125%)}
-      html.embedded .page-title{background:color-mix(in srgb,var(--paper,#fff) 95%,transparent)!important}
+      html.embedded .comment-card{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px) saturate(120%)}
+      html.embedded .tab-arrow,html.embedded .slide-btn{background:#fff!important}
+      html.embedded .tab-navigation{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(10px) saturate(125%);-webkit-backdrop-filter:blur(10px) saturate(125%)}
+      html.embedded .page-title{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
     `,
     matrix:`
-      html.embedded{--matrix-glass:rgba(255,255,255,.70)!important;--matrix-glass-strong:rgba(255,255,255,.87)!important}
+      html.embedded{--matrix-glass:rgba(255,255,255,.85)!important;--matrix-glass-strong:rgba(255,255,255,.85)!important}
+      /* Do not let MATRIX's own white roots hide the board background/image. */
+      html.embedded .app,html.embedded .workspace,html.embedded .stage-shell,html.embedded .canvas{background:transparent!important}
+      html.embedded .stage{background:var(--matrix-glass)!important;backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
+      /* Buttons stay solid white even on a dark/image background. */
+      html.embedded .stage-area-toolbar :is(.btn,button),html.embedded .toolbar-scale-check{background:#fff!important}
+      /* Same COMMENTS rule in every tab. */
       html.embedded #matrixIconComments{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .matrix-comment-head{background:#fff!important}
       html.embedded #matrixIconComments>section{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-      /* Slightly less transparent than before, while keeping the glass look. */
-      html.embedded .stage{background:var(--matrix-glass)!important}
-      html.embedded .stage-area-toolbar :is(.btn,button),html.embedded .toolbar-scale-check{background:var(--matrix-glass-strong)!important}
+      html.embedded .matrix-comment-card{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px) saturate(120%)}
     `,
     sheet:`
-      html.embedded{--sheet-glass:rgba(255,255,255,.70)!important;--sheet-glass-strong:rgba(255,255,255,.87)!important;--sheet-cell:rgba(255,255,255,.93)!important}
+      html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important}
+      /* Do not let SPREADSHEET's own roots hide the shared board background/image. */
+      html.embedded .app,html.embedded #tablePanel,html.embedded .database-main,html.embedded #sheetWrap{background:transparent!important}
+      html.embedded #databaseLayout,html.embedded #fullCharacterMode{background:var(--sheet-glass)!important;backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
+      /* Same COMMENTS rule in every tab. */
       html.embedded #sheetComments{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
       html.embedded .sheet-comments-head{background:#fff!important}
       html.embedded #sheetComments>section{background:transparent!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-      /* Slightly less transparent than before, while keeping the glass look. */
-      html.embedded #databaseLayout,html.embedded #fullCharacterMode{background:var(--sheet-glass)!important}
+      html.embedded #sheetComments article{background:rgba(255,255,255,.85)!important;backdrop-filter:blur(14px) saturate(120%);-webkit-backdrop-filter:blur(14px) saturate(120%)}
     `
   };
 
