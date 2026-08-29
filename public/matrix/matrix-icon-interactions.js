@@ -1,8 +1,7 @@
 "use strict";
 (() => {
   const TARGET_SEP = "@@matrix-template@@";
-  let reader = null;
-  let readerState = null;
+  let pageFilter = "";
   let listObserver = null;
   let observedList = null;
 
@@ -18,117 +17,78 @@
       : { templateId: "", itemId: raw };
   }
 
-  function matchesTarget(value, itemId, templateId) {
+  function oldCommentBelongsToCurrentPage(itemId) {
+    try {
+      const state = typeof appState === "function" ? appState() : null;
+      return !!state?.items?.[itemId]?.placed;
+    } catch {
+      return false;
+    }
+  }
+
+  function belongsToPage(value, templateId) {
     const parts = targetParts(value);
-    if (parts.itemId !== itemId) return false;
-    // Old comments have no stored template id, so they remain readable for the
-    // matching icon. New comments are scoped to the page where they were made.
-    return !parts.templateId || parts.templateId === templateId;
+    if (parts.templateId) return parts.templateId === templateId;
+    // Legacy shared comments predate template ids. Treat them as belonging to
+    // the current sheet only when their target icon is actually placed there.
+    return oldCommentBelongsToCurrentPage(parts.itemId);
   }
 
-  function ensureReader() {
-    if (reader?.isConnected) return reader;
-    reader = document.createElement("aside");
-    reader.id = "matrixIconCommentReader";
-    reader.hidden = true;
-    reader.innerHTML = `
-      <div class="matrix-icon-reader-head">
-        <b>COMMENTS</b>
-        <span class="matrix-icon-reader-count">0</span>
-        <button type="button" class="matrix-icon-reader-close" aria-label="閉じる">×</button>
-      </div>
-      <div class="matrix-icon-reader-list"></div>`;
-    reader.querySelector(".matrix-icon-reader-close").addEventListener("click", closeReader);
-    document.body.append(reader);
-    return reader;
+  function setHeaderState(panel) {
+    const head = panel?.querySelector(".matrix-comment-head");
+    if (!head) return;
+    head.style.cursor = pageFilter ? "pointer" : "";
+    head.title = pageFilter ? "クリックで全コメント表示" : "";
   }
 
-  function copyThreadForReader(thread) {
-    const clone = thread.cloneNode(true);
-    clone.hidden = false;
-    clone.querySelectorAll("[hidden]").forEach(node => node.hidden = false);
-    clone.querySelectorAll("button").forEach(button => button.remove());
-    clone.querySelectorAll(".matrix-comment-card").forEach(card => {
-      card.removeAttribute("data-comment-target");
-      card.removeAttribute("id");
-    });
-    return clone;
-  }
+  function applyPageFilter() {
+    const panel = document.querySelector("#matrixIconComments");
+    const list = document.querySelector("#matrixIconCommentList");
+    if (!panel || !list) return false;
 
-  function renderReader() {
-    if (!readerState) return;
-    const r = ensureReader();
-    const source = document.querySelector("#matrixIconCommentList");
-    const list = r.querySelector(".matrix-icon-reader-list");
-    const count = r.querySelector(".matrix-icon-reader-count");
-    if (!source || !list) return;
+    panel.hidden = false;
+    setHeaderState(panel);
 
-    const matches = [];
-    [...source.children].forEach(thread => {
-      if (!thread.classList?.contains("matrix-comment-thread")) return;
+    const topThreads = [...list.children].filter(node => node.classList?.contains("matrix-comment-thread"));
+    const allCards = [...list.querySelectorAll(".matrix-comment-card")];
+    let visibleCount = 0;
+
+    topThreads.forEach(thread => {
       const rootCard = thread.querySelector(":scope > .matrix-comment-card");
-      if (!rootCard) return;
-      if (matchesTarget(rootCard.dataset.commentTarget || "", readerState.itemId, readerState.templateId)) {
-        matches.push(thread);
-      }
+      const show = !pageFilter || belongsToPage(rootCard?.dataset.commentTarget || "", pageFilter);
+      thread.hidden = !show;
+      if (show) visibleCount += thread.querySelectorAll(".matrix-comment-card").length;
     });
 
-    list.replaceChildren();
-    if (!matches.length) {
-      const empty = document.createElement("p");
-      empty.className = "matrix-comment-empty";
-      empty.textContent = "このアイコンへの感想はありません。";
-      list.append(empty);
-      count.textContent = "0";
+    const baseEmpty = list.querySelector(":scope > .matrix-comment-empty:not(.matrix-comment-page-empty)");
+    let pageEmpty = list.querySelector(":scope > .matrix-comment-page-empty");
+
+    if (pageFilter && visibleCount === 0) {
+      if (!pageEmpty) {
+        pageEmpty = document.createElement("p");
+        pageEmpty.className = "matrix-comment-empty matrix-comment-page-empty";
+        pageEmpty.textContent = "このシートの感想はありません。";
+        list.append(pageEmpty);
+      }
+      if (baseEmpty) baseEmpty.hidden = true;
     } else {
-      let cardCount = 0;
-      matches.forEach(thread => {
-        const clone = copyThreadForReader(thread);
-        cardCount += clone.querySelectorAll(".matrix-comment-card").length;
-        list.append(clone);
-      });
-      count.textContent = String(cardCount);
+      pageEmpty?.remove();
+      if (baseEmpty) baseEmpty.hidden = false;
     }
+
+    const count = panel.querySelector("#matrixIconCommentCount");
+    if (count) count.textContent = String(pageFilter ? visibleCount : allCards.length);
+    return true;
   }
 
-  function positionReader(anchor) {
-    if (!reader || reader.hidden || !anchor?.isConnected) return;
-    const rect = anchor.getBoundingClientRect();
-    const gap = 8;
-    const margin = 8;
-    const width = Math.min(300, Math.max(220, window.innerWidth - margin * 2));
-    reader.style.width = `${width}px`;
-    reader.style.left = `${Math.max(margin, Math.min(window.innerWidth - width - margin, rect.right + gap))}px`;
-    reader.style.top = `${margin}px`;
-
-    const measuredHeight = Math.min(reader.scrollHeight || 220, Math.max(140, window.innerHeight - margin * 2));
-    let left = rect.right + gap;
-    if (left + width > window.innerWidth - margin) left = rect.left - width - gap;
-    left = Math.max(margin, Math.min(window.innerWidth - width - margin, left));
-    let top = rect.top + (rect.height / 2) - 46;
-    top = Math.max(margin, Math.min(window.innerHeight - measuredHeight - margin, top));
-    reader.style.left = `${Math.round(left)}px`;
-    reader.style.top = `${Math.round(top)}px`;
+  function filterCurrentPage() {
+    pageFilter = currentTemplate();
+    applyPageFilter();
   }
 
-  function openReader(id, anchor) {
-    const itemId = String(id || "");
-    const templateId = currentTemplate();
-    if (readerState?.itemId === itemId && readerState?.templateId === templateId && reader && !reader.hidden) {
-      closeReader();
-      return;
-    }
-    readerState = { itemId, templateId, anchor };
-    const r = ensureReader();
-    r.hidden = false;
-    renderReader();
-    positionReader(anchor);
-    ensureListObserver();
-  }
-
-  function closeReader() {
-    readerState = null;
-    if (reader) reader.hidden = true;
+  function showAllComments() {
+    pageFilter = "";
+    applyPageFilter();
   }
 
   function ensureListObserver() {
@@ -137,19 +97,15 @@
     if (observedList === list && listObserver) return true;
     listObserver?.disconnect();
     observedList = list;
-    listObserver = new MutationObserver(() => {
-      if (readerState) {
-        renderReader();
-        positionReader(readerState.anchor);
-      }
-    });
+    listObserver = new MutationObserver(() => applyPageFilter());
     listObserver.observe(list, { childList: true, subtree: true });
+    applyPageFilter();
     return true;
   }
 
   function placedFromEvent(event) {
     if (!(event.target instanceof Element)) return null;
-    if (event.target.closest(".inline-comment-editor,#matrixIconCommentReader")) return null;
+    if (event.target.closest(".inline-comment-editor")) return null;
     return event.target.closest(".placed[data-id]");
   }
 
@@ -159,16 +115,25 @@
     event.stopImmediatePropagation?.();
   }
 
-  // Left click = read this icon's shared comments in a small local reader.
-  // The main COMMENTS rail is never filtered or modified.
+  // Left click = show only shared COMMENTS belonging to the current template.
+  // It does not filter by which icon was clicked.
   document.addEventListener("click", event => {
     const placed = placedFromEvent(event);
     if (!placed || placed._draggedByPointer) return;
     stopPlacedAction(event);
-    openReader(placed.dataset.id || "", placed);
+    filterCurrentPage();
   }, true);
 
-  // Double-click no longer owns comment editing; right-click does.
+  // COMMENTS header = return to the room-wide list.
+  document.addEventListener("click", event => {
+    if (!(event.target instanceof Element)) return;
+    const head = event.target.closest(".matrix-comment-head");
+    if (!head || !pageFilter) return;
+    if (event.target.closest("button")) return;
+    showAllComments();
+  });
+
+  // Double-click no longer opens the old editor; right-click owns editing.
   document.addEventListener("dblclick", event => {
     const placed = placedFromEvent(event);
     if (!placed) return;
@@ -176,13 +141,12 @@
   }, true);
 
   // Right click:
-  // - own icon: edit the original on-icon comment/settings
-  // - another person's icon: write a shared MATRIX comment
+  // - own icon: edit the original comment displayed around that icon
+  // - another person's icon: open the shared COMMENTS composer
   document.addEventListener("contextmenu", event => {
     const placed = placedFromEvent(event);
     if (!placed) return;
     stopPlacedAction(event);
-    closeReader();
 
     const id = placed.dataset.id || "";
     const item = itemFor(id);
@@ -199,23 +163,25 @@
     if (typeof window.openMatrixIconComment === "function") window.openMatrixIconComment(id);
   }, true);
 
-  // Click outside the local reader closes only the reader. The main COMMENTS
-  // rail remains untouched.
-  document.addEventListener("pointerdown", event => {
-    if (!readerState || !reader || reader.hidden) return;
-    if (!(event.target instanceof Element)) return;
-    if (event.target.closest("#matrixIconCommentReader,.placed[data-id]")) return;
-    closeReader();
-  });
-
-  // Moving to another template/room invalidates the icon-page context.
+  // Any template change restores the room-wide COMMENTS list.
   document.addEventListener("click", event => {
     if (!(event.target instanceof Element)) return;
-    if (event.target.closest("#templatesPage .template-tab")) setTimeout(closeReader, 0);
+    if (event.target.closest("#templatesPage .template-tab")) setTimeout(showAllComments, 0);
   });
-  window.addEventListener("matrix-board-room", closeReader);
-  window.addEventListener("matrix-board-active", () => ensureListObserver());
-  window.addEventListener("resize", () => readerState && positionReader(readerState.anchor));
+
+  if (typeof window.switchTemplate === "function") {
+    const baseSwitchTemplate = window.switchTemplate;
+    window.switchTemplate = async function(...args) {
+      const result = await baseSwitchTemplate.apply(this, args);
+      showAllComments();
+      return result;
+    };
+  }
+
+  window.filterMatrixCommentsToCurrentPage = filterCurrentPage;
+  window.showAllMatrixComments = showAllComments;
+  window.addEventListener("matrix-board-room", showAllComments);
+  window.addEventListener("matrix-board-active", () => { ensureListObserver(); applyPageFilter(); });
 
   let tries = 0;
   const waitForComments = setInterval(() => {
