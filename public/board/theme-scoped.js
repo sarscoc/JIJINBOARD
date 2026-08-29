@@ -7,9 +7,6 @@
   const themeEndpoint=`/api/boards/${encodeURIComponent(boardId)}/theme`;
   const defaults={
     color1:"#171a20",
-    backgroundMode:"white-gradient",
-    backgroundColor:"#f5f7fa",
-    backgroundImage:"",
     alternateCells:false,
     alternateCellColor:"#f7f7f8"
   };
@@ -18,30 +15,23 @@
   let uiBuilt=false;
 
   const validColor=value=>/^#[0-9a-f]{6}$/i.test(String(value||""));
-  const hasLegacyColors=value=>!!value&&typeof value==="object"&&(
-    Object.prototype.hasOwnProperty.call(value,"color2")||
-    Object.prototype.hasOwnProperty.call(value,"textColor2")
-  );
+  const hasLegacyTheme=value=>!!value&&typeof value==="object"&&[
+    "color2","textColor2","backgroundMode","backgroundColor","backgroundImage"
+  ].some(key=>Object.prototype.hasOwnProperty.call(value,key));
   function normalize(value){
     if(!value||typeof value!=="object")return {...defaults};
-    const next={...defaults,...value};
-    delete next.color2;
-    delete next.textColor2;
-    next.color1=validColor(next.color1)?next.color1:defaults.color1;
-    next.backgroundColor=validColor(next.backgroundColor)?next.backgroundColor:defaults.backgroundColor;
-    next.alternateCellColor=validColor(next.alternateCellColor)?next.alternateCellColor:defaults.alternateCellColor;
-    next.backgroundMode=["white-gradient","black-gradient","color","image"].includes(next.backgroundMode)?next.backgroundMode:defaults.backgroundMode;
-    next.alternateCells=!!next.alternateCells;
-    next.backgroundImage=typeof next.backgroundImage==="string"&&/^data:image\/(?:png|jpe?g|webp);base64,/i.test(next.backgroundImage)?next.backgroundImage:"";
-    if(next.backgroundMode==="image"&&!next.backgroundImage)next.backgroundMode="white-gradient";
-    return next;
+    return {
+      color1:validColor(value.color1)?value.color1:defaults.color1,
+      alternateCells:!!value.alternateCells,
+      alternateCellColor:validColor(value.alternateCellColor)?value.alternateCellColor:defaults.alternateCellColor
+    };
   }
   function readLocal(){
     try{
       const raw=JSON.parse(localStorage.getItem(storageKey)||"null");
       if(!raw)return null;
       const clean=normalize(raw);
-      if(hasLegacyColors(raw))localStorage.setItem(storageKey,JSON.stringify(clean));
+      if(hasLegacyTheme(raw))localStorage.setItem(storageKey,JSON.stringify(clean));
       return clean;
     }catch{return null}
   }
@@ -51,22 +41,17 @@
     catch{return localStorage.getItem(`boardAdmin:${boardId}`)||""}
   }
 
-  function backgroundRules(value){
-    if(value.backgroundMode==="black-gradient")return `background-color:#202226!important;background-image:radial-gradient(circle at 12% 8%,rgba(255,255,255,.08),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.16),transparent 30%)!important;background-attachment:fixed!important;`;
-    if(value.backgroundMode==="color")return `background-color:${value.backgroundColor}!important;background-image:none!important;background-attachment:fixed!important;`;
-    if(value.backgroundMode==="image"&&value.backgroundImage){const image=value.backgroundImage.replace(/["\\\n\r]/g,"");return `background-color:${value.backgroundColor}!important;background-image:url("${image}")!important;background-size:cover!important;background-position:center!important;background-repeat:no-repeat!important;background-attachment:fixed!important;`}
-    return `background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,rgba(103,163,255,.24),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.12),transparent 30%)!important;background-attachment:fixed!important;`;
-  }
+  const whiteGradient=`background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,rgba(103,163,255,.24),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.12),transparent 30%)!important;background-attachment:fixed!important;`;
 
   function parentCss(value){return `
     .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button,
-    .board-heading>span,.log-list-head>span{color:${value.color1}!important}
+    .log-list-head>span{color:${value.color1}!important}
     .log-sidebar{background:#fff!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function logCss(value){return `
-    html.embedded body{${backgroundRules(value)}}
+    html.embedded body{${whiteGradient}}
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
     html.embedded .filters .font-size-control{
       background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;
@@ -105,7 +90,7 @@
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
   `}
   function matrixCss(value){return `
-    html.embedded body{${backgroundRules(value)}}
+    html.embedded body{${whiteGradient}}
     html.embedded{--matrix-glass:rgba(255,255,255,.85)!important;--matrix-glass-strong:rgba(255,255,255,.85)!important}
     html.embedded .library,
     html.embedded .stage,
@@ -123,7 +108,7 @@
     html.embedded .library::-webkit-scrollbar-thumb,html.embedded #matrixIconComments>section::-webkit-scrollbar-thumb,html.embedded .template-tabs::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function sheetCss(value){return `
-    html.embedded body{${backgroundRules(value)}}
+    html.embedded body{${whiteGradient}}
     html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
     html.embedded #databaseLayout,
     html.embedded #sheetComments>section{
@@ -183,7 +168,7 @@
       if(!response.ok)return;
       const body=await response.json().catch(()=>({}));
       if(body.theme){
-        const legacy=hasLegacyColors(body.theme);
+        const legacy=hasLegacyTheme(body.theme);
         const next=normalize(body.theme);
         const changed=JSON.stringify(next)!==JSON.stringify(theme);
         theme=next;writeLocal();
@@ -202,24 +187,6 @@
     writeLocal();applyAll();syncUi();scheduleSave();
   }
 
-  async function imageToData(file){
-    if(!file)return"";
-    const bitmap=await createImageBitmap(file);
-    let max=1500,quality=.76,data="";
-    for(let attempt=0;attempt<5;attempt++){
-      const scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height));
-      const canvas=document.createElement("canvas");
-      canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));
-      canvas.getContext("2d").drawImage(bitmap,0,0,canvas.width,canvas.height);
-      data=canvas.toDataURL("image/webp",quality);
-      if(data.length<=600000)break;
-      max=Math.round(max*.78);quality=Math.max(.52,quality-.07);
-    }
-    bitmap.close?.();
-    if(data.length>650000)throw new Error("背景画像をもう少し小さくしてください");
-    return data;
-  }
-
   function installUiStyle(){
     if(document.getElementById("jijinboardScopedThemeUiStyle"))return;
     const style=document.createElement("style");style.id="jijinboardScopedThemeUiStyle";style.textContent=`
@@ -231,12 +198,10 @@
       .scoped-theme-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
       .scoped-theme-field{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:6px 8px;border:1px solid #e5e8ed;border-radius:8px;background:#fafbfc;font-weight:750}
       .scoped-theme-field input[type=color]{width:42px;height:28px;padding:0;border:1px solid #dfe3e8;border-radius:6px;background:transparent}
-      .scoped-bg-modes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.scoped-bg-modes label{display:flex;align-items:center;gap:5px;padding:7px;border:1px solid #e5e8ed;border-radius:8px;background:#fafbfc;cursor:pointer}
-      .scoped-theme-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:7px;align-items:center}.scoped-image-state{font-size:8px;color:#8a929d;white-space:nowrap}
       .scoped-theme-ui button{height:30px;padding:0 10px;border:1px solid #dfe3e8;border-radius:7px;background:#fff;color:#303640;font-size:9px;cursor:pointer}.scoped-theme-ui button:hover{background:#f7f8fa}
       .scoped-check{justify-content:flex-start}.scoped-check input{width:15px;height:15px;margin:0}
       .scoped-theme-actions{display:flex;justify-content:flex-end}
-      @media(max-width:620px){.scoped-theme-grid{grid-template-columns:1fr}.scoped-bg-modes{grid-template-columns:repeat(2,minmax(0,1fr))}.scoped-theme-row{grid-template-columns:1fr}}
+      @media(max-width:620px){.scoped-theme-grid{grid-template-columns:1fr}}
     `;document.head.append(style);
   }
 
@@ -245,50 +210,27 @@
     installUiStyle();slot.classList.add("scoped-theme-slot");slot.innerHTML=`
       <div class="scoped-theme-ui">
         <section class="scoped-theme-section">
-          <div class="scoped-theme-head"><b>共通カラー</b><span>指定した場所だけを変更します。</span></div>
+          <div class="scoped-theme-head"><b>共通カラー</b></div>
           <div class="scoped-theme-grid">
             <label class="scoped-theme-field"><span>文字色1</span><input id="scopedColor1" type="color"></label>
-          </div>
-          <div class="scoped-theme-grid">
             <label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label>
             <label class="scoped-theme-field"><span>交互マスの色</span><input id="scopedAltColor" type="color"></label>
           </div>
         </section>
-        <section class="scoped-theme-section">
-          <div class="scoped-theme-head"><b>背景</b><span>今グラデーションが入っている場所だけを変更します。</span></div>
-          <div class="scoped-bg-modes">
-            <label><input type="radio" name="scopedBgMode" value="white-gradient"><span>白グラデーション</span></label>
-            <label><input type="radio" name="scopedBgMode" value="black-gradient"><span>黒グラデーション</span></label>
-            <label><input type="radio" name="scopedBgMode" value="color"><span>色選択</span></label>
-            <label><input type="radio" name="scopedBgMode" value="image"><span>背景画像</span></label>
-          </div>
-          <div class="scoped-theme-row">
-            <label class="scoped-theme-field"><span>背景色</span><input id="scopedBgColor" type="color"></label>
-            <div><input id="scopedBgImage" type="file" accept="image/*" hidden><button id="scopedBgImageBtn" type="button">背景画像を選択</button> <span id="scopedBgImageState" class="scoped-image-state"></span></div>
-            <button id="scopedBgImageRemove" type="button">画像を削除</button>
-          </div>
-        </section>
-        <div class="scoped-theme-actions"><button id="scopedThemeReset" type="button">この共通デザインを初期状態に戻す</button></div>
+        <div class="scoped-theme-actions"><button id="scopedThemeReset" type="button">初期状態に戻す</button></div>
       </div>`;
     uiBuilt=true;
     slot.querySelector("#scopedColor1").addEventListener("input",e=>update({color1:e.target.value}));
     slot.querySelector("#scopedAlt").addEventListener("change",e=>update({alternateCells:e.target.checked}));
     slot.querySelector("#scopedAltColor").addEventListener("input",e=>update({alternateCellColor:e.target.value}));
-    slot.querySelector("#scopedBgColor").addEventListener("input",e=>update({backgroundColor:e.target.value,backgroundMode:"color"}));
-    slot.querySelectorAll('input[name="scopedBgMode"]').forEach(input=>input.addEventListener("change",e=>{if(e.target.checked)update({backgroundMode:e.target.value})}));
-    const file=slot.querySelector("#scopedBgImage");slot.querySelector("#scopedBgImageBtn").onclick=()=>file.click();
-    file.addEventListener("change",async()=>{const picked=file.files?.[0];if(!picked)return;try{const data=await imageToData(picked);update({backgroundImage:data,backgroundMode:"image"})}catch(error){alert(error.message)}finally{file.value=""}});
-    slot.querySelector("#scopedBgImageRemove").onclick=()=>update({backgroundImage:"",backgroundMode:theme.backgroundMode==="image"?"white-gradient":theme.backgroundMode});
     slot.querySelector("#scopedThemeReset").onclick=()=>{if(confirm("共通デザイン設定を初期状態に戻しますか？"))resetTheme()};
     syncUi();
   }
   function syncUi(){
     if(!uiBuilt)return;const slot=document.getElementById("boardDesignSlot");if(!slot)return;
     const set=(id,v)=>{const el=slot.querySelector(`#${id}`);if(el)el.value=v};
-    set("scopedColor1",theme.color1);set("scopedAltColor",theme.alternateCellColor);set("scopedBgColor",theme.backgroundColor);
+    set("scopedColor1",theme.color1);set("scopedAltColor",theme.alternateCellColor);
     const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!theme.alternateCells;
-    slot.querySelectorAll('input[name="scopedBgMode"]').forEach(input=>input.checked=input.value===theme.backgroundMode);
-    const state=slot.querySelector("#scopedBgImageState");if(state)state.textContent=theme.backgroundImage?"設定済み":"未設定";
   }
 
   function installDesignTabOverride(){
