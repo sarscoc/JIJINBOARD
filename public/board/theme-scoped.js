@@ -40,6 +40,7 @@
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
     html.embedded .log-pane,html.embedded .comments-pane{background:color-mix(in srgb,var(--paper) 85%,transparent)!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
     html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:rgba(53,53,53,.85)!important}
+    html.embedded .comments-pane:has(.comments-list>.empty){height:160px!important;min-height:160px!important;max-height:160px!important;align-self:start!important}
     html.embedded .cylinder-nav,html.embedded .page-title,html.embedded .tab-navigation,html.embedded .comments-head,html.embedded .comments-list{background:transparent!important;${noBlur}}
     html.embedded .comment-card{background:var(--paper)!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
     html.embedded .tab-arrow,html.embedded .slide-btn,html.embedded .cylinder-nav button{background:#fff!important;color:#596168!important}
@@ -94,7 +95,7 @@
     #boardSettingsOverlay .board-settings-design{padding:0!important}
     #boardDesignSlot.scoped-theme-slot{height:100%!important;overflow:auto!important;background:#fff!important}
     .scoped-theme-ui{display:grid;gap:8px;padding:9px;color:#303640;font-size:9px}.scoped-theme-section{display:grid;gap:8px;padding:10px;border:1px solid #e4e7ec;border-radius:10px;background:#fff}
-    .scoped-theme-head{display:flex;align-items:baseline;gap:8px}.scoped-theme-head b{font-size:10px}.scoped-theme-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+    .scoped-theme-head{display:flex;align-items:center;gap:8px}.scoped-theme-head b{font-size:10px}.scoped-theme-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
     .scoped-theme-field{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:6px 8px;border:1px solid #e5e8ed;border-radius:8px;background:#fafbfc;font-weight:750}.scoped-theme-field input[type=color]{width:42px;height:28px;padding:0;border:1px solid #dfe3e8;border-radius:6px;background:transparent}
     .scoped-theme-ui button{height:30px;padding:0 10px;border:1px solid #dfe3e8;border-radius:7px;background:#fff;color:#303640;font-size:9px;cursor:pointer}.scoped-check{justify-content:flex-start}.scoped-check input{width:15px;height:15px;margin:0}.scoped-theme-actions{display:flex;justify-content:flex-end}@media(max-width:620px){.scoped-theme-grid{grid-template-columns:1fr}}
   `;document.head.append(style)}
