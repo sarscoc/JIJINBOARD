@@ -55,11 +55,18 @@
   function logCss(value){return `
     /* Background setting touches only the area that already owns the gradient. */
     html.embedded body{${backgroundRules(value)}}
-    html.embedded .filters :is(input,select,button,.quiet,.primary),
+    /* Toolbar controls stay light even when the workspace background is black. */
+    html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
+    html.embedded .filters .font-size-control{
+      background:#fff!important;
+      border-color:#dfe3e8!important;
+      box-shadow:none!important;
+    }
+    html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
     html.embedded .filters .font-size-control,
     html.embedded .filters .font-size-control :is(span,strong),
     html.embedded .comments-head{color:${value.color1}!important}
-    html.embedded .filters input::placeholder{color:${value.color1}!important;opacity:.48!important}
+    html.embedded .filters input::placeholder{color:#79818d!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
     html.embedded .page-scroll,html.embedded .comments-list{scrollbar-color:${value.color1} transparent!important}
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
@@ -67,7 +74,8 @@
   function matrixCss(value){return `
     html.embedded body{${backgroundRules(value)}}
     html.embedded .library{background:${value.color2}!important}
-    html.embedded #matrixIconComments>section{background:${value.color2}!important}
+    /* COMMENTS originally uses a translucent glass surface; keep that translucency. */
+    html.embedded #matrixIconComments>section{background:color-mix(in srgb,${value.color2} 82%,transparent)!important;backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
     html.embedded .stage-area-toolbar :is(button,.btn,.stage-area-label,.toolbar-scale-check),
     html.embedded .matrix-comment-head{color:${value.color1}!important}
     html.embedded .library,html.embedded #matrixIconComments>section,html.embedded .template-tabs{scrollbar-color:${value.color1} transparent!important}
@@ -83,7 +91,8 @@
     html.embedded .data-sheet thead .item-col #sheetModeToggle{color:${value.color1}!important}
     html.embedded .main-mode-switch .btn:not(.on)::after{color:${value.color1}!important}
     html.embedded .group-row td{background:${value.color2}!important;background-image:none!important}
-    html.embedded #sheetComments>section{background:${value.color2}!important}
+    /* COMMENTS keeps the old glass feel instead of becoming a solid block. */
+    html.embedded #sheetComments>section{background:color-mix(in srgb,${value.color2} 82%,transparent)!important;backdrop-filter:blur(22px) saturate(135%);-webkit-backdrop-filter:blur(22px) saturate(135%)}
     ${value.alternateCells?`html.embedded .data-sheet tbody tr:not(.group-row):nth-child(even) td:not(.item-col){background:${value.alternateCellColor}!important;background-image:none!important}`:""}
     html.embedded #sheetWrap,html.embedded #sheetComments>section{scrollbar-color:${value.color1} transparent!important}
     html.embedded #sheetWrap::-webkit-scrollbar-thumb,html.embedded #sheetComments>section::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
