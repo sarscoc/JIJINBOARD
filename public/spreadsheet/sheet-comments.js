@@ -108,10 +108,7 @@
       button.type='button';
       button.id='sheetModeToggle';
       button.onclick=event=>{event.preventDefault();event.stopPropagation();setMode(mode==='comment'?'edit':'comment')};
-      const label=document.createElement('span');
-      label.className='sheet-item-heading-label';
-      label.textContent='項目';
-      head.append(button,label);
+      head.append(button);
     }
     const nextLabel=mode==='comment'?'コメント':'編集';
     if(button.textContent!==nextLabel)button.textContent=nextLabel;
@@ -125,14 +122,7 @@
     syncModeToggle();
   }
   function controls(){
-    let el=document.querySelector('#sheetCommentModes');
-    if(!el){
-      el=document.createElement('div');
-      el.id='sheetCommentModes';
-      el.innerHTML='<button type="button" data-open-sheet-comments>COMMENTS</button>';
-      document.querySelector('.table-actions')?.prepend(el);
-      el.querySelector('[data-open-sheet-comments]').onclick=()=>ui().hidden=false;
-    }
+    document.querySelector('#sheetCommentModes')?.remove();
     syncModeToggle();
     const root=document.getElementById('dataTableRoot');
     if(root&&!root.dataset.modeToggleObserved){
