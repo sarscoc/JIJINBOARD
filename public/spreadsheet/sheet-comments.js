@@ -131,6 +131,54 @@
     }
     setMode(mode);
   }
+
+  function setupOrganizeShiftGrouping(){
+    let anchorKey='',anchorOrder=[],shiftPointer=false,shiftHeld=false;
+    const getSelect=e=>e.target?.closest?.('#organizeGrid .item-group-select[data-item-key]');
+    const captureOrder=()=>[...document.querySelectorAll('#organizeGrid .item-group-select[data-item-key]')].map(sel=>sel.dataset.itemKey);
+
+    document.addEventListener('keydown',e=>{if(e.key==='Shift')shiftHeld=true},true);
+    document.addEventListener('keyup',e=>{if(e.key==='Shift')shiftHeld=false},true);
+    window.addEventListener('blur',()=>{shiftHeld=false;shiftPointer=false});
+    document.addEventListener('mouseover',e=>{
+      const sel=getSelect(e);if(!sel)return;
+      sel.title='Shiftを押しながら変更すると、前に操作した項目との間をまとめて移動';
+    },true);
+    document.addEventListener('pointerdown',e=>{
+      const sel=getSelect(e);if(!sel)return;
+      shiftPointer=!!e.shiftKey;
+      if(!shiftPointer){
+        anchorKey=sel.dataset.itemKey;
+        anchorOrder=captureOrder();
+      }
+    },true);
+    document.addEventListener('change',e=>{
+      const sel=getSelect(e);if(!sel)return;
+      const useRange=shiftPointer||shiftHeld;
+      shiftPointer=false;
+      if(!useRange||!anchorKey||!anchorOrder.length)return;
+      const from=anchorOrder.indexOf(anchorKey),to=anchorOrder.indexOf(sel.dataset.itemKey);
+      if(from<0||to<0||from===to)return;
+
+      e.stopImmediatePropagation();
+      const gid=sel.value;
+      const keys=anchorOrder.slice(Math.min(from,to),Math.max(from,to)+1);
+      for(const key of keys){
+        if(gid==='ungrouped')delete state.layout.assignments[key];
+        else state.layout.assignments[key]=gid;
+        moveItemToGroupOrder(key,gid);
+      }
+      saveState();
+      renderOrganizeModal();
+      renderDataTable();
+      renderQuestionView();
+      renderCharacterView();
+      showToast(`${keys.length}項目をまとめて移動しました`);
+      anchorKey='';
+      anchorOrder=[];
+    },true);
+  }
+
   function ui(){let a=document.querySelector('#sheetComments');if(a)return a;a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head"><b>COMMENTS <span></span></b><button type="button" title="コメントを閉じる">×</button></div><section><p>読み込み中…</p></section>';a.querySelector('button').onclick=()=>a.hidden=true;document.body.append(a);return a}
   function card(c){return `<article data-cell="${c.cell_id}"><small>${c.persona_name} [${c.persona_type}]</small><p>${c.body}</p><button data-like="${c.id}">${c.liked_by_me?'♥':'♡'}${c.like_count||''}</button><button data-reply="${c.id}">↩</button>${c.author_id===me()?.id?`<button data-edit="${c.id}">✎</button>`:''}</article>`}
   async function load(){try{comments=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(me()?.id||'')}`)).comments||[]}catch(error){console.warn('Spreadsheet comments load failed',error);comments=[]}const a=ui();a.querySelector('b span').textContent=comments.length;a.querySelector('section').innerHTML=comments.map(card).join('')||'<p>セルへのコメントがここに並びます。</p>'}
@@ -142,6 +190,7 @@
   document.body.classList.toggle('sheet-comment-mode',mode==='comment');
   setupTocOverlay();
   controls();
+  setupOrganizeShiftGrouping();
   ui();
   document.addEventListener('click',e=>{const td=e.target.closest('[data-sheet-cell]'),b=e.target.closest('[data-like],[data-reply],[data-edit]'),a=e.target.closest('#sheetComments article');if(b){e.stopPropagation();const c=comments.find(x=>x.id===(b.dataset.like||b.dataset.reply||b.dataset.edit));if(b.dataset.like)api(`/api/boards/${board}/spreadsheet/comments/${c.id}/like`,{method:'POST',body:JSON.stringify({authorId:me().id})}).then(load);else open(c.cell_id,b.dataset.reply?c.id:'',b.dataset.edit?c.id:'');return}if(a){const t=document.querySelector(`[data-sheet-cell="${CSS.escape(a.dataset.cell)}"]`);t?.classList.add('sheet-comment-flash');setTimeout(()=>t?.classList.remove('sheet-comment-flash'),1100);t?.scrollIntoView({behavior:'smooth',block:'center'});return}if(mode==='comment'&&td){e.preventDefault();open(td.dataset.sheetCell)}});
   load();
