@@ -9,13 +9,6 @@
   const meaningful=s=>(s?.['charaHub.characters']||[]).length||(s?.['charaHub.sources']||[]).length||(s?.['charaHub.layoutV1']?.localItems||[]).length||(s?.['charaHub.layoutV1']?.parts||[]).length||(s?.['charaHub.layoutV1']?.groups||[]).length;
   const endpoint=`/api/boards/${encodeURIComponent(board)}/spreadsheet/state`;
 
-  // Embedded SPREADSHEET uses the full left work area. The old GROUP rail
-  // reserved a blank column beside the cells; keep groups in the data itself,
-  // but do not reserve that separate rail in JIJINBOARD.
-  const embeddedStyle=document.createElement('style');
-  embeddedStyle.textContent='@media(min-width:801px){html.embedded #databaseLayout{grid-template-columns:minmax(0,1fr)!important}html.embedded .database-toc{display:none!important}}';
-  document.head.append(embeddedStyle);
-
   // The old spreadsheet bootstrap imported every project PC/NPC into Character.
   // Those generated rows have this exact empty/local shape. They are not sheet
   // data, so do not let them become authoritative or resurrect after deletion.
