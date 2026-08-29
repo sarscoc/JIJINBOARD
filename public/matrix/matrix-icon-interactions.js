@@ -1,13 +1,14 @@
 "use strict";
 (() => {
   const TARGET_SEP = "@@matrix-template@@";
-  let filter = null;
+  let reader = null;
+  let readerState = null;
   let listObserver = null;
   let observedList = null;
 
   const profile = () => window.matrixBoardContext?.profile?.() || null;
   const currentTemplate = () => typeof currentTemplateId === "function" ? String(currentTemplateId() || "") : "";
-  const itemFor = id => (Array.isArray(window.items) ? window.items : items || []).find(item => item?.id === id);
+  const itemFor = id => (Array.isArray(window.items) ? window.items : (typeof items !== "undefined" ? items : [])).find(item => item?.id === id);
 
   function targetParts(value) {
     const raw = String(value || "");
@@ -17,104 +18,138 @@
       : { templateId: "", itemId: raw };
   }
 
-  function matchesFilter(value) {
-    if (!filter) return true;
+  function matchesTarget(value, itemId, templateId) {
     const parts = targetParts(value);
-    if (parts.itemId !== filter.itemId) return false;
-    // Old MATRIX comments did not store a template id. Keep them visible for
-    // the matching icon because their original page cannot be reconstructed.
-    return !parts.templateId || parts.templateId === filter.templateId;
+    if (parts.itemId !== itemId) return false;
+    // Old comments have no stored template id, so they remain readable for the
+    // matching icon. New comments are scoped to the page where they were made.
+    return !parts.templateId || parts.templateId === templateId;
   }
 
-  function bindHeaderReset(panel) {
-    const head = panel?.querySelector(".matrix-comment-head");
-    if (!head || head.dataset.matrixFilterResetReady) return;
-    head.dataset.matrixFilterResetReady = "1";
-    head.addEventListener("click", event => {
-      if (event.target.closest("button")) return;
-      if (!filter) return;
-      filter = null;
-      applyFilter();
+  function ensureReader() {
+    if (reader?.isConnected) return reader;
+    reader = document.createElement("aside");
+    reader.id = "matrixIconCommentReader";
+    reader.hidden = true;
+    reader.innerHTML = `
+      <div class="matrix-icon-reader-head">
+        <b>COMMENTS</b>
+        <span class="matrix-icon-reader-count">0</span>
+        <button type="button" class="matrix-icon-reader-close" aria-label="閉じる">×</button>
+      </div>
+      <div class="matrix-icon-reader-list"></div>`;
+    reader.querySelector(".matrix-icon-reader-close").addEventListener("click", closeReader);
+    document.body.append(reader);
+    return reader;
+  }
+
+  function copyThreadForReader(thread) {
+    const clone = thread.cloneNode(true);
+    clone.hidden = false;
+    clone.querySelectorAll("[hidden]").forEach(node => node.hidden = false);
+    clone.querySelectorAll("button").forEach(button => button.remove());
+    clone.querySelectorAll(".matrix-comment-card").forEach(card => {
+      card.removeAttribute("data-comment-target");
+      card.removeAttribute("id");
     });
+    return clone;
   }
 
-  function applyFilter() {
-    const panel = document.querySelector("#matrixIconComments");
-    const list = document.querySelector("#matrixIconCommentList");
-    if (!panel || !list) return false;
+  function renderReader() {
+    if (!readerState) return;
+    const r = ensureReader();
+    const source = document.querySelector("#matrixIconCommentList");
+    const list = r.querySelector(".matrix-icon-reader-list");
+    const count = r.querySelector(".matrix-icon-reader-count");
+    if (!source || !list) return;
 
-    bindHeaderReset(panel);
-    panel.hidden = false;
-
-    const head = panel.querySelector(".matrix-comment-head");
-    if (head) {
-      head.style.cursor = filter ? "pointer" : "";
-      head.title = filter ? "クリックで全コメント表示" : "";
-    }
-
-    const topThreads = [...list.children].filter(node => node.classList?.contains("matrix-comment-thread"));
-    const allCards = [...list.querySelectorAll(".matrix-comment-card")];
-    let visibleCount = 0;
-
-    topThreads.forEach(thread => {
+    const matches = [];
+    [...source.children].forEach(thread => {
+      if (!thread.classList?.contains("matrix-comment-thread")) return;
       const rootCard = thread.querySelector(":scope > .matrix-comment-card");
-      const show = !filter || matchesFilter(rootCard?.dataset.commentTarget || "");
-      thread.hidden = !show;
-      if (show) visibleCount += thread.querySelectorAll(".matrix-comment-card").length;
+      if (!rootCard) return;
+      if (matchesTarget(rootCard.dataset.commentTarget || "", readerState.itemId, readerState.templateId)) {
+        matches.push(thread);
+      }
     });
 
-    const baseEmpty = list.querySelector(":scope > .matrix-comment-empty:not(.matrix-comment-filter-empty)");
-    let filterEmpty = list.querySelector(":scope > .matrix-comment-filter-empty");
-
-    if (filter && allCards.length && visibleCount === 0) {
-      if (!filterEmpty) {
-        filterEmpty = document.createElement("p");
-        filterEmpty.className = "matrix-comment-empty matrix-comment-filter-empty";
-        filterEmpty.textContent = "このアイコンへの感想はありません。";
-        list.append(filterEmpty);
-      }
-      if (baseEmpty) baseEmpty.hidden = true;
+    list.replaceChildren();
+    if (!matches.length) {
+      const empty = document.createElement("p");
+      empty.className = "matrix-comment-empty";
+      empty.textContent = "このアイコンへの感想はありません。";
+      list.append(empty);
+      count.textContent = "0";
     } else {
-      filterEmpty?.remove();
-      if (baseEmpty) baseEmpty.hidden = false;
+      let cardCount = 0;
+      matches.forEach(thread => {
+        const clone = copyThreadForReader(thread);
+        cardCount += clone.querySelectorAll(".matrix-comment-card").length;
+        list.append(clone);
+      });
+      count.textContent = String(cardCount);
     }
+  }
 
-    const count = panel.querySelector("#matrixIconCommentCount");
-    if (count) count.textContent = String(filter ? visibleCount : allCards.length);
-    return true;
+  function positionReader(anchor) {
+    if (!reader || reader.hidden || !anchor?.isConnected) return;
+    const rect = anchor.getBoundingClientRect();
+    const gap = 8;
+    const margin = 8;
+    const width = Math.min(300, Math.max(220, window.innerWidth - margin * 2));
+    reader.style.width = `${width}px`;
+    reader.style.left = `${Math.max(margin, Math.min(window.innerWidth - width - margin, rect.right + gap))}px`;
+    reader.style.top = `${margin}px`;
+
+    const measuredHeight = Math.min(reader.scrollHeight || 220, Math.max(140, window.innerHeight - margin * 2));
+    let left = rect.right + gap;
+    if (left + width > window.innerWidth - margin) left = rect.left - width - gap;
+    left = Math.max(margin, Math.min(window.innerWidth - width - margin, left));
+    let top = rect.top + (rect.height / 2) - 46;
+    top = Math.max(margin, Math.min(window.innerHeight - measuredHeight - margin, top));
+    reader.style.left = `${Math.round(left)}px`;
+    reader.style.top = `${Math.round(top)}px`;
+  }
+
+  function openReader(id, anchor) {
+    const itemId = String(id || "");
+    const templateId = currentTemplate();
+    if (readerState?.itemId === itemId && readerState?.templateId === templateId && reader && !reader.hidden) {
+      closeReader();
+      return;
+    }
+    readerState = { itemId, templateId, anchor };
+    const r = ensureReader();
+    r.hidden = false;
+    renderReader();
+    positionReader(anchor);
+    ensureListObserver();
+  }
+
+  function closeReader() {
+    readerState = null;
+    if (reader) reader.hidden = true;
   }
 
   function ensureListObserver() {
     const list = document.querySelector("#matrixIconCommentList");
     if (!list) return false;
-    if (observedList === list && listObserver) {
-      bindHeaderReset(document.querySelector("#matrixIconComments"));
-      return true;
-    }
+    if (observedList === list && listObserver) return true;
     listObserver?.disconnect();
     observedList = list;
-    listObserver = new MutationObserver(() => applyFilter());
+    listObserver = new MutationObserver(() => {
+      if (readerState) {
+        renderReader();
+        positionReader(readerState.anchor);
+      }
+    });
     listObserver.observe(list, { childList: true, subtree: true });
-    bindHeaderReset(document.querySelector("#matrixIconComments"));
-    applyFilter();
     return true;
-  }
-
-  function filterForIcon(id) {
-    filter = { itemId: String(id || ""), templateId: currentTemplate() };
-    if (!ensureListObserver()) setTimeout(() => { ensureListObserver(); applyFilter(); }, 80);
-    applyFilter();
-  }
-
-  function clearFilter() {
-    if (!filter) return;
-    filter = null;
-    applyFilter();
   }
 
   function placedFromEvent(event) {
     if (!(event.target instanceof Element)) return null;
-    if (event.target.closest(".inline-comment-editor")) return null;
+    if (event.target.closest(".inline-comment-editor,#matrixIconCommentReader")) return null;
     return event.target.closest(".placed[data-id]");
   }
 
@@ -124,16 +159,16 @@
     event.stopImmediatePropagation?.();
   }
 
-  // Left click = filter the right COMMENTS rail to this icon on this template.
+  // Left click = read this icon's shared comments in a small local reader.
+  // The main COMMENTS rail is never filtered or modified.
   document.addEventListener("click", event => {
     const placed = placedFromEvent(event);
     if (!placed || placed._draggedByPointer) return;
     stopPlacedAction(event);
-    filterForIcon(placed.dataset.id || "");
+    openReader(placed.dataset.id || "", placed);
   }, true);
 
-  // The old double-click editor is intentionally retired; right-click owns
-  // the editing/comment action now, while left-click is reserved for filtering.
+  // Double-click no longer owns comment editing; right-click does.
   document.addEventListener("dblclick", event => {
     const placed = placedFromEvent(event);
     if (!placed) return;
@@ -142,11 +177,12 @@
 
   // Right click:
   // - own icon: edit the original on-icon comment/settings
-  // - another person's icon: open the shared MATRIX comment composer
+  // - another person's icon: write a shared MATRIX comment
   document.addEventListener("contextmenu", event => {
     const placed = placedFromEvent(event);
     if (!placed) return;
     stopPlacedAction(event);
+    closeReader();
 
     const id = placed.dataset.id || "";
     const item = itemFor(id);
@@ -160,22 +196,26 @@
       return;
     }
 
-    if (typeof window.openMatrixIconComment === "function") {
-      window.openMatrixIconComment(id);
-    }
+    if (typeof window.openMatrixIconComment === "function") window.openMatrixIconComment(id);
   }, true);
 
-  // Changing the template changes the page context, so do not carry a stale
-  // page-specific filter into the newly selected template.
-  document.addEventListener("click", event => {
+  // Click outside the local reader closes only the reader. The main COMMENTS
+  // rail remains untouched.
+  document.addEventListener("pointerdown", event => {
+    if (!readerState || !reader || reader.hidden) return;
     if (!(event.target instanceof Element)) return;
-    if (event.target.closest("#templatesPage .template-tab")) setTimeout(clearFilter, 0);
+    if (event.target.closest("#matrixIconCommentReader,.placed[data-id]")) return;
+    closeReader();
   });
 
-  window.filterMatrixIconComments = filterForIcon;
-  window.clearMatrixIconCommentFilter = clearFilter;
-  window.addEventListener("matrix-board-room", clearFilter);
-  window.addEventListener("matrix-board-active", () => { ensureListObserver(); applyFilter(); });
+  // Moving to another template/room invalidates the icon-page context.
+  document.addEventListener("click", event => {
+    if (!(event.target instanceof Element)) return;
+    if (event.target.closest("#templatesPage .template-tab")) setTimeout(closeReader, 0);
+  });
+  window.addEventListener("matrix-board-room", closeReader);
+  window.addEventListener("matrix-board-active", () => ensureListObserver());
+  window.addEventListener("resize", () => readerState && positionReader(readerState.anchor));
 
   let tries = 0;
   const waitForComments = setInterval(() => {
