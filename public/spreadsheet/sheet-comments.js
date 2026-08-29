@@ -110,10 +110,10 @@
       button.onclick=event=>{event.preventDefault();event.stopPropagation();setMode(mode==='comment'?'edit':'comment')};
       head.append(button);
     }
-    const nextLabel=mode==='comment'?'コメント':'編集';
+    const nextLabel=mode==='comment'?'コメントモード':'編集モード';
     if(button.textContent!==nextLabel)button.textContent=nextLabel;
     button.dataset.mode=mode;
-    button.title=mode==='comment'?'クリックで編集モードへ':'クリックでコメントモードへ';
+    button.title=mode==='comment'?'スプレッドシートにコメントをする':'スプレッドシートを編集する';
   }
   function setMode(next){
     mode=next;
