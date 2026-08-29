@@ -46,7 +46,7 @@
       if(empty)empty.textContent="ページを再読み込みしてください。";
     }
   </script>
-  <script src="board2.js?v=20260829-4" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board2.js?v=20260829-5" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
   <script src="board-profile-overlay.js?v=20260829-2"></script>
   <script src="matrix-icon-bridge.js?v=20260829-2"></script>
   <script src="board-spoiler-preview.js?v=20260829-2"></script>
@@ -54,91 +54,17 @@
   <script src="board-tab-settings.js?v=20260829-2"></script>
   <script src="board-profile.js?v=20260829-5"></script>
   <script>
-    function installSpreadsheetGroupRail(){
-      const frame=document.getElementById('spreadsheetFrame');
-      let doc,win;
-      try{doc=frame?.contentDocument;win=frame?.contentWindow}catch{return}
-      if(!doc?.body||!win)return;
-      const layout=doc.getElementById('databaseLayout');
-      if(!layout)return;
-
-      const existing=doc.getElementById('jijinSheetTocRail');
-      if(existing){
-        existing.__place?.();
-        return;
-      }
-
-      const inner=doc.querySelector('.database-toc-inner');
-      if(!inner)return;
-      const oldAside=inner.closest('.database-toc');
-      inner.querySelector('.database-toc-title')?.remove();
-      doc.getElementById('jijinSheetTocStyle')?.remove();
-
-      const style=doc.createElement('style');
-      style.id='jijinSheetTocStyle';
-      style.textContent=`
-        .sheet-settings-panel[data-settings-panel="character"] .character-page-mode-setting{display:none!important}
-        #jijinSheetTocRail{position:fixed!important;left:0!important;width:18px!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;overflow:visible!important;z-index:2147483000!important;cursor:pointer!important}
-        #jijinSheetTocRail[hidden]{display:none!important}
-        #jijinSheetTocHandle{position:absolute!important;left:9px!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:rgba(73,82,96,.68)!important;font:400 16px/1 system-ui!important;pointer-events:none!important;user-select:none!important}
-        #jijinSheetTocPopover{position:absolute!important;left:14px!important;top:0;margin:0!important;padding:6px!important;width:max-content!important;min-width:108px!important;max-width:min(420px,calc(100vw - 36px))!important;height:max-content!important;max-height:none!important;overflow:visible!important;border:1px solid #e2e7ed!important;border-radius:8px!important;background:rgba(255,255,255,.97)!important;backdrop-filter:blur(18px) saturate(130%)!important;-webkit-backdrop-filter:blur(18px) saturate(130%)!important;box-shadow:0 8px 24px rgba(42,51,67,.10)!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;transform:translateX(-4px)!important;transition:opacity .1s ease,transform .1s ease!important}
-        #jijinSheetTocRail:hover #jijinSheetTocPopover,#jijinSheetTocRail:focus-within #jijinSheetTocPopover{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(0)!important}
-        #jijinSheetTocPopover>.database-toc-inner{position:static!important;inset:auto!important;display:block!important;width:max-content!important;min-width:100%!important;max-width:none!important;height:max-content!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:none!important}
-        #jijinSheetTocPopover .database-toc-title{display:none!important}
-        #jijinSheetTocPopover #databaseToc{display:grid!important;grid-template-columns:max-content!important;gap:1px!important;width:max-content!important;min-width:100%!important;margin:0!important;padding:0!important;background:transparent!important}
-        #jijinSheetTocPopover .database-toc-link{display:block!important;width:auto!important;min-width:100%!important;margin:0!important;padding:3px 5px!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#626b78!important;font:500 7px/1.25 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;letter-spacing:0!important;text-align:left!important;text-decoration:none!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
-        #jijinSheetTocPopover .database-toc-link:hover{background:#f0f3f8!important;color:#303843!important}
-      `;
-      doc.head.appendChild(style);
-
-      const rail=doc.createElement('div');
-      rail.id='jijinSheetTocRail';
-      rail.innerHTML='<span id="jijinSheetTocHandle" aria-hidden="true">︙</span><div id="jijinSheetTocPopover"></div>';
-      const popover=rail.querySelector('#jijinSheetTocPopover');
-      popover.appendChild(inner);
-      doc.body.appendChild(rail);
-      if(oldAside)oldAside.remove();
-
-      const place=()=>{
-        const rect=layout.getBoundingClientRect(),cs=win.getComputedStyle(layout);
-        const hidden=cs.display==='none'||cs.visibility==='hidden'||rect.width<1||rect.height<1;
-        rail.hidden=hidden;
-        if(hidden)return;
-        const top=Math.max(0,rect.top),bottom=Math.min(win.innerHeight,rect.bottom);
-        rail.style.top=top+'px';
-        rail.style.height=Math.max(0,bottom-top)+'px';
-      };
-      const placePopoverAt=(clientY)=>{
-        const railRect=rail.getBoundingClientRect();
-        const y=Math.max(0,Math.min(railRect.height,clientY-railRect.top));
-        popover.style.top=y+'px';
-        win.requestAnimationFrame(()=>{
-          const h=popover.offsetHeight;
-          let top=y;
-          const room=railRect.height;
-          if(top+h>room-4)top=room-h-4;
-          if(top<4)top=4;
-          popover.style.top=top+'px';
-        });
-      };
-      rail.addEventListener('mouseenter',event=>placePopoverAt(event.clientY));
-      rail.addEventListener('mousemove',event=>{
-        if(event.target===rail||event.target.id==='jijinSheetTocHandle')placePopoverAt(event.clientY);
-      });
-      rail.__place=place;
-      place();
-      win.requestAnimationFrame(place);
-      win.addEventListener('resize',place,{passive:true});
-      doc.addEventListener('click',()=>win.requestAnimationFrame(place));
-      if(win.ResizeObserver)new win.ResizeObserver(place).observe(layout);
-      if(win.MutationObserver)new win.MutationObserver(place).observe(layout,{attributes:true,attributeFilter:['class','style']});
-    }
     const __spreadsheetFrame=document.getElementById('spreadsheetFrame');
     __spreadsheetFrame?.addEventListener('load',()=>{
-      setTimeout(installSpreadsheetGroupRail,0);
-      setTimeout(installSpreadsheetGroupRail,250);
+      try{
+        const doc=__spreadsheetFrame.contentDocument;
+        if(!doc?.head||doc.getElementById('jijinBoardEmbeddedOnlyStyle'))return;
+        const style=doc.createElement('style');
+        style.id='jijinBoardEmbeddedOnlyStyle';
+        style.textContent='.sheet-settings-panel[data-settings-panel="character"] .character-page-mode-setting{display:none!important}';
+        doc.head.appendChild(style);
+      }catch{}
     });
-    document.querySelector('[data-tool="spreadsheet"]')?.addEventListener('click',()=>setTimeout(installSpreadsheetGroupRail,50));
   </script>
   <script>
     setTimeout(()=>{
