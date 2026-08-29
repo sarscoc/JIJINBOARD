@@ -133,50 +133,53 @@
   }
 
   function setupOrganizeShiftGrouping(){
-    let anchorKey='',anchorOrder=[],shiftPointer=false,shiftHeld=false;
-    const getSelect=e=>e.target?.closest?.('#organizeGrid .item-group-select[data-item-key]');
-    const captureOrder=()=>[...document.querySelectorAll('#organizeGrid .item-group-select[data-item-key]')].map(sel=>sel.dataset.itemKey);
+    const selected=new Set();
+    const style=document.createElement('style');
+    style.textContent='#organizeGrid .item-chip.bulk-selected{background:#eef3ff!important;border-color:#b9c9ff!important;box-shadow:inset 3px 0 0 #8da8ff!important}';
+    document.head.appendChild(style);
 
-    document.addEventListener('keydown',e=>{if(e.key==='Shift')shiftHeld=true},true);
-    document.addEventListener('keyup',e=>{if(e.key==='Shift')shiftHeld=false},true);
-    window.addEventListener('blur',()=>{shiftHeld=false;shiftPointer=false});
-    document.addEventListener('mouseover',e=>{
-      const sel=getSelect(e);if(!sel)return;
-      sel.title='Shiftを押しながら変更すると、前に操作した項目との間をまとめて移動';
+    const paint=()=>{
+      document.querySelectorAll('#organizeGrid .item-chip[data-item-key]').forEach(chip=>{
+        chip.classList.toggle('bulk-selected',selected.has(chip.dataset.itemKey));
+        chip.title='Shift＋クリックでまとめて選択';
+      });
+    };
+
+    document.addEventListener('click',e=>{
+      if(!e.shiftKey)return;
+      const chip=e.target.closest?.('#organizeGrid .item-chip[data-item-key]');
+      if(!chip)return;
+      if(e.target.closest('select,button,input,textarea'))return;
+      e.preventDefault();
+      e.stopPropagation();
+      const key=chip.dataset.itemKey;
+      if(selected.has(key))selected.delete(key);else selected.add(key);
+      paint();
     },true);
-    document.addEventListener('pointerdown',e=>{
-      const sel=getSelect(e);if(!sel)return;
-      shiftPointer=!!e.shiftKey;
-      if(!shiftPointer){
-        anchorKey=sel.dataset.itemKey;
-        anchorOrder=captureOrder();
-      }
-    },true);
+
     document.addEventListener('change',e=>{
-      const sel=getSelect(e);if(!sel)return;
-      const useRange=shiftPointer||shiftHeld;
-      shiftPointer=false;
-      if(!useRange||!anchorKey||!anchorOrder.length)return;
-      const from=anchorOrder.indexOf(anchorKey),to=anchorOrder.indexOf(sel.dataset.itemKey);
-      if(from<0||to<0||from===to)return;
-
+      const sel=e.target.closest?.('#organizeGrid .item-group-select[data-item-key]');
+      if(!sel||!selected.has(sel.dataset.itemKey)||selected.size<2)return;
       e.stopImmediatePropagation();
       const gid=sel.value;
-      const keys=anchorOrder.slice(Math.min(from,to),Math.max(from,to)+1);
+      const keys=[...selected];
       for(const key of keys){
         if(gid==='ungrouped')delete state.layout.assignments[key];
         else state.layout.assignments[key]=gid;
         moveItemToGroupOrder(key,gid);
       }
+      selected.clear();
       saveState();
       renderOrganizeModal();
       renderDataTable();
       renderQuestionView();
       renderCharacterView();
       showToast(`${keys.length}項目をまとめて移動しました`);
-      anchorKey='';
-      anchorOrder=[];
     },true);
+
+    const grid=document.getElementById('organizeGrid');
+    if(grid&&window.MutationObserver)new MutationObserver(paint).observe(grid,{childList:true,subtree:true});
+    paint();
   }
 
   function ui(){let a=document.querySelector('#sheetComments');if(a)return a;a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head"><b>COMMENTS <span></span></b><button type="button" title="コメントを閉じる">×</button></div><section><p>読み込み中…</p></section>';a.querySelector('button').onclick=()=>a.hidden=true;document.body.append(a);return a}
