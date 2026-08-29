@@ -33,14 +33,62 @@
     return out;
   }
 
-  let timer=0,loading=true,readySent=false,secondaryRenderQueued=false;
+  let timer=0,loading=true,readySent=false,itemCache=null;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
+  const invalidateItemCache=()=>{itemCache=null};
+
+  function installItemCache(){
+    try{
+      if(typeof collectUnifiedItems!=='function'||collectUnifiedItems.__jijinCached)return;
+      const base=collectUnifiedItems;
+      const wrapped=function(){
+        if(itemCache)return itemCache;
+        itemCache=base();
+        return itemCache;
+      };
+      wrapped.__jijinCached=true;
+      wrapped.__jijinBase=base;
+      collectUnifiedItems=wrapped;
+    }catch(error){console.warn('Spreadsheet item cache install failed',error)}
+  }
+
+  function installRenderGuards(){
+    if(!embedded)return;
+    try{
+      if(typeof renderQuestionView==='function'&&!renderQuestionView.__jijinGuarded){
+        const base=renderQuestionView;
+        const guarded=function(...args){if(state?.currentView==='question')return base(...args)};
+        guarded.__jijinGuarded=true;
+        renderQuestionView=guarded;
+      }
+      if(typeof renderCharacterView==='function'&&!renderCharacterView.__jijinGuarded){
+        const base=renderCharacterView;
+        const guarded=function(...args){if(state?.currentView==='character')return base(...args)};
+        guarded.__jijinGuarded=true;
+        renderCharacterView=guarded;
+      }
+      if(typeof renderDataTable==='function'&&!renderDataTable.__jijinGuarded){
+        const base=renderDataTable;
+        const guarded=function(...args){
+          if(state?.layout?.mainMode==='characters'&&document.getElementById('databaseLayout')?.classList.contains('hidden'))return;
+          return base(...args);
+        };
+        guarded.__jijinGuarded=true;
+        renderDataTable=guarded;
+      }
+    }catch(error){console.warn('Spreadsheet render guard install failed',error)}
+  }
+
+  installItemCache();
+  installRenderGuards();
+
   const pushNow=async()=>{if(loading)return;clearTimeout(timer);timer=0;try{await api(endpoint,{method:'POST',body:JSON.stringify({state:sanitizeSnapshot(read())})})}catch(error){console.warn('Spreadsheet sync save failed',error)}};
-  const push=()=>{if(loading)return;clearTimeout(timer);timer=setTimeout(pushNow,700)};
+  const push=()=>{if(loading)return;clearTimeout(timer);timer=setTimeout(pushNow,1100)};
   const rawSetItem=Storage.prototype.setItem;
   Storage.prototype.setItem=function(key,value){
     const name=String(key),result=rawSetItem.call(this,key,value);
     if(this!==localStorage||!keys.includes(name))return result;
+    invalidateItemCache();
     if(name==='charaHub.characters'){
       const parsed=parse(name,value),next=Array.isArray(parsed)?parsed:[];
       const nextIds=new Set(next.map(ch=>ch?.id).filter(Boolean));
@@ -52,20 +100,9 @@
     return result;
   };
 
-  function queueSecondaryRender(){
-    if(secondaryRenderQueued)return;
-    secondaryRenderQueued=true;
-    const run=()=>{
-      secondaryRenderQueued=false;
-      try{if(typeof renderCharacters==='function')renderCharacters()}catch(error){console.warn(error)}
-      try{if(typeof renderSources==='function')renderSources()}catch(error){console.warn(error)}
-    };
-    if('requestIdleCallback' in window)requestIdleCallback(run,{timeout:1200});
-    else setTimeout(run,80);
-  }
-
   function applyRemote(remote){
     const clean=sanitizeSnapshot(remote||{});
+    invalidateItemCache();
     keys.forEach(k=>localStorage.setItem(k,JSON.stringify(clean?.[k]??emptyFor(k))));
     if(typeof state==='undefined'||!state)return clean;
     state.characters=Array.isArray(clean['charaHub.characters'])?clean['charaHub.characters']:[];
@@ -76,7 +113,6 @@
     try{if(typeof ensureLayoutShape==='function')ensureLayoutShape()}catch(error){console.warn(error)}
     try{if(typeof migrateCharacters==='function')migrateCharacters()}catch(error){console.warn(error)}
     try{if(typeof setMainView==='function')setMainView();else if(typeof renderDataTable==='function')renderDataTable()}catch(error){console.warn(error)}
-    queueSecondaryRender();
     return clean;
   }
 
@@ -113,25 +149,30 @@
     const lineHeight=parseFloat(cs.lineHeight)||fontSize*1.4;
     const paddingY=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
     const borderY=(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
-
     el.style.setProperty('height','0px','important');
     const oneLine=lineHeight+paddingY+borderY;
     const contentHeight=el.scrollHeight+borderY;
     el.style.setProperty('height',`${Math.ceil(Math.max(oneLine,contentHeight))}px`,'important');
   };
+
+  const characterFitNeeded=()=>{
+    if(!boardActive||loading)return false;
+    if(state?.layout?.mainMode==='characters')return true;
+    return !!document.querySelector('.character-popup.show,.character-popup[open],#characterPopup.show');
+  };
   let characterFitRaf=0,characterFitObserver=null;
   const fullCharacterRoot=document.getElementById('fullCharacterMode');
   const fitCharacterFields=()=>{
-    if(!boardActive||loading||characterFitRaf)return;
+    if(!characterFitNeeded()||characterFitRaf)return;
     characterFitRaf=requestAnimationFrame(()=>{
       characterFitRaf=0;
-      if(!boardActive||loading)return;
+      if(!characterFitNeeded())return;
       document.querySelectorAll('#fullCharacterMode .character-sheet-edit,.connected-character-page .character-sheet-edit,.character-popup .character-sheet-edit').forEach(fitCharacterField);
     });
   };
   function syncFitObserver(){
     if(characterFitObserver){characterFitObserver.disconnect();characterFitObserver=null}
-    if(!boardActive||loading||!fullCharacterRoot||!window.MutationObserver)return;
+    if(!characterFitNeeded()||!fullCharacterRoot||!window.MutationObserver)return;
     characterFitObserver=new MutationObserver(fitCharacterFields);
     characterFitObserver.observe(fullCharacterRoot,{childList:true,subtree:true});
   }
@@ -148,7 +189,10 @@
   document.addEventListener('input',event=>{
     if(boardActive&&event.target?.matches?.('.character-sheet-edit'))fitCharacterField(event.target);
   },true);
-  window.addEventListener('resize',()=>{if(boardActive)fitCharacterFields()},{passive:true});
+  document.addEventListener('click',event=>{
+    if(event.target?.closest?.('#mainCharacterModeBtn,#mainDatabaseModeBtn'))setTimeout(()=>{syncFitObserver();fitCharacterFields()},0);
+  },true);
+  window.addEventListener('resize',()=>{if(characterFitNeeded())fitCharacterFields()},{passive:true});
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin)return;
     if(event.data?.type==='jijinboard-spreadsheet-active')setBoardActive(event.data.active);
@@ -163,25 +207,27 @@
   }
 
   (async()=>{
-    let remote=null,cleanRemote=null;
+    let remote=null,cleanRemote=null,remoteString='';
     try{
+      const cleanLocal=sanitizeSnapshot(read());
+      const localString=JSON.stringify(cleanLocal);
       remote=(await api(endpoint)).state;
       cleanRemote=sanitizeSnapshot(remote||{});
-      const cleanLocal=sanitizeSnapshot(read());
+      remoteString=JSON.stringify(cleanRemote);
+
       if(remote&&meaningful(cleanRemote)){
-        applyRemote(cleanRemote);
-      }else{
-        applyRemote(cleanLocal);
-        if(meaningful(cleanLocal))await api(endpoint,{method:'POST',body:JSON.stringify({state:cleanLocal})});
+        if(remoteString!==localString)applyRemote(cleanRemote);
+      }else if(meaningful(cleanLocal)){
+        await api(endpoint,{method:'POST',body:JSON.stringify({state:cleanLocal})});
       }
     }catch(error){
       console.warn('Spreadsheet initial sync failed',error);
     }finally{
       loading=false;
       syncFitObserver();
-      if(boardActive)fitCharacterFields();
+      if(characterFitNeeded())fitCharacterFields();
       notifyReady();
     }
-    if(remote&&JSON.stringify(remote)!==JSON.stringify(cleanRemote))pushNow();
+    if(remote&&remoteString&&JSON.stringify(remote)!==remoteString)pushNow();
   })();
 })();
