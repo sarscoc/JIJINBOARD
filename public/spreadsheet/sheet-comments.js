@@ -1,14 +1,35 @@
 (()=>{
   const board=new URL(location.href).searchParams.get('board');if(!board)return;
-  let comments=[],cell='',reply='',edit='',mode=localStorage.getItem('sheetCommentMode')||'comment';
-  const api=async(p,o={})=>{const r=await fetch(p,{headers:{'content-type':'application/json'},...o}),d=await r.json();if(!r.ok)throw Error(d.error);return d};
+  let comments=[],cell='',reply='',edit='',mode=localStorage.getItem('sheetCommentMode')||'comment',initialReady=false;
+  const api=async(p,o={})=>{const r=await fetch(p,{headers:{'content-type':'application/json'},...o}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'コメントの取得に失敗しました');return d};
   const me=()=>JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');
   const people=()=>{const p=me();return[{name:p?.plName||'PL',type:'PL'},...(p?.personas||[])]};
+
+  // Apply the stored mode immediately. Previously this class was not added until
+  // the comments API returned, so the sheet visibly changed from edit -> comment
+  // mode after its first paint.
+  document.body.classList.toggle('sheet-comment-mode',mode==='comment');
+
+  function signalInitialReady(){
+    if(initialReady)return;
+    initialReady=true;
+    window.__jijinboardSheetCommentsReady=true;
+    window.dispatchEvent(new CustomEvent('jijinboard-sheet-comments-ready'));
+    window.__jijinboardMaybeSpreadsheetReady?.();
+  }
   function setMode(next){mode=next;localStorage.setItem('sheetCommentMode',mode);document.body.classList.toggle('sheet-comment-mode',mode==='comment');document.querySelectorAll('[data-sheet-mode]').forEach(b=>b.classList.toggle('on',b.dataset.sheetMode===mode))}
   function controls(){if(document.querySelector('#sheetCommentModes'))return;const el=document.createElement('div');el.id='sheetCommentModes';el.innerHTML='<button data-sheet-mode="edit">編集</button><button data-sheet-mode="comment">コメント</button><button type="button" data-open-sheet-comments>COMMENTS</button>';document.querySelector('.table-actions')?.prepend(el);el.querySelectorAll('[data-sheet-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.sheetMode));el.querySelector('[data-open-sheet-comments]').onclick=()=>ui().hidden=false;setMode(mode)}
   function ui(){let a=document.querySelector('#sheetComments');if(a)return a;a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head"><b>COMMENTS <span></span></b><button type="button" title="コメントを閉じる">×</button></div><section></section>';a.querySelector('button').onclick=()=>a.hidden=true;document.body.append(a);return a}
   function card(c){return `<article data-cell="${c.cell_id}"><small>${c.persona_name} [${c.persona_type}]</small><p>${c.body}</p><button data-like="${c.id}">${c.liked_by_me?'♥':'♡'}${c.like_count||''}</button><button data-reply="${c.id}">↩</button>${c.author_id===me()?.id?`<button data-edit="${c.id}">✎</button>`:''}</article>`}
-  async function load(){comments=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(me()?.id||'')}`)).comments||[];controls();const a=ui();a.querySelector('b span').textContent=comments.length;a.querySelector('section').innerHTML=comments.map(card).join('')||'<p>セルへのコメントがここに並びます。</p>'}
+  async function load(){
+    try{comments=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(me()?.id||'')}`)).comments||[]}
+    catch(error){console.warn('Spreadsheet comments initial load failed',error);comments=[]}
+    controls();
+    const a=ui();
+    a.querySelector('b span').textContent=comments.length;
+    a.querySelector('section').innerHTML=comments.map(card).join('')||'<p>セルへのコメントがここに並びます。</p>';
+    signalInitialReady();
+  }
   function dialog(){let d=document.querySelector('#sheetCommentDialog');if(d)return d;d=document.createElement('dialog');d.id='sheetCommentDialog';d.innerHTML='<form><b>セルにコメント</b><select></select><textarea placeholder="感想を書く"></textarea><button>投稿</button><button type="button" data-close>閉じる</button><button type="button" data-delete hidden>削除</button></form>';document.body.append(d);d.querySelector('[data-close]').onclick=()=>d.close();d.querySelector('form').onsubmit=post;d.querySelector('[data-delete]').onclick=remove;return d}
   function open(id,r='',e=''){const p=me();if(!p?.plName)return alert('先に発言者を登録してください。');ui().hidden=false;cell=id;reply=r;edit=e;const d=dialog(),old=comments.find(x=>x.id===e),ps=people();d.querySelector('select').innerHTML=ps.map((x,i)=>`<option value="${i}">${x.name} [${x.type}]</option>`).join('');d.querySelector('textarea').value=old?.body||'';d.querySelector('[data-delete]').hidden=!old;d.showModal()}
   async function post(e){e.preventDefault();const d=dialog(),p=me(),person=people()[d.querySelector('select').value],body=d.querySelector('textarea').value.trim();if(!body)return;try{if(edit)await api(`/api/boards/${board}/spreadsheet/comments/${edit}`,{method:'PATCH',body:JSON.stringify({authorId:p.id,body})});else await api(`/api/boards/${board}/spreadsheet/comments`,{method:'POST',body:JSON.stringify({cellId:cell,parentId:reply,authorId:p.id,personaName:person.name,personaType:person.type,body})});d.close();load()}catch(x){alert(x.message)}}
