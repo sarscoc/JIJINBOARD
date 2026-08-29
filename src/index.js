@@ -6,6 +6,7 @@ import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
 import { handleBoardTheme } from "./board-theme.js";
 import { handleGroupRowColors } from "./group-row-colors.js";
 import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
+import { handleLogDisplayMode } from "./log-display-mode.js";
 
 export { RoomHub };
 
@@ -67,6 +68,16 @@ export default {
     const groupColorsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);
     if(groupColorsMatch){
       return handleGroupRowColors(request,env,decodeURIComponent(groupColorsMatch[1]));
+    }
+
+    const logDisplayModeMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/display-mode$/);
+    if(logDisplayModeMatch){
+      return handleLogDisplayMode(
+        request,
+        env,
+        decodeURIComponent(logDisplayModeMatch[1]),
+        decodeURIComponent(logDisplayModeMatch[2])
+      );
     }
 
     const sheetCommentsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);
