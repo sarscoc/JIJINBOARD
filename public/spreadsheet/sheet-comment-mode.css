@@ -236,3 +236,54 @@ html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-edit
   overflow-wrap:anywhere!important;
   word-break:break-word!important;
 }
+
+/* Character-sheet rhythm: keep long text inside its own column, wrap it instead
+   of spanning both columns, and make paired grid items share one row height. */
+html.embedded .full-character-page .character-sheet-group[data-layout="free"] .character-sheet-rows,
+html.embedded .full-character-page .character-sheet-group[data-layout="columns"] .character-sheet-rows,
+html.embedded .connected-character-page .character-sheet-group[data-layout="free"] .character-sheet-rows,
+html.embedded .connected-character-page .character-sheet-group[data-layout="columns"] .character-sheet-rows{
+  align-items:stretch!important;
+}
+html.embedded .full-character-page .character-sheet-group[data-layout="free"] .character-sheet-row,
+html.embedded .full-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row,
+html.embedded .connected-character-page .character-sheet-group[data-layout="free"] .character-sheet-row,
+html.embedded .connected-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row{
+  align-self:stretch!important;
+  height:100%!important;
+}
+html.embedded .full-character-page .character-sheet-group[data-layout="free"] .character-sheet-row.long,
+html.embedded .full-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row.long,
+html.embedded .connected-character-page .character-sheet-group[data-layout="free"] .character-sheet-row.long,
+html.embedded .connected-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row.long{
+  grid-column:auto!important;
+  margin-top:0!important;
+  min-height:0!important;
+}
+html.embedded .full-character-page .character-sheet-label,
+html.embedded .connected-character-page .character-sheet-label{
+  min-width:0!important;
+  white-space:normal!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}
+html.embedded .full-character-page .character-sheet-value,
+html.embedded .connected-character-page .character-sheet-value{
+  min-width:0!important;
+}
+html.embedded .full-character-page .character-sheet-edit,
+html.embedded .connected-character-page .character-sheet-edit{
+  width:100%!important;
+  max-width:100%!important;
+  height:auto!important;
+  overflow:hidden!important;
+  white-space:pre-wrap!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}
+html.embedded .full-character-page .character-sheet-row.long .character-sheet-edit,
+html.embedded .connected-character-page .character-sheet-row.long .character-sheet-edit{
+  min-height:2.6em!important;
+}
