@@ -21,7 +21,7 @@
   <meta name="twitter:image:alt" content="TRPG LOG MARKER">
   <title>TRPG LOG MARKER</title>
   <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="profile-compact.css">
+  <link rel="stylesheet" href="profile-compact.css?v=20260829-2">
   <link rel="stylesheet" href="embedded-layout.css">
   <script>if(new URL(location.href).searchParams.get("embedded")==="1")document.documentElement.classList.add("embedded")</script>
 </head>
@@ -124,7 +124,7 @@
         <button type="button" id="transferToggle" class="profile-transfer-toggle">引き継ぎ設定</button>
         <div id="transferPanel" class="profile-transfer-panel hidden">
           <button type="button" id="issueTransferBtn" class="quiet">別端末へ引き継ぐ</button>
-          <input id="transferCodeInput" maxlength="20" placeholder="引き継ぎコード">
+          <input id="transferCodeInput" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4桁の引き継ぎコード">
           <button type="button" id="redeemTransferBtn" class="quiet">引き継ぐ</button>
         </div>
       </div>
