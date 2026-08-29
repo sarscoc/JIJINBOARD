@@ -82,6 +82,39 @@
     };
   }
 
+  // Character sheet textareas are visually text, but the core renderer uses
+  // textarea elements so answers remain editable. Force soft wrapping and then
+  // size each field from its real rendered width. Using inline !important here is
+  // deliberate: older Character-sheet CSS contains several height/nowrap rules.
+  const fitCharacterField=el=>{
+    if(!el)return;
+    el.setAttribute('wrap','soft');
+    el.style.setProperty('white-space','pre-wrap','important');
+    el.style.setProperty('overflow-wrap','anywhere','important');
+    el.style.setProperty('word-break','break-word','important');
+    el.style.setProperty('overflow-x','hidden','important');
+    el.style.setProperty('overflow-y','hidden','important');
+    el.style.setProperty('height','auto','important');
+    el.style.setProperty('height',`${Math.max(24,el.scrollHeight)}px`,'important');
+  };
+  let characterFitRaf=0;
+  const fitCharacterFields=()=>{
+    if(characterFitRaf)return;
+    characterFitRaf=requestAnimationFrame(()=>{
+      characterFitRaf=0;
+      document.querySelectorAll('#fullCharacterMode .character-sheet-edit,.connected-character-page .character-sheet-edit,.character-popup .character-sheet-edit').forEach(fitCharacterField);
+    });
+  };
+  document.addEventListener('input',event=>{
+    if(event.target?.matches?.('.character-sheet-edit'))fitCharacterField(event.target);
+  },true);
+  const fullCharacterRoot=document.getElementById('fullCharacterMode');
+  if(fullCharacterRoot&&window.MutationObserver){
+    new MutationObserver(fitCharacterFields).observe(fullCharacterRoot,{childList:true,subtree:true});
+  }
+  window.addEventListener('resize',fitCharacterFields,{passive:true});
+  fitCharacterFields();
+
   (async()=>{
     let remote=null,cleanRemote=null;
     try{
@@ -98,6 +131,7 @@
       console.warn('Spreadsheet initial sync failed',error);
     }finally{
       loading=false;
+      fitCharacterFields();
       requestAnimationFrame(()=>{if(window.frameElement)window.frameElement.style.visibility=''});
     }
     if(remote&&JSON.stringify(remote)!==JSON.stringify(cleanRemote))pushNow();
