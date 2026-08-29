@@ -20,10 +20,11 @@
   async function loadRoom(nextRoom){
     loadRequested=true;
     const seq=++loadSeq;
+    const previousRoom=roomId;
     roomId=nextRoom||"";
     readySent=false;
     loadedRoom="";
-    window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
+    if(roomId!==previousRoom)window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
     try{
       const [matrix]=await Promise.all([api(matrixPath()),wait(180)]);
@@ -159,7 +160,14 @@
     if(event.data?.type==="jijinboard-active-room"){
       const nextRoom=event.data.roomId||"";
       if(active||!embedded)loadRoom(nextRoom).catch(console.warn);
-      else{loadRequested=true;roomId=nextRoom;loadedRoom="";readySent=false;window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}))}
+      else{
+        loadRequested=true;
+        const changed=roomId!==nextRoom;
+        roomId=nextRoom;
+        loadedRoom="";
+        readySent=false;
+        if(changed)window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
+      }
     }
     if(event.data?.type==="jijinboard-matrix-active")setActive(event.data.active);
   });
