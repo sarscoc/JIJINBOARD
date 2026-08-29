@@ -66,7 +66,7 @@
     const cancelClose=()=>{if(closeTimer){clearTimeout(closeTimer);closeTimer=0}};
     const openAt=clientY=>{cancelClose();placePopoverAt(clientY);rail.classList.add('open')};
     const close=()=>{cancelClose();rail.classList.remove('open')};
-    const scheduleClose=()=>{cancelClose();closeTimer=setTimeout(close,650)};
+    const scheduleClose=()=>{cancelClose();closeTimer=setTimeout(close,200)};
 
     rail.addEventListener('mouseenter',event=>{cancelClose();if(!rail.classList.contains('open'))openAt(event.clientY)});
     rail.addEventListener('mouseleave',scheduleClose);
