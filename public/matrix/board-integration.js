@@ -93,12 +93,21 @@
   window.addEventListener("pagehide",saveOnPagehide);
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")requestSave(0)});
 
-  // Load interaction overrides only after the original MATRIX scripts are ready.
+  // Load board-only behavior after the original MATRIX scripts are ready.
+  // Dynamic scripts are marked non-async so the persistence layer is installed
+  // before the click/right-click interaction override starts handling input.
   window.addEventListener("load",()=>{
-    if(document.querySelector('script[data-matrix-icon-interactions]'))return;
-    const script=document.createElement("script");
-    script.src="matrix-icon-interactions.js";
-    script.dataset.matrixIconInteractions="1";
-    document.body.append(script);
+    const helpers=[
+      ["matrix-display-comment-persistence.js","matrixDisplayCommentPersistence"],
+      ["matrix-icon-interactions.js","matrixIconInteractions"]
+    ];
+    helpers.forEach(([src,key])=>{
+      if(document.querySelector(`script[data-${key.replace(/[A-Z]/g,m=>"-"+m.toLowerCase())}]`))return;
+      const script=document.createElement("script");
+      script.src=src;
+      script.async=false;
+      script.dataset[key]="1";
+      document.body.append(script);
+    });
   },{once:true});
 })();
