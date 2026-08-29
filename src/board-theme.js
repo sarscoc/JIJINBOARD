@@ -1,13 +1,11 @@
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 
-const defaults={color1:"#171a20",textColor2:"#171a20",color2:"#f5f6f7",backgroundMode:"white-gradient",backgroundColor:"#f5f7fa",backgroundImage:"",alternateCells:false,alternateCellColor:"#f7f7f8"};
+const defaults={color1:"#171a20",backgroundMode:"white-gradient",backgroundColor:"#f5f7fa",backgroundImage:"",alternateCells:false,alternateCellColor:"#f7f7f8"};
 const color=value=>/^#[0-9a-f]{6}$/i.test(String(value||""))?String(value):null;
 function normalize(input){
   if(!input||typeof input!=="object")return null;
   const out={...defaults};
   out.color1=color(input.color1)||defaults.color1;
-  out.textColor2=color(input.textColor2)||defaults.textColor2;
-  out.color2=color(input.color2)||defaults.color2;
   out.backgroundColor=color(input.backgroundColor)||defaults.backgroundColor;
   out.alternateCellColor=color(input.alternateCellColor)||defaults.alternateCellColor;
   out.backgroundMode=["white-gradient","black-gradient","color","image"].includes(input.backgroundMode)?input.backgroundMode:defaults.backgroundMode;
