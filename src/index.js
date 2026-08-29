@@ -5,6 +5,7 @@ import { handleLogTabSettings } from "./log-tab-settings.js";
 import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
 import { handleBoardTheme } from "./board-theme.js";
 import { handleGroupRowColors } from "./group-row-colors.js";
+import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
 
 export { RoomHub };
 
@@ -66,6 +67,17 @@ export default {
     const groupColorsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);
     if(groupColorsMatch){
       return handleGroupRowColors(request,env,decodeURIComponent(groupColorsMatch[1]));
+    }
+
+    const sheetCommentsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);
+    if(sheetCommentsMatch){
+      return handleSpreadsheetComments(
+        request,
+        env,
+        decodeURIComponent(sheetCommentsMatch[1]),
+        sheetCommentsMatch[2]?decodeURIComponent(sheetCommentsMatch[2]):"",
+        sheetCommentsMatch[3]?decodeURIComponent(sheetCommentsMatch[3]):""
+      );
     }
 
     const matrixTemplateCommentsMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);
