@@ -36,7 +36,7 @@
 #boardSettingsOverlay .board-settings-section-head{padding:6px 8px!important}
 #boardSettingsOverlay .board-share-body{padding:6px 8px!important}
 
-/* The top-right settings control is a small line-art gear, not a button-shaped chip. */
+/* The top-right settings control uses the provided gear icon. */
 #boardSettingsButton.board-settings-trigger{
   position:relative!important;
   display:grid!important;
@@ -54,16 +54,17 @@
   color:var(--ink)!important;
   font-size:0!important;
   line-height:1!important;
-  opacity:.76;
+  opacity:.82;
 }
 #boardSettingsButton.board-settings-trigger::before{
   content:"";
   display:block;
-  width:18px;
-  height:18px;
-  background:currentColor;
-  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-3v-.08a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 6.6 15a1.7 1.7 0 0 0-1.56-1.03H5v-3h.08A1.7 1.7 0 0 0 6.64 9.9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.12-2.12.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56V4h3v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.12 2.12-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H20v3h-.08A1.7 1.7 0 0 0 19.4 15z'/%3E%3C/svg%3E") center/contain no-repeat;
-  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.65' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3Cpath d='M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.12 2.12-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20h-3v-.08a1.7 1.7 0 0 0-1.1-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-2.12-2.12.06-.06A1.7 1.7 0 0 0 6.6 15a1.7 1.7 0 0 0-1.56-1.03H5v-3h.08A1.7 1.7 0 0 0 6.64 9.9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.12-2.12.06.06a1.7 1.7 0 0 0 1.88.34 1.7 1.7 0 0 0 1.03-1.56V4h3v.08a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 2.12 2.12-.06.06a1.7 1.7 0 0 0-.34 1.88 1.7 1.7 0 0 0 1.56 1.03H20v3h-.08A1.7 1.7 0 0 0 19.4 15z'/%3E%3C/svg%3E") center/contain no-repeat;
+  width:16px;
+  height:16px;
+  background-image:url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADAAAAAwCAYAAABXAvmHAAAEaUlEQVR4AeSYa3LaMBSFibOQkpUU/mWS7KGwEshKoHtIMvkHXQl0H0no+VRf16Anttsw04wvkqX7OMe6ekTVaOC/+/v7neQQkd3A4UaDEri7u5sJ4FgSe8a1Tqz/7PZBCZwdfQCD/4PA7e1t0dBXVZVKH/e9S3QeHh6WkokzyPxUmf4ROXt9fb27urpaaWKucvp9+xVjczgcFofDYSMSy5y/JAHAA7zlZEaA1vtRVUG/HjUEXqTzJdDsmmrfzZeX7iJHIkogAN4F0c9EgXakleruoV4HaoK7jvDPrNZterGXz40aPPsciSCBBHjFcM9YabVR0BVgVN8RyPUU/KArW/YLsw+CN1foE8fe26VHQIqTk7Rp67frTNgZztuNZ9Tb9tSTpsQB26mSR+BU4ZLePz4+PKIegaenp61G4PGSgNdYti8vL+u63hQeAXre3t5Q3FK/ENk+Pz9PQ1iCBF5fX/fv7+9zGVwCiSh44Ysf5lok9ih+kuxjX97wBEfAOiGh+fDd3j+hzGZAkgCAtXxFd076I7IW8UfJFJEP0pF5FVHv3pwlINec8VUUPVvNnRsN+1yr2VKyRVg9aKNPXrJfVTr2eDuzdViZJMCObIoF5Vogp6RdTJc+dDQqpcv0WJtX8kBXcQ4BqAkGJgpUevpkpSBNYtiP2jUqgCoaCaXfQscOd+QAl+GkxGmlc8wGoCYYmKBQIkqNYvDm70wbd2QBl+GkFLEdKeRtzxbkuIy+rUmNaG+ko7YpGoWIC5rHEKDSWfRVfnQ11lfsbGsxexMwRx3LviMQ34lLAel/3M47deh0WRrX9IYYgexabcH+RtmbgOZA9v/gGHDNgc625hMCffNwzF5iDkvL2uacXT7keluxHusrzk30VTjDsFOWnl34/7h0w2tAaP85x8bOVg6bYWVXr1iPOauYsEsi6nSkmojpyoRdMq3yp1cbEOCL5g5gwQImE8OKR1KIMihaJYrTS4HY8o+uW06dkjYCzw1EceoA9tRP+z1JgNGRcmkqSXVEOrnrFs4qGhVGBlkK+Eppw/V60ZfHmSQbO0lADro8HE1mmksrjcqmloUcFX916bpHPn66SuInSYAhly2AVPz7R+S/1RiiwZMENOTFky0aoV+HS8mUiygB5SyT7Zx8TcXp0zeusQR9BAnUBpcA3kBzoUw22HtTegRYPdR7SeAFxz3canu4PAJ9TpcuzD/+8Qhotyu9G91rmXNbe0fMzl62rPXZI7lWJG46vI3VIyCHI5FYAo56RPgn/gY9ROepm4z+kRt0dTxw9irnsufe0wNnRoCP7chBAhgCjEDUTwTwBGya2bHRVwNfU0XyWde6jRL2IjEPxUuBx0GUAJ0EOnHqgUfPRLq/d05rCJQxHUhwK65+TsLOMgcepSQBFGoSXBE+ariPvjz9QwokiAdwEZnG0qYdM0sAZTnlipDLKF6jotNrdjKW6ACcmNFArY4iAi39i6sOSuAz9pBBCWgSkkLR5VDDtyc9VA72/AIAAP//tXkCUwAAAAZJREFUAwCaCTEXLsDTVAAAAABJRU5ErkJggg==");
+  background-repeat:no-repeat;
+  background-position:center;
+  background-size:contain;
 }
 #boardSettingsButton.board-settings-trigger:hover{opacity:1!important;background:transparent!important}
 #boardSettingsButton.board-settings-trigger:active{transform:scale(.94)}
