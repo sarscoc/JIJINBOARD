@@ -4,27 +4,27 @@
   if(!boardId)return;
 
   const storageKey=`jijinboardScopedTheme:${boardId}`;
+  const themeEndpoint=`/api/boards/${encodeURIComponent(boardId)}/theme`;
   const defaults={
     color1:"#171a20",
     textColor2:"#171a20",
-    color2:"#f5f6f7",
     backgroundMode:"white-gradient",
     backgroundColor:"#f5f7fa",
     backgroundImage:"",
     alternateCells:false,
     alternateCellColor:"#f7f7f8"
   };
-  let theme=readLocal();
+  let theme=readLocal()||{...defaults};
   let saveTimer=0;
   let uiBuilt=false;
 
   const validColor=value=>/^#[0-9a-f]{6}$/i.test(String(value||""));
   function normalize(value){
-    if(!value||typeof value!=="object")return null;
+    if(!value||typeof value!=="object")return {...defaults};
     const next={...defaults,...value};
+    delete next.color2;
     next.color1=validColor(next.color1)?next.color1:defaults.color1;
     next.textColor2=validColor(next.textColor2)?next.textColor2:defaults.textColor2;
-    next.color2=validColor(next.color2)?next.color2:defaults.color2;
     next.backgroundColor=validColor(next.backgroundColor)?next.backgroundColor:defaults.backgroundColor;
     next.alternateCellColor=validColor(next.alternateCellColor)?next.alternateCellColor:defaults.alternateCellColor;
     next.backgroundMode=["white-gradient","black-gradient","color","image"].includes(next.backgroundMode)?next.backgroundMode:defaults.backgroundMode;
@@ -33,8 +33,16 @@
     if(next.backgroundMode==="image"&&!next.backgroundImage)next.backgroundMode="white-gradient";
     return next;
   }
-  function readLocal(){try{return normalize(JSON.parse(localStorage.getItem(storageKey)||"null"))}catch{return null}}
-  function writeLocal(){try{theme?localStorage.setItem(storageKey,JSON.stringify(theme)):localStorage.removeItem(storageKey)}catch{}}
+  function readLocal(){
+    try{
+      const raw=JSON.parse(localStorage.getItem(storageKey)||"null");
+      if(!raw)return null;
+      const clean=normalize(raw);
+      if(Object.prototype.hasOwnProperty.call(raw,"color2"))localStorage.setItem(storageKey,JSON.stringify(clean));
+      return clean;
+    }catch{return null}
+  }
+  function writeLocal(){try{localStorage.setItem(storageKey,JSON.stringify(theme))}catch{}}
   function adminToken(){
     try{return localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||""}
     catch{return localStorage.getItem(`boardAdmin:${boardId}`)||""}
@@ -49,7 +57,7 @@
 
   function parentCss(value){return `
     .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button{color:${value.color1}!important}
-    .log-sidebar{background:${value.color2}!important}
+    .log-sidebar{background:#fff!important}
     .board-heading #boardName,.log-list .log-item{color:${value.textColor2}!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
@@ -58,9 +66,7 @@
     html.embedded body{${backgroundRules(value)}}
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
     html.embedded .filters .font-size-control{
-      background:#fff!important;
-      border-color:#dfe3e8!important;
-      box-shadow:none!important;
+      background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;
     }
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
     html.embedded .filters .font-size-control,
@@ -68,22 +74,61 @@
     html.embedded .comments-head{color:${value.color1}!important}
     html.embedded .filters input::placeholder{color:#79818d!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
-    html.embedded .comments-list{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-    html.embedded .tab-arrow{background:#fff!important}
+
+    /* LOG's own :root.dark decides whether these surfaces are light or dark. */
+    html.embedded .log-pane,
+    html.embedded .comments-pane{
+      background:color-mix(in srgb,var(--paper) 85%,transparent)!important;
+      color:var(--ink)!important;border-color:var(--line)!important;
+      backdrop-filter:blur(14px) saturate(120%)!important;
+      -webkit-backdrop-filter:blur(14px) saturate(120%)!important;
+    }
+    html.embedded.dark .log-pane,
+    html.embedded.dark .comments-pane{background:rgba(53,53,53,.85)!important}
+    html.embedded .cylinder-nav,
+    html.embedded .page-title,
+    html.embedded .tab-navigation,
+    html.embedded .comments-head,
+    html.embedded .comments-list{background:transparent!important}
+    html.embedded .comment-card{background:var(--paper)!important;color:var(--ink)!important;border-color:var(--line)!important}
+
+    html.embedded .tab-arrow,
+    html.embedded .slide-btn,
+    html.embedded .cylinder-nav button{background:#fff!important;color:#596168!important}
+    html.embedded.dark .tab-arrow,
+    html.embedded.dark .slide-btn,
+    html.embedded.dark .cylinder-nav button{background:var(--paper,#353535)!important;color:var(--ink,#f2f4f7)!important;border-color:var(--line,#5b5b5b)!important}
+
     html.embedded .page-scroll,html.embedded .comments-list{scrollbar-color:${value.color1} transparent!important}
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
   `}
   function matrixCss(value){return `
     html.embedded body{${backgroundRules(value)}}
-    html.embedded .library{background:${value.color2}!important}
-    html.embedded #matrixIconComments>section{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    html.embedded{--matrix-glass:rgba(255,255,255,.85)!important;--matrix-glass-strong:rgba(255,255,255,.85)!important}
+    html.embedded .library,
+    html.embedded .stage,
+    html.embedded #matrixIconComments>section{
+      background:rgba(255,255,255,.85)!important;
+      backdrop-filter:blur(14px) saturate(120%)!important;
+      -webkit-backdrop-filter:blur(14px) saturate(120%)!important;
+    }
+    html.embedded .matrix-comment-head,
+    html.embedded #matrixIconComments .matrix-comments-body{background:transparent!important}
     html.embedded .stage-area-toolbar :is(button,.btn,.stage-area-label,.toolbar-scale-check),
     html.embedded .matrix-comment-head{color:${value.color1}!important}
+    html.embedded .stage-area-toolbar :is(.btn,button),html.embedded .toolbar-scale-check{background:#fff!important}
     html.embedded .library,html.embedded #matrixIconComments>section,html.embedded .template-tabs{scrollbar-color:${value.color1} transparent!important}
     html.embedded .library::-webkit-scrollbar-thumb,html.embedded #matrixIconComments>section::-webkit-scrollbar-thumb,html.embedded .template-tabs::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function sheetCss(value){return `
     html.embedded body{${backgroundRules(value)}}
+    html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
+    html.embedded #databaseLayout,
+    html.embedded #sheetComments>section{
+      background:rgba(255,255,255,.85)!important;
+      backdrop-filter:blur(14px) saturate(120%)!important;
+      -webkit-backdrop-filter:blur(14px) saturate(120%)!important;
+    }
     html.embedded .data-sheet thead th,
     html.embedded .data-sheet .item-col,
     html.embedded .group-row td,
@@ -91,8 +136,9 @@
     html.embedded .table-actions > :is(.btn,button){color:${value.color1}!important}
     html.embedded .data-sheet thead .item-col #sheetModeToggle{color:${value.color1}!important}
     html.embedded .main-mode-switch .btn:not(.on)::after{color:${value.color1}!important}
-    html.embedded .group-row td{background:${value.color2}!important;background-image:none!important}
-    html.embedded #sheetComments>section{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+    html.embedded .group-row td{background:rgba(255,255,255,.85)!important;background-image:none!important}
+    html.embedded .sheet-comments-head,
+    html.embedded #sheetComments .sheet-comments-body{background:transparent!important}
     ${value.alternateCells?`html.embedded .data-sheet tbody tr:not(.group-row):nth-child(even) td:not(.item-col){background:${value.alternateCellColor}!important;background-image:none!important}`:""}
     html.embedded #sheetWrap,html.embedded #sheetComments>section{scrollbar-color:${value.color1} transparent!important}
     html.embedded #sheetWrap::-webkit-scrollbar-thumb,html.embedded #sheetComments>section::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
@@ -104,55 +150,51 @@
     if(!style){style=doc.createElement("style");style.id=id;doc.head.append(style)}
     style.textContent=css;
   }
-  function clearIn(doc,id){try{doc?.getElementById(id)?.remove()}catch{}}
   function applyToFrame(frame,scope){
-    if(!theme)return;
     try{
       const doc=frame?.contentDocument;if(!doc?.head)return;
       styleIn(doc,"jijinboardScopedThemeStyle",scope==="log"?logCss(theme):scope==="matrix"?matrixCss(theme):sheetCss(theme));
     }catch{}
   }
   function applyAll(){
-    if(!theme){clearAll();return}
     styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));
     applyToFrame(document.getElementById("logFrame"),"log");
     applyToFrame(document.getElementById("matrixFrame"),"matrix");
     applyToFrame(document.getElementById("spreadsheetFrame"),"sheet");
   }
-  function clearAll(){
-    clearIn(document,"jijinboardScopedThemeStyle");
-    for(const id of ["logFrame","matrixFrame","spreadsheetFrame"]){try{clearIn(document.getElementById(id)?.contentDocument,"jijinboardScopedThemeStyle")}catch{}}
-  }
 
   for(const [id,scope] of [["logFrame","log"],["matrixFrame","matrix"],["spreadsheetFrame","sheet"]]){
-    document.getElementById(id)?.addEventListener("load",()=>setTimeout(()=>applyToFrame(document.getElementById(id),scope),0));
+    document.getElementById(id)?.addEventListener("load",()=>applyToFrame(document.getElementById(id),scope));
   }
 
   function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveRemote,420)}
   async function saveRemote(){
-    if(!theme)return;
     const token=adminToken();if(!token)return;
     try{
-      const response=await fetch(`/api/boards/${encodeURIComponent(boardId)}/theme`,{method:"POST",headers:{"content-type":"application/json","x-board-admin-token":token},body:JSON.stringify({theme})});
+      const response=await fetch(themeEndpoint,{method:"POST",headers:{"content-type":"application/json","x-board-admin-token":token},body:JSON.stringify({theme})});
       if(!response.ok){const body=await response.json().catch(()=>({}));console.warn(body.error||"Theme save failed")}
     }catch(error){console.warn("Theme save failed",error)}
   }
   async function loadRemote(){
     try{
-      const response=await fetch(`/api/boards/${encodeURIComponent(boardId)}/theme`);
+      const response=await fetch(themeEndpoint);
       if(!response.ok)return;
       const body=await response.json().catch(()=>({}));
-      if(body.theme){theme=normalize(body.theme);writeLocal();applyAll();syncUi()}
-      else{theme=null;writeLocal();clearAll();syncUi()}
+      if(body.theme){
+        const next=normalize(body.theme);
+        const changed=JSON.stringify(next)!==JSON.stringify(theme);
+        theme=next;writeLocal();
+        if(changed){applyAll();syncUi()}
+      }
     }catch(error){console.warn("Theme load failed",error)}
   }
   async function resetTheme(){
-    theme=null;writeLocal();clearAll();syncUi();
+    theme={...defaults};writeLocal();applyAll();syncUi();
     const token=adminToken();if(!token)return;
-    try{await fetch(`/api/boards/${encodeURIComponent(boardId)}/theme`,{method:"DELETE",headers:{"x-board-admin-token":token}})}catch{}
+    try{await fetch(themeEndpoint,{method:"DELETE",headers:{"x-board-admin-token":token}})}catch{}
   }
   function update(patch){
-    theme=normalize({...defaults,...(theme||{}),...patch});
+    theme=normalize({...theme,...patch});
     writeLocal();applyAll();syncUi();scheduleSave();
   }
 
@@ -203,7 +245,6 @@
           <div class="scoped-theme-grid">
             <label class="scoped-theme-field"><span>文字色1</span><input id="scopedColor1" type="color"></label>
             <label class="scoped-theme-field"><span>文字色2</span><input id="scopedTextColor2" type="color"></label>
-            <label class="scoped-theme-field"><span>面の色2</span><input id="scopedColor2" type="color"></label>
           </div>
           <div class="scoped-theme-grid">
             <label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label>
@@ -233,25 +274,23 @@
     uiBuilt=true;
     slot.querySelector("#scopedColor1").addEventListener("input",e=>update({color1:e.target.value}));
     slot.querySelector("#scopedTextColor2").addEventListener("input",e=>update({textColor2:e.target.value}));
-    slot.querySelector("#scopedColor2").addEventListener("input",e=>update({color2:e.target.value}));
     slot.querySelector("#scopedAlt").addEventListener("change",e=>update({alternateCells:e.target.checked}));
     slot.querySelector("#scopedAltColor").addEventListener("input",e=>update({alternateCellColor:e.target.value}));
     slot.querySelector("#scopedBgColor").addEventListener("input",e=>update({backgroundColor:e.target.value,backgroundMode:"color"}));
     slot.querySelectorAll('input[name="scopedBgMode"]').forEach(input=>input.addEventListener("change",e=>{if(e.target.checked)update({backgroundMode:e.target.value})}));
     const file=slot.querySelector("#scopedBgImage");slot.querySelector("#scopedBgImageBtn").onclick=()=>file.click();
     file.addEventListener("change",async()=>{const picked=file.files?.[0];if(!picked)return;try{const data=await imageToData(picked);update({backgroundImage:data,backgroundMode:"image"})}catch(error){alert(error.message)}finally{file.value=""}});
-    slot.querySelector("#scopedBgImageRemove").onclick=()=>update({backgroundImage:"",backgroundMode:theme?.backgroundMode==="image"?"white-gradient":theme?.backgroundMode||"white-gradient"});
+    slot.querySelector("#scopedBgImageRemove").onclick=()=>update({backgroundImage:"",backgroundMode:theme.backgroundMode==="image"?"white-gradient":theme.backgroundMode});
     slot.querySelector("#scopedThemeReset").onclick=()=>{if(confirm("共通デザイン設定を初期状態に戻しますか？\nCharacter個別ページの設定は消えません。"))resetTheme()};
     syncUi();
   }
   function syncUi(){
     if(!uiBuilt)return;const slot=document.getElementById("boardDesignSlot");if(!slot)return;
-    const value=theme||defaults;
     const set=(id,v)=>{const el=slot.querySelector(`#${id}`);if(el)el.value=v};
-    set("scopedColor1",value.color1);set("scopedTextColor2",value.textColor2);set("scopedColor2",value.color2);set("scopedAltColor",value.alternateCellColor);set("scopedBgColor",value.backgroundColor);
-    const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!value.alternateCells;
-    slot.querySelectorAll('input[name="scopedBgMode"]').forEach(input=>input.checked=input.value===value.backgroundMode);
-    const state=slot.querySelector("#scopedBgImageState");if(state)state.textContent=value.backgroundImage?"設定済み":"未設定";
+    set("scopedColor1",theme.color1);set("scopedTextColor2",theme.textColor2);set("scopedAltColor",theme.alternateCellColor);set("scopedBgColor",theme.backgroundColor);
+    const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!theme.alternateCells;
+    slot.querySelectorAll('input[name="scopedBgMode"]').forEach(input=>input.checked=input.value===theme.backgroundMode);
+    const state=slot.querySelector("#scopedBgImageState");if(state)state.textContent=theme.backgroundImage?"設定済み":"未設定";
   }
 
   function installDesignTabOverride(){
@@ -266,9 +305,10 @@
     return true;
   }
 
-  if(theme)applyAll();
+  applyAll();
   loadRemote();
   if(!installDesignTabOverride()){
-    let tries=0;const timer=setInterval(()=>{tries++;if(installDesignTabOverride()||tries>80)clearInterval(timer)},50);
+    const observer=new MutationObserver(()=>{if(installDesignTabOverride())observer.disconnect()});
+    observer.observe(document.body,{childList:true,subtree:true});
   }
 })();
