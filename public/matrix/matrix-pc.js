@@ -42,6 +42,17 @@
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
   const escHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
+  function setupBoardUi(){
+    // Board mode no longer needs the icon ZIP export in the top toolbar.
+    document.querySelector("#exportIconsBtn")?.remove();
+
+    // Keep destructive template removal at the very bottom of Display Settings,
+    // after every visual option, rather than beside the settings heading.
+    const settingsBody=document.querySelector("#displaySettingsBody");
+    const deleteButton=document.querySelector("#deleteCurrentTemplateBtn");
+    if(settingsBody&&deleteButton&&deleteButton.parentNode!==settingsBody)settingsBody.append(deleteButton);
+  }
+
   function pruneRemovedParticipants(validIds,state){
     state.items||={};
     let changed=false;
@@ -178,6 +189,7 @@
   }
 
   function setupPcControls(){
+    setupBoardUi();
     const toolbar=document.querySelector(".stage-toolbar-primary");if(!toolbar)return;
     toolbar.querySelector(".stage-area-label")?.remove();
     toolbar.querySelector(".matrix-pc-controls")?.remove();
@@ -205,6 +217,7 @@
     renderPcSources();
   }
 
+  setupBoardUi();
   setupPcControls();
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-active-room")load(event.data.roomId).catch(console.warn)});
   window.addEventListener("matrix-board-room",event=>load(event.detail?.roomId||activeRoom).catch(console.warn));
