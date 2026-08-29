@@ -8,6 +8,9 @@
   const profile = () => window.matrixBoardContext?.profile?.() || null;
   const currentTemplate = () => typeof currentTemplateId === "function" ? String(currentTemplateId() || "") : "";
   const itemFor = id => (Array.isArray(window.items) ? window.items : (typeof items !== "undefined" ? items : [])).find(item => item?.id === id);
+  // Preserve the real shared-comment composer before replacing the legacy
+  // left-click entry point below. Right-click uses this preserved function.
+  const sharedCommentComposer = typeof window.openMatrixIconComment === "function" ? window.openMatrixIconComment : null;
 
   function targetParts(value) {
     const raw = String(value || "");
@@ -115,6 +118,13 @@
     event.stopImmediatePropagation?.();
   }
 
+  // The original MATRIX core calls openMatrixIconComment(id) from both click
+  // and pointerup when an icon was not dragged. That used to open the composer
+  // even after our click override. Re-purpose that legacy entry point so every
+  // left-click path performs the page filter instead. The preserved composer
+  // above remains available exclusively to the right-click branch below.
+  window.openMatrixIconComment = () => filterCurrentPage();
+
   // Left click = show only shared COMMENTS belonging to the current template.
   // It does not filter by which icon was clicked.
   document.addEventListener("click", event => {
@@ -142,7 +152,7 @@
 
   // Right click:
   // - own icon: edit the original comment displayed around that icon
-  // - another person's icon: open the shared COMMENTS composer
+  // - another person's icon: open the real shared COMMENTS composer
   document.addEventListener("contextmenu", event => {
     const placed = placedFromEvent(event);
     if (!placed) return;
@@ -160,7 +170,7 @@
       return;
     }
 
-    if (typeof window.openMatrixIconComment === "function") window.openMatrixIconComment(id);
+    if (sharedCommentComposer) sharedCommentComposer(id);
   }, true);
 
   // Any template change restores the room-wide COMMENTS list.
