@@ -25,6 +25,6 @@
     }
     return response;
   };
-  const v='20260830-1';
+  const v='20260830-2';
   document.write(`<link rel="stylesheet" href="sheet-comments-unified.css?v=${v}"><script src="sheet-comments-base.js?v=${v}"><\/script><script src="sheet-comments-unified.js?v=${v}"><\/script>`);
 })();
