@@ -3,10 +3,10 @@
 /* The edit/comment switch fills the whole top-left spreadsheet header cell. */
 .data-sheet thead tr:first-child th{height:34px!important;min-height:34px!important;vertical-align:middle!important}
 .data-sheet thead .item-col{position:sticky!important;padding:0!important;white-space:nowrap!important}
-.data-sheet thead .item-col #sheetModeToggle{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:100%!important;min-height:34px!important;margin:0!important;padding:0 8px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:#69717d!important;font-size:9px!important;font-weight:800!important;line-height:1!important;cursor:pointer!important}
-.data-sheet thead .item-col #sheetModeToggle[data-mode="comment"]{background:#20252b!important;color:#fff!important}
-.data-sheet thead .item-col #sheetModeToggle:hover{background:rgba(75,84,97,.08)!important}
-.data-sheet thead .item-col #sheetModeToggle[data-mode="comment"]:hover{background:#2b3138!important}
+.data-sheet thead .item-col #sheetModeToggle{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:100%!important;min-height:34px!important;margin:0!important;padding:0 8px!important;border:0!important;border-radius:0!important;background:#e4e7eb!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.72),0 2px 5px rgba(52,60,72,.18)!important;color:#4f5865!important;font-size:9px!important;font-weight:800!important;line-height:1!important;cursor:pointer!important;transition:background .12s ease,box-shadow .12s ease,transform .08s ease!important}
+.data-sheet thead .item-col #sheetModeToggle[data-mode="comment"],.data-sheet thead .item-col #sheetModeToggle[data-mode="edit"]{background:#e4e7eb!important;color:#4f5865!important}
+.data-sheet thead .item-col #sheetModeToggle:hover{background:#d9dde2!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.78),0 3px 7px rgba(52,60,72,.22)!important}
+.data-sheet thead .item-col #sheetModeToggle:active{background:#d2d7dd!important;box-shadow:inset 0 1px 3px rgba(52,60,72,.16)!important;transform:translateY(1px)!important}
 
 /* Dedicated GROUP hover rail for embedded spreadsheet.
    This is intentionally independent from the spreadsheet surface and all of its
