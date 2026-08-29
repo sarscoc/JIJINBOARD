@@ -54,3 +54,8 @@ html.embedded .full-character-page .character-sheet-group[data-layout="list"] .c
 html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-label,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-label{margin:0!important;padding:0!important;line-height:1.25!important}
 html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-value,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-value{align-self:start!important;min-width:0!important}
 html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-edit,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-edit{field-sizing:content!important;box-sizing:border-box!important;height:auto!important;min-height:1.25em!important;max-height:none!important;margin:0!important;padding:0!important;line-height:1.25!important;overflow:hidden!important;resize:none!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+
+/* Menu modal backdrops must cover every surrounding panel, including COMMENTS
+   and the GROUP rail. The modal itself lives inside this backdrop, so raising
+   the backdrop preserves the dialog while dimming the entire workspace. */
+html.embedded .modal-backdrop.show{z-index:2000!important}
