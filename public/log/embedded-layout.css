@@ -1,5 +1,9 @@
 /* JIJINBOARD embed: exact shared geometry with MAGIA MATRIX.
    Desktop baseline: 12px outer inset -> 30px toolbar -> 8px gap -> reader/comments. */
+
+/* Keep comment text/card width stable before and after vertical overflow appears. */
+html.embedded .comments-list{scrollbar-gutter:stable}
+
 @media (min-width:801px){
   :root{
     --embed-page-pad:12px;
