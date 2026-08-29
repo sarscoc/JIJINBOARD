@@ -94,11 +94,12 @@
   document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")requestSave(0)});
 
   // Load board-only behavior after the original MATRIX scripts are ready.
-  // Dynamic scripts are marked non-async so the persistence layer is installed
+  // Dynamic scripts are marked non-async so persistence/delete hooks are installed
   // before the click/right-click interaction override starts handling input.
   window.addEventListener("load",()=>{
     const helpers=[
       ["matrix-display-comment-persistence.js","matrixDisplayCommentPersistence"],
+      ["matrix-template-comment-cleanup.js","matrixTemplateCommentCleanup"],
       ["matrix-icon-interactions.js","matrixIconInteractions"]
     ];
     helpers.forEach(([src,key])=>{
