@@ -70,12 +70,18 @@ html.embedded .sheet-comments-head{
   color:#171a1f!important;
 }
 html.embedded .sheet-comments-head b{
+  display:flex!important;
+  align-items:center!important;
+  width:100%!important;
+  gap:0!important;
   font:700 11px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
   letter-spacing:.12em!important;
 }
 html.embedded .sheet-comments-head b span{
+  margin-left:auto!important;
   font-weight:400!important;
 }
+html.embedded .sheet-comments-head>button{display:none!important}
 html.embedded .table-actions > :is(.btn,button){
   height:28px!important;
   min-height:28px!important;
