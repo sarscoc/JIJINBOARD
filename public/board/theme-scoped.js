@@ -44,7 +44,7 @@
   const whiteGradient=`background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,rgba(103,163,255,.24),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.12),transparent 30%)!important;background-attachment:fixed!important;`;
 
   function parentCss(value){return `
-    .topbar .brand,.topbar .presence-person b,.topbar .app-tabs button,
+    .topbar .brand,.board-brand-kicker,.topbar .presence-person b,.topbar .app-tabs button,
     .log-list-head>span{color:${value.color1}!important}
     .log-sidebar{background:#fff!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
@@ -52,7 +52,7 @@
   `}
   function logCss(value){return `
     html.embedded body{${whiteGradient}}
-    html.embedded #roomTitle{color:#000!important}
+    html.embedded #roomTitle{color:rgb(75,75,75)!important}
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),
     html.embedded .filters .font-size-control{
       background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;
