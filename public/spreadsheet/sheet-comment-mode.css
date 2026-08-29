@@ -110,3 +110,65 @@ html.embedded #sheetComments section>p:only-child{
   font-weight:400!important;
   line-height:1.5!important;
 }
+
+/* v146 — compact list rows and restore continuous grid rules.
+   Saved group height must not be redistributed between otherwise short rows. */
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-rows{
+  display:grid!important;
+  grid-auto-rows:max-content!important;
+  align-content:start!important;
+  align-items:start!important;
+  gap:0!important;
+  padding:0!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-row,
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-row.long{
+  display:grid!important;
+  grid-template-columns:minmax(112px,28%) minmax(0,1fr)!important;
+  align-items:start!important;
+  align-self:start!important;
+  gap:0!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:6px 0!important;
+  border:0!important;
+  border-bottom:1px solid color-mix(in srgb,var(--character-question-text,currentColor) 14%,transparent)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-row:last-child{
+  border-bottom:0!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-label{
+  align-self:stretch!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0 8px 0 0!important;
+  border-right:1px solid color-mix(in srgb,var(--character-question-text,currentColor) 12%,transparent)!important;
+  line-height:1.25!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-value{
+  align-self:start!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0 0 0 8px!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-edit{
+  field-sizing:content!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:1.25em!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:1.25!important;
+  overflow:hidden!important;
+  resize:none!important;
+  white-space:pre-wrap!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}
