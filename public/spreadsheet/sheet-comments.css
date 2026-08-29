@@ -14,7 +14,7 @@
   --sheet-comments-min-height:160px;
 }
 
-#sheetComments[hidden]{display:none}
+#sheetComments[hidden]{display:none!important}
 
 /* JIJINBOARD embed uses the exact same desktop geometry as LOGCOMMENTS / MATRIX:
    12px outer inset -> 30px toolbar -> 8px gap -> sheet + 320px COMMENTS. */
