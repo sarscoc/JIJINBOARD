@@ -7,16 +7,36 @@
 
   function setupTocOverlay(){
     if(!document.documentElement.classList.contains('embedded'))return;
-    if(document.querySelector('#sheetTocRail'))return;
+    const existing=document.querySelector('#jijinSheetTocRail');
+    if(existing){existing.__place?.();return}
+    document.querySelector('#sheetTocRail')?.remove();
     const source=document.querySelector('#databaseLayout>.database-toc');
     const inner=source?.querySelector('.database-toc-inner');
     const layout=document.querySelector('#databaseLayout');
     if(!source||!inner||!layout)return;
 
+    inner.querySelector('.database-toc-title')?.remove();
+    const style=document.createElement('style');
+    style.id='jijinSheetTocStyle';
+    style.textContent=`
+      #jijinSheetTocRail{position:fixed!important;left:0!important;width:18px!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;overflow:visible!important;z-index:2147483000!important;cursor:pointer!important}
+      #jijinSheetTocRail[hidden]{display:none!important}
+      #jijinSheetTocHandle{position:absolute!important;left:9px!important;top:50%!important;transform:translate(-50%,-50%)!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:rgba(73,82,96,.68)!important;font:400 16px/1 system-ui!important;pointer-events:none!important;user-select:none!important}
+      #jijinSheetTocPopover{position:absolute!important;left:14px!important;top:0;margin:0!important;padding:6px!important;width:max-content!important;min-width:96px!important;max-width:calc(100vw - 32px)!important;height:max-content!important;max-height:none!important;overflow:visible!important;border:1px solid #e2e7ed!important;border-radius:8px!important;background:rgba(255,255,255,.97)!important;backdrop-filter:blur(18px) saturate(130%)!important;-webkit-backdrop-filter:blur(18px) saturate(130%)!important;box-shadow:0 8px 24px rgba(42,51,67,.10)!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;transform:translateX(-4px)!important;transition:opacity .08s ease,transform .08s ease!important}
+      #jijinSheetTocRail.open #jijinSheetTocPopover{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translateX(0)!important}
+      #jijinSheetTocPopover>.database-toc-inner{position:static!important;inset:auto!important;display:block!important;width:max-content!important;min-width:100%!important;max-width:none!important;height:max-content!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:none!important}
+      #jijinSheetTocPopover .database-toc-title{display:none!important}
+      #jijinSheetTocPopover #databaseToc{display:grid!important;grid-template-columns:max-content!important;gap:1px!important;width:max-content!important;min-width:100%!important;margin:0!important;padding:0!important;background:transparent!important}
+      #jijinSheetTocPopover .database-toc-link{display:block!important;width:auto!important;min-width:100%!important;margin:0!important;padding:3px 5px!important;border:0!important;border-radius:5px!important;background:transparent!important;color:#626b78!important;font:500 7px/1.25 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;letter-spacing:0!important;text-align:left!important;text-decoration:none!important;white-space:nowrap!important;overflow:visible!important;text-overflow:clip!important}
+      #jijinSheetTocPopover .database-toc-link:hover{background:#f0f3f8!important;color:#303843!important}
+    `;
+    document.head.appendChild(style);
+
     const rail=document.createElement('div');
-    rail.id='sheetTocRail';
-    rail.innerHTML='<span class="sheet-toc-handle" aria-hidden="true">︙</span><div id="sheetTocPopover"></div>';
-    rail.querySelector('#sheetTocPopover').appendChild(inner);
+    rail.id='jijinSheetTocRail';
+    rail.innerHTML='<span id="jijinSheetTocHandle" aria-hidden="true">︙</span><div id="jijinSheetTocPopover"></div>';
+    const popover=rail.querySelector('#jijinSheetTocPopover');
+    popover.appendChild(inner);
     source.remove();
     document.body.appendChild(rail);
 
@@ -27,15 +47,45 @@
       const hidden=cs.display==='none'||cs.visibility==='hidden'||rect.width<1||rect.height<1;
       rail.hidden=hidden;
       if(hidden)return;
-      const top=Math.max(0,rect.top);
-      const bottom=Math.min(window.innerHeight,rect.bottom);
+      const top=Math.max(0,rect.top),bottom=Math.min(window.innerHeight,rect.bottom);
       rail.style.top=`${top}px`;
       rail.style.height=`${Math.max(0,bottom-top)}px`;
     };
+    const placePopoverAt=clientY=>{
+      const rr=rail.getBoundingClientRect();
+      const y=Math.max(0,Math.min(rr.height,clientY-rr.top));
+      popover.style.top=`${y}px`;
+      requestAnimationFrame(()=>{
+        const h=popover.offsetHeight,room=rr.height;
+        let top=y;
+        if(h<=room-8){if(top+h>room-4)top=room-h-4;if(top<4)top=4}else top=4;
+        popover.style.top=`${top}px`;
+      });
+    };
+    const openAt=clientY=>{placePopoverAt(clientY);rail.classList.add('open')};
+    const close=()=>rail.classList.remove('open');
+
+    rail.addEventListener('mouseenter',event=>{if(!rail.classList.contains('open'))openAt(event.clientY)});
+    popover.addEventListener('click',event=>{
+      const link=event.target.closest('.database-toc-link[data-db-jump]');
+      if(!link)return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const target=document.getElementById(`group-${link.dataset.dbJump}`),wrap=document.getElementById('sheetWrap');
+      if(target&&wrap){
+        const wr=wrap.getBoundingClientRect(),tr=target.getBoundingClientRect();
+        const top=wrap.scrollTop+(tr.top-wr.top);
+        wrap.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+      }
+      close();
+    },true);
+    document.addEventListener('click',event=>{if(rail.classList.contains('open')&&!rail.contains(event.target))close()},true);
+
+    rail.__place=place;
     place();
     requestAnimationFrame(place);
     window.addEventListener('resize',place,{passive:true});
-    document.addEventListener('click',()=>requestAnimationFrame(place));
     if(window.ResizeObserver){const ro=new ResizeObserver(place);ro.observe(layout)}
     if(window.MutationObserver){const mo=new MutationObserver(place);mo.observe(layout,{attributes:true,attributeFilter:['class','style']})}
   }
