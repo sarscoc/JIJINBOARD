@@ -98,6 +98,26 @@
     if(window.MutationObserver){const mo=new MutationObserver(place);mo.observe(layout,{attributes:true,attributeFilter:['class','style']})}
   }
 
+  function bindTocJumpFallback(){
+    if(document.documentElement.dataset.jijinTocJumpBound==='1')return;
+    document.documentElement.dataset.jijinTocJumpBound='1';
+    document.addEventListener('click',event=>{
+      const link=event.target.closest?.('.database-toc-link[data-db-jump]');
+      if(!link)return;
+      const target=document.getElementById(`group-${link.dataset.dbJump}`),wrap=document.getElementById('sheetWrap');
+      if(!target||!wrap)return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const wr=wrap.getBoundingClientRect(),tr=target.getBoundingClientRect();
+      const stickyCell=[...wrap.querySelectorAll('thead th')].find(el=>getComputedStyle(el).position==='sticky');
+      const stickyHeight=stickyCell?.getBoundingClientRect().height||0;
+      const top=wrap.scrollTop+(tr.top-wr.top)-stickyHeight-1;
+      wrap.scrollTo({top:Math.max(0,top),behavior:'smooth'});
+      document.querySelector('#jijinSheetTocRail')?.classList.remove('open');
+    },true);
+  }
+
   function syncModeToggle(){
     const head=document.querySelector('.data-sheet thead .item-col');
     if(!head)return;
@@ -333,6 +353,7 @@
   installDuplicateSafeItems();
   document.body.classList.toggle('sheet-comment-mode',mode==='comment');
   setupTocOverlay();
+  bindTocJumpFallback();
   controls();
   setupOrganizeShiftGrouping();
   ui();
