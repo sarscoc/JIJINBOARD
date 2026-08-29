@@ -39,13 +39,29 @@
   <script>
     const __boardIdForOpenedState=new URL(location.href).searchParams.get("id");
     if(__boardIdForOpenedState)sessionStorage.removeItem(`jijinboardOpenedLogs:${__boardIdForOpenedState}`);
+    window.__jijinboardBootstrapStarted=false;
+    function __jijinboardScriptLoadError(){
+      const name=document.getElementById("boardName"),empty=document.getElementById("emptyLogs");
+      if(name)name.textContent="読み込みに失敗しました";
+      if(empty)empty.textContent="ページを再読み込みしてください。";
+    }
   </script>
-  <script src="board2.js"></script>
-  <script src="board-profile-overlay.js"></script>
-  <script src="matrix-icon-bridge.js"></script>
-  <script src="board-spoiler-preview.js"></script>
-  <script src="board-log-meta.js"></script>
-  <script src="board-tab-settings.js"></script>
-  <script src="board-profile.js"></script>
+  <script src="board2.js?v=20260829-1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board-profile-overlay.js?v=20260829-1"></script>
+  <script src="matrix-icon-bridge.js?v=20260829-1"></script>
+  <script src="board-spoiler-preview.js?v=20260829-1"></script>
+  <script src="board-log-meta.js?v=20260829-1"></script>
+  <script src="board-tab-settings.js?v=20260829-1"></script>
+  <script src="board-profile.js?v=20260829-1"></script>
+  <script>
+    setTimeout(()=>{
+      const name=document.getElementById("boardName");
+      if(window.__jijinboardBootstrapStarted&&name?.textContent==="読み込み中…"){
+        name.textContent="読み込みに失敗しました";
+        const empty=document.getElementById("emptyLogs");
+        if(empty)empty.textContent="再読み込みしても直らない場合は接続を確認してください。";
+      }
+    },8000);
+  </script>
 </body>
 </html>
