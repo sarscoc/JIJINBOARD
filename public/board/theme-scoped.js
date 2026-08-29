@@ -20,6 +20,7 @@
   function writeLocal(){try{localStorage.setItem(storageKey,JSON.stringify(theme))}catch{}}
   function adminToken(){try{return localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||""}catch{return localStorage.getItem(`boardAdmin:${boardId}`)||""}}
 
+  const uiInk="rgb(75,75,75)";
   const whiteGradient="background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,rgba(103,163,255,.24),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.12),transparent 30%)!important;background-repeat:no-repeat!important;";
   const noBlur="backdrop-filter:none!important;-webkit-backdrop-filter:none!important;";
 
@@ -31,10 +32,11 @@
   `}
   function logCss(value){return `
     html.embedded body{${whiteGradient}}
-    html.embedded #roomTitle{color:rgb(75,75,75)!important}
-    html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),html.embedded .filters .font-size-control{background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important}
-    html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),html.embedded .filters .font-size-control,html.embedded .filters .font-size-control :is(span,strong),html.embedded .comments-head{color:${value.color1}!important}
-    html.embedded .filters input::placeholder{color:#79818d!important;opacity:1!important}
+    html.embedded #roomTitle{color:${uiInk}!important}
+    html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),html.embedded .filters .font-size-control{background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;color:${uiInk}!important}
+    html.embedded .filters .font-size-control :is(span,strong){color:${uiInk}!important}
+    html.embedded .comments-head{color:${value.color1}!important}
+    html.embedded .filters input::placeholder{color:${uiInk}!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
     html.embedded .log-pane,html.embedded .comments-pane{background:color-mix(in srgb,var(--paper) 85%,transparent)!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
     html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:rgba(53,53,53,.85)!important}
@@ -50,7 +52,8 @@
     html.embedded{--matrix-glass:rgba(255,255,255,.85)!important;--matrix-glass-strong:rgba(255,255,255,.85)!important}
     html.embedded .library,html.embedded .stage,html.embedded #matrixIconComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
     html.embedded .matrix-comment-head,html.embedded #matrixIconComments .matrix-comments-body{background:transparent!important;${noBlur}}
-    html.embedded .stage-area-toolbar :is(button,.btn,.stage-area-label,.toolbar-scale-check),html.embedded .matrix-comment-head{color:${value.color1}!important}
+    html.embedded .stage-area-toolbar :is(button,.btn,.stage-area-label,.toolbar-scale-check),html.embedded .stage-area-toolbar :is(span,strong,label){color:${uiInk}!important}
+    html.embedded .matrix-comment-head{color:${value.color1}!important}
     html.embedded .stage-area-toolbar :is(.btn,button),html.embedded .toolbar-scale-check{background:#fff!important}
     html.embedded .library,html.embedded #matrixIconComments>section,html.embedded .template-tabs{scrollbar-color:${value.color1} transparent!important}
     html.embedded .library::-webkit-scrollbar-thumb,html.embedded #matrixIconComments>section::-webkit-scrollbar-thumb,html.embedded .template-tabs::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
@@ -59,8 +62,12 @@
     html.embedded body{${whiteGradient}}
     html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
     html.embedded #databaseLayout,html.embedded #sheetComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
-    html.embedded .data-sheet thead th,html.embedded .data-sheet .item-col,html.embedded .group-row td,html.embedded .sheet-comments-head,html.embedded .table-actions > :is(.btn,button){color:${value.color1}!important}
-    html.embedded .data-sheet thead .item-col #sheetModeToggle,html.embedded .main-mode-switch .btn:not(.on)::after{color:${value.color1}!important}
+    html.embedded .table-actions > :is(.btn,button),html.embedded .table-actions .btn,html.embedded .main-mode-switch .btn,html.embedded .view-switch .btn,
+    html.embedded .data-sheet thead th,html.embedded .data-sheet .item-col,html.embedded .group-row td,
+    html.embedded .item-main,html.embedded .item-source,html.embedded .part-value,html.embedded .mini,html.embedded .status,
+    html.embedded .axis-label,html.embedded .axis-label span,html.embedded .jump-btn{color:${uiInk}!important}
+    html.embedded .sheet-comments-head{color:${value.color1}!important}
+    html.embedded .data-sheet thead .item-col #sheetModeToggle,html.embedded .main-mode-switch .btn:not(.on)::after{color:${uiInk}!important}
     html.embedded .group-row td{background:rgba(255,255,255,.85)!important;background-image:none!important}
     html.embedded .sheet-comments-head,html.embedded #sheetComments .sheet-comments-body{background:transparent!important;${noBlur}}
     ${value.alternateCells?`html.embedded .data-sheet tbody tr:not(.group-row):nth-child(even) td:not(.item-col){background:${value.alternateCellColor}!important;background-image:none!important}`:""}
