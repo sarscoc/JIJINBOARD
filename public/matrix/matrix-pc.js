@@ -35,9 +35,10 @@
   const params=new URL(location.href).searchParams,boardId=params.get("board");
   if(!boardId)return;
   let activeRoom=params.get("room")||"",participants=[],draggingPcId="";
+  let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0;
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
-  const localPcs=()=>{try{return (JSON.parse(localStorage.getItem(`personas:${activeRoom}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
+  const localPcs=(room=activeRoom)=>{try{return (JSON.parse(localStorage.getItem(`personas:${room}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
   const preferredImage=person=>person?.matrixIcon||person?.baseIcon||person?.icon||"";
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
   const escHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -45,11 +46,7 @@
   const placementOnlyKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth","mobileSelected"]);
 
   function setupBoardUi(){
-    // Board mode no longer needs the icon ZIP export in the top toolbar.
     document.querySelector("#exportIconsBtn")?.remove();
-
-    // Keep destructive template removal at the very bottom of Display Settings,
-    // after every visual option, rather than beside the settings heading.
     const settingsBody=document.querySelector("#displaySettingsBody");
     const deleteButton=document.querySelector("#deleteCurrentTemplateBtn");
     if(settingsBody&&deleteButton&&deleteButton.parentNode!==settingsBody)settingsBody.append(deleteButton);
@@ -66,8 +63,6 @@
   function annotationStateForPlacement(id){
     const live=appState()?.items?.[id]||null;
     const saved=savedItemState(id);
-    // Saved template state is authoritative for page-specific annotations.
-    // Fall back to the live state when the template snapshot has not been made yet.
     const source=saved||live;
     if(!source)return null;
     const preserved={};
@@ -83,9 +78,6 @@
     placeItem(id,x,y);
     if(!preserved)return;
 
-    // placeItem owns only the placement coordinates. Restore every non-placement
-    // field afterwards so comments, comment position, crop and other per-icon
-    // settings survive an unplace -> drag -> place cycle.
     const state=appState();
     state.items||={};
     const local=state.items[id]||(state.items[id]=makeLocalItemState(id));
@@ -123,40 +115,52 @@
     pruneRemovedParticipants(validIds,state);
     items=participants.map(person=>{
       const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person);
-      // A participant refresh must not replace an already-saved per-template
-      // annotation with a fresh blank local state.
       if(!state.items[id])state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);
       return{id,name:person.name,url:"",baseImage:image,imageSignature:`participant:${person.personaId}:${image}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     saveState(state);renderLibrary();renderPlaced();renderPcSources();
   }
 
-  function localParticipantRows(){
+  function localParticipantRows(room=activeRoom){
     const profile=me();if(!profile?.id)return[];
-    return localPcs().map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:""}));
+    return localPcs(room).map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:""}));
   }
 
-  async function syncLocalPcsIfNeeded(entry){
-    const profile=me(),local=localPcs();if(!profile?.id||!profile?.plName||!local.length||!activeRoom)return false;
+  async function syncLocalPcsIfNeeded(entry,room){
+    const profile=me(),local=localPcs(room);if(!profile?.id||!profile?.plName||!local.length||!room)return false;
     const current=(entry?.participants||[]).filter(person=>person.authorId===profile.id);
     const currentKey=current.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
     const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
     if(currentKey===localKey)return false;
-    await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(activeRoom)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
+    await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
     return true;
   }
 
-  async function load(room){
-    activeRoom=room||activeRoom||"";
-    if(!activeRoom){setParticipants([]);return}
-    let board=await api(`/api/boards/${encodeURIComponent(boardId)}`),entry=(board.logs||[]).find(log=>log.roomId===activeRoom);
-    if(await syncLocalPcsIfNeeded(entry).catch(()=>false)){
-      board=await api(`/api/boards/${encodeURIComponent(boardId)}`);entry=(board.logs||[]).find(log=>log.roomId===activeRoom);
+  async function load(room,force=false){
+    const nextRoom=room||activeRoom||"";
+    activeRoom=nextRoom;
+    if(!nextRoom){setParticipants([]);return}
+    const now=Date.now();
+    if(!force&&loadKey===nextRoom){
+      if(loadPromise)return loadPromise;
+      if(now-lastLoadedAt<1200)return;
     }
-    let list=entry?.participants||[];
-    const profile=me();
-    if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows()];
-    setParticipants(list);
+    const seq=++loadSeq;
+    loadKey=nextRoom;
+    const task=(async()=>{
+      let board=await api(`/api/boards/${encodeURIComponent(boardId)}`),entry=(board.logs||[]).find(log=>log.roomId===nextRoom);
+      if(await syncLocalPcsIfNeeded(entry,nextRoom).catch(()=>false)){
+        board=await api(`/api/boards/${encodeURIComponent(boardId)}`);entry=(board.logs||[]).find(log=>log.roomId===nextRoom);
+      }
+      if(seq!==loadSeq||activeRoom!==nextRoom)return;
+      let list=entry?.participants||[];
+      const profile=me();
+      if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows(nextRoom)];
+      setParticipants(list);
+      lastLoadedAt=Date.now();
+    })();
+    loadPromise=task;
+    try{return await task}finally{if(loadPromise===task)loadPromise=null}
   }
 
   function sourceHtml(person){
@@ -205,7 +209,6 @@
     const canvas=document.querySelector(".canvas");if(!canvas||canvas.dataset.matrixPcDropReady)return;
     canvas.dataset.matrixPcDropReady="1";
 
-    // Capture PC drags before the original template-image drop handler can see them.
     canvas.addEventListener("dragenter",event=>{
       if(!isPcDrag(event))return;
       stopPcDropEvent(event);
@@ -265,9 +268,9 @@
 
   setupBoardUi();
   setupPcControls();
-  window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-active-room")load(event.data.roomId).catch(console.warn)});
-  window.addEventListener("matrix-board-room",event=>load(event.detail?.roomId||activeRoom).catch(console.warn));
+  window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-active-room")load(event.data.roomId,true).catch(console.warn)});
+  window.addEventListener("matrix-board-room",event=>load(event.detail?.roomId||activeRoom,true).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>load(activeRoom).catch(console.warn));
-  window.addEventListener("focus",()=>load(activeRoom).catch(()=>{}));
+  window.addEventListener("focus",()=>{if(window.matrixBoardContext?.isActive?.())load(activeRoom).catch(()=>{})});
   setTimeout(()=>load(activeRoom).catch(console.warn),500);
 })();
