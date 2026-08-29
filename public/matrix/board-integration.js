@@ -1,7 +1,7 @@
 "use strict";
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");if(!boardId)return;
-  let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=true;
+  let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=true,applyingRemote=false;
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const matrixPath=()=>`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(roomId)}`;
@@ -12,12 +12,17 @@
     window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
     if(!roomId)return;
     const matrix=await api(matrixPath());
-    if(matrix.state&&Object.keys(matrix.state).length){saveState(matrix.state);restoreDisplay();restorePaneWidth();renderLibrary();renderPlaced()}
-    lastState=JSON.stringify(matrix.state||{});
+    applyingRemote=true;
+    try{
+      if(matrix.state&&Object.keys(matrix.state).length){saveState(matrix.state);restoreDisplay();restorePaneWidth();renderLibrary();renderPlaced()}
+      lastState=JSON.stringify(matrix.state||{});
+    }finally{
+      applyingRemote=false;
+    }
   }
 
   async function save(){
-    if(!roomId)return;
+    if(!roomId||applyingRemote)return;
     if(saving){saveQueued=true;return}
     const me=profile();if(!me?.plName)return;
     const state=appState(),serial=JSON.stringify(state);
@@ -33,12 +38,13 @@
   }
 
   function requestSave(delay=80){
+    if(applyingRemote)return;
     clearTimeout(saveTimer);
     saveTimer=setTimeout(()=>save(),Math.max(0,delay));
   }
 
   function saveOnPagehide(){
-    if(!roomId)return;
+    if(!roomId||applyingRemote)return;
     const me=profile();if(!me?.plName)return;
     const state=appState(),serial=JSON.stringify(state);
     if(serial===lastState)return;
@@ -52,9 +58,22 @@
     try{fetch(matrixPath(),{method:"POST",headers:{"content-type":"application/json"},body:payload,keepalive:true}).catch(()=>{})}catch{}
   }
 
-  // Display visibility is a shared MATRIX setting. Persist it immediately rather
-  // than waiting for the periodic saver, otherwise a quick reload can restore an
-  // older server-side `showComment:false` state over the newly selected value.
+  // MATRIX's original editor commits icon comments and placement data through
+  // saveState(). Mirror every completed local state write to the shared board
+  // immediately so a quick reload cannot restore an older blank item.comment.
+  if(typeof window.saveState==="function"&&!window.saveState.__jijinboardImmediateSync){
+    const rawSaveState=window.saveState;
+    const syncedSaveState=function(state){
+      const result=rawSaveState(state);
+      if(!applyingRemote)requestSave(0);
+      return result;
+    };
+    syncedSaveState.__jijinboardImmediateSync=true;
+    window.saveState=syncedSaveState;
+  }
+
+  // Keep the explicit visibility hook too; it also covers browsers where the
+  // control event fires before another UI helper finishes its own redraw.
   const showComment=document.querySelector("#showComment");
   if(showComment){
     showComment.addEventListener("input",()=>requestSave(0));
