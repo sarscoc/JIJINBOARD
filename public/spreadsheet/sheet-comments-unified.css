@@ -1,22 +1,6 @@
-/* Spreadsheet comments use the same visual language as LOGCOMMENTS / MATRIX. */
-html.embedded #sheetComments{
-  height:auto!important;
-  min-height:160px!important;
-  max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;
-  align-self:start!important;
-  overflow:hidden!important;
-  backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
-}
-html.embedded #sheetComments>section{
-  flex:0 1 auto!important;
-  min-height:0!important;
-  max-height:calc(100vh - (var(--sheet-page-pad) * 2) - var(--sheet-toolbar-height) - var(--sheet-gap) - 48px)!important;
-  overflow-y:auto!important;
-  overscroll-behavior:contain!important;
-  scrollbar-gutter:auto!important;
-  padding:6px!important;
-}
+/* Spreadsheet COMMENTS rail + LOGCOMMENTS-identical input box. */
+html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;align-self:start!important;overflow:hidden!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html.embedded #sheetComments>section{flex:0 1 auto!important;min-height:0!important;max-height:calc(100vh - (var(--sheet-page-pad) * 2) - var(--sheet-toolbar-height) - var(--sheet-gap) - 48px)!important;overflow-y:auto!important;overscroll-behavior:contain!important;scrollbar-gutter:auto!important;padding:6px!important}
 .sheet-comment-empty{margin:0!important;padding:32px 8px!important;color:var(--sheet-muted)!important;text-align:center!important;font-size:12px!important;line-height:1.5!important}
 .sheet-comment-thread{margin-bottom:6px}.sheet-comment-thread:last-child{margin-bottom:0}.sheet-comment-thread.sheet-reply{margin-left:14px}
 #sheetComments .sheet-comment-card{margin:0!important;padding:8px!important;border:1px solid var(--sheet-line)!important;border-radius:9px!important;background:rgba(255,255,255,.96)!important;cursor:pointer!important;box-shadow:none!important;color:var(--sheet-ink)!important}
@@ -29,13 +13,18 @@ html.embedded #sheetComments>section{
 #sheetComments .sheet-comment-author button[data-edit]{font-size:9px}#sheetComments .sheet-comment-author button[data-like]{font-size:11px;color:#fff!important;text-shadow:0 0 1px rgba(0,0,0,.8)}#sheetComments .sheet-comment-author button[data-like].liked{color:#e73152!important;text-shadow:none}#sheetComments .sheet-comment-author button[data-reply]{font-size:13px;opacity:.55}
 .sheet-comment-body{margin:4px 0 0!important;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
 
-#sheetCommentDialog{width:min(390px,calc(100vw - 24px))!important;border:1px solid var(--sheet-line)!important;border-radius:12px!important;padding:0!important;background:rgba(255,255,255,.96)!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-#sheetCommentDialog .sheet-comment-unified-form{display:grid!important;gap:10px!important;padding:16px!important}
-.sheet-dialog-head{display:flex;justify-content:space-between;align-items:center}.sheet-dialog-head b{font-size:12px}.sheet-dialog-x{border:0!important;background:transparent!important;font-size:20px!important;cursor:pointer!important;color:rgb(75,75,75)!important}
-.sheet-comment-persona{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:7px}.sheet-comment-input-avatar{width:28px;height:28px;border-radius:50%;background:var(--sheet-soft) center/contain no-repeat;border:1px solid var(--sheet-line)}
-#sheetCommentDialog select,#sheetCommentDialog textarea{width:100%!important;border:1px solid var(--sheet-line)!important;border-radius:7px!important;padding:8px!important;background:#fff!important;font:12px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;color:rgb(75,75,75)!important}#sheetCommentDialog textarea{min-height:110px!important;resize:vertical!important}
-.sheet-dialog-actions{display:flex;justify-content:flex-end;gap:6px}.sheet-dialog-actions button{border:1px solid var(--sheet-line)!important;background:#fff!important;border-radius:7px!important;padding:7px 10px!important;font-size:11px!important;cursor:pointer!important;box-shadow:none!important;color:rgb(75,75,75)!important}.sheet-dialog-actions #sheetCommentSubmit{background:#20252b!important;color:#fff!important;border-color:#20252b!important}.sheet-dialog-actions [data-delete]{color:#a34e4e!important;border-color:#edcece!important}
+/* This intentionally mirrors public/log/style.css #commentDialog. */
+#sheetCommentDialog{position:fixed!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid var(--sheet-line)!important;border-radius:14px!important;background:#fff!important;color:rgb(75,75,75)!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important}
+#sheetCommentDialog::backdrop{background:transparent!important}
+#sheetCommentDialog .sheet-comment-log-form{padding:10px!important;display:grid!important;gap:7px!important}
+#sheetCommentDialog .comment-persona-picker{display:grid!important;grid-template-columns:32px minmax(0,1fr)!important;gap:8px!important;align-items:center!important}
+#sheetCommentDialog .comment-persona-picker select{width:100%!important;border:0!important;background:transparent!important;padding:4px 0!important;color:rgb(75,75,75)!important;font:inherit!important}
+#sheetCommentDialog .comment-input-avatar{width:30px!important;height:30px!important;border-radius:50%!important;overflow:hidden!important;background:var(--sheet-soft)!important;display:grid!important;place-items:center!important;font-size:11px!important}
+#sheetCommentDialog .comment-input-avatar img{width:100%!important;height:100%!important;display:block!important;object-fit:contain!important}
+#sheetCommentDialog textarea{width:100%!important;border:0!important;border-radius:8px!important;background:var(--sheet-soft)!important;min-height:82px!important;padding:10px!important;resize:vertical!important;color:rgb(75,75,75)!important;font:inherit!important}
+#sheetCommentDialog .comment-edit-delete{justify-self:start!important;border:0!important;background:transparent!important;color:#d95b66!important;font-size:9px!important;padding:3px 0!important;cursor:pointer!important}
+#sheetCommentDialog .comment-edit-delete[hidden]{display:none!important}
 
 [data-sheet-cell].sheet-has-comment{position:relative!important}
 [data-sheet-cell].sheet-has-comment::after{content:"";position:absolute;right:1px;bottom:1px;width:0;height:0;border-left:5px solid transparent;border-bottom:5px solid var(--jijin-sheet-comment-color,#171a20);pointer-events:none;z-index:4}
-@media(max-width:800px){html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:220px!important}html.embedded #sheetComments>section{max-height:172px!important}.sheet-comment-author time{display:none}}
+@media(max-width:800px){html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:220px!important}html.embedded #sheetComments>section{max-height:172px!important}.sheet-comment-author time{display:none}#sheetCommentDialog{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:72vh!important}}
