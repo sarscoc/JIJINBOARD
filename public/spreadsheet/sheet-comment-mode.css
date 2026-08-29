@@ -1,63 +1,62 @@
 #sheetCommentModes{display:flex;align-items:center;gap:3px;margin:0;height:28px;flex:0 0 auto}#sheetCommentModes button{box-sizing:border-box;height:28px;min-height:28px;max-height:28px;border:1px solid #e2e7ed;background:rgba(255,255,255,.82);border-radius:7px;padding:0 8px;font-size:9px;line-height:1.2;cursor:pointer;box-shadow:none;white-space:nowrap}#sheetCommentModes button.on{background:#20252b;color:#fff;border-color:#20252b}.sheet-comment-mode [data-sheet-cell]{cursor:comment}.sheet-comment-mode [data-sheet-cell] input,.sheet-comment-mode [data-sheet-cell] textarea,.sheet-comment-mode [data-sheet-cell] select{pointer-events:none}.sheet-comment-mode [data-sheet-cell]:hover{outline:2px solid #cad4ff;outline-offset:-2px}
 
-/* GROUP navigator is moved by sheet-comments.js to .app so it is independent of
-   the sheet's backdrop-filter / sticky / overflow rules. The full left gradient
-   gutter is the hover target; the dots sit at the vertical center of the sheet. */
+/* Dedicated GROUP hover rail for embedded spreadsheet.
+   This is intentionally independent from the spreadsheet surface and all of its
+   old sticky / overflow / backdrop-filter rules. */
 @media(min-width:801px){
-  html.embedded body .app{position:relative!important}
-  html.embedded body .app>.database-toc{
-    display:block!important;
-    position:absolute!important;
-    top:calc(var(--sheet-page-pad) + var(--sheet-toolbar-height) + var(--sheet-gap))!important;
-    bottom:var(--sheet-page-pad)!important;
+  html.embedded #sheetTocRail{
+    position:fixed!important;
     left:0!important;
-    width:var(--sheet-page-pad)!important;
-    min-width:var(--sheet-page-pad)!important;
-    height:auto!important;
-    max-height:none!important;
+    width:18px!important;
+    min-width:18px!important;
     margin:0!important;
     padding:0!important;
     border:0!important;
-    background:transparent!important;
-    overflow:visible!important;
-    z-index:80!important;
-    cursor:pointer!important
-  }
-  html.embedded body .app>.database-toc::before{
-    content:"︙"!important;
-    position:absolute!important;
-    left:50%!important;
-    top:50%!important;
-    transform:translate(-50%,-50%)!important;
-    width:auto!important;
-    height:auto!important;
-    display:block!important;
-    margin:0!important;
-    padding:0!important;
-    border:0!important;
-    border-radius:0!important;
     background:transparent!important;
     box-shadow:none!important;
-    color:rgba(73,82,96,.58)!important;
-    font-size:14px!important;
-    line-height:1!important;
-    pointer-events:none!important
+    overflow:visible!important;
+    z-index:1000!important;
+    cursor:pointer!important;
   }
-  html.embedded body .app>.database-toc:hover::before{color:rgba(40,47,58,.9)!important}
-  html.embedded body .app>.database-toc>.database-toc-inner{
-    display:block!important;
+  html.embedded #sheetTocRail[hidden]{display:none!important}
+  html.embedded #sheetTocRail .sheet-toc-handle{
     position:absolute!important;
+    left:9px!important;
     top:50%!important;
-    left:var(--sheet-page-pad)!important;
-    width:170px!important;
-    max-width:170px!important;
-    max-height:calc(100% - 16px)!important;
+    transform:translate(-50%,-50%)!important;
+    display:block!important;
+    width:auto!important;
+    height:auto!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    color:rgba(73,82,96,.60)!important;
+    font-size:16px!important;
+    font-weight:400!important;
+    line-height:1!important;
+    letter-spacing:0!important;
+    pointer-events:none!important;
+    user-select:none!important;
+  }
+  html.embedded #sheetTocRail:hover .sheet-toc-handle{color:rgba(40,47,58,.92)!important}
+
+  html.embedded #sheetTocPopover{
+    position:absolute!important;
+    left:14px!important;
+    top:50%!important;
+    transform:translate(-5px,-50%)!important;
+    width:176px!important;
+    max-width:176px!important;
+    max-height:calc(100% - 18px)!important;
     margin:0!important;
     padding:8px!important;
     overflow-y:auto!important;
     overflow-x:hidden!important;
     overscroll-behavior:contain!important;
-    border:1px solid var(--sheet-line)!important;
+    scrollbar-gutter:stable!important;
+    border:1px solid #e2e7ed!important;
     border-radius:9px!important;
     background:rgba(255,255,255,.96)!important;
     backdrop-filter:blur(18px) saturate(130%)!important;
@@ -66,52 +65,78 @@
     opacity:0!important;
     visibility:hidden!important;
     pointer-events:none!important;
-    transform:translate(-5px,-50%)!important;
-    transition:opacity .12s ease,transform .12s ease,visibility 0s linear .12s!important
+    transition:opacity .12s ease,transform .12s ease,visibility 0s linear .12s!important;
   }
-  html.embedded body .app>.database-toc:hover>.database-toc-inner,
-  html.embedded body .app>.database-toc:focus-within>.database-toc-inner{
+  html.embedded #sheetTocRail:hover #sheetTocPopover,
+  html.embedded #sheetTocRail:focus-within #sheetTocPopover{
     opacity:1!important;
     visibility:visible!important;
     pointer-events:auto!important;
     transform:translate(0,-50%)!important;
-    transition-delay:0s!important
+    transition-delay:0s!important;
   }
-  html.embedded body .app>.database-toc .database-toc-title{
+  html.embedded #sheetTocPopover>.database-toc-inner{
+    position:static!important;
+    inset:auto!important;
+    display:block!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:auto!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    overflow:visible!important;
+    opacity:1!important;
+    visibility:visible!important;
+    pointer-events:auto!important;
+    transform:none!important;
+  }
+  html.embedded #sheetTocPopover .database-toc-title{
     display:block!important;
     margin:0!important;
     padding:1px 4px 5px!important;
     color:#8d949e!important;
     font-size:8px!important;
     font-weight:800!important;
-    letter-spacing:.08em!important
+    line-height:1.3!important;
+    letter-spacing:.08em!important;
   }
-  html.embedded body .app>.database-toc #databaseToc{
+  html.embedded #sheetTocPopover #databaseToc{
     display:grid!important;
     gap:2px!important;
     width:100%!important;
     min-width:0!important;
-    background:transparent!important
+    margin:0!important;
+    padding:0!important;
+    background:transparent!important;
   }
-  html.embedded body .app>.database-toc .database-toc-link{
+  html.embedded #sheetTocPopover .database-toc-link{
     display:block!important;
     width:100%!important;
     min-width:0!important;
+    margin:0!important;
     padding:5px 6px!important;
     border:0!important;
     border-radius:6px!important;
     background:transparent!important;
     color:#626b78!important;
     font-size:9px!important;
+    font-weight:500!important;
     line-height:1.35!important;
     letter-spacing:0!important;
     text-align:left!important;
     text-decoration:none!important;
     white-space:normal!important;
-    overflow-wrap:anywhere!important
+    overflow:visible!important;
+    text-overflow:clip!important;
+    overflow-wrap:anywhere!important;
   }
-  html.embedded body .app>.database-toc .database-toc-link:hover{
+  html.embedded #sheetTocPopover .database-toc-link:hover{
     background:#f0f3f8!important;
-    color:#303843!important
+    color:#303843!important;
   }
 }
