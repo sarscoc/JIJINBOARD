@@ -8,6 +8,60 @@
 .data-sheet thead .item-col #sheetModeToggle:hover{background:#e9ebee!important;box-shadow:none!important}
 .data-sheet thead .item-col #sheetModeToggle:active{background:#e4e7ea!important;box-shadow:none!important;transform:none!important}
 
+/* Main spreadsheet / character-sheet switch.
+   Keep the original handlers, but expose only the inactive destination button:
+   its visible label describes the current view, and clicking it changes view. */
+html.embedded #databaseLayout.hidden,
+html.embedded #fullCharacterMode.hidden{display:none!important}
+html.embedded .main-mode-switch{
+  position:fixed!important;
+  top:12px!important;
+  left:12px!important;
+  z-index:80!important;
+  display:flex!important;
+  align-items:center!important;
+  width:auto!important;
+  height:30px!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  pointer-events:auto!important;
+}
+html.embedded .main-mode-switch .btn.on{display:none!important}
+html.embedded .main-mode-switch .btn:not(.on){
+  display:flex!important;
+  align-items:center!important;
+  justify-content:flex-start!important;
+  width:auto!important;
+  min-width:0!important;
+  height:30px!important;
+  min-height:30px!important;
+  max-height:30px!important;
+  margin:0!important;
+  padding:0 4px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+  color:transparent!important;
+  font-size:0!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  opacity:.82!important;
+}
+html.embedded .main-mode-switch .btn:not(.on)::after{
+  display:block!important;
+  color:#fff!important;
+  font:800 8px/1 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
+  letter-spacing:.02em!important;
+  white-space:nowrap!important;
+}
+html.embedded #mainCharacterModeBtn:not(.on)::after{content:"スプレッドシート"}
+html.embedded #mainDatabaseModeBtn:not(.on)::after{content:"キャラシート表示"}
+html.embedded .main-mode-switch .btn:not(.on):hover{opacity:1!important;background:transparent!important}
+html.embedded .main-mode-switch .btn:not(.on):active{transform:none!important}
+
 /* Dedicated GROUP hover rail for embedded spreadsheet.
    This is intentionally independent from the spreadsheet surface and all of its
    old sticky / overflow / backdrop-filter rules. */
