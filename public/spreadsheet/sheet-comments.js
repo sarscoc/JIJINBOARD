@@ -5,6 +5,13 @@
   const me=()=>JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');
   const people=()=>{const p=me();return[{name:p?.plName||'PL',type:'PL'},...(p?.personas||[])]};
 
+  function setupTocOverlay(){
+    if(!document.documentElement.classList.contains('embedded'))return;
+    const toc=document.querySelector('#databaseLayout>.database-toc'),app=document.querySelector('.app');
+    if(!toc||!app||toc.dataset.overlayReady==='1')return;
+    toc.dataset.overlayReady='1';
+    app.appendChild(toc);
+  }
   function setMode(next){mode=next;localStorage.setItem('sheetCommentMode',mode);document.body.classList.toggle('sheet-comment-mode',mode==='comment');document.querySelectorAll('[data-sheet-mode]').forEach(b=>b.classList.toggle('on',b.dataset.sheetMode===mode))}
   function controls(){if(document.querySelector('#sheetCommentModes'))return;const el=document.createElement('div');el.id='sheetCommentModes';el.innerHTML='<button data-sheet-mode="edit">編集</button><button data-sheet-mode="comment">コメント</button><button type="button" data-open-sheet-comments>COMMENTS</button>';document.querySelector('.table-actions')?.prepend(el);el.querySelectorAll('[data-sheet-mode]').forEach(b=>b.onclick=()=>setMode(b.dataset.sheetMode));el.querySelector('[data-open-sheet-comments]').onclick=()=>ui().hidden=false;setMode(mode)}
   function ui(){let a=document.querySelector('#sheetComments');if(a)return a;a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head"><b>COMMENTS <span></span></b><button type="button" title="コメントを閉じる">×</button></div><section><p>読み込み中…</p></section>';a.querySelector('button').onclick=()=>a.hidden=true;document.body.append(a);return a}
@@ -16,6 +23,7 @@
   async function remove(){if(!confirm('このコメントを削除しますか？'))return;await api(`/api/boards/${board}/spreadsheet/comments/${edit}`,{method:'DELETE',body:JSON.stringify({authorId:me().id})});dialog().close();load()}
 
   document.body.classList.toggle('sheet-comment-mode',mode==='comment');
+  setupTocOverlay();
   controls();
   ui();
   document.addEventListener('click',e=>{const td=e.target.closest('[data-sheet-cell]'),b=e.target.closest('[data-like],[data-reply],[data-edit]'),a=e.target.closest('#sheetComments article');if(b){e.stopPropagation();const c=comments.find(x=>x.id===(b.dataset.like||b.dataset.reply||b.dataset.edit));if(b.dataset.like)api(`/api/boards/${board}/spreadsheet/comments/${c.id}/like`,{method:'POST',body:JSON.stringify({authorId:me().id})}).then(load);else open(c.cell_id,b.dataset.reply?c.id:'',b.dataset.edit?c.id:'');return}if(a){const t=document.querySelector(`[data-sheet-cell="${CSS.escape(a.dataset.cell)}"]`);t?.classList.add('sheet-comment-flash');setTimeout(()=>t?.classList.remove('sheet-comment-flash'),1100);t?.scrollIntoView({behavior:'smooth',block:'center'});return}if(mode==='comment'&&td){e.preventDefault();open(td.dataset.sheetCell)}});
