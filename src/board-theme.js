@@ -1,19 +1,14 @@
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 
-const defaults={color1:"#171a20",backgroundMode:"white-gradient",backgroundColor:"#f5f7fa",backgroundImage:"",alternateCells:false,alternateCellColor:"#f7f7f8"};
+const defaults={color1:"#171a20",alternateCells:false,alternateCellColor:"#f7f7f8"};
 const color=value=>/^#[0-9a-f]{6}$/i.test(String(value||""))?String(value):null;
 function normalize(input){
   if(!input||typeof input!=="object")return null;
-  const out={...defaults};
-  out.color1=color(input.color1)||defaults.color1;
-  out.backgroundColor=color(input.backgroundColor)||defaults.backgroundColor;
-  out.alternateCellColor=color(input.alternateCellColor)||defaults.alternateCellColor;
-  out.backgroundMode=["white-gradient","black-gradient","color","image"].includes(input.backgroundMode)?input.backgroundMode:defaults.backgroundMode;
-  out.alternateCells=!!input.alternateCells;
-  const image=typeof input.backgroundImage==="string"?input.backgroundImage:"";
-  out.backgroundImage=/^data:image\/(?:png|jpe?g|webp);base64,/i.test(image)&&image.length<=650000?image:"";
-  if(out.backgroundMode==="image"&&!out.backgroundImage)out.backgroundMode="white-gradient";
-  return out;
+  return {
+    color1:color(input.color1)||defaults.color1,
+    alternateCells:!!input.alternateCells,
+    alternateCellColor:color(input.alternateCellColor)||defaults.alternateCellColor
+  };
 }
 
 async function ensureTable(db){
@@ -44,7 +39,6 @@ export async function handleBoardTheme(request,env,boardId){
   const theme=normalize(body?.theme);
   if(!theme)return json({error:"デザイン設定が正しくありません"},400);
   const packed=JSON.stringify(theme);
-  if(packed.length>700000)return json({error:"背景画像が大きすぎます"},413);
   await env.DB.prepare(`INSERT INTO board_theme_settings(board_id,theme_json,updated_at)
     VALUES(?,?,CURRENT_TIMESTAMP)
     ON CONFLICT(board_id) DO UPDATE SET theme_json=excluded.theme_json,updated_at=CURRENT_TIMESTAMP`)
