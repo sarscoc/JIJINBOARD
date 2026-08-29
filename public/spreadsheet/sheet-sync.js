@@ -82,10 +82,9 @@
     };
   }
 
-  // Character sheet textareas are visually text, but the core renderer uses
-  // textarea elements so answers remain editable. Force soft wrapping and then
-  // size each field from its real rendered width. Using inline !important here is
-  // deliberate: older Character-sheet CSS contains several height/nowrap rules.
+  // Character sheet answers use textareas, but every text item should behave like
+  // ordinary text: one line when empty/short, then grow only by the wrapped lines.
+  // Clear legacy row/field minimum heights here so every layout follows one rule.
   const fitCharacterField=el=>{
     if(!el)return;
     el.setAttribute('wrap','soft');
@@ -94,8 +93,25 @@
     el.style.setProperty('word-break','break-word','important');
     el.style.setProperty('overflow-x','hidden','important');
     el.style.setProperty('overflow-y','hidden','important');
-    el.style.setProperty('height','auto','important');
-    el.style.setProperty('height',`${Math.max(24,el.scrollHeight)}px`,'important');
+    el.style.setProperty('min-height','0','important');
+
+    const row=el.closest('.character-sheet-row');
+    if(row){
+      row.style.setProperty('min-height','0','important');
+      row.style.setProperty('height','auto','important');
+      if(row.classList.contains('long'))row.style.setProperty('margin-top','0','important');
+    }
+
+    const cs=getComputedStyle(el);
+    const fontSize=parseFloat(cs.fontSize)||10;
+    const lineHeight=parseFloat(cs.lineHeight)||fontSize*1.4;
+    const paddingY=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0);
+    const borderY=(parseFloat(cs.borderTopWidth)||0)+(parseFloat(cs.borderBottomWidth)||0);
+
+    el.style.setProperty('height','0px','important');
+    const oneLine=lineHeight+paddingY+borderY;
+    const contentHeight=el.scrollHeight+borderY;
+    el.style.setProperty('height',`${Math.ceil(Math.max(oneLine,contentHeight))}px`,'important');
   };
   let characterFitRaf=0;
   const fitCharacterFields=()=>{
