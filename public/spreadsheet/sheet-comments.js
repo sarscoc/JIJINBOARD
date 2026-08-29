@@ -113,7 +113,8 @@
       label.textContent='項目';
       head.append(button,label);
     }
-    button.textContent=mode==='comment'?'コメント':'編集';
+    const nextLabel=mode==='comment'?'コメント':'編集';
+    if(button.textContent!==nextLabel)button.textContent=nextLabel;
     button.dataset.mode=mode;
     button.title=mode==='comment'?'クリックで編集モードへ':'クリックでコメントモードへ';
   }
@@ -136,7 +137,7 @@
     const root=document.getElementById('dataTableRoot');
     if(root&&!root.dataset.modeToggleObserved){
       root.dataset.modeToggleObserved='1';
-      new MutationObserver(syncModeToggle).observe(root,{childList:true,subtree:true});
+      new MutationObserver(syncModeToggle).observe(root,{childList:true});
     }
     setMode(mode);
   }
