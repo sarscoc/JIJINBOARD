@@ -1,30 +1,54 @@
-/* Spreadsheet COMMENTS rail + LOGCOMMENTS-identical input box. */
+/* SPREADSHEET COMMENTS uses the same visual grammar as LOGCOMMENTS. */
 html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;align-self:start!important;overflow:hidden!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-html.embedded #sheetComments>section{flex:0 1 auto!important;min-height:0!important;max-height:calc(100vh - (var(--sheet-page-pad) * 2) - var(--sheet-toolbar-height) - var(--sheet-gap) - 48px)!important;overflow-y:auto!important;overscroll-behavior:contain!important;scrollbar-gutter:auto!important;padding:6px!important}
-.sheet-comment-empty{margin:0!important;padding:32px 8px!important;color:var(--sheet-muted)!important;text-align:center!important;font-size:12px!important;line-height:1.5!important}
-.sheet-comment-thread{margin-bottom:6px}.sheet-comment-thread:last-child{margin-bottom:0}.sheet-comment-thread.sheet-reply{margin-left:14px}
-#sheetComments .sheet-comment-card{margin:0!important;padding:8px!important;border:1px solid var(--sheet-line)!important;border-radius:9px!important;background:rgba(255,255,255,.96)!important;cursor:pointer!important;box-shadow:none!important;color:var(--sheet-ink)!important}
-#sheetComments .sheet-comment-card:hover{border-color:var(--sheet-ink)!important}
-.sheet-comment-author{display:flex;align-items:center;gap:4px;flex-wrap:nowrap;white-space:nowrap;font-weight:750;font-size:12px;min-width:0}
-.sheet-comment-avatar{width:24px;height:24px;flex:0 0 24px;border-radius:50%;object-fit:contain;overflow:hidden;background:var(--sheet-soft);border:1px solid var(--sheet-line)}
-.sheet-comment-author>b{min-width:0;overflow:hidden;text-overflow:ellipsis}.sheet-comment-author em{font-style:normal;font-size:9px;line-height:1.2;border:1px solid var(--sheet-line);border-radius:4px;padding:0 3px;margin-left:3px;font-weight:400}
-.sheet-comment-author time{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--sheet-muted);opacity:.58;font-size:8px;font-weight:400;letter-spacing:.02em}
-#sheetComments .sheet-comment-author button{flex:0 0 auto;border:0!important;background:transparent!important;cursor:pointer;padding:0 2px!important;line-height:1;color:var(--sheet-muted)!important}
-#sheetComments .sheet-comment-author button[data-edit]{font-size:9px}#sheetComments .sheet-comment-author button[data-like]{font-size:11px;color:#fff!important;text-shadow:0 0 1px rgba(0,0,0,.8)}#sheetComments .sheet-comment-author button[data-like].liked{color:#e73152!important;text-shadow:none}#sheetComments .sheet-comment-author button[data-reply]{font-size:13px;opacity:.55}
-.sheet-comment-body{margin:4px 0 0!important;white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.5}
+html.embedded #sheetComments>section{flex:0 1 auto!important;min-height:0!important;max-height:calc(100vh - (var(--sheet-page-pad) * 2) - var(--sheet-toolbar-height) - var(--sheet-gap) - 48px)!important;overflow-y:auto!important;overscroll-behavior:contain!important;scrollbar-gutter:auto!important;padding:6px!important;background:transparent!important}
+html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!important}
 
-/* This intentionally mirrors public/log/style.css #commentDialog. */
-#sheetCommentDialog{position:fixed!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid var(--sheet-line)!important;border-radius:14px!important;background:#fff!important;color:rgb(75,75,75)!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important}
+/* Header = LOGCOMMENTS .comments-head */
+#sheetComments .sheet-comments-head{padding:13px 15px!important;border-bottom:1px solid var(--sheet-line)!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;font-size:11px!important;line-height:1.5!important;letter-spacing:.12em!important;background:transparent!important}
+#sheetComments .sheet-comments-head strong,#sheetComments .sheet-comments-head span{font:inherit!important;letter-spacing:inherit!important}
+.sheet-comment-empty{margin:0!important;padding:32px 8px!important;color:var(--sheet-muted)!important;text-align:center!important;font-size:12px!important;line-height:1.5!important}
+
+/* Cards = LOGCOMMENTS comment-thread/comment-card exactly, using Spreadsheet variables. */
+#sheetComments .comment-thread{margin:0 0 6px!important}
+#sheetComments .comment-thread:last-child{margin-bottom:0!important}
+#sheetComments .comment-thread.is-reply{margin-left:calc(var(--reply-depth) * 14px)!important}
+#sheetComments .comment-thread.is-reply>.comment-card{background:color-mix(in srgb,var(--sheet-glass-strong) 68%,transparent)!important;margin-top:-2px!important}
+#sheetComments .comment-card{margin:0!important;padding:8px!important;border:1px solid var(--sheet-line)!important;border-left:3px solid var(--comment-marker,var(--jijin-sheet-comment-color,#171a20))!important;border-radius:9px!important;background:#fff!important;cursor:pointer!important;box-shadow:none!important;color:var(--sheet-ink)!important}
+#sheetComments .comment-card:hover,#sheetComments .comment-card.focused{border-color:var(--sheet-ink)!important;border-left-color:var(--comment-marker,var(--jijin-sheet-comment-color,#171a20))!important}
+#sheetComments .comment-author{display:flex!important;align-items:center!important;gap:4px!important;flex-wrap:nowrap!important;white-space:nowrap!important;font-weight:750!important;font-size:12px!important;margin-top:0!important;min-width:0!important}
+#sheetComments .comment-avatar{width:24px!important;height:24px!important;flex:0 0 24px!important;border-radius:50%!important;overflow:hidden!important;background:var(--sheet-soft)!important;display:grid!important;place-items:center!important;border:1px solid var(--sheet-line)!important;object-fit:contain!important}
+#sheetComments .comment-avatar img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important}
+#sheetComments .empty-avatar::before{content:""!important}
+#sheetComments .comment-name{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important}
+#sheetComments .persona-type{font-size:9px!important;line-height:1.2!important;border:1px solid var(--sheet-line)!important;padding:0 3px!important;border-radius:4px!important;margin-left:3px!important;font-weight:400!important}
+#sheetComments .comment-edit{margin-left:0!important;border:0!important;background:transparent!important;color:var(--sheet-muted)!important;font-size:9px!important;cursor:pointer!important;padding:0 2px!important;flex:0 0 auto!important;line-height:1!important}
+#sheetComments .comment-edit:hover{color:var(--sheet-ink)!important}
+#sheetComments .comment-date{margin-left:auto!important;min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;color:var(--sheet-muted)!important;opacity:.58!important;font-size:8px!important;font-weight:400!important;letter-spacing:.02em!important;white-space:nowrap!important}
+#sheetComments .comment-like{display:inline-block!important;margin:0!important;padding:0 2px!important;flex:0 0 auto!important;border:0!important;background:transparent!important;color:#fff!important;text-shadow:0 0 1px rgba(0,0,0,.8)!important;font-size:11px!important;line-height:1!important;cursor:pointer!important}
+#sheetComments .comment-like.liked{color:#e73152!important;text-shadow:none!important}
+#sheetComments .comment-reply{margin-left:0!important;flex:0 0 auto!important;border:0!important;background:transparent!important;color:var(--sheet-muted)!important;font-size:13px!important;padding:0 2px!important;cursor:pointer!important;opacity:.55!important;line-height:1!important}
+#sheetComments .comment-reply:hover{color:var(--sheet-ink)!important;opacity:1!important}
+#sheetComments .comment-body{margin:4px 0 0!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;line-height:1.5!important}
+
+/* Input dialog = LOGCOMMENTS #commentDialog. */
+#sheetCommentDialog{position:fixed!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid var(--sheet-line)!important;border-radius:14px!important;background:#fff!important;color:rgb(75,75,75)!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 #sheetCommentDialog::backdrop{background:transparent!important}
 #sheetCommentDialog .sheet-comment-log-form{padding:10px!important;display:grid!important;gap:7px!important}
 #sheetCommentDialog .comment-persona-picker{display:grid!important;grid-template-columns:32px minmax(0,1fr)!important;gap:8px!important;align-items:center!important}
-#sheetCommentDialog .comment-persona-picker select{width:100%!important;border:0!important;background:transparent!important;padding:4px 0!important;color:rgb(75,75,75)!important;font:inherit!important}
+#sheetCommentDialog .comment-persona-picker select{width:100%!important;border:0!important;background:transparent!important;padding:4px 0!important;color:rgb(75,75,75)!important;font:inherit!important;box-shadow:none!important}
 #sheetCommentDialog .comment-input-avatar{width:30px!important;height:30px!important;border-radius:50%!important;overflow:hidden!important;background:var(--sheet-soft)!important;display:grid!important;place-items:center!important;font-size:11px!important}
 #sheetCommentDialog .comment-input-avatar img{width:100%!important;height:100%!important;display:block!important;object-fit:contain!important}
-#sheetCommentDialog textarea{width:100%!important;border:0!important;border-radius:8px!important;background:var(--sheet-soft)!important;min-height:82px!important;padding:10px!important;resize:vertical!important;color:rgb(75,75,75)!important;font:inherit!important}
+#sheetCommentDialog textarea{width:100%!important;border:0!important;border-radius:8px!important;background:var(--sheet-soft)!important;min-height:82px!important;padding:10px!important;resize:vertical!important;color:rgb(75,75,75)!important;font:inherit!important;box-shadow:none!important;outline:0!important}
 #sheetCommentDialog .comment-edit-delete{justify-self:start!important;border:0!important;background:transparent!important;color:#d95b66!important;font-size:9px!important;padding:3px 0!important;cursor:pointer!important}
 #sheetCommentDialog .comment-edit-delete[hidden]{display:none!important}
 
+/* Cell marker: tiny lower-right triangle in theme color 1. */
 [data-sheet-cell].sheet-has-comment{position:relative!important}
 [data-sheet-cell].sheet-has-comment::after{content:"";position:absolute;right:1px;bottom:1px;width:0;height:0;border-left:5px solid transparent;border-bottom:5px solid var(--jijin-sheet-comment-color,#171a20);pointer-events:none;z-index:4}
-@media(max-width:800px){html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:220px!important}html.embedded #sheetComments>section{max-height:172px!important}.sheet-comment-author time{display:none}#sheetCommentDialog{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:72vh!important}}
+
+@media(max-width:800px){
+  html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:220px!important}
+  html.embedded #sheetComments>section{max-height:172px!important}
+  #sheetComments .comment-date{display:none!important}
+  #sheetCommentDialog{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:72vh!important}
+}
