@@ -3,9 +3,11 @@
   const pageParams=new URL(location.href).searchParams;
   const board=pageParams.get('board');if(!board)return;
   let comments=[],cell='',reply='',edit='',posting=false,pendingAnchor=null;
-  let active=pageParams.get('embedded')!=='1',loadPromise=null,loadedOnce=false;
+  let active=pageParams.get('embedded')!=='1',loadPromise=null,loadedOnce=false,lastSerial='';
+  let socket=null;
+  const clientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
-    const response=await fetch(path,{headers:{'content-type':'application/json',...(options.headers||{})},...options});
+    const response=await fetch(path,{headers:{'content-type':'application/json','x-realtime-client':clientId,...(options.headers||{})},...options});
     const data=await response.json().catch(()=>({}));
     if(!response.ok)throw Error(data.error||'コメントの取得に失敗しました');
     return data;
@@ -28,6 +30,27 @@
     return Number.isNaN(date.getTime())?raw:new Intl.DateTimeFormat('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}).format(date);
   };
   const commentMode=()=>localStorage.getItem('sheetCommentMode')!=='edit';
+
+  function realtimeUrl(){const protocol=location.protocol==='https:'?'wss:':'ws:';return `${protocol}//${location.host}/api/boards/${encodeURIComponent(board)}/realtime`}
+  function disconnectEvents(){const current=socket;socket=null;if(current&&current.readyState<2)try{current.close()}catch{}}
+  function notifyChange(action){if(socket?.readyState!==WebSocket.OPEN)return false;try{socket.send(JSON.stringify({type:'change',action}));return true}catch{return false}}
+  function connectEvents(){
+    if(!active||socket?.readyState===WebSocket.OPEN||socket?.readyState===WebSocket.CONNECTING)return;
+    disconnectEvents();
+    let current;try{current=new WebSocket(realtimeUrl())}catch{return}
+    socket=current;
+    current.addEventListener('open',()=>{if(socket===current)try{current.send(JSON.stringify({type:'join',clientId}))}catch{}});
+    current.addEventListener('message',event=>{
+      if(socket!==current)return;
+      let data;try{data=JSON.parse(event.data)}catch{return}
+      if(data?.type!=='refresh')return;
+      const action=String(data.action||'');
+      if(action==='spreadsheet-comments')load().catch(()=>{});
+      else window.dispatchEvent(new CustomEvent('jijinboard-spreadsheet-remote-change',{detail:{action}}));
+    });
+    current.addEventListener('close',()=>{if(socket===current)socket=null});
+    current.addEventListener('error',()=>{try{current.close()}catch{}});
+  }
 
   function applyAccent(){
     try{
@@ -77,10 +100,7 @@
   function render(){
     const a=panel(),list=a.querySelector(':scope>section'),count=a.querySelector('.sheet-comment-count');
     const ids=new Set(comments.map(c=>c.id)),children=new Map();
-    for(const c of comments){
-      if(!c.parent_id)continue;
-      const rows=children.get(c.parent_id)||[];rows.push(c);children.set(c.parent_id,rows);
-    }
+    for(const c of comments){if(!c.parent_id)continue;const rows=children.get(c.parent_id)||[];rows.push(c);children.set(c.parent_id,rows)}
     const roots=comments.filter(c=>!c.parent_id||!ids.has(c.parent_id));
     if(count)count.textContent=String(comments.length);
     if(list)list.innerHTML=roots.length?roots.map(c=>card(c,0,children)).join(''):'<p class="sheet-comment-empty empty">セルへのコメントがここに並びます。</p>';
@@ -88,149 +108,51 @@
     markCells();
   }
 
-  async function load(){
+  async function load(force=false){
     if(loadPromise)return loadPromise;
     const task=(async()=>{
       try{
         const next=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(profile()?.id||'')}`)).comments||[];
-        comments=next;loadedOnce=true;render();
-      }catch(error){
-        console.warn('Spreadsheet comments load failed',error);
-        if(!loadedOnce){comments=[];render()}
-      }
+        const serial=JSON.stringify(next);
+        if(force||serial!==lastSerial){comments=next;lastSerial=serial;render()}
+        loadedOnce=true;
+      }catch(error){console.warn('Spreadsheet comments load failed',error);if(!loadedOnce){comments=[];render()}}
     })();
     loadPromise=task;
     try{return await task}finally{if(loadPromise===task)loadPromise=null}
   }
 
-  function syncDialogAvatar(d){
-    const select=d.querySelector('select'),avatar=d.querySelector('.sheet-comment-input-avatar');if(!select||!avatar)return;
-    const person=people()[Number(select.value)||0],icon=person?.icon||'',name=person?.name||'?';
-    avatar.style.setProperty('--persona-marker',person?.color||'#ffe66b');
-    avatar.innerHTML=icon?`<img src="${esc(icon)}" alt="">`:`<span>${esc(name.slice(0,1))}</span>`;
-  }
+  function syncDialogAvatar(d){const select=d.querySelector('select'),avatar=d.querySelector('.sheet-comment-input-avatar');if(!select||!avatar)return;const person=people()[Number(select.value)||0],icon=person?.icon||'',name=person?.name||'?';avatar.style.setProperty('--persona-marker',person?.color||'#ffe66b');avatar.innerHTML=icon?`<img src="${esc(icon)}" alt="">`:`<span>${esc(name.slice(0,1))}</span>`}
+  function positionDialog(d){if(!pendingAnchor||innerWidth<=800){d.style.left='';d.style.top='';return}const width=Math.min(390,innerWidth-24),height=Math.min(d.offsetHeight||430,innerHeight-24);let left=pendingAnchor.right+12;if(left+width>innerWidth-12)left=Math.max(12,pendingAnchor.left-width-12);const top=Math.min(Math.max(12,pendingAnchor.top-24),Math.max(12,innerHeight-height-12));d.style.left=`${left}px`;d.style.top=`${top}px`}
+  function dialog(){let d=document.querySelector('#sheetCommentDialog');if(d&&d.dataset.singleController==='1')return d;if(d)d.remove();d=document.createElement('dialog');d.id='sheetCommentDialog';d.dataset.singleController='1';d.innerHTML='<form class="sheet-comment-log-form" method="dialog"><div class="comment-persona-picker"><span class="sheet-comment-input-avatar comment-input-avatar"></span><select aria-label="発言者"></select></div><textarea rows="5" maxlength="4000" aria-label="感想"></textarea><button class="comment-edit-delete" type="button" data-delete hidden>このコメントを削除</button></form>';document.body.append(d);d.querySelector('form').addEventListener('submit',post);d.querySelector('[data-delete]').addEventListener('click',remove);d.querySelector('select').addEventListener('change',()=>syncDialogAvatar(d));return d}
+  function open(id,r='',e='',anchor=null){if(posting)return;const p=profile();if(!p?.plName)return alert('先に発言者を登録してください。');panel().hidden=false;cell=id;reply=r;edit=e;pendingAnchor=anchor||pendingAnchor;const d=dialog(),old=comments.find(x=>x.id===e),ps=people(),select=d.querySelector('select');select.innerHTML=ps.map((x,i)=>`<option value="${i}">${esc(x.name)}（${esc(x.type)}）</option>`).join('');const oldIndex=old?ps.findIndex(x=>x.name===old.persona_name&&x.type===old.persona_type):-1;select.value=String(oldIndex>=0?oldIndex:0);d.querySelector('textarea').value=old?.body||'';d.querySelector('[data-delete]').hidden=!old;syncDialogAvatar(d);if(!d.open)d.show();positionDialog(d);setTimeout(()=>d.querySelector('textarea')?.focus(),0)}
 
-  function positionDialog(d){
-    if(!pendingAnchor||innerWidth<=800){d.style.left='';d.style.top='';return}
-    const width=Math.min(390,innerWidth-24),height=Math.min(d.offsetHeight||430,innerHeight-24);
-    let left=pendingAnchor.right+12;
-    if(left+width>innerWidth-12)left=Math.max(12,pendingAnchor.left-width-12);
-    const top=Math.min(Math.max(12,pendingAnchor.top-24),Math.max(12,innerHeight-height-12));
-    d.style.left=`${left}px`;d.style.top=`${top}px`;
-  }
-
-  function dialog(){
-    let d=document.querySelector('#sheetCommentDialog');
-    if(d&&d.dataset.singleController==='1')return d;
-    if(d)d.remove();
-    d=document.createElement('dialog');d.id='sheetCommentDialog';d.dataset.singleController='1';
-    d.innerHTML='<form class="sheet-comment-log-form" method="dialog"><div class="comment-persona-picker"><span class="sheet-comment-input-avatar comment-input-avatar"></span><select aria-label="発言者"></select></div><textarea rows="5" maxlength="4000" aria-label="感想"></textarea><button class="comment-edit-delete" type="button" data-delete hidden>このコメントを削除</button></form>';
-    document.body.append(d);
-    d.querySelector('form').addEventListener('submit',post);
-    d.querySelector('[data-delete]').addEventListener('click',remove);
-    d.querySelector('select').addEventListener('change',()=>syncDialogAvatar(d));
-    return d;
-  }
-
-  function open(id,r='',e='',anchor=null){
-    if(posting)return;
-    const p=profile();if(!p?.plName)return alert('先に発言者を登録してください。');
-    panel().hidden=false;cell=id;reply=r;edit=e;pendingAnchor=anchor||pendingAnchor;
-    const d=dialog(),old=comments.find(x=>x.id===e),ps=people(),select=d.querySelector('select');
-    select.innerHTML=ps.map((x,i)=>`<option value="${i}">${esc(x.name)}（${esc(x.type)}）</option>`).join('');
-    const oldIndex=old?ps.findIndex(x=>x.name===old.persona_name&&x.type===old.persona_type):-1;
-    select.value=String(oldIndex>=0?oldIndex:0);
-    d.querySelector('textarea').value=old?.body||'';
-    d.querySelector('[data-delete]').hidden=!old;
-    syncDialogAvatar(d);
-    if(!d.open)d.show();
-    positionDialog(d);
-    setTimeout(()=>d.querySelector('textarea')?.focus(),0);
-  }
-
-  async function post(event){
-    event.preventDefault();
-    if(posting)return;
-    const d=dialog(),p=profile(),person=people()[Number(d.querySelector('select').value)||0],body=d.querySelector('textarea').value.trim();
-    if(!body||!p?.id||!person)return;
-    posting=true;d.dataset.submitting='1';
-    const targetCell=cell,parentId=reply,editingId=edit;
-    try{
-      if(editingId){
-        await api(`/api/boards/${board}/spreadsheet/comments/${encodeURIComponent(editingId)}`,{method:'PATCH',body:JSON.stringify({authorId:p.id,body})});
-      }else{
-        await api(`/api/boards/${board}/spreadsheet/comments`,{method:'POST',body:JSON.stringify({cellId:targetCell,parentId,authorId:p.id,personaName:person.name,personaType:person.type,personaIcon:person.icon||'',body})});
-      }
-      d.close();
-      await load();
-    }catch(error){alert(error.message)}
-    finally{posting=false;delete d.dataset.submitting}
-  }
-
-  async function remove(){
-    if(posting||!edit||!confirm('このコメントを削除しますか？\n返信もまとめて削除されます。'))return;
-    posting=true;
-    try{
-      await api(`/api/boards/${board}/spreadsheet/comments/${encodeURIComponent(edit)}`,{method:'DELETE',body:JSON.stringify({authorId:profile()?.id})});
-      dialog().close();await load();
-    }catch(error){alert(error.message)}
-    finally{posting=false}
-  }
+  async function post(event){event.preventDefault();if(posting)return;const d=dialog(),p=profile(),person=people()[Number(d.querySelector('select').value)||0],body=d.querySelector('textarea').value.trim();if(!body||!p?.id||!person)return;posting=true;d.dataset.submitting='1';const targetCell=cell,parentId=reply,editingId=edit;try{if(editingId)await api(`/api/boards/${board}/spreadsheet/comments/${encodeURIComponent(editingId)}`,{method:'PATCH',body:JSON.stringify({authorId:p.id,body})});else await api(`/api/boards/${board}/spreadsheet/comments`,{method:'POST',body:JSON.stringify({cellId:targetCell,parentId,authorId:p.id,personaName:person.name,personaType:person.type,personaIcon:person.icon||'',body})});d.close();await load(true);notifyChange('spreadsheet-comments')}catch(error){alert(error.message)}finally{posting=false;delete d.dataset.submitting}}
+  async function remove(){if(posting||!edit||!confirm('このコメントを削除しますか？\n返信もまとめて削除されます。'))return;posting=true;try{await api(`/api/boards/${board}/spreadsheet/comments/${encodeURIComponent(edit)}`,{method:'DELETE',body:JSON.stringify({authorId:profile()?.id})});dialog().close();await load(true);notifyChange('spreadsheet-comments')}catch(error){alert(error.message)}finally{posting=false}}
 
   document.addEventListener('click',event=>{
-    const button=event.target.closest?.('[data-like],[data-reply],[data-edit]');
-    const cardEl=event.target.closest?.('#sheetComments .comment-card');
-    const cellEl=event.target.closest?.('[data-sheet-cell]');
+    const button=event.target.closest?.('[data-like],[data-reply],[data-edit]'),cardEl=event.target.closest?.('#sheetComments .comment-card'),cellEl=event.target.closest?.('[data-sheet-cell]');
     if(!button&&!cardEl&&!(commentMode()&&cellEl))return;
-
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-
-    if(button){
-      const id=button.dataset.like||button.dataset.reply||button.dataset.edit;
-      const c=comments.find(x=>x.id===id);if(!c)return;
-      if(button.dataset.like){
-        api(`/api/boards/${board}/spreadsheet/comments/${encodeURIComponent(c.id)}/like`,{method:'POST',body:JSON.stringify({authorId:profile()?.id})}).then(load).catch(error=>alert(error.message));
-        return;
-      }
-      const anchor=(button.closest('.comment-card')||button).getBoundingClientRect();
-      open(c.cell_id,button.dataset.reply?c.id:'',button.dataset.edit?c.id:'',anchor);
-      return;
-    }
-
-    if(cardEl){
-      const target=document.querySelector(`[data-sheet-cell="${CSS.escape(cardEl.dataset.cell)}"]`);
-      target?.classList.add('sheet-comment-flash');
-      setTimeout(()=>target?.classList.remove('sheet-comment-flash'),1100);
-      target?.scrollIntoView({behavior:'smooth',block:'center'});
-      return;
-    }
-
+    event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
+    if(button){const id=button.dataset.like||button.dataset.reply||button.dataset.edit,c=comments.find(x=>x.id===id);if(!c)return;if(button.dataset.like){api(`/api/boards/${board}/spreadsheet/comments/${encodeURIComponent(c.id)}/like`,{method:'POST',body:JSON.stringify({authorId:profile()?.id})}).then(()=>load(true)).then(()=>notifyChange('spreadsheet-comments')).catch(error=>alert(error.message));return}const anchor=(button.closest('.comment-card')||button).getBoundingClientRect();open(c.cell_id,button.dataset.reply?c.id:'',button.dataset.edit?c.id:'',anchor);return}
+    if(cardEl){const target=document.querySelector(`[data-sheet-cell="${CSS.escape(cardEl.dataset.cell)}"]`);target?.classList.add('sheet-comment-flash');setTimeout(()=>target?.classList.remove('sheet-comment-flash'),1100);target?.scrollIntoView({behavior:'smooth',block:'center'});return}
     if(cellEl&&!posting)open(cellEl.dataset.sheetCell,'','',cellEl.getBoundingClientRect());
   },true);
 
-  document.addEventListener('pointerdown',event=>{
-    const d=document.querySelector('#sheetCommentDialog');
-    if(!d?.open||posting||d.contains(event.target))return;
-    const textarea=d.querySelector('textarea');
-    if(textarea?.value.trim())d.querySelector('form')?.requestSubmit();
-    else d.close();
-  });
-
-  const root=document.getElementById('dataTableRoot');
-  if(root&&window.MutationObserver)new MutationObserver(markCells).observe(root,{childList:true});
+  document.addEventListener('pointerdown',event=>{const d=document.querySelector('#sheetCommentDialog');if(!d?.open||posting||d.contains(event.target))return;const textarea=d.querySelector('textarea');if(textarea?.value.trim())d.querySelector('form')?.requestSubmit();else d.close()});
+  const root=document.getElementById('dataTableRoot');if(root&&window.MutationObserver)new MutationObserver(markCells).observe(root,{childList:true});
   applyAccent();
-  try{
-    parent.document.addEventListener('input',event=>{if(event.target?.closest?.('#boardDesignSlot'))setTimeout(applyAccent,0)},true);
-    parent.document.addEventListener('change',event=>{if(event.target?.closest?.('#boardDesignSlot'))setTimeout(applyAccent,0)},true);
-  }catch{}
+  try{parent.document.addEventListener('input',event=>{if(event.target?.closest?.('#boardDesignSlot'))setTimeout(applyAccent,0)},true);parent.document.addEventListener('change',event=>{if(event.target?.closest?.('#boardDesignSlot'))setTimeout(applyAccent,0)},true)}catch{}
 
   window.addEventListener('message',event=>{
     if(event.origin!==location.origin||event.data?.type!=='jijinboard-spreadsheet-active')return;
     active=!!event.data.active;
-    if(active)load();
+    if(active){connectEvents();load()}
+    else disconnectEvents();
   });
-  setInterval(()=>{if(active&&!posting)load()},7000);
+  window.addEventListener('online',()=>{if(active)connectEvents()});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&active)connectEvents()});
+  window.addEventListener('pagehide',disconnectEvents);
+  if(active)connectEvents();
   load();
 })();
