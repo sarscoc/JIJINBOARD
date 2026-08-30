@@ -13,6 +13,29 @@ try {
   }
 } catch {}
 
+// The main LOG websocket may stay connected while another board tool is visible.
+// Do not rebuild/fetch comments in that hidden iframe. A realtime refresh only
+// marks it dirty; returning to LOG performs one refresh iff such a change arrived.
+try {
+  let integratedActive=true,deferredRefresh=false;
+  if(typeof refreshAnnotations==="function"){
+    const rawRefreshAnnotations=refreshAnnotations;
+    refreshAnnotations=function(...args){
+      if(!integratedActive){deferredRefresh=true;return Promise.resolve()}
+      return rawRefreshAnnotations.apply(this,args);
+    };
+    window.refreshAnnotations=refreshAnnotations;
+    window.addEventListener("message",event=>{
+      if(event.origin!==location.origin||event.data?.type!=="jijinboard-log-active")return;
+      integratedActive=!!event.data.active;
+      if(integratedActive&&deferredRefresh){
+        deferredRefresh=false;
+        rawRefreshAnnotations().catch?.(()=>{});
+      }
+    });
+  }
+} catch {}
+
 // The profile editor embedded inside the board settings is only an editor. It
 // must not become a second live LOGCOMMENTS client for the same PL/room.
 try {
@@ -56,8 +79,6 @@ try {
       return;
     }
     setSubmitting(true);
-    // postComment normally closes the dialog on success. If the request fails and the
-    // dialog stays open, allow a deliberate retry after a short safety window.
     fallbackTimer = setTimeout(() => {
       if (dialog.open) setSubmitting(false);
     }, 3500);
