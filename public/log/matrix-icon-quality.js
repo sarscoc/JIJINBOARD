@@ -87,7 +87,7 @@
 
   if (!document.querySelector('script[data-persona-reset-loader]')) {
     const script = document.createElement("script");
-    script.src = "persona-reset.js?v=20260830-2";
+    script.src = "persona-reset.js?v=20260830-3";
     script.dataset.personaResetLoader = "1";
     document.head.appendChild(script);
   }
