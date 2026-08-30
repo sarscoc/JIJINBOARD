@@ -101,3 +101,17 @@
 
   document.querySelectorAll("[data-tool]").forEach(tab => tab.addEventListener("click", clearOverlay));
 })();
+
+// Automatic profile broadcasts happen during iframe startup and autosave. A transient
+// empty persona list must never be interpreted as "delete every PC". Explicit PC
+// deletion is persisted directly by LOGCOMMENTS' participant editor, so the board's
+// passive synchronization only needs to forward non-empty PC snapshots.
+(()=>{
+  if(typeof syncParticipants!=="function")return;
+  const baseSyncParticipants=syncParticipants;
+  syncParticipants=async function safeSyncParticipants(profile,roomId){
+    const personas=Array.isArray(profile?.personas)?profile.personas.filter(persona=>persona?.type==="PC"&&String(persona?.name||"").trim()):[];
+    if(!personas.length)return;
+    return baseSyncParticipants(profile,roomId);
+  };
+})();
