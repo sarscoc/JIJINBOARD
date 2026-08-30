@@ -1,5 +1,18 @@
 "use strict";
 
+// LOGCOMMENTS realtime is event-driven. If the websocket drops, reconnect from
+// that close/error event, but never start a periodic annotation-version poll in
+// the background. Data is fetched only after a realtime change notification.
+try {
+  if(typeof stopFallbackPolling==="function")stopFallbackPolling();
+  if(typeof startFallbackPolling==="function"){
+    startFallbackPolling=function(){
+      try{clearInterval(state?.fallbackPoller);state.fallbackPoller=null}catch{}
+    };
+    window.startFallbackPolling=startFallbackPolling;
+  }
+} catch {}
+
 // The profile editor embedded inside the board settings is only an editor. It
 // must not become a second live LOGCOMMENTS client for the same PL/room.
 try {
