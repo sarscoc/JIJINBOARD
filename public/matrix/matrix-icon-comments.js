@@ -1,6 +1,6 @@
 "use strict";
 (()=>{
-  let comments=[],targetId="",replyTo="",editingId="",posting=false,pendingAnchor=null;
+  let comments=[],targetId="",replyTo="",editingId="",posting=false,pendingAnchor=null,loadPromise=null,lastSerial="";
   const TARGET_SEP="@@matrix-template@@";
   const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const ctx=()=>window.matrixBoardContext;
@@ -112,7 +112,17 @@
     return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" data-comment-target="${esc(c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row">${targetIcon}<span class="matrix-comment-target-arrow" aria-hidden="true">›</span><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
   function render(){const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(comments.map(c=>c.id));comments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=comments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=comments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">配置したPCへの感想がここに並びます。</p>'}
-  async function load(){const c=ctx();if(!c?.roomId)return;const data=await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments?authorId=${encodeURIComponent(profile()?.id||"")}`);comments=data.comments||[];render()}
+  async function load(force=false){
+    const c=ctx();if(!c?.roomId)return;
+    if(loadPromise)return loadPromise;
+    const task=(async()=>{
+      const data=await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments?authorId=${encodeURIComponent(profile()?.id||"")}`);
+      const next=data.comments||[],serial=JSON.stringify(next);
+      if(force||serial!==lastSerial){comments=next;lastSerial=serial;render()}
+    })();
+    loadPromise=task;
+    try{return await task}finally{if(loadPromise===task)loadPromise=null}
+  }
 
   function open(id,reply="",edit="",anchor=null){
     if(!id||posting)return;
@@ -146,11 +156,11 @@
     try{
       if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
       else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
-      d.close();await load();
+      d.close();await load(true);
     }catch(error){alert(error.message)}finally{posting=false;delete d.dataset.submitting}
   }
-  async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load()}catch(error){alert(error.message)}finally{posting=false}}
-  async function like(id){const c=ctx();try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:profile()?.id})});await load()}catch(error){alert(error.message)}}
+  async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
+  async function like(id){const c=ctx();try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:profile()?.id})});await load(true)}catch(error){alert(error.message)}}
 
   document.addEventListener("click",event=>{
     const likeButton=event.target.closest("[data-matrix-like]"),replyButton=event.target.closest("[data-matrix-reply]"),editButton=event.target.closest("[data-matrix-edit]"),card=event.target.closest("[data-comment-target]");
@@ -168,8 +178,8 @@
   });
 
   window.openMatrixIconComment=id=>open(id);
-  window.addEventListener("matrix-board-room",()=>load().catch(console.warn));
+  window.addEventListener("matrix-board-room",()=>{lastSerial="";load(true).catch(console.warn)});
   window.addEventListener("matrix-board-active",()=>load().catch(console.warn));
+  window.addEventListener("matrix-board-comments-changed",()=>load().catch(console.warn));
   setTimeout(()=>load().catch(console.warn),900);
-  setInterval(()=>{if(ctx()?.isActive?.())load().catch(()=>{})},7000);
 })();
