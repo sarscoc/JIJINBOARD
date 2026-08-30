@@ -84,6 +84,21 @@ export default {
       return createStreamRoom(request,env);
     }
 
+    const roomIconMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/icons\/([a-f0-9]{64})$/i);
+    if(roomIconMatch){
+      if(request.method!=="GET"&&request.method!=="HEAD")return new Response("Method not allowed",{status:405});
+      const roomId=decodeURIComponent(roomIconMatch[1]);
+      const room=await env.DB.prepare("SELECT id FROM rooms WHERE id=?").bind(roomId).first();
+      if(!room)return new Response("Not found",{status:404});
+      const object=await env.LOGS.get(`icons/${roomIconMatch[2].toLowerCase()}`);
+      if(!object)return new Response("Not found",{status:404});
+      const headers=new Headers();
+      object.writeHttpMetadata(headers);
+      headers.set("etag",object.httpEtag);
+      headers.set("cache-control",headers.get("cache-control")||"private, max-age=31536000, immutable");
+      return new Response(request.method==="HEAD"?null:object.body,{status:200,headers});
+    }
+
     const logStreamMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/stream\/(meta|full|chunk|find)(?:\/([^/]+))?$/);
     if(logStreamMatch){
       return handleLogStream(
