@@ -20,6 +20,48 @@ const json = (data, status = 200) => new Response(JSON.stringify(data), {
   headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" }
 });
 
+const masterPublicIcon = value => {
+  const raw=String(value||"");
+  const match=raw.match(/(?:^r2:master-icons\/|\/api\/player-master\/icon\/)([a-f0-9]{64})(?:$|[?#])/i);
+  return match?`/api/player-master/icon/${match[1].toLowerCase()}`:raw;
+};
+
+async function serveBoardWithMasterIcons(request,env,executionContext,boardId){
+  const response=await handleApi({
+    request,
+    env,
+    params:{path:["boards",boardId]},
+    waitUntil:promise=>executionContext.waitUntil(promise),
+    next:()=>env.ASSETS.fetch(request)
+  });
+  if(!response.ok)return response;
+  let data;
+  try{data=await response.json()}catch{return response}
+  try{
+    const result=await env.DB.prepare("SELECT player_id,character_id,icon,matrix_icon FROM player_characters").all();
+    const characters=new Map((result.results||[]).map(row=>[`${row.player_id}\u001f${row.character_id}`,row]));
+    for(const log of data.logs||[]){
+      for(const person of log.participants||[]){
+        const character=characters.get(`${person.authorId}\u001f${person.personaId}`);
+        if(!character)continue;
+        const pageIcon=masterPublicIcon(character.icon);
+        const pageMatrixIcon=masterPublicIcon(character.matrix_icon);
+        if(pageIcon){
+          person.baseIcon=pageIcon;
+          if(!person.icon)person.icon=pageIcon;
+        }
+        if(pageMatrixIcon){
+          person.matrixIcon=pageMatrixIcon;
+          person.icon=pageMatrixIcon;
+        }
+      }
+    }
+  }catch(error){
+    console.warn("PL master icon fallback skipped",error);
+  }
+  return json(data,response.status);
+}
+
 const fourDigitTransferCode = () => String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, "0");
 
 async function createProfileTransfer(request, env) {
@@ -136,6 +178,11 @@ export default {
       if(!board)return json({error:"自陣が見つかりません"},404);
       const id=env.ROOMS.idFromName(`board:${boardId}`);
       return env.ROOMS.get(id).fetch(request);
+    }
+
+    const boardReadMatch=url.pathname.match(/^\/api\/boards\/([^/]+)$/);
+    if(boardReadMatch&&request.method==="GET"){
+      return serveBoardWithMasterIcons(request,env,executionContext,decodeURIComponent(boardReadMatch[1]));
     }
 
     const participantMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?$/);
