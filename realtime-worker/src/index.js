@@ -15,7 +15,7 @@ export class RoomHub extends DurableObject {
       server.serializeAttachment({client_id:"",author_id:"",pl_name:"",pl_icon:"",is_typing:false,typing_name:"",typing_icon:"",typing_message_id:""});
       return new Response(null,{status:101,webSocket:client});
     }
-    if(url.pathname==="/notify"&&request.method==="POST")return request.json().then(message=>{this.broadcast({type:"refresh",action:clean(message?.action,30)},clean(message?.excludeClientId,100));return json({ok:true})}).catch(()=>json({error:"Invalid message"},400));
+    if(url.pathname==="/notify"&&request.method==="POST")return request.json().then(message=>{this.broadcast({type:"refresh",action:clean(message?.action,40)},clean(message?.excludeClientId,100));return json({ok:true})}).catch(()=>json({error:"Invalid message"},400));
     if(url.pathname==="/deleted"&&request.method==="POST"){this.broadcast({type:"room-deleted"});return json({ok:true})}
     return new Response("Not found",{status:404});
   }
@@ -23,6 +23,16 @@ export class RoomHub extends DurableObject {
   webSocketMessage(socket,message){
     if(typeof message!=="string"||message.length>180000)return;
     let data;try{data=JSON.parse(message)}catch{return}
+
+    // Data changes are announced only after a successful mutation. The hub does
+    // not poll anything: it simply wakes the other connected clients so they can
+    // fetch the one resource that actually changed.
+    if(data?.type==="change"){
+      const action=clean(data.action,40);
+      if(action)this.broadcast({type:"refresh",action},"",socket);
+      return;
+    }
+
     if(data?.type!=="join"&&data?.type!=="presence")return;
     const previous=socket.deserializeAttachment()||{},next={
       client_id:clean(data.clientId||previous.client_id,100),
