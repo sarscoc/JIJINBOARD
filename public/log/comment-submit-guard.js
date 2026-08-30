@@ -1,5 +1,19 @@
 "use strict";
 
+// The profile editor embedded inside the board settings is only an editor. It
+// must not become a second live LOGCOMMENTS client for the same PL/room.
+try {
+  const profileOnlyFrame=parent!==window&&window.frameElement?.parentElement?.id==="boardSpeakerSlot";
+  if(profileOnlyFrame&&typeof disconnectRealtime==="function"){
+    const disableRealtime=()=>{
+      try{state.realtimeWanted=false;disconnectRealtime()}catch{}
+    };
+    connectRealtime=disableRealtime;
+    window.connectRealtime=disableRealtime;
+    disableRealtime();
+  }
+} catch {}
+
 // Guard against accidental duplicate posts from rapid clicks / outside-click autosave.
 // This does not change the comment UI or payload; it only serializes form submission.
 (() => {
