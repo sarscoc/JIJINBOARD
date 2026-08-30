@@ -11,7 +11,12 @@
   const profile=()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')}catch{return null}};
   const people=()=>{
     const p=profile()||{};
-    return [{name:p.plName||'PL',type:'PL',icon:p.plIcon||''},...(p.personas||[]).map(person=>({name:person.name||'',type:person.type||'PC',icon:person.icon||''}))];
+    let personas=Array.isArray(p.personas)?p.personas:[];
+    try{
+      const parentRoom=new URL(parent.location.href).searchParams.get('room')||parent.document.querySelector('#logFrame')?.dataset.room||parent.document.querySelector('#logList [data-room]')?.dataset.room||'';
+      if(parentRoom){const saved=JSON.parse(localStorage.getItem(`personas:${parentRoom}`)||'[]');if(Array.isArray(saved)&&saved.length)personas=saved}
+    }catch{}
+    return [{name:p.plName||'PL',type:'PL',icon:p.plIcon||''},...personas.map(person=>({name:person.name||'',type:person.type||'PC',icon:person.icon||''}))].filter(person=>person.name);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const iconFor=c=>c.persona_icon||people().find(person=>person.name===c.persona_name&&person.type===c.persona_type)?.icon||'';
@@ -41,21 +46,34 @@
     let a=document.querySelector('#sheetComments');
     if(!a){
       a=document.createElement('aside');a.id='sheetComments';
-      a.innerHTML='<div class="sheet-comments-head"><b>COMMENTS <span></span></b><button type="button" title="コメントを閉じる">×</button></div><section></section>';
-      a.querySelector('button').onclick=()=>a.hidden=true;
+      a.innerHTML='<div class="sheet-comments-head comments-head"><strong>COMMENTS</strong><span class="sheet-comment-count">0</span></div><section class="sheet-comments-list comments-list"></section>';
       document.body.append(a);
+    }else{
+      const oldHead=a.querySelector('.sheet-comments-head');
+      const oldList=a.querySelector(':scope>section');
+      if(oldHead&&!oldHead.classList.contains('comments-head')){
+        oldHead.className='sheet-comments-head comments-head';
+        oldHead.innerHTML='<strong>COMMENTS</strong><span class="sheet-comment-count">0</span>';
+      }
+      if(oldList){oldList.classList.add('sheet-comments-list','comments-list')}
     }
     return a;
   }
 
   function card(c,depth,children){
     const mine=c.author_id===profile()?.id,icon=iconFor(c),replies=children.get(c.id)||[];
-    const avatar=icon?`<img class="sheet-comment-avatar" src="${esc(icon)}" alt="">`:'<span class="sheet-comment-avatar"></span>';
-    return `<div class="sheet-comment-thread ${depth?'sheet-reply':''}"><article class="sheet-comment-card" data-cell="${esc(c.cell_id)}"><div class="sheet-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${mine?`<button data-edit="${esc(c.id)}" title="編集">✎</button>`:''}<time>${esc(dateText(c.created_at))}</time><button data-like="${esc(c.id)}" class="${c.liked_by_me?'liked':''}" aria-label="好き">${c.liked_by_me?'♥':'♡'}${Number(c.like_count)||''}</button><button data-reply="${esc(c.id)}" title="返信">↩</button></div><p class="sheet-comment-body">${esc(c.body).replace(/\n/g,'<br>')}</p></article>${replies.map(r=>card(r,depth+1,children)).join('')}</div>`;
+    const avatar=icon?`<img class="sheet-comment-avatar comment-avatar" src="${esc(icon)}" alt="">`:'<span class="sheet-comment-avatar comment-avatar empty-avatar"></span>';
+    return `<div class="sheet-comment-thread comment-thread ${depth?'sheet-reply is-reply':''}" style="--reply-depth:${Math.min(depth,3)}"><div class="sheet-comment-card comment-card" style="--comment-marker:var(--jijin-sheet-comment-color,#171a20)" data-cell="${esc(c.cell_id)}">`+
+      `<div class="sheet-comment-author comment-author">${avatar}<span class="comment-name">${esc(c.persona_name)}<span class="persona-type">${esc(c.persona_type)}</span></span>`+
+      `${mine?`<button class="comment-edit" data-edit="${esc(c.id)}" title="編集">✎</button>`:''}`+
+      `<time class="comment-date">${esc(dateText(c.created_at))}</time>`+
+      `<button class="comment-like ${c.liked_by_me?'liked':''}" data-like="${esc(c.id)}" aria-label="好き">${c.liked_by_me?'♥':'♡'}${Number(c.like_count)||''}</button>`+
+      `<button class="comment-reply" data-reply="${esc(c.id)}" title="返信">↩</button></div>`+
+      `<p class="sheet-comment-body comment-body">${esc(c.body).replace(/\n/g,'<br>')}</p></div>${replies.map(r=>card(r,depth+1,children)).join('')}</div>`;
   }
 
   function render(){
-    const a=panel(),list=a.querySelector('section'),count=a.querySelector('.sheet-comments-head b span');
+    const a=panel(),list=a.querySelector(':scope>section'),count=a.querySelector('.sheet-comment-count');
     const ids=new Set(comments.map(c=>c.id)),children=new Map();
     for(const c of comments){
       if(!c.parent_id)continue;
@@ -63,7 +81,7 @@
     }
     const roots=comments.filter(c=>!c.parent_id||!ids.has(c.parent_id));
     if(count)count.textContent=String(comments.length);
-    if(list)list.innerHTML=roots.length?roots.map(c=>card(c,0,children)).join(''):'<p class="sheet-comment-empty">セルへのコメントがここに並びます。</p>';
+    if(list)list.innerHTML=roots.length?roots.map(c=>card(c,0,children)).join(''):'<p class="sheet-comment-empty empty">セルへのコメントがここに並びます。</p>';
     a.classList.toggle('has-comments',roots.length>0);
     markCells();
   }
@@ -147,11 +165,9 @@
     finally{posting=false}
   }
 
-  // Capture these interactions before the legacy sheet-comments-base listener.
-  // From here on, this controller is the only code allowed to open or submit comments.
   document.addEventListener('click',event=>{
     const button=event.target.closest?.('[data-like],[data-reply],[data-edit]');
-    const cardEl=event.target.closest?.('#sheetComments .sheet-comment-card');
+    const cardEl=event.target.closest?.('#sheetComments .comment-card');
     const cellEl=event.target.closest?.('[data-sheet-cell]');
     if(!button&&!cardEl&&!(commentMode()&&cellEl))return;
 
@@ -166,7 +182,7 @@
         api(`/api/boards/${board}/spreadsheet/comments/${encodeURIComponent(c.id)}/like`,{method:'POST',body:JSON.stringify({authorId:profile()?.id})}).then(load).catch(error=>alert(error.message));
         return;
       }
-      const anchor=(button.closest('.sheet-comment-card')||button).getBoundingClientRect();
+      const anchor=(button.closest('.comment-card')||button).getBoundingClientRect();
       open(c.cell_id,button.dataset.reply?c.id:'',button.dataset.edit?c.id:'',anchor);
       return;
     }
