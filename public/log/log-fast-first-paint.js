@@ -1,15 +1,16 @@
 "use strict";
 (()=>{
-  let indexedRoom=null;
+  let indexedRoom=null,indexedLength=-1,indexedLastId="";
   let messageIndex=new Map();
   let messagesByTab=new Map();
 
   function ensureIndexes(){
-    if(indexedRoom===state.room)return;
-    indexedRoom=state.room;
+    const messages=state.room?.messages||[],lastId=messages.length?String(messages[messages.length-1]?.id||""):"";
+    if(indexedRoom===state.room&&indexedLength===messages.length&&indexedLastId===lastId)return;
+    indexedRoom=state.room;indexedLength=messages.length;indexedLastId=lastId;
     messageIndex=new Map();
     messagesByTab=new Map();
-    (state.room?.messages||[]).forEach((message,index)=>{
+    messages.forEach((message,index)=>{
       messageIndex.set(message.id,index);
       const list=messagesByTab.get(message.tab)||[];
       list.push(message);
