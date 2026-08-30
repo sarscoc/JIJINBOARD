@@ -1,8 +1,8 @@
 "use strict";
 
 // Persona data is the most important local state in JIJINBOARD.
-// Keep an independent per-room/per-author vault and recover from the board's
-// durable participant records when a transient iframe load ever sees 0 PCs.
+// Keep an independent per-room/per-author vault and recover from every durable
+// source before accepting a transient empty PC list.
 (()=>{
   if(typeof state==="undefined"||typeof saveProfile!=="function"||typeof loadRoomPersonas!=="function")return;
 
@@ -24,6 +24,7 @@
   const authorId=()=>String(state.profile?.id||"");
   const currentRoom=()=>String(state.roomId||params.get("room")||"");
   const slotKey=room=>`${room}::${authorId()}`;
+  const participantSyncKey=room=>`jijinboardParticipantSync:${boardId}:${room}`;
 
   function readVault(){try{const value=JSON.parse(localStorage.getItem(VAULT_KEY)||"{}");return value&&typeof value==="object"?value:{}}catch{return{}}}
   function writeVaultObject(value){try{localStorage.setItem(VAULT_KEY,JSON.stringify(value))}catch(error){console.warn("Persona vault save failed",error)}}
@@ -32,10 +33,10 @@
   function normalize(personas){
     return validList(personas).map(persona=>({
       ...clone(persona),
-      id:String(persona.id||((crypto.randomUUID&&crypto.randomUUID())||Math.random().toString(36).slice(2))),
-      name:String(persona.name||""),
+      id:String(persona.id||persona.personaId||((crypto.randomUUID&&crypto.randomUUID())||Math.random().toString(36).slice(2))),
+      name:String(persona.name||persona.personaName||""),
       type:String(persona.type||"PC"),
-      icon:String(persona.icon||""),
+      icon:String(persona.icon||persona.baseIcon||""),
       color:String(persona.color||"#ffe66b"),
       colorDark:String(persona.colorDark||persona.color||"#ffe66b")
     }));
@@ -59,7 +60,7 @@
   function applyPersonas(room,personas,{persist=true}={}){
     if(room!==currentRoom()||!state.profile)return false;
     const list=normalize(personas);
-    if(!list.length)return false;
+    if(!namedList(list).length)return false;
     applyingRemote=true;
     state.profile.personas=list;
     try{localStorage.setItem(`personas:${room}`,JSON.stringify(list))}catch{}
@@ -68,6 +69,16 @@
     try{renderPersonas?.()}catch{}
     try{fillPersonaSelect?.()}catch{}
     return true;
+  }
+
+  function recoverParticipantSignature(room){
+    if(!boardId||!room)return false;
+    try{
+      const saved=JSON.parse(localStorage.getItem(participantSyncKey(room))||"null");
+      const rows=namedList(saved?.personas);
+      if(rows.length)return applyPersonas(room,rows);
+    }catch{}
+    return false;
   }
 
   function recoverLocal(room=currentRoom()){
@@ -82,12 +93,32 @@
     const entry=entryFor(room);
     if(entry?.explicitEmpty)return false;
     if(namedList(entry?.personas).length)return applyPersonas(room,entry.personas,{persist:false});
+    if(recoverParticipantSignature(room))return true;
     return false;
   }
 
   function colorFromAnnotations(persona){
     const annotation=(state.annotations||[]).find(item=>item?.author_id===authorId()&&item?.persona_name===persona.name&&item?.persona_type==="PC"&&item?.color);
     return String(annotation?.color||"#ffe66b");
+  }
+
+  function recoverAnnotations(room=currentRoom()){
+    if(!room||entryFor(room)?.explicitEmpty)return false;
+    const byKey=new Map();
+    for(const item of state.annotations||[]){
+      if(item?.author_id!==authorId()||item?.persona_type!=="PC"||!String(item?.persona_name||"").trim())continue;
+      const key=`${item.persona_type}:${item.persona_name}`;
+      if(byKey.has(key))continue;
+      byKey.set(key,{
+        id:item.persona_id||((crypto.randomUUID&&crypto.randomUUID())||Math.random().toString(36).slice(2)),
+        name:item.persona_name,
+        type:"PC",
+        icon:item.persona_icon||"",
+        color:item.color||"#ffe66b",
+        colorDark:item.color||"#ffe66b"
+      });
+    }
+    return byKey.size?applyPersonas(room,[...byKey.values()]):false;
   }
 
   async function recoverServer(room=currentRoom()){
@@ -124,9 +155,17 @@
     if(entryFor(room)?.explicitEmpty)return true;
     if(recoveryPromise)return recoveryPromise;
     recoveryPromise=(async()=>{
-      const recovered=await recoverServer(room);
-      if(!recovered&&namedList(state.profile?.personas).length)storeSnapshot(room,state.profile.personas,{broadcastChange:false});
-      return recovered;
+      if(await recoverServer(room))return true;
+      if(recoverAnnotations(room))return true;
+      // Room annotations are loaded after the room request. Retry them briefly so an
+      // old comment can still rescue a PC if both local snapshots were lost.
+      for(const wait of [250,700,1400]){
+        await new Promise(resolve=>setTimeout(resolve,wait));
+        if(namedList(state.profile?.personas).length)return true;
+        if(entryFor(room)?.explicitEmpty)return true;
+        if(recoverAnnotations(room))return true;
+      }
+      return false;
     })().finally(()=>{recoveryPromise=null});
     return recoveryPromise;
   }
@@ -185,17 +224,18 @@
   channel?.addEventListener("message",event=>{
     const data=event.data||{},room=currentRoom();
     if(data.room!==room||data.authorId!==authorId()||!data.entry)return;
-    if(data.entry.explicitEmpty){
-      if(!namedList(state.profile?.personas).length)return;
-      return;
-    }
+    if(data.entry.explicitEmpty)return;
     if(namedList(data.entry.personas).length&&!namedList(state.profile?.personas).length)applyPersonas(room,data.entry.personas,{persist:false});
   });
 
   addEventListener("storage",event=>{
-    if(event.key!==VAULT_KEY)return;
-    const room=currentRoom(),entry=entryFor(room);
-    if(entry&&!entry.explicitEmpty&&namedList(entry.personas).length&&!namedList(state.profile?.personas).length)applyPersonas(room,entry.personas,{persist:false});
+    const room=currentRoom();
+    if(event.key===VAULT_KEY){
+      const entry=entryFor(room);
+      if(entry&&!entry.explicitEmpty&&namedList(entry.personas).length&&!namedList(state.profile?.personas).length)applyPersonas(room,entry.personas,{persist:false});
+      return;
+    }
+    if(event.key===`personas:${room}`&&!namedList(state.profile?.personas).length)recoverLocal(room);
   });
 
   // app.js has already assigned roomId before its first network await. Capture any
