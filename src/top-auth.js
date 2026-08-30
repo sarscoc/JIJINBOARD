@@ -1,7 +1,8 @@
 const encoder=new TextEncoder();
 const SESSION_COOKIE="jijinboard_top_session";
 const SESSION_SECONDS=60*60*24*30;
-const PBKDF2_ITERATIONS=120000;
+const HASH_VERSION=1;
+const HASH_CONTEXT=encoder.encode("JIJINBOARD-TOP-AUTH-v1\0");
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...headers}});
 const base64url=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
@@ -13,17 +14,22 @@ const equalText=(a,b)=>{a=String(a||"");b=String(b||"");if(a.length!==b.length)r
 const safeBody=async request=>{try{return await request.json()}catch{return null}};
 
 async function ensureTopAuthSchema(db){
-  await db.batch([
-    db.prepare("CREATE TABLE IF NOT EXISTS top_auth (id INTEGER PRIMARY KEY CHECK(id=1),salt TEXT NOT NULL,password_hash TEXT NOT NULL,iterations INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
-    db.prepare("CREATE TABLE IF NOT EXISTS top_sessions (token_hash TEXT PRIMARY KEY,expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
-    db.prepare("CREATE INDEX IF NOT EXISTS idx_top_sessions_expires ON top_sessions(expires_at)")
-  ]);
+  // Keep these sequential. It is more robust on a brand-new D1 database than
+  // preparing an index in the same batch that creates its table.
+  await db.prepare("CREATE TABLE IF NOT EXISTS top_auth (id INTEGER PRIMARY KEY CHECK(id=1),salt TEXT NOT NULL,password_hash TEXT NOT NULL,iterations INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE TABLE IF NOT EXISTS top_sessions (token_hash TEXT PRIMARY KEY,expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+  await db.prepare("CREATE INDEX IF NOT EXISTS idx_top_sessions_expires ON top_sessions(expires_at)").run();
 }
 
-async function passwordHash(password,salt,iterations){
-  const key=await crypto.subtle.importKey("raw",encoder.encode(password),"PBKDF2",false,["deriveBits"]);
-  const bits=await crypto.subtle.deriveBits({name:"PBKDF2",salt,iterations,hash:"SHA-256"},key,256);
-  return new Uint8Array(bits);
+async function passwordHash(password,salt){
+  // The previous PBKDF2(120,000) version can exceed Cloudflare Workers' CPU
+  // budget and return 500 during setup. Use a salted WebCrypto digest here so
+  // the password is still never stored in plaintext while remaining well
+  // inside Worker limits. The random salt prevents equal passwords from having
+  // the same stored hash.
+  const passwordBytes=encoder.encode(password),input=new Uint8Array(salt.length+HASH_CONTEXT.length+passwordBytes.length);
+  input.set(salt,0);input.set(HASH_CONTEXT,salt.length);input.set(passwordBytes,salt.length+HASH_CONTEXT.length);
+  return sha256(input);
 }
 
 function cookieValue(request,name){
@@ -48,6 +54,8 @@ async function createSession(db){
 export async function isTopAuthenticated(request,env){
   if(!env.DB)return false;
   await ensureTopAuthSchema(env.DB);
+  const auth=await env.DB.prepare("SELECT iterations FROM top_auth WHERE id=1").first();
+  if(!auth||Number(auth.iterations)!==HASH_VERSION)return false;
   const token=cookieValue(request,SESSION_COOKIE);if(!token)return false;
   const tokenHash=base64url(await sha256(token)),row=await env.DB.prepare("SELECT expires_at FROM top_sessions WHERE token_hash=?").bind(tokenHash).first();
   if(!row)return false;
@@ -55,16 +63,27 @@ export async function isTopAuthenticated(request,env){
   return true;
 }
 
+async function verifyOwnerProof(body,env){
+  const boardId=String(body?.boardId||""),adminToken=String(body?.adminToken||"");
+  if(!boardId||!adminToken)return false;
+  const board=await env.DB.prepare("SELECT admin_token FROM boards WHERE id=?").bind(boardId).first();
+  return !!board&&equalText(adminToken,board.admin_token);
+}
+
 async function setup(request,env){
   await ensureTopAuthSchema(env.DB);
-  if(await env.DB.prepare("SELECT id FROM top_auth WHERE id=1").first())return json({error:"管理TOPのパスワードは設定済みです"},409);
-  const body=await safeBody(request),password=String(body?.password||""),boardId=String(body?.boardId||""),adminToken=String(body?.adminToken||"");
+  const body=await safeBody(request),password=String(body?.password||"");
   if(password.length<8||password.length>256)return json({error:"パスワードは8文字以上で設定してください"},400);
-  if(!boardId||!adminToken)return json({error:"このブラウザの部屋主管理情報が見つかりません"},403);
-  let board=null;try{board=await env.DB.prepare("SELECT admin_token FROM boards WHERE id=?").bind(boardId).first()}catch{}
-  if(!board||!equalText(adminToken,board.admin_token))return json({error:"部屋主の確認ができませんでした"},403);
-  const salt=crypto.getRandomValues(new Uint8Array(16)),hash=await passwordHash(password,salt,PBKDF2_ITERATIONS);
-  try{await env.DB.prepare("INSERT INTO top_auth(id,salt,password_hash,iterations) VALUES(1,?,?,?)").bind(base64url(salt),base64url(hash),PBKDF2_ITERATIONS).run()}catch{return json({error:"管理TOPのパスワードは設定済みです"},409)}
+  if(!await verifyOwnerProof(body,env))return json({error:"部屋主の確認ができませんでした"},403);
+
+  const existing=await env.DB.prepare("SELECT iterations FROM top_auth WHERE id=1").first();
+  if(existing&&Number(existing.iterations)===HASH_VERSION)return json({error:"管理TOPのパスワードは設定済みです"},409);
+
+  // If the old PBKDF2 build died midway, overwrite that incomplete/legacy row
+  // after proving ownership instead of trapping the owner on the login screen.
+  const salt=crypto.getRandomValues(new Uint8Array(32)),hash=await passwordHash(password,salt);
+  await env.DB.prepare("INSERT OR REPLACE INTO top_auth(id,salt,password_hash,iterations,updated_at) VALUES(1,?,?,?,CURRENT_TIMESTAMP)").bind(base64url(salt),base64url(hash),HASH_VERSION).run();
+  await env.DB.prepare("DELETE FROM top_sessions").run();
   const session=await createSession(env.DB);
   return json({ok:true},200,{"set-cookie":sessionCookie(session.token)});
 }
@@ -72,10 +91,10 @@ async function setup(request,env){
 async function login(request,env){
   await ensureTopAuthSchema(env.DB);
   const row=await env.DB.prepare("SELECT salt,password_hash,iterations FROM top_auth WHERE id=1").first();
-  if(!row)return json({error:"先に管理TOPのパスワードを設定してください"},409);
+  if(!row||Number(row.iterations)!==HASH_VERSION)return json({error:"管理TOPの認証設定を更新してください"},409);
   const body=await safeBody(request),password=String(body?.password||"");
   if(!password)return json({error:"パスワードを入力してください"},400);
-  const actual=await passwordHash(password,fromBase64url(row.salt),Number(row.iterations)||PBKDF2_ITERATIONS),expected=fromBase64url(row.password_hash);
+  const actual=await passwordHash(password,fromBase64url(row.salt)),expected=fromBase64url(row.password_hash);
   if(!equalBytes(actual,expected))return json({error:"パスワードが違います"},403);
   const session=await createSession(env.DB);
   return json({ok:true},200,{"set-cookie":sessionCookie(session.token)});
@@ -90,20 +109,28 @@ async function logout(request,env){
 
 export async function handleTopAuthApi(request,env,action){
   if(!env.DB)return json({error:"D1データベースが接続されていません"},503);
-  await ensureTopAuthSchema(env.DB);
-  if(request.method==="GET"&&action==="status"){
-    const configured=!!await env.DB.prepare("SELECT id FROM top_auth WHERE id=1").first();
-    return json({configured,authenticated:configured?await isTopAuthenticated(request,env):false});
+  try{
+    await ensureTopAuthSchema(env.DB);
+    if(request.method==="GET"&&action==="status"){
+      const row=await env.DB.prepare("SELECT iterations FROM top_auth WHERE id=1").first();
+      const configured=!!row&&Number(row.iterations)===HASH_VERSION;
+      return json({configured,authenticated:configured?await isTopAuthenticated(request,env):false,needsReset:!!row&&!configured});
+    }
+    if(request.method==="POST"&&action==="setup")return setup(request,env);
+    if(request.method==="POST"&&action==="login")return login(request,env);
+    if(request.method==="POST"&&action==="logout")return logout(request,env);
+    return json({error:"Not found"},404);
+  }catch(error){
+    console.error("TOP auth error",error);
+    return json({error:"管理TOPの認証処理に失敗しました。デプロイ完了後にもう一度お試しください。"},500);
   }
-  if(request.method==="POST"&&action==="setup")return setup(request,env);
-  if(request.method==="POST"&&action==="login")return login(request,env);
-  if(request.method==="POST"&&action==="logout")return logout(request,env);
-  return json({error:"Not found"},404);
 }
 
 export async function serveProtectedTop(request,env){
   if(!env.DB)return new Response("管理TOPを読み込めません。D1接続を確認してください。",{status:503,headers:{"content-type":"text/plain; charset=utf-8","cache-control":"no-store"}});
-  const authenticated=await isTopAuthenticated(request,env),url=new URL(request.url),assetUrl=new URL(authenticated?"/index.html":"/top-login.html",url.origin);
+  let authenticated=false;
+  try{authenticated=await isTopAuthenticated(request,env)}catch(error){console.error("TOP auth page error",error)}
+  const url=new URL(request.url),assetUrl=new URL(authenticated?"/index.html":"/top-login.html",url.origin);
   const assetRequest=new Request(assetUrl,{method:request.method,headers:request.headers});
   const response=await env.ASSETS.fetch(assetRequest),headers=new Headers(response.headers);
   headers.set("cache-control","no-store");headers.set("vary","Cookie");
