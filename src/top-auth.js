@@ -5,7 +5,7 @@ const PBKDF2_ITERATIONS=120000;
 
 const json=(data,status=200,headers={})=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store",...headers}});
 const base64url=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
-const fromBase64url=value=>{const padded=String(value||"").replace(/-/g,"+").replace(/_/g,"/")+"===".slice((String(value||"").length+3)%4);const raw=atob(padded);return Uint8Array.from(raw,c=>c.charCodeAt(0))};
+const fromBase64url=value=>{const text=String(value||""),padded=text.replace(/-/g,"+").replace(/_/g,"/")+"===".slice((text.length+3)%4),raw=atob(padded);return Uint8Array.from(raw,c=>c.charCodeAt(0))};
 const randomToken=(bytes=32)=>base64url(crypto.getRandomValues(new Uint8Array(bytes)));
 const sha256=async value=>new Uint8Array(await crypto.subtle.digest("SHA-256",typeof value==="string"?encoder.encode(value):value));
 const equalBytes=(a,b)=>{if(a.length!==b.length)return false;let diff=0;for(let i=0;i<a.length;i++)diff|=a[i]^b[i];return diff===0};
@@ -66,7 +66,7 @@ async function setup(request,env){
   const salt=crypto.getRandomValues(new Uint8Array(16)),hash=await passwordHash(password,salt,PBKDF2_ITERATIONS);
   try{await env.DB.prepare("INSERT INTO top_auth(id,salt,password_hash,iterations) VALUES(1,?,?,?)").bind(base64url(salt),base64url(hash),PBKDF2_ITERATIONS).run()}catch{return json({error:"管理TOPのパスワードは設定済みです"},409)}
   const session=await createSession(env.DB);
-  return json({ok:true},{valueOf(){return 200}}, {"set-cookie":sessionCookie(session.token)});
+  return json({ok:true},200,{"set-cookie":sessionCookie(session.token)});
 }
 
 async function login(request,env){
