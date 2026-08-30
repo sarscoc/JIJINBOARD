@@ -8,6 +8,12 @@
   const displayModes=new Map();
   const endpoint=roomId=>`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}/display-mode`;
 
+  // Keep a comfortable gap between the room title and the login/presence list.
+  // The header stylesheet already contributes ~6px via flex gap, so 34px here
+  // gives roughly 40px total without reserving a fixed title column.
+  const presenceBar=$(".topbar>.presence-bar");
+  if(presenceBar)presenceBar.style.marginLeft="34px";
+
   function ensureDisplayModeUi(){
     const form=$("#logEditForm");
     if(!form||form.querySelector("#logDisplayModeField"))return;
@@ -57,7 +63,8 @@
     $("#logList").innerHTML = logs.map(item => {
       const known = state.opened[item.roomId], active = item.roomId === state.activeRoom;
       const title = item.scenarioTitle || item.title || known || "ログ";
-      return `<div class="log-entry"><button class="log-item ${item.spoiler&&!known?"unopened":""} ${active?"active":""}" data-room="${esc(item.roomId)}"><strong>${esc(title)}</strong></button>${owner?`<button class="log-edit" data-edit-log="${esc(item.roomId)}" title="ログの編集">✎</button>`:""}</div>`;
+      const participants = typeof participantMarkup==="function" ? participantMarkup(item.participants||[]) : "";
+      return `<div class="log-entry"><button class="log-item ${item.spoiler&&!known?"unopened":""} ${active?"active":""}" data-room="${esc(item.roomId)}"><strong>${esc(title)}</strong>${participants}</button>${owner?`<button class="log-edit" data-edit-log="${esc(item.roomId)}" title="ログの編集">✎</button>`:""}</div>`;
     }).join("");
     $("#logList").querySelectorAll("[data-room]").forEach(button => button.onclick = () => requestOpen(button.dataset.room));
     $("#logList").querySelectorAll("[data-edit-log]").forEach(button => button.onclick = event => { event.stopPropagation(); openLogEdit(button.dataset.editLog); });
