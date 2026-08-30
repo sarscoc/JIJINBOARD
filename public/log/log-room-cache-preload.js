@@ -13,9 +13,10 @@
   }
 
   const nativeFetch=window.fetch.bind(window);
-  let deferredAnnotations=false,installDone=false,loadingChunk=false;
+  let deferredAnnotations=false,installDone=false,loadingChunk=false,fillingViewport=false;
   const jsonResponse=data=>new Response(JSON.stringify(data),{status:200,headers:{"content-type":"application/json; charset=utf-8"}});
   const streamPath=(roomId,suffix)=>`/api/rooms/${encodeURIComponent(roomId)}/stream/${suffix}`;
+  const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
 
   async function firstStreamedRoom(roomId){
     const cached=parentCache?.get(roomId);
@@ -36,7 +37,7 @@
         createdAt:meta.createdAt||"",
         tabs:Array.isArray(meta.tabs)?meta.tabs:[],
         messages:Array.isArray(chunk.messages)?chunk.messages:[],
-        stream:{streamed:true,chunkSize:Number(meta.chunkSize)||250,chunkCount:Math.max(1,Number(chunk.chunkCount||meta.chunkCount)||1),messageCount:Number(chunk.messageCount||meta.messageCount)||0,loaded:[0]}
+        stream:{streamed:true,chunkSize:Number(meta.chunkSize)||120,chunkCount:Math.max(1,Number(chunk.chunkCount||meta.chunkCount)||1),messageCount:Number(chunk.messageCount||meta.messageCount)||0,loaded:[0]}
       };
       parentCache?.set(roomId,room);
       return room;
@@ -85,6 +86,14 @@
       try{Object.defineProperty(message,"__jijinChunk",{value:index,writable:true,configurable:true,enumerable:false});Object.defineProperty(message,"__jijinOffset",{value:offset,writable:true,configurable:true,enumerable:false})}catch{}
     });
   }
+  function seedInitialChunkMarks(){
+    const stream=streamState();
+    if(!stream||!state?.room?.messages)return;
+    state.room.messages.forEach((message,offset)=>{
+      if(message.__jijinChunk!=null)return;
+      try{Object.defineProperty(message,"__jijinChunk",{value:0,writable:true,configurable:true,enumerable:false});Object.defineProperty(message,"__jijinOffset",{value:offset,writable:true,configurable:true,enumerable:false})}catch{}
+    });
+  }
   function loadedSet(){return new Set((streamState()?.loaded||[]).map(Number).filter(Number.isFinite))}
   function nextChunkIndex(){
     const stream=streamState();if(!stream)return -1;
@@ -93,6 +102,9 @@
     return -1;
   }
   function rememberRoom(){try{if(state?.room?.id)parentCache?.set(state.room.id,state.room)}catch{}}
+  function activeScroll(){
+    try{return document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"] .page-scroll`)||document.querySelector(".log-page .page-scroll")}catch{return null}
+  }
 
   async function loadChunk(index,{render=true}={}){
     const stream=streamState(),roomId=state?.roomId||state?.room?.id||startupRoom;
@@ -105,10 +117,8 @@
       if(!response.ok)throw new Error(`chunk ${index}: ${response.status}`);
       const data=await response.json(),messages=Array.isArray(data.messages)?data.messages:[];
       markChunk(messages,index);
-      // Existing messages from the first response do not carry private chunk marks
-      // through JSON serialization, so seed chunk zero before sorting.
+      seedInitialChunkMarks();
       const current=state.room.messages||[];
-      current.forEach((message,offset)=>{if(message.__jijinChunk==null){try{Object.defineProperty(message,"__jijinChunk",{value:0,writable:true,configurable:true,enumerable:false});Object.defineProperty(message,"__jijinOffset",{value:offset,writable:true,configurable:true,enumerable:false})}catch{}}});
       const known=new Set(current.map(message=>message.id));
       current.push(...messages.filter(message=>!known.has(message.id)));
       current.sort((a,b)=>(Number(a.__jijinChunk)||0)-(Number(b.__jijinChunk)||0)||(Number(a.__jijinOffset)||0)-(Number(b.__jijinOffset)||0));
@@ -125,14 +135,31 @@
     finally{loadingChunk=false}
   }
 
-  async function ensureViewportBuffer(){
-    const stream=streamState();if(!stream||loadingChunk)return;
-    const panel=document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"] .page-scroll`);
-    if(!panel)return;
-    const remaining=panel.scrollHeight-panel.scrollTop-panel.clientHeight;
-    if(panel.scrollHeight<=panel.clientHeight*1.45||remaining<panel.clientHeight*1.6){
-      const next=nextChunkIndex();if(next>=0)await loadChunk(next);
-    }
+  async function fillViewportBuffer(){
+    if(fillingViewport||!streamState())return;
+    fillingViewport=true;
+    try{
+      // Do not stop at a fixed message count. Keep reading only until the CURRENT
+      // tab has roughly one visible screen plus a small buffer below it.
+      for(let guard=0;guard<Math.max(1,Number(streamState()?.chunkCount)||1);guard++){
+        await nextFrame();
+        const panel=activeScroll();
+        if(!panel)return;
+        const height=Math.max(1,panel.clientHeight);
+        const remaining=panel.scrollHeight-panel.scrollTop-height;
+        const atInitialTop=panel.scrollTop<4;
+        const enough=atInitialTop
+          ? panel.scrollHeight>=height*1.32
+          : remaining>=height*.62;
+        if(enough)return;
+        const next=nextChunkIndex();
+        if(next<0)return;
+        const anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
+        const loaded=await loadChunk(next,{render:false});
+        if(!loaded)return;
+        if(typeof renderLog==="function")renderLog(anchor);
+      }
+    }finally{fillingViewport=false}
   }
 
   function bindScrolls(){
@@ -140,12 +167,12 @@
       if(scroll.dataset.jijinChunkStream)return;
       scroll.dataset.jijinChunkStream="1";
       scroll.addEventListener("scroll",()=>{
-        if(loadingChunk)return;
-        const remaining=scroll.scrollHeight-scroll.scrollTop-scroll.clientHeight;
-        if(remaining<scroll.clientHeight*1.6)loadChunk(nextChunkIndex()).catch(()=>{});
+        if(!streamState()||loadingChunk||fillingViewport)return;
+        const height=Math.max(1,scroll.clientHeight),remaining=scroll.scrollHeight-scroll.scrollTop-height;
+        if(remaining<height*.62)fillViewportBuffer().catch(()=>{});
       },{passive:true});
     });
-    requestAnimationFrame(()=>ensureViewportBuffer().catch(()=>{}));
+    requestAnimationFrame(()=>fillViewportBuffer().catch(()=>{}));
   }
 
   async function ensureMessageLoaded(messageId){
@@ -168,16 +195,18 @@
   }
 
   function installStreamingRuntime(){
-    if(installDone||typeof state==="undefined"||!state.room)return;
+    if(installDone||typeof state==="undefined"||typeof renderLog!=="function")return false;
     installDone=true;
-    if(streamState()){
-      markChunk(state.room.messages||[],0);
-      rememberRoom();
-    }
 
     if(typeof renderLog==="function"&&!renderLog.__jijinChunkBound){
       const raw=renderLog;
-      const wrapped=function(...args){const result=raw.apply(this,args);queueMicrotask(bindScrolls);return result};
+      const wrapped=function(...args){
+        seedInitialChunkMarks();
+        if(streamState())rememberRoom();
+        const result=raw.apply(this,args);
+        queueMicrotask(bindScrolls);
+        return result;
+      };
       wrapped.__jijinChunkBound=true;renderLog=wrapped;
     }
 
@@ -202,13 +231,22 @@
       let searchLoad=null;
       search.addEventListener("input",()=>{
         if(!search.value.trim()||!streamState()||loadedSet().size>=Number(streamState().chunkCount||0)||searchLoad)return;
-        // Searching is an explicit request across the whole log, so only then load
-        // the remaining chunks. Normal reading never performs this full fetch.
-        searchLoad=(async()=>{for(let index=0;index<Number(streamState().chunkCount||0);index++)if(!loadedSet().has(index))await loadChunk(index,{render:false});if(typeof renderLog==="function")renderLog(typeof currentReadingTime==="function"?currentReadingTime():"")})().finally(()=>{searchLoad=null});
+        searchLoad=(async()=>{
+          for(let index=0;index<Number(streamState().chunkCount||0);index++)if(!loadedSet().has(index))await loadChunk(index,{render:false});
+          if(typeof renderLog==="function")renderLog(typeof currentReadingTime==="function"?currentReadingTime():"");
+        })().finally(()=>{searchLoad=null});
       });
     }
 
-    bindScrolls();
+    // openRoom() is asynchronous and may finish after window.load. The renderLog
+    // wrapper above is therefore installed before state.room exists; its first real
+    // render starts viewport filling at exactly the right time.
+    if(streamState()){
+      seedInitialChunkMarks();
+      rememberRoom();
+      bindScrolls();
+    }
+    return true;
   }
 
   addEventListener("load",installStreamingRuntime,{once:true});
