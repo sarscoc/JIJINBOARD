@@ -15,6 +15,8 @@
       list.push(message);
       messagesByTab.set(message.tab,list);
     });
+    state.__jijinMessageIndex=messageIndex;
+    state.__jijinMessagesByTab=messagesByTab;
   }
 
   if(typeof groupAnnotations==="function"){
