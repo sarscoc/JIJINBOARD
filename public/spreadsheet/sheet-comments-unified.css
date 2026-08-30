@@ -1,8 +1,7 @@
 /* SPREADSHEET COMMENTS uses the same visual grammar as LOGCOMMENTS. */
-html.embedded #sheetComments{position:relative!important;z-index:20!important;isolation:isolate!important;height:auto!important;min-height:160px!important;max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;align-self:start!important;overflow:hidden!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;align-self:start!important;overflow:hidden!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 html.embedded #sheetComments>section{flex:0 1 auto!important;min-height:0!important;max-height:calc(100vh - (var(--sheet-page-pad) * 2) - var(--sheet-toolbar-height) - var(--sheet-gap) - 48px)!important;overflow-y:auto!important;overscroll-behavior:contain!important;scrollbar-gutter:auto!important;padding:6px!important;background:transparent!important}
 html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!important}
-html.embedded #sheetWrap{position:relative!important;z-index:1!important;isolation:isolate!important}
 
 /* Header = LOGCOMMENTS .comments-head */
 #sheetComments .sheet-comments-head{padding:13px 15px!important;border-bottom:1px solid var(--sheet-line)!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;font-size:11px!important;line-height:1.5!important;letter-spacing:.12em!important;background:transparent!important}
@@ -32,7 +31,7 @@ html.embedded #sheetWrap{position:relative!important;z-index:1!important;isolati
 #sheetComments .comment-body{margin:4px 0 0!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;line-height:1.5!important}
 
 /* Input dialog: copy the final LOGCOMMENTS #commentDialog values, not Spreadsheet defaults. */
-#sheetCommentDialog{position:fixed!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid #e2e7ed!important;border-radius:14px!important;background:rgba(255,255,255,.82)!important;color:#171a1f!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important;font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;backdrop-filter:blur(24px) saturate(145%)!important;-webkit-backdrop-filter:blur(24px) saturate(145%)!important}
+#sheetCommentDialog{position:fixed!important;z-index:3000!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid #e2e7ed!important;border-radius:14px!important;background:rgba(255,255,255,.82)!important;color:#171a1f!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important;font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;backdrop-filter:blur(24px) saturate(145%)!important;-webkit-backdrop-filter:blur(24px) saturate(145%)!important}
 #sheetCommentDialog::backdrop{background:transparent!important}
 #sheetCommentDialog .sheet-comment-log-form{padding:10px!important;display:grid!important;gap:7px!important;margin:0!important}
 #sheetCommentDialog .comment-persona-picker{display:grid!important;grid-template-columns:32px minmax(0,1fr)!important;gap:8px!important;align-items:center!important}
@@ -44,10 +43,16 @@ html.embedded #sheetWrap{position:relative!important;z-index:1!important;isolati
 #sheetCommentDialog .comment-edit-delete{justify-self:start!important;border:0!important;background:transparent!important;color:#d95b66!important;font-size:9px!important;padding:3px 0!important;cursor:pointer!important}
 #sheetCommentDialog .comment-edit-delete[hidden]{display:none!important}
 
-/* Cell marker: tiny lower-right triangle in theme color 1. It stays inside the
-   sheet stacking context so it can never paint over the COMMENTS panel. */
-[data-sheet-cell].sheet-has-comment{position:relative!important}
-[data-sheet-cell].sheet-has-comment::after{content:"";position:absolute;right:1px;bottom:1px;width:0;height:0;border-left:5px solid transparent;border-bottom:5px solid var(--jijin-sheet-comment-color,#171a20);pointer-events:none;z-index:1}
+/* Cell marker is painted into the cell background itself. Unlike a pseudo-element,
+   it cannot escape the cell and overlap COMMENTS or the comment input dialog. */
+[data-sheet-cell].sheet-has-comment{
+  position:relative!important;
+  background-image:linear-gradient(135deg,transparent 50%,var(--jijin-sheet-comment-color,#171a20) 50%)!important;
+  background-repeat:no-repeat!important;
+  background-position:right 1px bottom 1px!important;
+  background-size:6px 6px!important;
+}
+[data-sheet-cell].sheet-has-comment::after{content:none!important}
 
 @media(max-width:800px){
   html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:220px!important}
