@@ -3,6 +3,7 @@ import { RoomHub } from "../realtime-worker/src/index.js";
 import { ensureSchema } from "./schema.js";
 import { handleLogTabSettings } from "./log-tab-settings.js";
 import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
+import { handleMatrixPoint } from "./matrix-point.js";
 import { handleBoardTheme } from "./board-theme.js";
 import { handleGroupRowColors } from "./group-row-colors.js";
 import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
@@ -125,6 +126,17 @@ export default {
         decodeURIComponent(sheetCommentsMatch[1]),
         sheetCommentsMatch[2]?decodeURIComponent(sheetCommentsMatch[2]):"",
         sheetCommentsMatch[3]?decodeURIComponent(sheetCommentsMatch[3]):""
+      );
+    }
+
+    const matrixPointMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/points\/([^/]+)$/);
+    if(matrixPointMatch){
+      return handleMatrixPoint(
+        request,
+        env,
+        decodeURIComponent(matrixPointMatch[1]),
+        decodeURIComponent(matrixPointMatch[2]),
+        decodeURIComponent(matrixPointMatch[3])
       );
     }
 
