@@ -1,7 +1,9 @@
 (()=>{
   "use strict";
-  const board=new URL(location.href).searchParams.get('board');if(!board)return;
+  const pageParams=new URL(location.href).searchParams;
+  const board=pageParams.get('board');if(!board)return;
   let comments=[],cell='',reply='',edit='',posting=false,pendingAnchor=null;
+  let active=pageParams.get('embedded')!=='1',loadPromise=null,loadedOnce=false;
   const api=async(path,options={})=>{
     const response=await fetch(path,{headers:{'content-type':'application/json',...(options.headers||{})},...options});
     const data=await response.json().catch(()=>({}));
@@ -87,9 +89,18 @@
   }
 
   async function load(){
-    try{comments=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(profile()?.id||'')}`)).comments||[]}
-    catch(error){console.warn('Spreadsheet comments load failed',error);comments=[]}
-    render();
+    if(loadPromise)return loadPromise;
+    const task=(async()=>{
+      try{
+        const next=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(profile()?.id||'')}`)).comments||[];
+        comments=next;loadedOnce=true;render();
+      }catch(error){
+        console.warn('Spreadsheet comments load failed',error);
+        if(!loadedOnce){comments=[];render()}
+      }
+    })();
+    loadPromise=task;
+    try{return await task}finally{if(loadPromise===task)loadPromise=null}
   }
 
   function syncDialogAvatar(d){
@@ -215,5 +226,11 @@
     parent.document.addEventListener('change',event=>{if(event.target?.closest?.('#boardDesignSlot'))setTimeout(applyAccent,0)},true);
   }catch{}
 
+  window.addEventListener('message',event=>{
+    if(event.origin!==location.origin||event.data?.type!=='jijinboard-spreadsheet-active')return;
+    active=!!event.data.active;
+    if(active)load();
+  });
+  setInterval(()=>{if(active&&!posting)load()},7000);
   load();
 })();
