@@ -1,13 +1,15 @@
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 
-const defaults={color1:"#171a20",alternateCells:false,alternateCellColor:"#f7f7f8"};
+const defaults={color1:"#171a20",alternateCells:false,alternateCellColor:"#f7f7f8",gradientColor1:"#67a3ff",gradientColor2:"#9f71ff"};
 const color=value=>/^#[0-9a-f]{6}$/i.test(String(value||""))?String(value):null;
 function normalize(input){
   if(!input||typeof input!=="object")return null;
   return {
     color1:color(input.color1)||defaults.color1,
     alternateCells:!!input.alternateCells,
-    alternateCellColor:color(input.alternateCellColor)||defaults.alternateCellColor
+    alternateCellColor:color(input.alternateCellColor)||defaults.alternateCellColor,
+    gradientColor1:color(input.gradientColor1)||defaults.gradientColor1,
+    gradientColor2:color(input.gradientColor2)||defaults.gradientColor2
   };
 }
 
