@@ -70,10 +70,6 @@
     const room=roomId(),author=authorId(),personas=named(state.profile?.personas);
     if(personas.length)storeLastGood(room,state.profile.personas,author);
 
-    // The legacy saveProfile writes personas:<room> unconditionally. Hide roomId
-    // from that one synchronous write whenever the in-memory list is empty.
-    // profile-data-integrity still sees the URL room and can record an explicit
-    // last-PC deletion in its vault, so intentional deletion continues to work.
     const suppressPersonaWrite=!!room&&!personas.length;
     const originalRoom=state.roomId;
     if(suppressPersonaWrite)state.roomId=null;
@@ -125,4 +121,11 @@
   else if(initialRoom&&!explicitEmpty(initialRoom,initialAuthor)){
     Promise.resolve(window.jijinEnsurePersonas?.()).catch(()=>{}).finally(()=>restoreLastGood(initialRoom,initialAuthor));
   }
+})();
+
+// The durable PL/PC master is loaded after all legacy persona guards so room data
+// becomes a reference/cache, never the source of truth.
+(()=>{
+  if(document.querySelector('script[data-jijin-player-master]'))return;
+  const script=document.createElement('script');script.src='/shared/player-master.js?v=20260830-1';script.dataset.jijinPlayerMaster='1';document.body.append(script);
 })();
