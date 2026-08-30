@@ -93,23 +93,22 @@
     if(typeof renderPlaced==="function")renderPlaced();
   }
 
-  function pruneRemovedParticipants(validIds,state){
-    state.items||={};
-    let changed=false;
-    Object.keys(state.items).forEach(id=>{
-      if(id.startsWith("participant:")&&!validIds.has(id)){delete state.items[id];changed=true}
-    });
-    if(typeof templateStates==="function"&&typeof setTemplateStates==="function"){
-      const all=templateStates();let templatesChanged=false;
-      Object.values(all||{}).forEach(saved=>{
-        const stored=saved?.items;if(!stored)return;
-        Object.keys(stored).forEach(id=>{
-          if(id.startsWith("participant:")&&!validIds.has(id)){delete stored[id];templatesChanged=true}
-        });
-      });
-      if(templatesChanged)setTemplateStates(all);
+  // Participant sync is eventually consistent. A short-lived missing participant
+  // must never erase a PC that is already placed on a template. Keep the last
+  // known participant record until the user explicitly removes the placed item.
+  function retainPlacedParticipants(list){
+    const next=Array.isArray(list)?[...list]:[];
+    const known=new Set(next.map(person=>`participant:${person.authorId}:${person.personaId}`));
+    const state=appState();
+    for(const person of participants){
+      const id=`participant:${person.authorId}:${person.personaId}`;
+      if(known.has(id))continue;
+      const local=state?.items?.[id]||savedItemState(id);
+      if(!local?.placed)continue;
+      next.push(person);
+      known.add(id);
     }
-    return changed;
+    return next;
   }
 
   function paintParticipants(){
@@ -127,13 +126,12 @@
   }
 
   function setParticipants(list,{forcePaint=false}={}){
-    const next=list||[],signature=participantKey(next);
+    const next=retainPlacedParticipants(list),signature=participantKey(next);
     participants=next;
     if(signature===participantsSignature){if(forcePaint)paintParticipants();return false}
     participantsSignature=signature;
     const state=appState();state.items||={};
-    const validIds=new Set(participants.map(person=>`participant:${person.authorId}:${person.personaId}`));
-    let stateChanged=pruneRemovedParticipants(validIds,state);
+    let stateChanged=false;
     items=participants.map(person=>{
       const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person),fallback=fallbackImage(person);
       if(!state.items[id]){state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);stateChanged=true}
@@ -343,7 +341,7 @@
     load(activeRoom,true).catch(console.warn);
   });
   window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
-  window.addEventListener("jijinboard-player-master-updated",()=>{participantsSignature="";load(activeRoom,true).catch(console.warn)});
+  window.addEventListener("jijinboard-player-master-updated",()=>load(activeRoom).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>{
     paintParticipants();
     paintAfterLayout();
