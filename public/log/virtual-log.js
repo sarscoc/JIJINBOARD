@@ -69,20 +69,20 @@
     const meta = metaFor(panel), scroll = panel?.querySelector(".page-scroll"), rowsBox = panel?.querySelector(".virtual-rows");
     if (!meta || !scroll || !rowsBox || !meta.items.length) return;
     const prefix = prefixFor(meta), viewport = Math.max(320, scroll.clientHeight || 640);
-    let topY = Math.max(0, scroll.scrollTop - viewport * 1.5), bottomY = scroll.scrollTop + viewport * 3.5;
+    let topY = Math.max(0, scroll.scrollTop - viewport), bottomY = scroll.scrollTop + viewport * 2.5;
     if (focusIndex != null && Number.isFinite(focusIndex)) {
       const focusY = prefix[Math.max(0, Math.min(meta.items.length - 1, focusIndex))] || 0;
-      topY = Math.max(0, Math.min(topY, focusY - viewport * 1.25));
-      bottomY = Math.max(bottomY, focusY + viewport * 1.75);
+      topY = Math.max(0, Math.min(topY, focusY - viewport));
+      bottomY = Math.max(bottomY, focusY + viewport * 1.5);
     }
     let start = indexAtOffset(prefix, topY), end = Math.min(meta.items.length, indexAtOffset(prefix, bottomY) + 2);
-    if (end - start < 42) {
-      const missing = 42 - (end - start), before = Math.min(start, Math.floor(missing / 2));
+    if (end - start < 32) {
+      const missing = 32 - (end - start), before = Math.min(start, Math.floor(missing / 2));
       start -= before; end = Math.min(meta.items.length, end + missing - before);
     }
-    if (end - start > 220) {
+    if (end - start > 160) {
       const center = focusIndex != null ? focusIndex : indexAtOffset(prefix, scroll.scrollTop + viewport / 2);
-      start = Math.max(0, center - 90); end = Math.min(meta.items.length, start + 220); start = Math.max(0, end - 220);
+      start = Math.max(0, center - 65); end = Math.min(meta.items.length, start + 160); start = Math.max(0, end - 160);
     }
     if (!force && meta.start === start && meta.end === end && rowsBox.childElementCount) return;
     meta.start = start; meta.end = end;
@@ -110,6 +110,10 @@
     document.querySelectorAll(".log-page[data-virtual-key]").forEach(mountPanel);
   }
 
+  function mountCurrentPanel() {
+    mountPanel(document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"][data-virtual-key]`));
+  }
+
   function revealIndex(panel, index, align = .28) {
     const meta = metaFor(panel), scroll = panel?.querySelector(".page-scroll"); if (!meta || !scroll || index < 0) return false;
     const prefix = prefixFor(meta), viewport = Math.max(320, scroll.clientHeight || 640);
@@ -131,9 +135,9 @@
     state.virtualGeneration += 1;
     state.virtualPanels.clear();
     const result = originalRenderLog(anchorTime);
-    // Mount exactly after a real log render. The old implementation watched the
-    // entire document and re-scanned every virtual page after each scroll DOM swap.
-    queueMicrotask(mountAllPanels);
+    // First paint only needs the panel the user can actually see. Adjacent tabs
+    // stay as spacer shells and are mounted when navigation reaches them.
+    queueMicrotask(mountCurrentPanel);
     return result;
   };
 
