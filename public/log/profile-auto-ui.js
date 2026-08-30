@@ -28,6 +28,24 @@
   `;
   document.head.appendChild(style);
 
+  // Prefer the server-backed PL MASTER icon for presence. Local profile icons are
+  // data URLs; the master exposes the same image as a stable /api/... URL that is
+  // safe to share with every device in the room.
+  if (typeof window.realtimePresencePayload === "function" && !window.realtimePresencePayload.__jijinMasterIcon) {
+    const basePresencePayload = window.realtimePresencePayload;
+    const wrappedPresencePayload = function(type="presence") {
+      const payload = basePresencePayload(type);
+      const masterIcon = String(window.JIJINPlayerMaster?.master?.plIcon || "");
+      if (masterIcon) payload.plIcon = masterIcon;
+      return payload;
+    };
+    wrappedPresencePayload.__jijinMasterIcon = true;
+    window.realtimePresencePayload = wrappedPresencePayload;
+    window.addEventListener("jijinboard-player-master-updated", () => {
+      try { heartbeatPresence?.(); } catch {}
+    });
+  }
+
   // The embedded LOG hides its original topbar. Move only the existing theme
   // button into the LOG controls so the original behavior/handler is retained.
   if (document.documentElement.classList.contains("embedded")) {
