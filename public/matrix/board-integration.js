@@ -89,6 +89,29 @@
     return payload;
   }
 
+  function updatePlacedPoint(itemId,item){
+    let el=null;
+    for(const node of document.querySelectorAll(".placed[data-id]")){if(node.dataset.id===itemId){el=node;break}}
+    if(!item?.placed){
+      if(el){el.remove();if(typeof renderMobilePlacementTray==="function")renderMobilePlacementTray()}
+      return true;
+    }
+    if(!el)return false;
+    const overlay=document.querySelector("#templateOverlay");
+    const inTemplate=!!overlay&&el.parentElement===overlay;
+    if(inTemplate&&typeof templateGeometry==="function"&&typeof getTemplatePoint==="function"){
+      const point=getTemplatePoint(item,templateGeometry());
+      el.style.left=point.x+"%";
+      el.style.top=point.y+"%";
+      if(typeof currentTemplateUiScale==="function")el.style.transform=`translate(-50%,-50%) scale(${currentTemplateUiScale(appState())})`;
+    }else{
+      el.style.left=(item.x??50)+"%";
+      el.style.top=(item.y??50)+"%";
+    }
+    const z=Number(item.zOrder);if(Number.isFinite(z)&&z>0)el.style.zIndex=String(z);
+    return true;
+  }
+
   function applyRemotePoint(data){
     const itemId=String(data?.itemId||"");
     if(!itemId||!roomId)return;
@@ -100,7 +123,7 @@
       saveJSON(STATE,state);
       saveCurrentTemplateState(state);
       const live=items?.find?.(entry=>entry.id===itemId);if(live)live.local=item;
-      if(typeof renderPlaced==="function")renderPlaced();
+      if(!updatePlacedPoint(itemId,item)&&typeof renderPlaced==="function")renderPlaced();
     }finally{applyingRemote=false}
   }
 
