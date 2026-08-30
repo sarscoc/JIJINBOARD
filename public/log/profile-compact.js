@@ -73,12 +73,11 @@
   hydratePlDarkColor();
   hydratePersonaColors();
 
+  // Keep draft rows in room-local storage so autosave/repaint cannot erase a
+  // character while its name is still being entered. Server sync paths below
+  // continue to ignore unnamed rows.
   saveProfile = function saveCompactProfile() {
-    const all = state.profile.personas || [];
-    const persistable = all.filter(persona => !persona._draft || String(persona.name || "").trim());
-    state.profile.personas = persistable;
     baseSaveProfile();
-    state.profile.personas = all;
     try { localStorage.setItem(darkProfileKey, JSON.stringify({ plColorDark: safeColor(state.profile.plColorDark || state.profile.plColor) })); } catch {}
   };
 
@@ -87,8 +86,6 @@
     if (hydratePersonaColors()) saveProfile();
   };
 
-  // Annotation.color continues to use one DB column; the two values are packed
-  // as "light|dark" and resolved by the current LOG theme.
   markerColor = function markerColorForTheme(value) {
     const pair = decodePair(value);
     return document.documentElement.classList.contains("dark") ? pair.dark : pair.light;
@@ -171,6 +168,7 @@
     const existing = state.profile.personas.findIndex(persona => persona._draft && !String(persona.name || "").trim());
     if (existing >= 0) return $("[data-persona-name='" + existing + "']")?.focus();
     state.profile.personas.push({ id:uid(), name:"", type:"PC", icon:"", color:"#ffe66b", colorDark:"#ffe66b", _draft:true });
+    saveProfile();
     const index = state.profile.personas.length - 1;
     renderPersonas();
     setTimeout(() => document.querySelector(`[data-persona-name="${index}"]`)?.focus(), 0);
@@ -179,6 +177,7 @@
   async function ensureBoardParticipants() {
     if (!boardId || !state.roomId || !state.profile?.id || !state.profile?.plName) return;
     const personas = (state.profile.personas || []).filter(persona => persona.type === "PC" && String(persona.name || "").trim()).map(persona => ({ id:persona.id || uid(), name:persona.name, type:"PC", icon:persona.icon || "" }));
+    if (!personas.length) return;
     await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(state.roomId)}/participants`, { method:"POST", body:JSON.stringify({ authorId:state.profile.id, plName:state.profile.plName, personas }) });
   }
 
@@ -261,19 +260,15 @@
     const darkInput = event.target.closest("[data-persona-color-dark]");
     if (darkInput) {
       const persona = state.profile.personas[Number(darkInput.dataset.personaColorDark)];
-      if (persona) { persona.colorDark = darkInput.value; saveProfile(); syncPersonaColor(persona).catch(error => alert(error.message)); }
+      if (persona) { persona.colorDark = darkInput.value; saveProfile(); syncPersonaColor(persona).catch(() => {}); }
     }
-
+    const lightInput = event.target.closest("[data-persona-color]");
+    if (lightInput) {
+      const persona = state.profile.personas[Number(lightInput.dataset.personaColor)];
+      if (persona) { persona.color = lightInput.value; saveProfile(); syncPersonaColor(persona).catch(() => {}); }
+    }
     const matrixInput = event.target.closest("[data-matrix-icon]");
-    if (matrixInput) await uploadMatrixIcon(matrixInput);
-
-    const personaIcon = event.target.closest("[data-persona-icon]");
-    if (personaIcon) {
-      const index = Number(personaIcon.dataset.personaIcon), persona = state.profile.personas[index], file = personaIcon.files?.[0];
-      if (persona && file) {
-        try { persona.icon = await resizeIcon(file); saveProfile(); renderPersonas(); emitIntegratedProfile(); await ensureBoardParticipants(); await loadMatrixIcons(); } catch {}
-      }
-    }
+    if (matrixInput) uploadMatrixIcon(matrixInput);
   });
 
   document.addEventListener("click", event => {
