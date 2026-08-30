@@ -1,7 +1,8 @@
 /* SPREADSHEET COMMENTS uses the same visual grammar as LOGCOMMENTS. */
-html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;align-self:start!important;overflow:hidden!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html.embedded #sheetComments{position:relative!important;z-index:20!important;isolation:isolate!important;height:auto!important;min-height:160px!important;max-height:calc(100vh - var(--sheet-page-pad) - var(--sheet-toolbar-height) - var(--sheet-gap) - var(--sheet-page-pad))!important;align-self:start!important;overflow:hidden!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 html.embedded #sheetComments>section{flex:0 1 auto!important;min-height:0!important;max-height:calc(100vh - (var(--sheet-page-pad) * 2) - var(--sheet-toolbar-height) - var(--sheet-gap) - 48px)!important;overflow-y:auto!important;overscroll-behavior:contain!important;scrollbar-gutter:auto!important;padding:6px!important;background:transparent!important}
 html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!important}
+html.embedded #sheetWrap{position:relative!important;z-index:1!important;isolation:isolate!important}
 
 /* Header = LOGCOMMENTS .comments-head */
 #sheetComments .sheet-comments-head{padding:13px 15px!important;border-bottom:1px solid var(--sheet-line)!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;font-size:11px!important;line-height:1.5!important;letter-spacing:.12em!important;background:transparent!important}
@@ -43,9 +44,10 @@ html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!importan
 #sheetCommentDialog .comment-edit-delete{justify-self:start!important;border:0!important;background:transparent!important;color:#d95b66!important;font-size:9px!important;padding:3px 0!important;cursor:pointer!important}
 #sheetCommentDialog .comment-edit-delete[hidden]{display:none!important}
 
-/* Cell marker: tiny lower-right triangle in theme color 1. */
+/* Cell marker: tiny lower-right triangle in theme color 1. It stays inside the
+   sheet stacking context so it can never paint over the COMMENTS panel. */
 [data-sheet-cell].sheet-has-comment{position:relative!important}
-[data-sheet-cell].sheet-has-comment::after{content:"";position:absolute;right:1px;bottom:1px;width:0;height:0;border-left:5px solid transparent;border-bottom:5px solid var(--jijin-sheet-comment-color,#171a20);pointer-events:none;z-index:4}
+[data-sheet-cell].sheet-has-comment::after{content:"";position:absolute;right:1px;bottom:1px;width:0;height:0;border-left:5px solid transparent;border-bottom:5px solid var(--jijin-sheet-comment-color,#171a20);pointer-events:none;z-index:1}
 
 @media(max-width:800px){
   html.embedded #sheetComments{height:auto!important;min-height:160px!important;max-height:220px!important}
