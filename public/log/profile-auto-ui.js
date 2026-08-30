@@ -17,9 +17,10 @@
     .compact-profile-dialog form{padding-top:14px!important}
     .compact-profile-dialog .profile-remove{display:none!important}
     .compact-profile-dialog.show-delete-controls .profile-remove{display:inline-grid!important}
-    .profile-delete-toggle-wrap{display:flex;justify-content:flex-end;margin:2px 0 4px}
-    .profile-delete-toggle{border:0;background:transparent;color:#8b9298;font-size:9px;padding:3px 0;cursor:pointer}
-    .compact-profile-dialog.show-delete-controls .profile-delete-toggle{color:#c85b64}
+    .profile-delete-toggle-wrap{display:block;margin:8px 0 0;padding:8px 0 0;border-top:1px solid #e5e8eb}
+    .profile-delete-toggle{display:inline!important;border:0!important;background:transparent!important;box-shadow:none!important;color:#8b9298!important;font-size:9px!important;line-height:1.4!important;padding:0!important;margin:0!important;cursor:pointer!important;text-decoration:none!important}
+    .profile-delete-toggle:hover{text-decoration:underline!important;color:#666f77!important}
+    .compact-profile-dialog.show-delete-controls .profile-delete-toggle{color:#c85b64!important}
     html.embedded #themeBtn.embedded-theme-toggle{
       display:inline-grid!important;place-items:center;flex:0 0 30px;
       width:30px;height:30px;min-width:30px;padding:0;border-radius:8px
@@ -43,8 +44,19 @@
 
   if (!dialog || !form) return;
 
-  const addWrap = dialog.querySelector(".profile-add-wrap");
-  if (addWrap && !dialog.querySelector(".profile-delete-toggle-wrap")) {
+  // Bulk persona deletion is intentionally unavailable. Remove legacy controls
+  // even if another compatibility script inserts one after this script loads.
+  const removeBulkDeleteControls = () => {
+    dialog.querySelectorAll("button").forEach(button => {
+      if (String(button.textContent || "").trim() === "PCをすべて削除") button.remove();
+    });
+  };
+  removeBulkDeleteControls();
+  const destructiveObserver = new MutationObserver(removeBulkDeleteControls);
+  destructiveObserver.observe(dialog, { childList: true, subtree: true });
+
+  const transfer = dialog.querySelector(".profile-transfer");
+  if (transfer && !dialog.querySelector(".profile-delete-toggle-wrap")) {
     const wrap = document.createElement("div");
     wrap.className = "profile-delete-toggle-wrap";
     const toggle = document.createElement("button");
@@ -58,7 +70,7 @@
       toggle.setAttribute("aria-expanded", String(open));
     });
     wrap.append(toggle);
-    addWrap.insertAdjacentElement("afterend", wrap);
+    transfer.insertAdjacentElement("afterend", wrap);
   }
   dialog.addEventListener("close", () => {
     dialog.classList.remove("show-delete-controls");
