@@ -8,6 +8,7 @@ import { handleGroupRowColors } from "./group-row-colors.js";
 import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
 import { handleLogDisplayMode } from "./log-display-mode.js";
 import { handleBoardParticipants } from "./board-participants.js";
+import { handleTopAuthApi, serveProtectedTop } from "./top-auth.js";
 
 export { RoomHub };
 
@@ -47,8 +48,18 @@ export default {
   async fetch(request, env, executionContext) {
     const url = new URL(request.url);
 
+    if (url.pathname === "/" || url.pathname === "/index.html") {
+      if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
+      return serveProtectedTop(request, env);
+    }
+
     if (!url.pathname.startsWith("/api/")) {
       return env.ASSETS.fetch(request);
+    }
+
+    if (url.pathname.startsWith("/api/top-auth/")) {
+      const action=url.pathname.slice("/api/top-auth/".length).split("/")[0]||"";
+      return handleTopAuthApi(request,env,action);
     }
 
     if (!env.DB || !env.LOGS || !env.ROOMS) {
