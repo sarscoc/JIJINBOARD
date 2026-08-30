@@ -1,0 +1,22 @@
+/* Keep Spreadsheet comment markers visible inside their own cells without letting them paint over COMMENTS. */
+html.embedded #sheetComments{
+  position:relative!important;
+  z-index:20!important;
+}
+[data-sheet-cell].sheet-has-comment{
+  position:relative!important;
+  overflow:hidden!important;
+  background-image:none!important;
+}
+[data-sheet-cell].sheet-has-comment::after{
+  content:""!important;
+  position:absolute!important;
+  right:1px!important;
+  bottom:1px!important;
+  width:6px!important;
+  height:6px!important;
+  background:var(--jijin-sheet-comment-color,#171a20)!important;
+  clip-path:polygon(100% 0,100% 100%,0 100%)!important;
+  pointer-events:none!important;
+  z-index:0!important;
+}
