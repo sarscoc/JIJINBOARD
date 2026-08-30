@@ -79,17 +79,28 @@
   function placePcPreservingState(id,x,y){
     if(typeof placeItem!=="function")return;
     const preserved=annotationStateForPlacement(id);
+    const sourceItem=items.find(entry=>entry.id===id);
+    const placementImage=String(sourceItem?.placementImage||sourceItem?.baseImage||sourceItem?.imageFallback||"");
     placeItem(id,x,y);
-    if(!preserved)return;
 
     const state=appState();
     state.items||={};
     const local=state.items[id]||(state.items[id]=makeLocalItemState(id));
-    Object.assign(local,preserved);
+    if(preserved)Object.assign(local,preserved);
+    // The image shown on the character page is captured exactly when the PC is
+    // placed. From this point on every viewer uses the same saved URL instead of
+    // depending on participant/profile refresh timing.
+    if(placementImage)local.placedImage=placementImage;
     saveState(state);
     if(typeof saveCurrentTemplateState==="function")saveCurrentTemplateState(state);
     const item=items.find(entry=>entry.id===id);
-    if(item)item.local=local;
+    if(item){
+      item.local=local;
+      if(placementImage){
+        item.baseImage=placementImage;
+        item.imageFallback=item.imageFallback||placementImage;
+      }
+    }
     if(typeof renderPlaced==="function")renderPlaced();
   }
 
@@ -135,7 +146,9 @@
     items=participants.map(person=>{
       const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person),fallback=fallbackImage(person);
       if(!state.items[id]){state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);stateChanged=true}
-      return{id,name:person.name,url:"",baseImage:image,imageFallback:fallback,imageSignature:`participant:${person.personaId}:${image}:${fallback}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
+      const placedImage=String(state.items[id]?.placedImage||"");
+      const displayImage=placedImage||image;
+      return{id,name:person.name,url:"",baseImage:displayImage,imageFallback:fallback||displayImage,placementImage:person.serverIcon||image||fallback,imageSignature:`participant:${person.personaId}:${displayImage}:${fallback}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     if(stateChanged)saveState(state);
     paintParticipants();
@@ -160,7 +173,8 @@
       if(!localPerson)return person;
       const localBase=String(localPerson.icon||"");
       const localMatrix=String(localPerson.matrixIcon||"");
-      return {...person,icon:localBase||person.icon||"",baseIcon:localBase||person.baseIcon||person.icon||"",matrixIcon:localMatrix||person.matrixIcon||""};
+      const serverIcon=preferredImage(person);
+      return {...person,serverIcon,icon:localBase||person.icon||"",baseIcon:localBase||person.baseIcon||person.icon||"",matrixIcon:localMatrix||person.matrixIcon||""};
     });
   }
 
