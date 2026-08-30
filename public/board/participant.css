@@ -16,7 +16,8 @@
   position:fixed!important;
   top:50px!important;
   right:10px!important;
-  width:min(680px,calc(100vw - 20px))!important;
+  width:min(480px,calc(100vw - 20px))!important;
+  max-width:480px!important;
   height:min(520px,calc(100vh - 62px))!important;
   min-height:340px!important;
   grid-template-columns:58px minmax(0,1fr)!important;
@@ -76,6 +77,7 @@
     top:49px!important;
     right:7px!important;
     width:calc(100vw - 14px)!important;
+    max-width:none!important;
     height:min(500px,calc(100vh - 57px))!important;
     min-height:0!important;
     grid-template-columns:52px minmax(0,1fr)!important;
