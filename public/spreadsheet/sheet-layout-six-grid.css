@@ -1,0 +1,17 @@
+/* 6-column vertical Character layout editor */
+.sheet-layout-workspace{display:grid;grid-template-columns:180px minmax(0,1fr);gap:12px;align-items:start}
+.sheet-layout-unplaced{position:sticky;top:58px;border-right:1px solid var(--line);padding-right:10px;min-width:0}
+.sheet-layout-unplaced-title{font-size:11px;font-weight:900;margin:0 0 7px}
+.sheet-layout-unplaced-list{display:grid;gap:5px}
+.sheet-layout-unplaced-item{border:1px solid var(--line);background:#fff;border-radius:7px;padding:7px 8px;font-size:11px;font-weight:800;cursor:grab;user-select:none}
+.sheet-layout-unplaced-item:active{cursor:grabbing}
+.sheet-layout-unplaced-empty{font-size:10px;color:var(--muted);padding:8px 2px}
+.sheet-layout-canvas-wrap{min-width:0}
+.sheet-layout-modal .sheet-layout-canvas{grid-template-columns:repeat(6,minmax(0,1fr))!important;grid-auto-rows:minmax(72px,auto)!important;gap:6px!important;padding:6px!important;min-height:720px!important;height:auto!important;align-content:start!important;background-size:calc((100% - 30px)/6 + 6px) 78px!important}
+.sheet-layout-modal .sheet-layout-card{position:relative!important;min-width:0!important;height:100%!important;overflow:visible!important}
+.sheet-layout-resize{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border:0;background:transparent;cursor:nwse-resize;z-index:5;padding:0}
+.sheet-layout-resize::after{content:"";position:absolute;right:3px;bottom:3px;width:8px;height:8px;border-right:2px solid #9ca7b9;border-bottom:2px solid #9ca7b9}
+.sheet-layout-remove{position:absolute;right:3px;top:3px;width:20px;height:20px;border:0;background:rgba(255,255,255,.92);color:#9aa3b1;border-radius:5px;font-size:14px;line-height:18px;padding:0;z-index:5}
+.sheet-layout-card.is-resizing{z-index:10;outline:2px solid #aebbd5;user-select:none}
+.sheet-layout-canvas.drag-over{outline:2px solid #b9c5dc;outline-offset:2px}
+@media(max-width:760px){.sheet-layout-workspace{grid-template-columns:1fr}.sheet-layout-unplaced{position:static;border-right:0;border-bottom:1px solid var(--line);padding:0 0 9px}.sheet-layout-unplaced-list{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet-layout-modal .sheet-layout-canvas{grid-template-columns:repeat(6,minmax(42px,1fr))!important;overflow-x:auto}}
