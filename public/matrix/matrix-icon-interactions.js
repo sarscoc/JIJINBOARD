@@ -118,6 +118,38 @@
     event.stopImmediatePropagation?.();
   }
 
+  // Inline editors are children of a placed icon, while MATRIX clips the canvas.
+  // Near the top edge the editor used to be cut off regardless of z-index. Keep
+  // it in its existing DOM (so save/outside-click behavior remains untouched),
+  // but lift it above every MATRIX layer and translate it back inside the visible
+  // canvas whenever its natural position would leave the viewport.
+  function keepInlineEditorVisible(placed) {
+    if (!placed) return;
+    const editor = placed.querySelector(".inline-comment-editor") || document.querySelector(".inline-comment-editor");
+    if (!editor) return;
+    const bounds = document.querySelector(".canvas")?.getBoundingClientRect() || document.querySelector(".stage")?.getBoundingClientRect();
+    if (!bounds) return;
+
+    placed.classList.add("comment-editing");
+    placed.style.zIndex = "2147483000";
+    editor.style.zIndex = "2147483640";
+    editor.style.isolation = "isolate";
+    editor.style.translate = "0 0";
+
+    const rect = editor.getBoundingClientRect();
+    const pad = 8;
+    let dx = 0, dy = 0;
+    if (rect.left < bounds.left + pad) dx += bounds.left + pad - rect.left;
+    if (rect.right > bounds.right - pad) dx -= rect.right - (bounds.right - pad);
+    if (rect.top < bounds.top + pad) dy += bounds.top + pad - rect.top;
+    if (rect.bottom > bounds.bottom - pad) dy -= rect.bottom - (bounds.bottom - pad);
+    editor.style.translate = `${Math.round(dx)}px ${Math.round(dy)}px`;
+  }
+
+  function raiseInlineEditorSoon(placed) {
+    requestAnimationFrame(() => requestAnimationFrame(() => keepInlineEditorVisible(placed)));
+  }
+
   // The original MATRIX core calls openMatrixIconComment(id) from both click
   // and pointerup when an icon was not dragged. That used to open the composer
   // even after our click override. Re-purpose that legacy entry point so every
@@ -167,11 +199,25 @@
     if (mine) {
       if (typeof window.openDrawer === "function") window.openDrawer(id);
       else if (typeof window.openInlineCommentEditor === "function") window.openInlineCommentEditor(id, placed);
+      raiseInlineEditorSoon(placed);
       return;
     }
 
     if (sharedCommentComposer) sharedCommentComposer(id);
   }, true);
+
+  // Also protect editor openings triggered from legacy/internal MATRIX paths.
+  const editorObserver = new MutationObserver(records => {
+    for (const record of records) {
+      for (const node of record.addedNodes) {
+        if (!(node instanceof Element)) continue;
+        const editor = node.matches?.(".inline-comment-editor") ? node : node.querySelector?.(".inline-comment-editor");
+        if (!editor) continue;
+        raiseInlineEditorSoon(editor.closest(".placed") || document.querySelector(".placed.comment-editing"));
+      }
+    }
+  });
+  editorObserver.observe(document.documentElement, { childList: true, subtree: true });
 
   // Any template change restores the room-wide COMMENTS list.
   document.addEventListener("click", event => {
