@@ -2,6 +2,14 @@ import { DurableObject } from "cloudflare:workers";
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 const clean=(value,max=100)=>String(value||"").slice(0,max);
+const cleanData=value=>{
+  if(value==null)return null;
+  try{
+    const text=JSON.stringify(value);
+    if(text.length>6000)return null;
+    return JSON.parse(text);
+  }catch{return null}
+};
 
 export class RoomHub extends DurableObject {
   constructor(ctx,env){super(ctx,env)}
@@ -15,7 +23,7 @@ export class RoomHub extends DurableObject {
       server.serializeAttachment({client_id:"",author_id:"",pl_name:"",pl_icon:"",is_typing:false,typing_name:"",typing_icon:"",typing_message_id:""});
       return new Response(null,{status:101,webSocket:client});
     }
-    if(url.pathname==="/notify"&&request.method==="POST")return request.json().then(message=>{this.broadcast({type:"refresh",action:clean(message?.action,40)},clean(message?.excludeClientId,100));return json({ok:true})}).catch(()=>json({error:"Invalid message"},400));
+    if(url.pathname==="/notify"&&request.method==="POST")return request.json().then(message=>{this.broadcast({type:"refresh",action:clean(message?.action,40),data:cleanData(message?.data)},clean(message?.excludeClientId,100));return json({ok:true})}).catch(()=>json({error:"Invalid message"},400));
     if(url.pathname==="/deleted"&&request.method==="POST"){this.broadcast({type:"room-deleted"});return json({ok:true})}
     return new Response("Not found",{status:404});
   }
@@ -24,12 +32,12 @@ export class RoomHub extends DurableObject {
     if(typeof message!=="string"||message.length>180000)return;
     let data;try{data=JSON.parse(message)}catch{return}
 
-    // Data changes are announced only after a successful mutation. The hub does
-    // not poll anything: it simply wakes the other connected clients so they can
-    // fetch the one resource that actually changed.
+    // Data changes are announced only after a successful mutation. Small payloads
+    // (such as one MATRIX icon point) can ride on the notification so peers do not
+    // need to fetch the complete resource again.
     if(data?.type==="change"){
       const action=clean(data.action,40);
-      if(action)this.broadcast({type:"refresh",action},"",socket);
+      if(action)this.broadcast({type:"refresh",action,data:cleanData(data.data)},"",socket);
       return;
     }
 
