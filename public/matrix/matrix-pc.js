@@ -35,7 +35,7 @@
   const params=new URL(location.href).searchParams,boardId=params.get("board");
   if(!boardId)return;
   let activeRoom=params.get("room")||"",participants=[],draggingPcId="",participantsSignature="";
-  let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0;
+  let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0,activePaintFrame=0;
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const localPcs=(room=activeRoom)=>{try{return (JSON.parse(localStorage.getItem(`personas:${room}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
@@ -112,10 +112,24 @@
     return changed;
   }
 
-  function setParticipants(list){
+  function paintParticipants(){
+    try{renderLibrary()}catch{}
+    try{renderPlaced()}catch{}
+    try{renderPcSources()}catch{}
+  }
+
+  function paintAfterLayout(){
+    if(activePaintFrame)cancelAnimationFrame(activePaintFrame);
+    activePaintFrame=requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      activePaintFrame=0;
+      paintParticipants();
+    }));
+  }
+
+  function setParticipants(list,{forcePaint=false}={}){
     const next=list||[],signature=participantKey(next);
     participants=next;
-    if(signature===participantsSignature)return false;
+    if(signature===participantsSignature){if(forcePaint)paintParticipants();return false}
     participantsSignature=signature;
     const state=appState();state.items||={};
     const validIds=new Set(participants.map(person=>`participant:${person.authorId}:${person.personaId}`));
@@ -126,7 +140,7 @@
       return{id,name:person.name,url:"",baseImage:image,imageFallback:fallback,imageSignature:`participant:${person.personaId}:${image}:${fallback}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     if(stateChanged)saveState(state);
-    renderLibrary();renderPlaced();renderPcSources();
+    paintParticipants();
     return true;
   }
 
@@ -183,8 +197,9 @@
       let list=mergeOwnLocalImages(entry?.participants||[],nextRoom);
       const profile=me();
       if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows(nextRoom)];
-      setParticipants(list);
+      setParticipants(list,{forcePaint:true});
       lastLoadedAt=Date.now();
+      paintAfterLayout();
     })();
     loadPromise=task;
     try{return await task}finally{if(loadPromise===task)loadPromise=null}
@@ -206,7 +221,6 @@
     document.documentElement.dataset.matrixPcImageFallback="1";
     document.addEventListener("error",event=>{
       const image=event.target;if(!(image instanceof HTMLImageElement))return;
-      const source=image.closest?.("[data-matrix-pc-id]");
       let fallback=image.dataset.fallbackSrc||"";
       if(!fallback){
         const placed=image.closest?.(".placed[data-id]");
@@ -316,10 +330,26 @@
   installImageFallback();
   setupBoardUi();
   setupPcControls();
-  // Initial room load, room changes, and actual participant mutations are the
-  // only server refresh triggers. Tool-tab activation by itself performs no GET.
-  window.addEventListener("matrix-board-room",event=>{participantsSignature="";load(event.detail?.roomId||activeRoom,true).catch(console.warn)});
+
+  // Paint known local PCs immediately. Server participants then replace/merge them.
+  const immediate=localParticipantRows(activeRoom);
+  if(immediate.length)setParticipants(immediate,{forcePaint:true});
+
+  window.addEventListener("matrix-board-room",event=>{
+    activeRoom=event.detail?.roomId||activeRoom;
+    participantsSignature="";
+    const local=localParticipantRows(activeRoom);
+    if(local.length)setParticipants(local,{forcePaint:true});
+    load(activeRoom,true).catch(console.warn);
+  });
   window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
   window.addEventListener("jijinboard-player-master-updated",()=>{participantsSignature="";load(activeRoom,true).catch(console.warn)});
-  setTimeout(()=>load(activeRoom).catch(console.warn),500);
+  window.addEventListener("matrix-board-active",()=>{
+    paintParticipants();
+    paintAfterLayout();
+    load(activeRoom,true).catch(console.warn);
+  });
+
+  // Do not wait 500ms before the first participant request.
+  queueMicrotask(()=>load(activeRoom).catch(console.warn));
 })();
