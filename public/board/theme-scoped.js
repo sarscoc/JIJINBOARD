@@ -5,12 +5,14 @@
 
   const storageKey=`jijinboardScopedTheme:${boardId}`;
   const themeEndpoint=`/api/boards/${encodeURIComponent(boardId)}/theme`;
-  const defaults={color1:"#171a20",alternateCells:false,alternateCellColor:"#f7f7f8"};
+  const defaults={color1:"#171a20",alternateCells:false,alternateCellColor:"#f7f7f8",gradientColor1:"#67a3ff",gradientColor2:"#9f71ff"};
   const validColor=value=>/^#[0-9a-f]{6}$/i.test(String(value||""));
   const normalize=value=>({
     color1:validColor(value?.color1)?value.color1:defaults.color1,
     alternateCells:!!value?.alternateCells,
-    alternateCellColor:validColor(value?.alternateCellColor)?value.alternateCellColor:defaults.alternateCellColor
+    alternateCellColor:validColor(value?.alternateCellColor)?value.alternateCellColor:defaults.alternateCellColor,
+    gradientColor1:validColor(value?.gradientColor1)?value.gradientColor1:defaults.gradientColor1,
+    gradientColor2:validColor(value?.gradientColor2)?value.gradientColor2:defaults.gradientColor2
   });
   function readLocal(){try{const raw=JSON.parse(localStorage.getItem(storageKey)||"null");if(!raw)return null;const clean=normalize(raw);if(JSON.stringify(clean)!==JSON.stringify(raw))localStorage.setItem(storageKey,JSON.stringify(clean));return clean}catch{return null}}
   const localTheme=readLocal();
@@ -21,8 +23,9 @@
   function adminToken(){try{return localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||""}catch{return localStorage.getItem(`boardAdmin:${boardId}`)||""}}
 
   const uiInk="rgb(75,75,75)";
-  const whiteGradient="background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,rgba(103,163,255,.24),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.12),transparent 30%)!important;background-repeat:no-repeat!important;";
   const noBlur="backdrop-filter:none!important;-webkit-backdrop-filter:none!important;";
+  const hexRgba=(hex,alpha)=>{const value=validColor(hex)?hex:"#000000",n=parseInt(value.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`};
+  const whiteGradient=value=>`background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,${hexRgba(value.gradientColor1,.24)},transparent 28%),radial-gradient(circle at 86% 82%,${hexRgba(value.gradientColor2,.12)},transparent 30%)!important;background-repeat:no-repeat!important;`;
 
   function parentCss(value){return `
     .topbar .brand,.board-brand-kicker,.topbar .presence-person b,.topbar .app-tabs button,.log-list-head>span{color:${value.color1}!important}
@@ -31,7 +34,7 @@
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function logCss(value){return `
-    html.embedded body{${whiteGradient}}
+    html.embedded body{${whiteGradient(value)}}
     html.embedded #roomTitle{color:${uiInk}!important}
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),html.embedded .filters .font-size-control{background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;color:${uiInk}!important}
     html.embedded .filters .font-size-control :is(span,strong){color:${uiInk}!important}
@@ -49,7 +52,7 @@
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
   `}
   function matrixCss(value){return `
-    html.embedded body{${whiteGradient}}
+    html.embedded body{${whiteGradient(value)}}
     html.embedded{--matrix-glass:rgba(255,255,255,.85)!important;--matrix-glass-strong:rgba(255,255,255,.85)!important}
     html.embedded .library,html.embedded .stage,html.embedded #matrixIconComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
     html.embedded .matrix-comment-head,html.embedded #matrixIconComments .matrix-comments-body{background:transparent!important;${noBlur}}
@@ -60,7 +63,7 @@
     html.embedded .library::-webkit-scrollbar-thumb,html.embedded #matrixIconComments>section::-webkit-scrollbar-thumb,html.embedded .template-tabs::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function sheetCss(value){return `
-    html.embedded body{${whiteGradient}}
+    html.embedded body{${whiteGradient(value)}}
     html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
     html.embedded #databaseLayout,html.embedded #sheetComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
     html.embedded .table-actions > :is(.btn,button),html.embedded .table-actions .btn,html.embedded .view-switch .btn,
@@ -99,8 +102,8 @@
     .scoped-theme-field{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:38px;padding:6px 8px;border:1px solid #e5e8ed;border-radius:8px;background:#fafbfc;font-weight:750}.scoped-theme-field input[type=color]{width:42px;height:28px;padding:0;border:1px solid #dfe3e8;border-radius:6px;background:transparent}
     .scoped-theme-ui button{height:30px;padding:0 10px;border:1px solid #dfe3e8;border-radius:7px;background:#fff;color:#303640;font-size:9px;cursor:pointer}.scoped-check{justify-content:flex-start}.scoped-check input{width:15px;height:15px;margin:0}.scoped-theme-actions{display:flex;justify-content:flex-end}@media(max-width:620px){.scoped-theme-grid{grid-template-columns:1fr}}
   `;document.head.append(style)}
-  function buildUi(){const slot=document.getElementById("boardDesignSlot");if(!slot)return;installUiStyle();slot.classList.add("scoped-theme-slot");slot.innerHTML=`<div class="scoped-theme-ui"><section class="scoped-theme-section"><div class="scoped-theme-head"><b>共通カラー</b></div><div class="scoped-theme-grid"><label class="scoped-theme-field"><span>文字色1</span><input id="scopedColor1" type="color"></label><label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label><label class="scoped-theme-field"><span>交互マスの色</span><input id="scopedAltColor" type="color"></label></div></section><div class="scoped-theme-actions"><button id="scopedThemeReset" type="button">初期状態に戻す</button></div></div>`;uiBuilt=true;slot.querySelector("#scopedColor1").addEventListener("input",e=>update({color1:e.target.value}));slot.querySelector("#scopedAlt").addEventListener("change",e=>update({alternateCells:e.target.checked}));slot.querySelector("#scopedAltColor").addEventListener("input",e=>update({alternateCellColor:e.target.value}));slot.querySelector("#scopedThemeReset").onclick=()=>{if(confirm("共通デザイン設定を初期状態に戻しますか？"))resetTheme()};syncUi()}
-  function syncUi(){if(!uiBuilt)return;const slot=document.getElementById("boardDesignSlot");if(!slot)return;const set=(id,v)=>{const el=slot.querySelector(`#${id}`);if(el)el.value=v};set("scopedColor1",theme.color1);set("scopedAltColor",theme.alternateCellColor);const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!theme.alternateCells}
+  function buildUi(){const slot=document.getElementById("boardDesignSlot");if(!slot)return;installUiStyle();slot.classList.add("scoped-theme-slot");slot.innerHTML=`<div class="scoped-theme-ui"><section class="scoped-theme-section"><div class="scoped-theme-head"><b>共通カラー</b></div><div class="scoped-theme-grid"><label class="scoped-theme-field"><span>文字色1</span><input id="scopedColor1" type="color"></label><label class="scoped-theme-field"><span>グラデーション色1</span><input id="scopedGradient1" type="color"></label><label class="scoped-theme-field"><span>グラデーション色2</span><input id="scopedGradient2" type="color"></label><label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label><label class="scoped-theme-field"><span>交互マスの色</span><input id="scopedAltColor" type="color"></label></div></section><div class="scoped-theme-actions"><button id="scopedThemeReset" type="button">初期状態に戻す</button></div></div>`;uiBuilt=true;slot.querySelector("#scopedColor1").addEventListener("input",e=>update({color1:e.target.value}));slot.querySelector("#scopedGradient1").addEventListener("input",e=>update({gradientColor1:e.target.value}));slot.querySelector("#scopedGradient2").addEventListener("input",e=>update({gradientColor2:e.target.value}));slot.querySelector("#scopedAlt").addEventListener("change",e=>update({alternateCells:e.target.checked}));slot.querySelector("#scopedAltColor").addEventListener("input",e=>update({alternateCellColor:e.target.value}));slot.querySelector("#scopedThemeReset").onclick=()=>{if(confirm("共通デザイン設定を初期状態に戻しますか？"))resetTheme()};syncUi()}
+  function syncUi(){if(!uiBuilt)return;const slot=document.getElementById("boardDesignSlot");if(!slot)return;const set=(id,v)=>{const el=slot.querySelector(`#${id}`);if(el)el.value=v};set("scopedColor1",theme.color1);set("scopedGradient1",theme.gradientColor1);set("scopedGradient2",theme.gradientColor2);set("scopedAltColor",theme.alternateCellColor);const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!theme.alternateCells}
   function installDesignTabOverride(){const old=document.querySelector('[data-board-settings-tab="design"]'),page=document.querySelector('[data-board-settings-page="design"]');if(!old||!page||old.dataset.scopedTheme==="1")return !!old;const button=old.cloneNode(true);button.dataset.scopedTheme="1";old.replaceWith(button);button.addEventListener("click",()=>{document.querySelectorAll("[data-board-settings-tab]").forEach(tab=>tab.classList.toggle("active",tab===button));document.querySelectorAll("[data-board-settings-page]").forEach(item=>item.hidden=item!==page);if(!uiBuilt)buildUi();else syncUi();loadRemote()});return true}
 
   applyAll();
