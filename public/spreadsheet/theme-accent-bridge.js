@@ -25,7 +25,7 @@
     document.documentElement.style.setProperty("--user-accent-soft",`color-mix(in srgb,${color} 16%,transparent)`);
     document.documentElement.style.setProperty("--user-accent-faint",`color-mix(in srgb,${color} 7%,transparent)`);
     try{window.applyGlobalTheme?.()}catch{}
-    try{if(window.state?.layout?.mainMode==="characters")window.renderFullCharacterMode?.()}catch{}
+    try{window.renderFullCharacterMode?.()}catch{}
   }
   addEventListener("storage",event=>{if(event.key===themeKey)refresh()});
   refresh();
