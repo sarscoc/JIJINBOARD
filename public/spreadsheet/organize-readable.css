@@ -1,12 +1,13 @@
 /* Readability + compactness pass for the Item Organize modal only. */
 #organizeModal{font-size:12px}
 #organizeModal .modal-head b{font-size:15px!important;line-height:1.25!important}
-#organizeModal .modal-body{font-size:12px!important;line-height:1.35!important;padding:7px 9px!important}
+#organizeModal .modal-body{font-size:12px!important;line-height:1.35!important;padding:0 9px 7px!important}
 
-/* Keep creation controls/help visible while the modal itself scrolls. */
+/* Keep creation controls/help visible while the modal itself scrolls.
+   Their natural first position is directly below the title; no spacer above. */
 #organizeModal .modal-subtools{
   position:sticky!important;
-  top:49px!important;
+  top:0!important;
   z-index:12!important;
   display:flex!important;
   gap:4px!important;
@@ -17,7 +18,7 @@
 }
 #organizeModal .organize-visibility-note{
   position:sticky!important;
-  top:89px!important;
+  top:42px!important;
   z-index:12!important;
   margin:0 -9px 4px!important;
   padding:2px 9px 5px!important;
@@ -31,16 +32,16 @@
 /* The GROUP index stays visible too, below the sticky controls. */
 #organizeModal .organize-toc{
   position:sticky!important;
-  top:125px!important;
+  top:76px!important;
   align-self:start!important;
   z-index:8!important;
-  max-height:calc(88vh - 145px)!important;
+  max-height:calc(88vh - 96px)!important;
   overflow:hidden!important;
 }
 #organizeModal .organize-toc-inner{
   position:static!important;
   top:auto!important;
-  max-height:calc(88vh - 145px)!important;
+  max-height:calc(88vh - 96px)!important;
   overflow-y:auto!important;
   overflow-x:hidden!important;
   overscroll-behavior:contain!important;
@@ -94,8 +95,8 @@
 #organizeModal .mini,
 #organizeModal small{font-size:11px!important;line-height:1.25!important}
 @media(max-width:680px){
-  #organizeModal .organize-toc{top:122px!important;max-height:calc(88vh - 140px)!important}
-  #organizeModal .organize-toc-inner{max-height:calc(88vh - 140px)!important}
+  #organizeModal .organize-toc{top:74px!important;max-height:calc(88vh - 92px)!important}
+  #organizeModal .organize-toc-inner{max-height:calc(88vh - 92px)!important}
   #organizeModal .organize-toc-btn{font-size:11px!important}
   #organizeModal input,#organizeModal select{font-size:12px!important}
   #organizeModal .item-name,#organizeModal .legacy-part-name{font-size:12px!important}
