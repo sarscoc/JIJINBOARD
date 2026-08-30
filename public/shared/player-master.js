@@ -32,7 +32,7 @@
     return [...map.values()];
   }
 
-  function mergeMasterLocal(nextMaster){
+  function mergeMasterLocal(nextMaster,{notify=true}={}){
     if(!nextMaster)return;
     const people=read(PEOPLE_KEY,[]),byId=new Map(people.map(item=>[String(item?.id||""),item]));
     const existingPl=[...byId.values()].find(item=>item?.type==="PL"&&(String(item.id)===String(nextMaster.playerId)||String(item.name||"")===String(nextMaster.plName||"")))||{};
@@ -41,7 +41,7 @@
     for(const ch of nextMaster.characters||[]){const old=byId.get(String(ch.id))||{};byId.set(String(ch.id),{...old,id:String(ch.id),type:ch.type||"PC",name:ch.name,icon:ch.icon||old.icon||"",matrixIcon:ch.matrixIcon||old.matrixIcon||"",color:ch.color||old.color||"#ffe66b",colorDark:ch.colorDark||old.colorDark||ch.color||"#ffe66b",plId:nextMaster.playerId})}
     write(PEOPLE_KEY,[...byId.values()]);
     document.querySelector("#masterRoomPcPicker")?.remove();
-    window.dispatchEvent(new CustomEvent("jijinboard-player-master-updated",{detail:{master:nextMaster}}));
+    if(notify)window.dispatchEvent(new CustomEvent("jijinboard-player-master-updated",{detail:{master:nextMaster}}));
   }
 
   async function bootstrap(){
@@ -69,10 +69,16 @@
     return ids;
   }
 
+  async function persistRoomSelection(ids){
+    const rid=roomId();if(!rid||!playerId||!token)return;
+    ids=[...new Set((ids||[]).map(String).filter(Boolean))];
+    await api(`/api/player-master/room?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,boardId,roomId:rid,characterIds:ids})});
+  }
+
   async function setRoomSelection(ids,{persist=true}={}){
     const rid=roomId();if(!rid)return;
     ids=[...new Set((ids||[]).map(String).filter(id=>masterPc(id)))];roomSelection=ids;
-    if(persist&&playerId&&token)await api(`/api/player-master/room?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,boardId,roomId:rid,characterIds:ids})});
+    if(persist)await persistRoomSelection(ids);
     if(typeof state!=="undefined"&&state.profile){
       applying=true;state.profile.personas=ids.map(id=>personaFromMaster(masterPc(id))).filter(Boolean);
       try{localStorage.setItem(`personas:${rid}`,JSON.stringify(state.profile.personas))}catch{}
@@ -98,10 +104,21 @@
     const candidates=localCandidates(),map=new Map();
     for(const ch of [...candidates,...roomChars]){const key=String(ch.id||`${ch.type}:${ch.name}`);if(ch.name&&!map.has(key))map.set(key,ch)}
     const chars=[...map.values()];
-    try{const result=await api(`/api/player-master/?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});master=result.master||master;mergeMasterLocal(master);if(roomId()){for(const ch of roomChars){if(ch.type==="PC"&&!roomSelection.includes(String(ch.id)))roomSelection.push(String(ch.id))}if(roomSelection.length)await setRoomSelection(roomSelection,{persist:true})}}
-    catch(error){console.warn("Player master sync failed",error)}
+    try{
+      const result=await api(`/api/player-master/?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
+      master=result.master||master;
+      // Important: saving to the master must not rehydrate/re-render the open
+      // profile editor. That used to replace the active input after the first
+      // keystroke/color event and could also trigger a MATRIX participant reload.
+      mergeMasterLocal(master,{notify:false});
+      if(roomId()){
+        for(const ch of roomChars){if(ch.type==="PC"&&!roomSelection.includes(String(ch.id)))roomSelection.push(String(ch.id))}
+        if(roomSelection.length)await persistRoomSelection(roomSelection);
+      }
+      window.dispatchEvent(new CustomEvent("jijinboard-player-master-saved",{detail:{master}}));
+    }catch(error){console.warn("Player master sync failed",error)}
   }
-  const schedulePush=()=>{if(applying)return;clearTimeout(syncTimer);syncTimer=setTimeout(pushCurrent,350)};
+  const schedulePush=(delay=120)=>{if(applying)return;clearTimeout(syncTimer);syncTimer=setTimeout(pushCurrent,delay)};
 
   async function issueDeviceCode(){if(!master)await bootstrap();if(!playerId||!token)return alert("先にPL名を登録してください。");try{const result=await api(`/api/player-master/code?playerId=${encodeURIComponent(playerId)}`,{method:"POST",body:JSON.stringify({playerId})});await navigator.clipboard?.writeText(result.code).catch(()=>{});alert(`端末追加コード：${result.code}\n10分以内にスマホの「引き継ぎ設定」で入力してください。\nPC側のアクセス権はそのまま残ります。`)}catch(error){alert(error.message)}}
   async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`/api/player-master/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);mergeMasterLocal(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){alert(error.message)}}
@@ -118,9 +135,12 @@
     try{await bootstrap();hookRoomLoad();if(typeof state!=="undefined")await hydrateRoom()}catch(error){console.warn("Player master bootstrap failed",error)}
     const issue=document.querySelector("#issueTransferBtn"),redeem=document.querySelector("#redeemTransferBtn");if(issue){issue.textContent="スマホ・別端末を追加";issue.onclick=issueDeviceCode}if(redeem)redeem.onclick=redeemDeviceCode;
     if(typeof state!=="undefined"){
-      document.addEventListener("input",event=>{if(event.target.closest?.("#plName,[data-persona-name],[data-persona-color],[data-persona-color-dark]"))schedulePush()});
-      document.addEventListener("change",event=>{if(event.target.closest?.("#plIconInput,[data-persona-icon],[data-matrix-icon]"))setTimeout(schedulePush,50)});
-      document.addEventListener("click",event=>{if(event.target.closest?.("#savePersonaBtn,[data-remove-persona]"))setTimeout(schedulePush,80)});
+      // Never sync on raw `input`: text/color inputs fire it continuously and a
+      // master round-trip used to replace the editor DOM while the user typed.
+      document.addEventListener("change",event=>{
+        if(event.target.closest?.("#plName,[data-persona-name],[data-persona-color],[data-persona-color-dark],#plIconInput,[data-persona-icon],[data-matrix-icon]"))schedulePush(80);
+      });
+      document.addEventListener("click",event=>{if(event.target.closest?.("#savePersonaBtn,[data-remove-persona]"))schedulePush(100)});
     }
   }
 
