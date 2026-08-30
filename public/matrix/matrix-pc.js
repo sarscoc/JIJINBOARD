@@ -269,10 +269,9 @@
 
   setupBoardUi();
   setupPcControls();
-  // Room changes and actual participant mutations are the only server refresh
-  // triggers. Merely focusing the window no longer performs a GET.
+  // Initial room load, room changes, and actual participant mutations are the
+  // only server refresh triggers. Tool-tab activation by itself performs no GET.
   window.addEventListener("matrix-board-room",event=>load(event.detail?.roomId||activeRoom,true).catch(console.warn));
-  window.addEventListener("matrix-board-active",()=>load(activeRoom).catch(console.warn));
   window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
   setTimeout(()=>load(activeRoom).catch(console.warn),500);
 })();
