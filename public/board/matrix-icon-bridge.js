@@ -1,5 +1,15 @@
 "use strict";
 
+// The room header brand is display-only. The owner TOP is private and must not
+// be exposed as a navigation target from a shared room.
+const ownerTopLink=document.getElementById("ownerTopLink");
+if(ownerTopLink){
+  ownerTopLink.removeAttribute("href");
+  ownerTopLink.removeAttribute("target");
+  ownerTopLink.tabIndex=-1;
+  ownerTopLink.style.cursor="default";
+}
+
 // Keep an already-open MAGIA MATRIX iframe in sync when a PC's MATRIX icon is
 // changed from the LOGCOMMENTS profile editor.
 addEventListener("message", event => {
