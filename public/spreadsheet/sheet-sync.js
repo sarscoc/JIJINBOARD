@@ -33,7 +33,7 @@
     return out;
   }
 
-  let timer=0,loading=true,readySent=false,itemCache=null,applyingRemote=false,refreshPromise=null,lastRemoteSerial='';
+  let timer=0,loading=true,readySent=false,itemCache=null,applyingRemote=false,refreshPromise=null,lastRemoteSerial='',remoteDirty=false;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
   const invalidateItemCache=()=>{itemCache=null};
 
@@ -116,9 +116,10 @@
     const task=(async()=>{
       try{
         const remote=(await api(endpoint)).state;
-        if(!remote)return;
+        if(!remote){remoteDirty=false;return}
         const clean=sanitizeSnapshot(remote),serial=JSON.stringify(clean);
         if(serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
+        remoteDirty=false;
       }catch(error){console.warn('Spreadsheet remote refresh failed',error)}
     })();
     refreshPromise=task;
@@ -142,12 +143,12 @@
   const fullCharacterRoot=document.getElementById('fullCharacterMode');
   const fitCharacterFields=()=>{if(!characterFitNeeded()||characterFitRaf)return;characterFitRaf=requestAnimationFrame(()=>{characterFitRaf=0;if(!characterFitNeeded())return;document.querySelectorAll('#fullCharacterMode .character-sheet-edit,.connected-character-page .character-sheet-edit,.character-popup .character-sheet-edit').forEach(fitCharacterField)})};
   function syncFitObserver(){if(characterFitObserver){characterFitObserver.disconnect();characterFitObserver=null}if(!characterFitNeeded()||!fullCharacterRoot||!window.MutationObserver)return;characterFitObserver=new MutationObserver(fitCharacterFields);characterFitObserver.observe(fullCharacterRoot,{childList:true,subtree:true})}
-  function setBoardActive(next){const was=boardActive;boardActive=!!next;if(!boardActive){if(characterFitRaf){cancelAnimationFrame(characterFitRaf);characterFitRaf=0}syncFitObserver();return}syncFitObserver();fitCharacterFields();if(!was)refreshRemote()}
+  function setBoardActive(next){boardActive=!!next;if(!boardActive){if(characterFitRaf){cancelAnimationFrame(characterFitRaf);characterFitRaf=0}syncFitObserver();return}syncFitObserver();fitCharacterFields();if(remoteDirty)refreshRemote()}
   document.addEventListener('input',event=>{if(boardActive&&event.target?.matches?.('.character-sheet-edit'))fitCharacterField(event.target)},true);
   document.addEventListener('click',event=>{if(event.target?.closest?.('#mainCharacterModeBtn,#mainDatabaseModeBtn'))setTimeout(()=>{syncFitObserver();fitCharacterFields()},0)},true);
   window.addEventListener('resize',()=>{if(characterFitNeeded())fitCharacterFields()},{passive:true});
   window.addEventListener('message',event=>{if(event.origin!==location.origin)return;if(event.data?.type==='jijinboard-spreadsheet-active')setBoardActive(event.data.active)});
-  window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{if(event.detail?.action==='spreadsheet-state'&&boardActive)refreshRemote()});
+  window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{if(event.detail?.action!=='spreadsheet-state')return;remoteDirty=true;if(boardActive)refreshRemote()});
 
   function notifyReady(){if(readySent)return;readySent=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{try{parent.postMessage({type:'jijinboard-spreadsheet-ready'},location.origin)}catch{}}))}
 
@@ -160,7 +161,7 @@
       cleanRemote=sanitizeSnapshot(remote||{});remoteString=JSON.stringify(cleanRemote);
       if(remote&&meaningful(cleanRemote)){if(remoteString!==localString)applyRemote(cleanRemote);else lastRemoteSerial=remoteString}
       else if(hasLocal){await api(endpoint,{method:'POST',body:JSON.stringify({state:cleanLocal})});lastRemoteSerial=localString;window.jijinSpreadsheetNotifyChange?.('spreadsheet-state')}
-    }catch(error){console.warn('Spreadsheet initial sync failed',error)}finally{loading=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady()}
+    }catch(error){console.warn('Spreadsheet initial sync failed',error)}finally{loading=false;remoteDirty=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady()}
     if(remote&&remoteString&&JSON.stringify(remote)!==remoteString)pushNow();
   })();
 })();
