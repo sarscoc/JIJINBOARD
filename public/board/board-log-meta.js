@@ -63,8 +63,7 @@
     $("#logList").innerHTML = logs.map(item => {
       const known = state.opened[item.roomId], active = item.roomId === state.activeRoom;
       const title = item.scenarioTitle || item.title || known || "ログ";
-      const participants = typeof participantMarkup==="function" ? participantMarkup(item.participants||[]) : "";
-      return `<div class="log-entry"><button class="log-item ${item.spoiler&&!known?"unopened":""} ${active?"active":""}" data-room="${esc(item.roomId)}"><strong>${esc(title)}</strong>${participants}</button>${owner?`<button class="log-edit" data-edit-log="${esc(item.roomId)}" title="ログの編集">✎</button>`:""}</div>`;
+      return `<div class="log-entry"><button class="log-item ${item.spoiler&&!known?"unopened":""} ${active?"active":""}" data-room="${esc(item.roomId)}"><strong>${esc(title)}</strong></button>${owner?`<button class="log-edit" data-edit-log="${esc(item.roomId)}" title="ログの編集">✎</button>`:""}</div>`;
     }).join("");
     $("#logList").querySelectorAll("[data-room]").forEach(button => button.onclick = () => requestOpen(button.dataset.room));
     $("#logList").querySelectorAll("[data-edit-log]").forEach(button => button.onclick = event => { event.stopPropagation(); openLogEdit(button.dataset.editLog); });
