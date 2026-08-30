@@ -8,8 +8,6 @@
   const profile = () => window.matrixBoardContext?.profile?.() || null;
   const currentTemplate = () => typeof currentTemplateId === "function" ? String(currentTemplateId() || "") : "";
   const itemFor = id => (Array.isArray(window.items) ? window.items : (typeof items !== "undefined" ? items : [])).find(item => item?.id === id);
-  // Preserve the real shared-comment composer before replacing the legacy
-  // left-click entry point below. Right-click uses this preserved function.
   const sharedCommentComposer = typeof window.openMatrixIconComment === "function" ? window.openMatrixIconComment : null;
 
   function targetParts(value) {
@@ -32,8 +30,6 @@
   function belongsToPage(value, templateId) {
     const parts = targetParts(value);
     if (parts.templateId) return parts.templateId === templateId;
-    // Legacy shared comments predate template ids. Treat them as belonging to
-    // the current sheet only when their target icon is actually placed there.
     return oldCommentBelongsToCurrentPage(parts.itemId);
   }
 
@@ -118,11 +114,6 @@
     event.stopImmediatePropagation?.();
   }
 
-  // Inline editors are children of a placed icon, while MATRIX clips the canvas.
-  // Near the top edge the editor used to be cut off regardless of z-index. Keep
-  // it in its existing DOM (so save/outside-click behavior remains untouched),
-  // but lift it above every MATRIX layer and translate it back inside the visible
-  // canvas whenever its natural position would leave the viewport.
   function keepInlineEditorVisible(placed) {
     if (!placed) return;
     const editor = placed.querySelector(".inline-comment-editor") || document.querySelector(".inline-comment-editor");
@@ -150,15 +141,8 @@
     requestAnimationFrame(() => requestAnimationFrame(() => keepInlineEditorVisible(placed)));
   }
 
-  // The original MATRIX core calls openMatrixIconComment(id) from both click
-  // and pointerup when an icon was not dragged. That used to open the composer
-  // even after our click override. Re-purpose that legacy entry point so every
-  // left-click path performs the page filter instead. The preserved composer
-  // above remains available exclusively to the right-click branch below.
   window.openMatrixIconComment = () => filterCurrentPage();
 
-  // Left click = show only shared COMMENTS belonging to the current template.
-  // It does not filter by which icon was clicked.
   document.addEventListener("click", event => {
     const placed = placedFromEvent(event);
     if (!placed || placed._draggedByPointer) return;
@@ -166,7 +150,6 @@
     filterCurrentPage();
   }, true);
 
-  // COMMENTS header = return to the room-wide list.
   document.addEventListener("click", event => {
     if (!(event.target instanceof Element)) return;
     const head = event.target.closest(".matrix-comment-head");
@@ -175,16 +158,12 @@
     showAllComments();
   });
 
-  // Double-click no longer opens the old editor; right-click owns editing.
   document.addEventListener("dblclick", event => {
     const placed = placedFromEvent(event);
     if (!placed) return;
     stopPlacedAction(event);
   }, true);
 
-  // Right click:
-  // - own icon: edit the original comment displayed around that icon
-  // - another person's icon: open the real shared COMMENTS composer
   document.addEventListener("contextmenu", event => {
     const placed = placedFromEvent(event);
     if (!placed) return;
@@ -206,7 +185,6 @@
     if (sharedCommentComposer) sharedCommentComposer(id);
   }, true);
 
-  // Also protect editor openings triggered from legacy/internal MATRIX paths.
   const editorObserver = new MutationObserver(records => {
     for (const record of records) {
       for (const node of record.addedNodes) {
@@ -219,7 +197,6 @@
   });
   editorObserver.observe(document.documentElement, { childList: true, subtree: true });
 
-  // Any template change restores the room-wide COMMENTS list.
   document.addEventListener("click", event => {
     if (!(event.target instanceof Element)) return;
     if (event.target.closest("#templatesPage .template-tab")) setTimeout(showAllComments, 0);
@@ -234,10 +211,46 @@
     };
   }
 
+  // Template-list previews are separate DOM from the live MATRIX canvas. They
+  // used to keep the pre-PC snapshot until a template click called renderTemplateTabs().
+  // Refresh the list whenever placed icons are actually painted, so thumbnails
+  // receive PC images without requiring any click.
+  let previewTimer = 0;
+  let previewBusy = false;
+  function refreshTemplatePreviews(delay = 0) {
+    clearTimeout(previewTimer);
+    previewTimer = setTimeout(async () => {
+      if (previewBusy || typeof window.renderTemplateTabs !== "function") return;
+      previewBusy = true;
+      try { await window.renderTemplateTabs(); }
+      catch (error) { console.warn("Template preview refresh failed", error); }
+      finally { previewBusy = false; }
+    }, delay);
+  }
+
+  const canvas = document.querySelector(".canvas");
+  if (canvas) {
+    const previewObserver = new MutationObserver(records => {
+      const changed = records.some(record => [...record.addedNodes, ...record.removedNodes].some(node =>
+        node instanceof Element && (node.matches?.(".placed,.placed img") || node.querySelector?.(".placed,.placed img"))
+      ));
+      if (changed) refreshTemplatePreviews(20);
+    });
+    previewObserver.observe(canvas, { childList: true, subtree: true });
+  }
+
+  window.addEventListener("matrix-board-active", () => {
+    ensureListObserver();
+    applyPageFilter();
+    refreshTemplatePreviews(40);
+    setTimeout(() => refreshTemplatePreviews(0), 250);
+  });
+  window.addEventListener("matrix-board-participants-changed", () => refreshTemplatePreviews(120));
+  window.addEventListener("jijinboard-player-master-updated", () => refreshTemplatePreviews(120));
+
   window.filterMatrixCommentsToCurrentPage = filterCurrentPage;
   window.showAllMatrixComments = showAllComments;
   window.addEventListener("matrix-board-room", showAllComments);
-  window.addEventListener("matrix-board-active", () => { ensureListObserver(); applyPageFilter(); });
 
   let tries = 0;
   const waitForComments = setInterval(() => {
