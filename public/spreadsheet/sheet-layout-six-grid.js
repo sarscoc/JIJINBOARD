@@ -70,13 +70,13 @@
     el.style.gridRow=`${row} / span ${height}`;
   }
 
-  function makeCard(id){
+  function makeCard(id,previewPos=null){
     const card=document.createElement('div');
     card.className='sheet-layout-command-card';
     card.dataset.commandId=id;
     card.innerHTML=`<div class="sheet-layout-command-name">${esc(groupNameForLayout(id))}</div><div class="sheet-layout-command-size">${spanOf(id)}×${heightOf(id)}</div><button type="button" class="sheet-layout-remove" title="未配置へ戻す">×</button><button type="button" class="sheet-layout-resize" title="ドラッグして大きさを変更" aria-label="サイズ変更"></button>`;
-    const p=posOf(id);
-    styleBox(card,p.row,p.col,spanOf(id),heightOf(id));
+    const p=previewPos||posOf(id);
+    if(p)styleBox(card,p.row,p.col,spanOf(id),heightOf(id));
     return card;
   }
 
@@ -115,19 +115,25 @@
     const rect=fromUnplaced?null:card.getBoundingClientRect();
     const grabCol=fromUnplaced?0:clamp(Math.floor((e.clientX-rect.left)/m.stepX),0,span-1);
     const grabRow=fromUnplaced?0:clamp(Math.floor((e.clientY-rect.top)/m.stepY),0,height-1);
-    const preview=fromUnplaced?makeCard(id):card;
-    if(fromUnplaced){preview.classList.add('is-preview');canvas.appendChild(preview)}
+    const preview=fromUnplaced?makeCard(id,{row:1,col:1}):card;
+    if(fromUnplaced){
+      preview.classList.add('is-preview');
+      preview.querySelectorAll('button').forEach(btn=>btn.remove());
+      canvas.appendChild(preview);
+    }
     preview.classList.add('is-moving');
     let candidate=null;
 
     const move=ev=>{
       const cell=pointToCell(canvas,ev.clientX,ev.clientY,grabCol,grabRow,span);
-      const valid=canPlace(id,cell.row,cell.col,span,height);
+      const inside=ev.clientX>=m.rect.left&&ev.clientX<=m.rect.right&&ev.clientY>=m.rect.top;
+      const valid=inside&&canPlace(id,cell.row,cell.col,span,height);
       candidate={...cell,valid};
       styleBox(preview,cell.row,cell.col,span,height);
       preview.classList.toggle('is-invalid',!valid);
+      preview.classList.toggle('is-outside',!inside);
       const needed=cell.row+height-1;
-      if(needed>baseRows()){
+      if(inside&&needed>baseRows()){
         state.layout.sheetLayout.baseRows=needed;
         canvas.style.minHeight=(needed*(CELL+GAP)-GAP+12)+'px';
         workspaceRowCount();
@@ -137,7 +143,7 @@
       window.removeEventListener('pointermove',move);
       window.removeEventListener('pointerup',end);
       window.removeEventListener('pointercancel',end);
-      preview.classList.remove('is-moving','is-invalid');
+      preview.classList.remove('is-moving','is-invalid','is-outside');
       if(fromUnplaced)preview.remove();
       if(candidate?.valid){
         state.layout.sheetLayout.sizes[id]=span;
@@ -187,8 +193,10 @@
   function wire(canvas,workspace){
     canvas.querySelectorAll('[data-command-id]').forEach(card=>{
       const id=card.dataset.commandId;
-      card.querySelector('.sheet-layout-remove').onclick=e=>{e.stopPropagation();delete state.layout.sheetLayout.positions[id];save();paintCanvas(canvas);renderUnplaced(workspace);wire(canvas,workspace);refreshRowTools(workspace,canvas)};
-      card.querySelector('.sheet-layout-resize').addEventListener('pointerdown',e=>startResize(id,card,e));
+      const remove=card.querySelector('.sheet-layout-remove');
+      const resize=card.querySelector('.sheet-layout-resize');
+      if(remove)remove.onclick=e=>{e.stopPropagation();delete state.layout.sheetLayout.positions[id];save();paintCanvas(canvas);renderUnplaced(workspace);wire(canvas,workspace);refreshRowTools(workspace,canvas)};
+      if(resize)resize.addEventListener('pointerdown',e=>startResize(id,card,e));
       card.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;startMove(id,card,e,false)});
     });
     workspace.querySelectorAll('[data-unplaced-id]').forEach(btn=>btn.addEventListener('pointerdown',e=>startMove(btn.dataset.unplacedId,btn,e,true)));
