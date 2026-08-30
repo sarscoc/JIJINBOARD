@@ -4,6 +4,7 @@ import { ensureSchema } from "./schema.js";
 import { handleLogTabSettings } from "./log-tab-settings.js";
 import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
 import { handleMatrixPoint } from "./matrix-point.js";
+import { handleLogStream, prepareStreamRoomDelete } from "./log-stream.js";
 import { handleBoardTheme } from "./board-theme.js";
 import { handleGroupRowColors } from "./group-row-colors.js";
 import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
@@ -71,6 +72,30 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/profile-transfers") {
       return createProfileTransfer(request, env);
+    }
+
+    const logStreamMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/stream\/(meta|full|chunk|find)(?:\/([^/]+))?$/);
+    if(logStreamMatch){
+      return handleLogStream(
+        request,
+        env,
+        decodeURIComponent(logStreamMatch[1]),
+        logStreamMatch[2],
+        logStreamMatch[3]?decodeURIComponent(logStreamMatch[3]):"",
+        executionContext
+      );
+    }
+
+    // Keep the legacy direct room API compatible after a room has migrated from
+    // one giant R2 JSON object to stream chunks. The normal log UI does not call
+    // this path for first paint; it uses /stream/meta + /stream/chunk/0 instead.
+    const directRoomMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
+    if(directRoomMatch&&request.method==="GET"&&url.searchParams.get("summary")!=="1"){
+      return handleLogStream(request,env,decodeURIComponent(directRoomMatch[1]),"full","",executionContext);
+    }
+    if(directRoomMatch&&request.method==="DELETE"){
+      const prepared=await prepareStreamRoomDelete(request,env,decodeURIComponent(directRoomMatch[1]));
+      if(prepared)return prepared;
     }
 
     // Spreadsheet data is board-wide rather than log-room-specific. Give it one
