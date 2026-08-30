@@ -29,18 +29,20 @@
   line-height:1.25!important;
 }
 
-/* The GROUP index stays visible too, below the sticky controls. */
+/* Stretch the left column for the full grid height, then stick its contents.
+   Sticky on the short aside itself had no vertical travel range. */
 #organizeModal .organize-toc{
-  position:sticky!important;
-  top:76px!important;
-  align-self:start!important;
+  position:relative!important;
+  top:auto!important;
+  align-self:stretch!important;
   z-index:8!important;
-  max-height:calc(88vh - 96px)!important;
-  overflow:hidden!important;
+  min-height:100%!important;
+  max-height:none!important;
+  overflow:visible!important;
 }
 #organizeModal .organize-toc-inner{
-  position:static!important;
-  top:auto!important;
+  position:sticky!important;
+  top:76px!important;
   max-height:calc(88vh - 96px)!important;
   overflow-y:auto!important;
   overflow-x:hidden!important;
@@ -95,8 +97,7 @@
 #organizeModal .mini,
 #organizeModal small{font-size:11px!important;line-height:1.25!important}
 @media(max-width:680px){
-  #organizeModal .organize-toc{top:74px!important;max-height:calc(88vh - 92px)!important}
-  #organizeModal .organize-toc-inner{max-height:calc(88vh - 92px)!important}
+  #organizeModal .organize-toc-inner{top:74px!important;max-height:calc(88vh - 92px)!important}
   #organizeModal .organize-toc-btn{font-size:11px!important}
   #organizeModal input,#organizeModal select{font-size:12px!important}
   #organizeModal .item-name,#organizeModal .legacy-part-name{font-size:12px!important}
