@@ -106,6 +106,10 @@
     if (!panel.querySelector(".virtual-rows")?.childElementCount) renderWindow(panel, null, true);
   }
 
+  function mountAllPanels() {
+    document.querySelectorAll(".log-page[data-virtual-key]").forEach(mountPanel);
+  }
+
   function revealIndex(panel, index, align = .28) {
     const meta = metaFor(panel), scroll = panel?.querySelector(".page-scroll"); if (!meta || !scroll || index < 0) return false;
     const prefix = prefixFor(meta), viewport = Math.max(320, scroll.clientHeight || 640);
@@ -126,7 +130,11 @@
   renderLog = function(anchorTime = "") {
     state.virtualGeneration += 1;
     state.virtualPanels.clear();
-    return originalRenderLog(anchorTime);
+    const result = originalRenderLog(anchorTime);
+    // Mount exactly after a real log render. The old implementation watched the
+    // entire document and re-scanned every virtual page after each scroll DOM swap.
+    queueMicrotask(mountAllPanels);
+    return result;
   };
 
   pagePanelHtml = function(tab, realIndex, trackIndex, grouped, search, clone = "") {
@@ -176,9 +184,7 @@
     if (annotationId) setTimeout(() => { const mark = el.querySelector(`[data-ann="${CSS.escape(annotationId)}"]`); mark?.style.setProperty("--flash-color", color); mark?.classList.add("flash"); }, 400);
   };
 
-  const observer = new MutationObserver(() => document.querySelectorAll(".log-page[data-virtual-key]").forEach(mountPanel));
-  observer.observe(document.documentElement, { childList: true, subtree: true });
-  queueMicrotask(() => document.querySelectorAll(".log-page[data-virtual-key]").forEach(mountPanel));
+  queueMicrotask(mountAllPanels);
 
   addEventListener("resize", () => document.querySelectorAll(".log-page[data-virtual-key]").forEach(panel => renderWindow(panel, null, true)), { passive: true });
   document.addEventListener("input", event => {
