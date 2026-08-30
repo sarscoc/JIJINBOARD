@@ -34,7 +34,7 @@
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");
   if(!boardId)return;
-  let activeRoom=params.get("room")||"",participants=[],draggingPcId="";
+  let activeRoom=params.get("room")||"",participants=[],draggingPcId="",participantsSignature="";
   let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0;
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
@@ -44,6 +44,9 @@
   const escHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const clone=value=>{if(value===undefined)return undefined;try{return structuredClone(value)}catch{try{return JSON.parse(JSON.stringify(value))}catch{return value}}};
   const placementOnlyKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth","mobileSelected"]);
+  const participantKey=list=>(list||[]).map(person=>[
+    person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person)
+  ].join("\u001f")).sort().join("\u001e");
 
   function setupBoardUi(){
     document.querySelector("#exportIconsBtn")?.remove();
@@ -109,16 +112,21 @@
   }
 
   function setParticipants(list){
-    participants=list||[];
+    const next=list||[],signature=participantKey(next);
+    participants=next;
+    if(signature===participantsSignature)return false;
+    participantsSignature=signature;
     const state=appState();state.items||={};
     const validIds=new Set(participants.map(person=>`participant:${person.authorId}:${person.personaId}`));
-    pruneRemovedParticipants(validIds,state);
+    let stateChanged=pruneRemovedParticipants(validIds,state);
     items=participants.map(person=>{
       const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person);
-      if(!state.items[id])state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);
+      if(!state.items[id]){state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);stateChanged=true}
       return{id,name:person.name,url:"",baseImage:image,imageSignature:`participant:${person.personaId}:${image}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
-    saveState(state);renderLibrary();renderPlaced();renderPcSources();
+    if(stateChanged)saveState(state);
+    renderLibrary();renderPlaced();renderPcSources();
+    return true;
   }
 
   function localParticipantRows(room=activeRoom){
@@ -271,7 +279,7 @@
   setupPcControls();
   // Initial room load, room changes, and actual participant mutations are the
   // only server refresh triggers. Tool-tab activation by itself performs no GET.
-  window.addEventListener("matrix-board-room",event=>load(event.detail?.roomId||activeRoom,true).catch(console.warn));
+  window.addEventListener("matrix-board-room",event=>{participantsSignature="";load(event.detail?.roomId||activeRoom,true).catch(console.warn)});
   window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
   setTimeout(()=>load(activeRoom).catch(console.warn),500);
 })();
