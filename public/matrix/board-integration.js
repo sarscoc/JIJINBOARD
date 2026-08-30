@@ -4,7 +4,8 @@
   const embedded=params.get("embedded")==="1";
   let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false;
   let loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
-  let realtime=null,realtimeRoom="";
+  let realtime=null,realtimeRoom="",dirtyState=false,dirtyParticipants=false,dirtyComments=false;
+  const pendingActions=new Set();
   const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
     const response=await fetch(path,{headers:{"content-type":"application/json","x-realtime-client":realtimeClientId,...(options.headers||{})},...options});
@@ -29,20 +30,27 @@
 
   function dispatchRefresh(action){
     if(action==="matrix-state"){
-      if(active&&roomId)loadRoom(roomId).catch(console.warn);
+      if(active&&roomId)loadRoom(roomId).catch(console.warn);else dirtyState=true;
       return;
     }
     if(action==="participants"){
-      window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}));
+      if(active)window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}));else dirtyParticipants=true;
       return;
     }
     if(String(action||"").startsWith("matrix-")){
-      window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action}}));
+      if(active)window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action}}));else dirtyComments=true;
+    }
+  }
+
+  function flushPendingActions(socket){
+    if(socket!==realtime||socket.readyState!==WebSocket.OPEN)return;
+    for(const action of [...pendingActions]){
+      try{socket.send(JSON.stringify({type:"change",action}));pendingActions.delete(action)}catch{break}
     }
   }
 
   function connectRealtimeEvents(){
-    if(!active||!roomId)return;
+    if(!roomId)return;
     if(realtime&&realtimeRoom===roomId&&(realtime.readyState===WebSocket.OPEN||realtime.readyState===WebSocket.CONNECTING))return;
     disconnectRealtimeEvents();
     let socket;
@@ -51,6 +59,7 @@
     socket.addEventListener("open",()=>{
       if(realtime!==socket)return;
       try{socket.send(JSON.stringify({type:"join",clientId:realtimeClientId}))}catch{}
+      flushPendingActions(socket);
     });
     socket.addEventListener("message",event=>{
       if(realtime!==socket)return;
@@ -64,8 +73,8 @@
   function notifyChange(action){
     if(!action)return false;
     const socket=realtime;
-    if(!socket||socket.readyState!==WebSocket.OPEN)return false;
-    try{socket.send(JSON.stringify({type:"change",action}));return true}catch{return false}
+    if(!socket||socket.readyState!==WebSocket.OPEN){pendingActions.add(action);connectRealtimeEvents();return false}
+    try{socket.send(JSON.stringify({type:"change",action}));return true}catch{pendingActions.add(action);return false}
   }
 
   window.matrixBoardContext={boardId,get roomId(){return roomId},api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange};
@@ -86,6 +95,7 @@
     loadedRoom="";
     if(roomId!==previousRoom){
       disconnectRealtimeEvents();
+      dirtyState=dirtyParticipants=dirtyComments=false;
       window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
     }
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
@@ -103,6 +113,7 @@
         }
         lastState=JSON.stringify(matrix.state||{});
         loadedRoom=roomId;
+        dirtyState=false;
       }finally{
         applyingRemote=false;
       }
@@ -110,7 +121,7 @@
       console.warn(error);
     }finally{
       if(seq===loadSeq){
-        if(active)connectRealtimeEvents();
+        connectRealtimeEvents();
         requestAnimationFrame(()=>requestAnimationFrame(notifyReady));
       }
     }
@@ -201,11 +212,15 @@
     active=!!next;
     if(active){
       window.dispatchEvent(new CustomEvent("matrix-board-active"));
-      if(loadedRoom!==roomId)loadRoom(roomId).catch(console.warn);
-      else connectRealtimeEvents();
+      if(loadedRoom!==roomId){loadRoom(roomId).catch(console.warn)}
+      else{
+        connectRealtimeEvents();
+        if(dirtyState)loadRoom(roomId).catch(console.warn);
+        if(dirtyParticipants){dirtyParticipants=false;window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}))}
+        if(dirtyComments){dirtyComments=false;window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-change"}}))}
+      }
       if(readySent)queueHelpers();
     }else{
-      disconnectRealtimeEvents();
       requestSave(0);
     }
   }
@@ -222,6 +237,7 @@
         loadedRoom="";
         readySent=false;
         disconnectRealtimeEvents();
+        dirtyState=dirtyParticipants=dirtyComments=false;
         if(changed)window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
       }
     }
@@ -230,10 +246,10 @@
 
   setTimeout(()=>{if(!loadRequested)loadRoom(roomId).catch(console.warn)},80);
   if(active)connectRealtimeEvents();
-  window.addEventListener("online",()=>{if(active)connectRealtimeEvents()});
+  window.addEventListener("online",()=>{if(roomId&&loadedRoom===roomId)connectRealtimeEvents()});
   window.addEventListener("pagehide",()=>{saveOnPagehide();disconnectRealtimeEvents()});
   document.addEventListener("visibilitychange",()=>{
     if(document.visibilityState==="hidden")requestSave(0);
-    else if(active)connectRealtimeEvents();
+    else if(roomId&&loadedRoom===roomId)connectRealtimeEvents();
   });
 })();
