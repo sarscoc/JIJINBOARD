@@ -14,10 +14,16 @@ export async function handleBoardParticipants(request,env,boardId,roomId){
     let body=null;
     try{body=await request.json()}catch{}
     const authorId=String(body?.authorId||"").slice(0,100);
+    const plName=String(body?.plName||"").trim().slice(0,80);
+    const clearLegacy=!!body?.clearLegacy;
     if(!authorId)return json({error:"発言者情報がありません"},400);
     const linked=await env.DB.prepare("SELECT 1 FROM board_logs WHERE board_id=? AND room_id=?").bind(boardId,roomId).first();
     if(!linked)return json({error:"この自陣にないログです"},404);
-    await env.DB.prepare("DELETE FROM board_log_participants WHERE board_id=? AND room_id=? AND author_id=?").bind(boardId,roomId,authorId).run();
+    if(clearLegacy&&plName){
+      await env.DB.prepare("DELETE FROM board_log_participants WHERE board_id=? AND room_id=? AND (author_id=? OR pl_name=?)").bind(boardId,roomId,authorId,plName).run();
+    }else{
+      await env.DB.prepare("DELETE FROM board_log_participants WHERE board_id=? AND room_id=? AND author_id=?").bind(boardId,roomId,authorId).run();
+    }
     return json({ok:true});
   }
   return null;
