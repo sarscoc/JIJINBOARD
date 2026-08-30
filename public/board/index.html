@@ -133,16 +133,22 @@
     __logFrame?.addEventListener('load',()=>{__hideEmbeddedLogThemeToggle();setTimeout(__hideEmbeddedLogThemeToggle,80)});
 
     const __spreadsheetFrame=document.getElementById('spreadsheetFrame');
-    __spreadsheetFrame?.addEventListener('load',()=>{
+    function __forceSpreadsheetCommentsVisible(){
       try{
-        const doc=__spreadsheetFrame.contentDocument;
-        if(!doc?.head||doc.getElementById('jijinBoardEmbeddedOnlyStyle'))return;
-        const style=doc.createElement('style');
-        style.id='jijinBoardEmbeddedOnlyStyle';
-        style.textContent='.sheet-settings-panel[data-settings-panel="character"] .character-page-mode-setting{display:none!important}';
-        doc.head.appendChild(style);
+        const doc=__spreadsheetFrame?.contentDocument;
+        if(!doc?.head)return;
+        let style=doc.getElementById('jijinBoardEmbeddedOnlyStyle');
+        if(!style){
+          style=doc.createElement('style');
+          style.id='jijinBoardEmbeddedOnlyStyle';
+          doc.head.appendChild(style);
+        }
+        style.textContent='.sheet-settings-panel[data-settings-panel="character"] .character-page-mode-setting{display:none!important}html.embedded #sheetComments[hidden]{display:flex!important}';
+        const panel=doc.getElementById('sheetComments');
+        if(panel){panel.hidden=false;panel.removeAttribute('hidden');panel.classList.remove('hidden')}
       }catch{}
-    });
+    }
+    __spreadsheetFrame?.addEventListener('load',()=>{__forceSpreadsheetCommentsVisible();setTimeout(__forceSpreadsheetCommentsVisible,80);setTimeout(__forceSpreadsheetCommentsVisible,400)});
   </script>
   <script>
     setTimeout(()=>{
