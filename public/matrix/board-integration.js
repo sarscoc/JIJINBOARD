@@ -3,12 +3,72 @@
   const params=new URL(location.href).searchParams,boardId=params.get("board");if(!boardId)return;
   const embedded=params.get("embedded")==="1";
   let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false;
-  let saveLoopTimer=0,loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
-  const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
+  let loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
+  let realtime=null,realtimeRoom="";
+  const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
+  const api=async(path,options={})=>{
+    const response=await fetch(path,{headers:{"content-type":"application/json","x-realtime-client":realtimeClientId,...(options.headers||{})},...options});
+    const body=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);
+    return body;
+  };
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const matrixPath=()=>`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(roomId)}`;
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  window.matrixBoardContext={boardId,get roomId(){return roomId},api,profile,isActive:()=>active,saveNow:()=>requestSave(0)};
+
+  function realtimeUrl(targetRoom=roomId){
+    const protocol=location.protocol==="https:"?"wss:":"ws:";
+    return `${protocol}//${location.host}/api/rooms/${encodeURIComponent(targetRoom)}/realtime`;
+  }
+
+  function disconnectRealtimeEvents(){
+    const socket=realtime;
+    realtime=null;realtimeRoom="";
+    if(socket&&socket.readyState<2)try{socket.close()}catch{}
+  }
+
+  function dispatchRefresh(action){
+    if(action==="matrix-state"){
+      if(active&&roomId)loadRoom(roomId).catch(console.warn);
+      return;
+    }
+    if(action==="participants"){
+      window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}));
+      return;
+    }
+    if(String(action||"").startsWith("matrix-")){
+      window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action}}));
+    }
+  }
+
+  function connectRealtimeEvents(){
+    if(!active||!roomId)return;
+    if(realtime&&realtimeRoom===roomId&&(realtime.readyState===WebSocket.OPEN||realtime.readyState===WebSocket.CONNECTING))return;
+    disconnectRealtimeEvents();
+    let socket;
+    try{socket=new WebSocket(realtimeUrl(roomId))}catch{return}
+    realtime=socket;realtimeRoom=roomId;
+    socket.addEventListener("open",()=>{
+      if(realtime!==socket)return;
+      try{socket.send(JSON.stringify({type:"join",clientId:realtimeClientId}))}catch{}
+    });
+    socket.addEventListener("message",event=>{
+      if(realtime!==socket)return;
+      let data;try{data=JSON.parse(event.data)}catch{return}
+      if(data?.type==="refresh")dispatchRefresh(String(data.action||""));
+    });
+    socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom=""}});
+    socket.addEventListener("error",()=>{try{socket.close()}catch{}});
+  }
+
+  function notifyChange(action){
+    if(!action)return false;
+    const socket=realtime;
+    if(!socket||socket.readyState!==WebSocket.OPEN)return false;
+    try{socket.send(JSON.stringify({type:"change",action}));return true}catch{return false}
+  }
+
+  window.matrixBoardContext={boardId,get roomId(){return roomId},api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange};
 
   function notifyReady(){
     if(readySent)return;
@@ -24,7 +84,10 @@
     roomId=nextRoom||"";
     readySent=false;
     loadedRoom="";
-    if(roomId!==previousRoom)window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
+    if(roomId!==previousRoom){
+      disconnectRealtimeEvents();
+      window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
+    }
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
     try{
       const [matrix]=await Promise.all([api(matrixPath()),wait(180)]);
@@ -46,7 +109,10 @@
     }catch(error){
       console.warn(error);
     }finally{
-      if(seq===loadSeq)requestAnimationFrame(()=>requestAnimationFrame(notifyReady));
+      if(seq===loadSeq){
+        if(active)connectRealtimeEvents();
+        requestAnimationFrame(()=>requestAnimationFrame(notifyReady));
+      }
     }
   }
 
@@ -60,6 +126,7 @@
     try{
       await api(matrixPath(),{method:"POST",keepalive:true,body:JSON.stringify({authorId:me.id,authorName:me.plName,state})});
       lastState=serial;
+      notifyChange("matrix-state");
     }catch{}finally{
       saving=false;
       if(saveQueued){saveQueued=false;requestSave(0)}
@@ -70,17 +137,6 @@
     if(applyingRemote)return;
     clearTimeout(saveTimer);
     saveTimer=setTimeout(()=>save(),Math.max(0,delay));
-  }
-
-  function stopSaveLoop(){clearTimeout(saveLoopTimer);saveLoopTimer=0}
-  function startSaveLoop(){
-    stopSaveLoop();
-    if(!active)return;
-    saveLoopTimer=setTimeout(async()=>{
-      if(!active)return;
-      await save();
-      startSaveLoop();
-    },5000);
   }
 
   function saveOnPagehide(){
@@ -95,7 +151,7 @@
         if(queued)return;
       }
     }catch{}
-    try{fetch(matrixPath(),{method:"POST",headers:{"content-type":"application/json"},body:payload,keepalive:true}).catch(()=>{})}catch{}
+    try{fetch(matrixPath(),{method:"POST",headers:{"content-type":"application/json","x-realtime-client":realtimeClientId},body:payload,keepalive:true}).catch(()=>{})}catch{}
   }
 
   if(typeof window.saveState==="function"&&!window.saveState.__jijinboardImmediateSync){
@@ -142,16 +198,15 @@
   }
 
   function setActive(next){
-    const wasActive=active;
     active=!!next;
     if(active){
       window.dispatchEvent(new CustomEvent("matrix-board-active"));
-      if(loadedRoom!==roomId)loadRoom(roomId).catch(console.warn);else requestSave(0);
-      startSaveLoop();
+      if(loadedRoom!==roomId)loadRoom(roomId).catch(console.warn);
+      else connectRealtimeEvents();
       if(readySent)queueHelpers();
     }else{
-      stopSaveLoop();
-      if(wasActive)requestSave(0);
+      disconnectRealtimeEvents();
+      requestSave(0);
     }
   }
 
@@ -166,6 +221,7 @@
         roomId=nextRoom;
         loadedRoom="";
         readySent=false;
+        disconnectRealtimeEvents();
         if(changed)window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
       }
     }
@@ -173,7 +229,11 @@
   });
 
   setTimeout(()=>{if(!loadRequested)loadRoom(roomId).catch(console.warn)},80);
-  if(active){startSaveLoop();if(readySent)queueHelpers()}
-  window.addEventListener("pagehide",saveOnPagehide);
-  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="hidden")requestSave(0)});
+  if(active)connectRealtimeEvents();
+  window.addEventListener("online",()=>{if(active)connectRealtimeEvents()});
+  window.addEventListener("pagehide",()=>{saveOnPagehide();disconnectRealtimeEvents()});
+  document.addEventListener("visibilitychange",()=>{
+    if(document.visibilityState==="hidden")requestSave(0);
+    else if(active)connectRealtimeEvents();
+  });
 })();
