@@ -18,9 +18,9 @@
     .compact-profile-dialog .profile-remove{display:none!important}
     .compact-profile-dialog.show-delete-controls .profile-remove{display:inline-grid!important}
     .profile-delete-toggle-wrap{display:block;margin:8px 0 0;padding:8px 0 0;border-top:1px solid #e5e8eb}
-    .profile-delete-toggle{display:inline!important;border:0!important;background:transparent!important;box-shadow:none!important;color:#8b9298!important;font-size:9px!important;line-height:1.4!important;padding:0!important;margin:0!important;cursor:pointer!important;text-decoration:none!important}
-    .profile-delete-toggle:hover{text-decoration:underline!important;color:#666f77!important}
-    .compact-profile-dialog.show-delete-controls .profile-delete-toggle{color:#c85b64!important}
+    .compact-profile-dialog .profile-delete-toggle{display:inline!important;justify-self:start!important;border:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;margin:0!important;color:var(--muted)!important;font-size:9px!important;font-weight:700!important;line-height:normal!important;cursor:pointer!important;text-decoration:none!important;border-radius:0!important;min-height:0!important;height:auto!important}
+    .compact-profile-dialog .profile-delete-toggle:hover{background:transparent!important;color:var(--ink)!important;text-decoration:none!important}
+    .compact-profile-dialog.show-delete-controls .profile-delete-toggle{color:var(--muted)!important}
     html.embedded #themeBtn.embedded-theme-toggle{
       display:inline-grid!important;place-items:center;flex:0 0 30px;
       width:30px;height:30px;min-width:30px;padding:0;border-radius:8px
@@ -61,7 +61,7 @@
     wrap.className = "profile-delete-toggle-wrap";
     const toggle = document.createElement("button");
     toggle.type = "button";
-    toggle.className = "profile-delete-toggle";
+    toggle.className = "profile-delete-toggle profile-transfer-toggle";
     toggle.textContent = "PC削除を表示";
     toggle.setAttribute("aria-expanded", "false");
     toggle.addEventListener("click", () => {
