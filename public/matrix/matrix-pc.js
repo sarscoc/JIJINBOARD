@@ -268,7 +268,9 @@
 
   setupBoardUi();
   setupPcControls();
-  window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-active-room")load(event.data.roomId,true).catch(console.warn)});
+  // board-integration.js is the single owner of the parent active-room message.
+  // matrix-pc reacts only to its normalized room event so one room switch cannot
+  // start two participant GET/POST sequences in parallel.
   window.addEventListener("matrix-board-room",event=>load(event.detail?.roomId||activeRoom,true).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>load(activeRoom).catch(console.warn));
   window.addEventListener("focus",()=>{if(window.matrixBoardContext?.isActive?.())load(activeRoom).catch(()=>{})});
