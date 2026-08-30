@@ -1,5 +1,11 @@
 (function(global){
   "use strict";
+  // Spreadsheet characters are their own data model. Do not let Spreadsheet
+  // read from or write to the shared LOG / MAGIA MATRIX people master.
+  if(/\/spreadsheet(?:\/|$)/.test(location.pathname)){
+    global.TRPGProjectData=null;
+    return;
+  }
   const PEOPLE_KEY="trpgProjectPeople.v1",SESSION_META_KEY="trpgProjectSessions.v1";
   const uid=prefix=>`${prefix}_${crypto.randomUUID?.()||Math.random().toString(36).slice(2)+Date.now().toString(36)}`;
   const read=(key,fallback)=>{try{return JSON.parse(localStorage.getItem(key)||"")||fallback}catch{return fallback}};
