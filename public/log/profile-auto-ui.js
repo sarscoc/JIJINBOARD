@@ -161,6 +161,10 @@
     if (outside) closeProfile();
   });
   dialog.addEventListener("cancel", event => {
+    // <input type="file"> also fires a bubbling `cancel` event when its picker
+    // is dismissed (or the same file is re-selected). Only an actual dialog
+    // cancel (Escape while the dialog itself is active) should close profile UI.
+    if (event.target !== dialog) return;
     event.preventDefault();
     closeProfile();
   });
