@@ -48,7 +48,7 @@ export default {
   async fetch(request, env, executionContext) {
     const url = new URL(request.url);
 
-    if (url.pathname === "/" || url.pathname === "/index.html") {
+    if (/^\/index(?:\.html)?\/?$/.test(url.pathname) || url.pathname === "/") {
       if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed", { status: 405 });
       return serveProtectedTop(request, env);
     }
