@@ -115,8 +115,7 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 .matrix-comment-head span{font:inherit;letter-spacing:inherit;margin-left:auto}
 .matrix-comment-head>button{display:none!important}
 
-/* LOGCOMMENTS compact density: 6px list inset, 8px cards, 6px between cards.
-   Reserve the right scrollbar gutter from the start so card/text width never jumps. */
+/* LOGCOMMENTS compact density: 6px list inset, 8px cards, 6px between cards. */
 .matrix-comment-head+section{
   flex:1 1 auto;
   min-height:0;
@@ -241,7 +240,32 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
   100%{filter:none}
 }
 
-#matrixIconCommentDialog{width:min(390px,calc(100vw - 24px));border:1px solid var(--matrix-line);border-radius:12px;padding:0;background:var(--matrix-glass-strong);backdrop-filter:blur(24px) saturate(145%);-webkit-backdrop-filter:blur(24px) saturate(145%);box-shadow:none}#matrixIconCommentDialog form{padding:16px;display:grid;gap:10px}.matrix-dialog-head{display:flex;justify-content:space-between;align-items:center}.matrix-dialog-head button{border:0;background:transparent;font-size:20px;cursor:pointer}#matrixCommentPersona,#matrixCommentBody{width:100%;border:1px solid var(--matrix-line);border-radius:7px;padding:8px;background:rgba(255,255,255,.78);font:12px/1.5 system-ui}#matrixCommentBody{min-height:110px;resize:vertical}.matrix-dialog-actions{display:flex;justify-content:flex-end;gap:6px}.matrix-dialog-actions button{border:1px solid var(--matrix-line);background:#fff;border-radius:7px;padding:7px 10px;font-size:11px;cursor:pointer;box-shadow:none}.matrix-dialog-actions #matrixCommentSubmit{background:#20252b;color:#fff;border-color:#20252b}.matrix-dialog-actions #matrixCommentDelete{color:#a34e4e;border-color:#edcece}
+/* Input box = LOGCOMMENTS commentDialog exactly. */
+#matrixIconCommentDialog{
+  position:fixed!important;
+  margin:0!important;
+  width:min(390px,calc(100% - 24px))!important;
+  max-height:calc(100vh - 24px)!important;
+  overflow:auto!important;
+  border:1px solid var(--matrix-line)!important;
+  border-radius:14px!important;
+  padding:0!important;
+  background:#fff!important;
+  color:rgb(75,75,75)!important;
+  box-shadow:0 8px 28px rgba(27,38,51,.07)!important;
+  backdrop-filter:none!important;
+  -webkit-backdrop-filter:none!important;
+  font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
+}
+#matrixIconCommentDialog::backdrop{background:transparent!important}
+#matrixIconCommentDialog .matrix-comment-log-form{padding:10px!important;display:grid!important;gap:7px!important}
+#matrixIconCommentDialog .comment-persona-picker{display:grid!important;grid-template-columns:32px minmax(0,1fr)!important;gap:8px!important;align-items:center!important}
+#matrixIconCommentDialog .comment-persona-picker select{width:100%!important;border:0!important;background:transparent!important;padding:4px 0!important;color:rgb(75,75,75)!important;font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;box-shadow:none!important;outline:0!important}
+#matrixIconCommentDialog .comment-input-avatar{width:30px!important;height:30px!important;flex:0 0 30px!important;border-radius:50%!important;overflow:hidden!important;background:var(--matrix-soft)!important;display:grid!important;place-items:center!important;border:2px solid var(--persona-marker,var(--matrix-line))!important;font-size:11px!important}
+#matrixIconCommentDialog .comment-input-avatar img{width:100%!important;height:100%!important;display:block!important;object-fit:contain!important}
+#matrixIconCommentDialog textarea{width:100%!important;box-sizing:border-box!important;border:0!important;border-radius:8px!important;background:var(--matrix-soft)!important;min-height:82px!important;padding:10px!important;resize:vertical!important;color:rgb(75,75,75)!important;font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;box-shadow:none!important;outline:0!important}
+#matrixIconCommentDialog .comment-edit-delete{justify-self:start!important;border:0!important;background:transparent!important;color:#d95b66!important;font-size:9px!important;padding:3px 0!important;cursor:pointer!important}
+#matrixIconCommentDialog .comment-edit-delete[hidden]{display:none!important}
 
 /* Embedded MATRIX is flat: translucent surfaces + borders only. */
 html.embedded .stage,
@@ -262,4 +286,5 @@ html.embedded .library{
   html.embedded .stage{grid-column:1!important;grid-row:2!important}
   #matrixIconComments{grid-column:1;grid-row:3;position:relative;width:100%;height:100%;min-height:0;max-height:100%;margin:0}
   .matrix-comment-author time{display:none}
+  #matrixIconCommentDialog{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:72vh!important}
 }
