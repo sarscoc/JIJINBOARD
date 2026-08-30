@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,noarchive">
+<title>JIJINBOARD OWNER</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif;color:#4b4b4b;background:#f5f7fa}body{min-height:100vh;display:grid;place-items:center;padding:18px;background-image:radial-gradient(circle at 12% 8%,rgba(103,163,255,.20),transparent 28%),radial-gradient(circle at 86% 82%,rgba(159,113,255,.10),transparent 30%)}.card{width:min(360px,100%);background:#fff;border:1px solid #e1e5ea;border-radius:14px;padding:22px;box-shadow:0 12px 34px rgba(30,40,55,.06)}.eyebrow{margin:0 0 5px;font-size:9px;font-weight:900;letter-spacing:.18em;color:#7f8791}.title{margin:0 0 5px;font-size:21px;letter-spacing:.02em}.note{margin:0 0 18px;font-size:11px;line-height:1.7;color:#858c96}.field{display:grid;gap:5px;margin-top:9px}.field span{font-size:10px;font-weight:700}.field input{width:100%;height:38px;border:1px solid #dce1e7;border-radius:8px;padding:0 10px;font:inherit;font-size:12px;color:#4b4b4b;background:#fff;outline:0}.field input:focus{border-color:#9aa7b6;box-shadow:0 0 0 3px rgba(120,140,165,.10)}button{width:100%;height:38px;margin-top:14px;border:0;border-radius:8px;background:#20242a;color:#fff;font:700 11px/1 system-ui;cursor:pointer}button:disabled{opacity:.45;cursor:default}.status{min-height:16px;margin:9px 0 0;font-size:10px;line-height:1.5;color:#b34e5a}.quiet{margin-top:10px;font-size:9px;line-height:1.6;color:#9aa0a8}.hidden{display:none!important}
+</style>
+</head>
+<body>
+<main class="card">
+  <p class="eyebrow">PRIVATE OWNER DASHBOARD</p>
+  <h1 class="title">JIJINBOARD</h1>
+  <p id="note" class="note">管理TOPを確認しています…</p>
+  <form id="loginForm" class="hidden">
+    <label class="field"><span>パスワード</span><input id="loginPassword" type="password" autocomplete="current-password" required></label>
+    <button type="submit">管理TOPを開く</button>
+  </form>
+  <form id="setupForm" class="hidden">
+    <label class="field"><span>新しいパスワード</span><input id="setupPassword" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></label>
+    <label class="field"><span>もう一度</span><input id="setupPasswordConfirm" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></label>
+    <button type="submit">パスワードを設定</button>
+    <p class="quiet">初回だけ、このブラウザに保存済みの部屋主管理情報で本人確認します。</p>
+  </form>
+  <p id="status" class="status"></p>
+</main>
+<script>
+"use strict";
+const $=selector=>document.querySelector(selector),status=$("#status"),note=$("#note"),loginForm=$("#loginForm"),setupForm=$("#setupForm");
+async function api(path,options={}){const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body}
+function parse(value,fallback){try{return JSON.parse(value)||fallback}catch{return fallback}}
+function ownerProof(){
+  const saved=parse(localStorage.getItem("jijinboardOwnedBoards.v1"),{});
+  for(const [boardId,item] of Object.entries(saved||{})){
+    const adminToken=String(item?.adminToken||localStorage.getItem(`boardAdmin:${boardId}`)||"");
+    if(boardId&&adminToken)return {boardId,adminToken};
+  }
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i)||"";if(!key.startsWith("boardAdmin:"))continue;
+    const boardId=key.slice("boardAdmin:".length),adminToken=String(localStorage.getItem(key)||"");
+    if(boardId&&adminToken)return {boardId,adminToken};
+  }
+  return null;
+}
+function busy(form,on){form.querySelectorAll("button,input").forEach(el=>el.disabled=on)}
+async function boot(){
+  try{
+    const state=await api("/api/top-auth/status");
+    if(state.authenticated){location.replace("/");return}
+    if(state.configured){note.textContent="管理TOPは非公開です。パスワードを入力してください。";loginForm.classList.remove("hidden");setTimeout(()=>$("#loginPassword").focus(),0)}
+    else{note.textContent="最初に、この管理TOP専用のパスワードを設定してください。";setupForm.classList.remove("hidden");setTimeout(()=>$("#setupPassword").focus(),0)}
+  }catch(error){status.textContent=error.message;note.textContent="管理TOPを確認できませんでした。"}
+}
+loginForm.addEventListener("submit",async event=>{event.preventDefault();status.textContent="";busy(loginForm,true);try{await api("/api/top-auth/login",{method:"POST",body:JSON.stringify({password:$("#loginPassword").value})});location.replace("/")}catch(error){status.textContent=error.message;busy(loginForm,false);$("#loginPassword").select()}});
+setupForm.addEventListener("submit",async event=>{event.preventDefault();status.textContent="";const password=$("#setupPassword").value,confirmPassword=$("#setupPasswordConfirm").value;if(password!==confirmPassword){status.textContent="パスワードが一致しません";return}const proof=ownerProof();if(!proof){status.textContent="このブラウザに部屋主の管理情報が見つかりません。普段JIJINBOARDを管理しているブラウザで開いてください。";return}busy(setupForm,true);try{await api("/api/top-auth/setup",{method:"POST",body:JSON.stringify({password,...proof})});location.replace("/")}catch(error){status.textContent=error.message;busy(setupForm,false)}});
+boot();
+</script>
+</body>
+</html>
