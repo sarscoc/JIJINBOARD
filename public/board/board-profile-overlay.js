@@ -104,14 +104,38 @@
 
 // Automatic profile broadcasts happen during iframe startup and autosave. A transient
 // empty persona list must never be interpreted as "delete every PC". Explicit PC
-// deletion is persisted directly by LOGCOMMENTS' participant editor, so the board's
-// passive synchronization only needs to forward non-empty PC snapshots.
+// deletion is persisted directly by LOGCOMMENTS. Also coalesce rapid profile broadcasts
+// so typing a PC name does not cause one participant API write per keystroke.
 (()=>{
   if(typeof syncParticipants!=="function")return;
   const baseSyncParticipants=syncParticipants;
-  syncParticipants=async function safeSyncParticipants(profile,roomId){
+  const pending=new Map();
+
+  function settle(slot,error){
+    const waiters=slot.waiters.splice(0);
+    for(const waiter of waiters)error?waiter.reject(error):waiter.resolve();
+  }
+
+  syncParticipants=function safeSyncParticipants(profile,roomId){
+    const room=String(roomId||"");
     const personas=Array.isArray(profile?.personas)?profile.personas.filter(persona=>persona?.type==="PC"&&String(persona?.name||"").trim()):[];
-    if(!personas.length)return;
-    return baseSyncParticipants(profile,roomId);
+    let slot=pending.get(room);
+
+    if(!personas.length){
+      if(slot){clearTimeout(slot.timer);pending.delete(room);settle(slot)}
+      return Promise.resolve();
+    }
+
+    if(!slot){slot={timer:0,profile:null,waiters:[]};pending.set(room,slot)}
+    slot.profile=profile;
+    clearTimeout(slot.timer);
+
+    const promise=new Promise((resolve,reject)=>slot.waiters.push({resolve,reject}));
+    slot.timer=setTimeout(async()=>{
+      pending.delete(room);
+      try{await baseSyncParticipants(slot.profile,room);settle(slot)}
+      catch(error){settle(slot,error)}
+    },280);
+    return promise;
   };
 })();
