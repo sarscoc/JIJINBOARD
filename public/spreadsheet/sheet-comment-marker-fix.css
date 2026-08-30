@@ -1,7 +1,6 @@
-/* Keep Spreadsheet comment markers visible inside their own cells without letting them paint over COMMENTS. */
+/* Keep Spreadsheet comment markers visible inside their own cells without changing the COMMENTS rail geometry. */
 html.embedded #sheetComments{
-  position:relative!important;
-  z-index:20!important;
+  z-index:50!important;
 }
 [data-sheet-cell].sheet-has-comment{
   position:relative!important;
