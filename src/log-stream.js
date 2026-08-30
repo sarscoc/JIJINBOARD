@@ -1,5 +1,5 @@
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
-const CHUNK_SIZE=250;
+const CHUNK_SIZE=120;
 const legacyKey=roomId=>`rooms/${roomId}/log.json`;
 const chunkPrefix=roomId=>`rooms/${roomId}/chunks/`;
 const chunkKey=(roomId,index)=>`${chunkPrefix(roomId)}${index}.json`;
