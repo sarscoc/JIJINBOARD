@@ -16,10 +16,26 @@ async function renderBoards(){const saved=readBoards(),entries=Object.entries(sa
 function renderPeople(){cleanupLegacySpreadsheetPeople();const people=data.importLogPeople(),root=$("#peopleGroups"),plById=new Map(people.filter(item=>item.type==="PL").map(item=>[item.id,item]));root.innerHTML=["PL","PC","NPC"].map(type=>{const group=people.filter(item=>item.type===type);if(!group.length)return"";return `<section class="people-group"><h3>${type}</h3><div>${group.map(person=>`<button class="person-row" data-person-id="${escapeHtml(person.id)}">${iconMarkup(person)}<span><strong>${escapeHtml(person.name)}</strong>${person.plId&&plById.get(person.plId)?`<small>${escapeHtml(plById.get(person.plId).name)}</small>`:""}</span><i style="--person-color:${escapeHtml(person.color)}"></i></button>`).join("")}</div></section>`}).join("");$("#peopleEmpty").hidden=people.length>0;root.querySelectorAll("[data-person-id]").forEach(button=>button.onclick=()=>openPersonDialog(button.dataset.personId))}
 function openPersonDialog(id=""){const person=data.people().find(item=>item.id===id),pls=data.people().filter(item=>item.type==="PL"&&item.id!==id);$("#personId").value=person?.id||"";$("#personType").value=person?.type||"PC";$("#personName").value=person?.name||"";$("#personColor").value=person?.color||"#ffe66b";pendingIcon=person?.icon||"";$("#personOwner").innerHTML='<option value="">なし</option>'+pls.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("");$("#personOwner").value=person?.plId||"";$("#personIconPreview").innerHTML=pendingIcon?`<img src="${escapeHtml(pendingIcon)}" alt="">`:"";$("#personDialogTitle").textContent=person?"人物を編集":"人物を追加";$("#deletePersonButton").classList.toggle("hidden",!person);syncPersonFields();$("#personDialog").showModal()}
 function syncPersonFields(){$("#personOwnerRow").hidden=$("#personType").value==="PL"}
+async function deleteRemotePerson(result){
+  const profile=data.read("trpgMarkerProfile",null),authorId=String(profile?.id||"");if(!authorId)return;
+  const targetName=String(result?.target?.name||""),removedByRoom=new Map();
+  for(const ref of result?.removedPersonas||[]){if(!ref.roomId||!ref.personaId)continue;const set=removedByRoom.get(ref.roomId)||new Set();set.add(ref.personaId);removedByRoom.set(ref.roomId,set)}
+  const boards=Object.keys(readBoards());
+  for(const boardId of boards){
+    let board=null;try{board=await api(`/api/boards/${encodeURIComponent(boardId)}`)}catch{continue}
+    for(const log of board.logs||[]){
+      const localIds=removedByRoom.get(log.roomId)||new Set();
+      const matches=(log.participants||[]).filter(person=>person.authorId===authorId&&(localIds.has(String(person.personaId||""))||(targetName&&person.name===targetName)));
+      for(const person of matches){
+        try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(log.roomId)}/participants/${encodeURIComponent(person.personaId)}`,{method:"DELETE",body:JSON.stringify({authorId})})}catch(error){console.warn("Remote PC delete failed",error)}
+      }
+    }
+  }
+}
 $("#addBoardButton").onclick=()=>{$("#boardName").value="";$("#boardDialog").showModal()};$("#closeBoardDialog").onclick=()=>$("#boardDialog").close();
 $("#boardForm").onsubmit=async event=>{event.preventDefault();const button=event.submitter,name=$("#boardName").value.trim();if(!name)return;button.disabled=true;try{const board=await api("/api/boards",{method:"POST",body:JSON.stringify({name,ownerId:ownerId()})}),saved=readBoards();saved[board.id]={name:board.name,adminToken:board.adminToken};saveBoards(saved);localStorage.setItem(`boardAdmin:${board.id}`,board.adminToken);location.href=`/board/?id=${encodeURIComponent(board.id)}`}catch(error){$("#boardStatus").textContent=error.message;button.disabled=false}};
 $("#addPersonButton").onclick=()=>openPersonDialog();$("#closePersonDialog").onclick=()=>$("#personDialog").close();$("#personType").onchange=syncPersonFields;
 $("#personIcon").onchange=async event=>{const file=event.target.files?.[0];if(!file)return;pendingIcon=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file)});$("#personIconPreview").innerHTML=`<img src="${escapeHtml(pendingIcon)}" alt="">`};
 $("#personForm").onsubmit=event=>{event.preventDefault();const name=$("#personName").value.trim();if(!name)return;data.upsertPerson({id:$("#personId").value,type:$("#personType").value,name,icon:pendingIcon,color:$("#personColor").value,plId:$("#personType").value==="PL"?"":$("#personOwner").value});$("#personDialog").close();renderPeople()};
-$("#deletePersonButton").onclick=()=>{const id=$("#personId").value;if(!id||!confirm("この人物を共通マスターから削除しますか？"))return;data.removePerson(id);$("#personDialog").close();renderPeople()};
+$("#deletePersonButton").onclick=async()=>{const id=$("#personId").value,person=data.people().find(item=>item.id===id);if(!id||!person||!confirm(`「${person.name}」を完全に削除しますか？\n\nLOG / MAGIA MATRIXのPC登録と復旧用データからも削除します。\n過去のCOMMENTS本文は残ります。`))return;const button=$("#deletePersonButton");button.disabled=true;const result=data.removePersonDeep(id);$("#personDialog").close();renderPeople();try{await deleteRemotePerson(result)}finally{button.disabled=false}};
 ownerId();renderBoards();renderPeople();
