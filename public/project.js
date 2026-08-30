@@ -17,28 +17,8 @@ function renderPeople(){cleanupLegacySpreadsheetPeople();const people=data.impor
 function openPersonDialog(id=""){const person=data.people().find(item=>item.id===id),pls=data.people().filter(item=>item.type==="PL"&&item.id!==id);$("#personId").value=person?.id||"";$("#personType").value=person?.type||"PC";$("#personName").value=person?.name||"";$("#personColor").value=person?.color||"#ffe66b";pendingIcon=person?.icon||"";$("#personOwner").innerHTML='<option value="">なし</option>'+pls.map(item=>`<option value="${escapeHtml(item.id)}">${escapeHtml(item.name)}</option>`).join("");$("#personOwner").value=person?.plId||"";$("#personIconPreview").innerHTML=pendingIcon?`<img src="${escapeHtml(pendingIcon)}" alt="">`:"";$("#personDialogTitle").textContent=person?"人物を編集":"人物を追加";$("#deletePersonButton").classList.toggle("hidden",!person);syncPersonFields();$("#personDialog").showModal()}
 function syncPersonFields(){$("#personOwnerRow").hidden=$("#personType").value==="PL"}
 async function syncPlayerMaster(){try{await window.JIJINPlayerMaster?.pushCurrent?.()}catch(error){console.warn("PEOPLE master sync failed",error)}}
-async function deletePlayerMasterCharacter(person){
-  if(!person||person.type==="PL")return;
-  const playerId=String(window.JIJINPlayerMaster?.playerId||localStorage.getItem("jijinboardPlayerMasterId.v1")||""),accessToken=String(localStorage.getItem("jijinboardPlayerMasterToken.v1")||"");
-  if(!playerId||!accessToken)return;
-  try{const response=await fetch(`/api/player-master/characters/${encodeURIComponent(person.id)}?playerId=${encodeURIComponent(playerId)}`,{method:"DELETE",headers:{"content-type":"application/json","x-player-token":accessToken}});if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||"PCマスターを削除できませんでした")}}catch(error){console.warn("Player master delete failed",error)}
-}
-async function deleteRemotePerson(result){
-  const profile=data.read("trpgMarkerProfile",null),authorId=String(profile?.id||"");if(!authorId)return;
-  const targetName=String(result?.target?.name||""),removedByRoom=new Map();
-  for(const ref of result?.removedPersonas||[]){if(!ref.roomId||!ref.personaId)continue;const set=removedByRoom.get(ref.roomId)||new Set();set.add(ref.personaId);removedByRoom.set(ref.roomId,set)}
-  const boards=Object.keys(readBoards());
-  for(const boardId of boards){
-    let board=null;try{board=await api(`/api/boards/${encodeURIComponent(boardId)}`)}catch{continue}
-    for(const log of board.logs||[]){
-      const localIds=removedByRoom.get(log.roomId)||new Set();
-      const matches=(log.participants||[]).filter(person=>person.authorId===authorId&&(localIds.has(String(person.personaId||""))||(targetName&&person.name===targetName)));
-      for(const person of matches){
-        try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(log.roomId)}/participants/${encodeURIComponent(person.personaId)}`,{method:"DELETE",body:JSON.stringify({authorId})})}catch(error){console.warn("Remote PC delete failed",error)}
-      }
-    }
-  }
-}
+async function deletePlayerMasterCharacter(person){if(!person||person.type==="PL")return;const playerId=String(window.JIJINPlayerMaster?.playerId||localStorage.getItem("jijinboardPlayerMasterId.v1")||""),accessToken=String(localStorage.getItem("jijinboardPlayerMasterToken.v1")||"");if(!playerId||!accessToken)return;try{const response=await fetch(`/api/player-master/characters/${encodeURIComponent(person.id)}?playerId=${encodeURIComponent(playerId)}`,{method:"DELETE",headers:{"content-type":"application/json","x-player-token":accessToken}});if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||"PCマスターを削除できませんでした")}}catch(error){console.warn("Player master delete failed",error)}}
+async function deleteRemotePerson(result){const profile=data.read("trpgMarkerProfile",null),authorId=String(profile?.id||"");if(!authorId)return;const targetName=String(result?.target?.name||""),removedByRoom=new Map();for(const ref of result?.removedPersonas||[]){if(!ref.roomId||!ref.personaId)continue;const set=removedByRoom.get(ref.roomId)||new Set();set.add(ref.personaId);removedByRoom.set(ref.roomId,set)}const boards=Object.keys(readBoards());for(const boardId of boards){let board=null;try{board=await api(`/api/boards/${encodeURIComponent(boardId)}`)}catch{continue}for(const log of board.logs||[]){const localIds=removedByRoom.get(log.roomId)||new Set();const matches=(log.participants||[]).filter(person=>person.authorId===authorId&&(localIds.has(String(person.personaId||""))||(targetName&&person.name===targetName)));for(const person of matches){try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(log.roomId)}/participants/${encodeURIComponent(person.personaId)}`,{method:"DELETE",body:JSON.stringify({authorId})})}catch(error){console.warn("Remote PC delete failed",error)}}}}}
 $("#addBoardButton").onclick=()=>{$("#boardName").value="";$("#boardDialog").showModal()};$("#closeBoardDialog").onclick=()=>$("#boardDialog").close();
 $("#boardForm").onsubmit=async event=>{event.preventDefault();const button=event.submitter,name=$("#boardName").value.trim();if(!name)return;button.disabled=true;try{const board=await api("/api/boards",{method:"POST",body:JSON.stringify({name,ownerId:ownerId()})}),saved=readBoards();saved[board.id]={name:board.name,adminToken:board.adminToken};saveBoards(saved);localStorage.setItem(`boardAdmin:${board.id}`,board.adminToken);location.href=`/board/?id=${encodeURIComponent(board.id)}`}catch(error){$("#boardStatus").textContent=error.message;button.disabled=false}};
 $("#addPersonButton").onclick=()=>openPersonDialog();$("#closePersonDialog").onclick=()=>$("#personDialog").close();$("#personType").onchange=syncPersonFields;
@@ -47,4 +27,4 @@ $("#personForm").onsubmit=async event=>{event.preventDefault();const name=$("#pe
 $("#deletePersonButton").onclick=async()=>{const id=$("#personId").value,person=data.people().find(item=>item.id===id);if(!id||!person||!confirm(`「${person.name}」を完全に削除しますか？\n\nLOG / MAGIA MATRIXのPC登録と復旧用データからも削除します。\n過去のCOMMENTS本文は残ります。`))return;const button=$("#deletePersonButton");button.disabled=true;const result=data.removePersonDeep(id);$("#personDialog").close();renderPeople();try{await Promise.allSettled([deletePlayerMasterCharacter(person),deleteRemotePerson(result)])}finally{button.disabled=false}};
 window.addEventListener("jijinboard-player-master-updated",renderPeople);
 ownerId();renderBoards();renderPeople();
-if(!document.querySelector('script[data-jijin-player-master]')){const script=document.createElement('script');script.src='/shared/player-master.js?v=20260830-1';script.dataset.jijinPlayerMaster='1';document.body.append(script)}
+if(!document.querySelector('script[data-jijin-player-master]')){const script=document.createElement('script');script.src='/shared/player-master.js?v=20260830-3';script.dataset.jijinPlayerMaster='1';document.body.append(script)}
