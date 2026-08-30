@@ -30,15 +30,16 @@ html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!importan
 #sheetComments .comment-reply:hover{color:var(--sheet-ink)!important;opacity:1!important}
 #sheetComments .comment-body{margin:4px 0 0!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;line-height:1.5!important}
 
-/* Input dialog = LOGCOMMENTS #commentDialog. */
-#sheetCommentDialog{position:fixed!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid var(--sheet-line)!important;border-radius:14px!important;background:#fff!important;color:rgb(75,75,75)!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+/* Input dialog: copy the final LOGCOMMENTS #commentDialog values, not Spreadsheet defaults. */
+#sheetCommentDialog{position:fixed!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid #e2e7ed!important;border-radius:14px!important;background:rgba(255,255,255,.82)!important;color:#171a1f!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important;font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;backdrop-filter:blur(24px) saturate(145%)!important;-webkit-backdrop-filter:blur(24px) saturate(145%)!important}
 #sheetCommentDialog::backdrop{background:transparent!important}
-#sheetCommentDialog .sheet-comment-log-form{padding:10px!important;display:grid!important;gap:7px!important}
+#sheetCommentDialog .sheet-comment-log-form{padding:10px!important;display:grid!important;gap:7px!important;margin:0!important}
 #sheetCommentDialog .comment-persona-picker{display:grid!important;grid-template-columns:32px minmax(0,1fr)!important;gap:8px!important;align-items:center!important}
-#sheetCommentDialog .comment-persona-picker select{width:100%!important;border:0!important;background:transparent!important;padding:4px 0!important;color:rgb(75,75,75)!important;font:inherit!important;box-shadow:none!important}
-#sheetCommentDialog .comment-input-avatar{width:30px!important;height:30px!important;border-radius:50%!important;overflow:hidden!important;background:var(--sheet-soft)!important;display:grid!important;place-items:center!important;font-size:11px!important}
+#sheetCommentDialog .comment-persona-picker select{width:100%!important;height:auto!important;min-height:0!important;border:0!important;border-radius:0!important;background:transparent!important;padding:4px 0!important;color:#171a1f!important;font:inherit!important;line-height:inherit!important;box-shadow:none!important;outline:0!important}
+#sheetCommentDialog .comment-input-avatar{width:30px!important;height:30px!important;flex:0 0 30px!important;border-radius:50%!important;overflow:hidden!important;background:#f0f3f6!important;display:grid!important;place-items:center!important;font-size:11px!important;border:2px solid var(--persona-marker,#e2e7ed)!important}
 #sheetCommentDialog .comment-input-avatar img{width:100%!important;height:100%!important;display:block!important;object-fit:contain!important}
-#sheetCommentDialog textarea{width:100%!important;border:0!important;border-radius:8px!important;background:var(--sheet-soft)!important;min-height:82px!important;padding:10px!important;resize:vertical!important;color:rgb(75,75,75)!important;font:inherit!important;box-shadow:none!important;outline:0!important}
+#sheetCommentDialog .comment-input-avatar span{font:11px/1 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;color:#79818d!important}
+#sheetCommentDialog textarea{box-sizing:border-box!important;width:100%!important;border:0!important;border-radius:8px!important;background:#f0f3f6!important;min-height:82px!important;padding:10px!important;resize:vertical!important;color:#171a1f!important;font:inherit!important;line-height:inherit!important;box-shadow:none!important;outline:0!important}
 #sheetCommentDialog .comment-edit-delete{justify-self:start!important;border:0!important;background:transparent!important;color:#d95b66!important;font-size:9px!important;padding:3px 0!important;cursor:pointer!important}
 #sheetCommentDialog .comment-edit-delete[hidden]{display:none!important}
 
