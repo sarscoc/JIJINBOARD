@@ -95,6 +95,7 @@
     });
   }
   function loadedSet(){return new Set((streamState()?.loaded||[]).map(Number).filter(Number.isFinite))}
+  function allChunksLoaded(){const stream=streamState();return !!stream&&loadedSet().size>=Number(stream.chunkCount||0)}
   function nextChunkIndex(){
     const stream=streamState();if(!stream)return -1;
     const loaded=loadedSet();
@@ -102,8 +103,29 @@
     return -1;
   }
   function rememberRoom(){try{if(state?.room?.id)parentCache?.set(state.room.id,state.room)}catch{}}
-  function activeScroll(){
-    try{return document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"] .page-scroll`)||document.querySelector(".log-page .page-scroll")}catch{return null}
+  function activePage(){
+    try{return document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`)||document.querySelector(".log-page")}catch{return null}
+  }
+  function activeScroll(){return activePage()?.querySelector(".page-scroll")||null}
+  function activeTab(){
+    try{
+      const page=activePage(),realIndex=Number(page?.dataset.realIndex);
+      if(Number.isInteger(realIndex)&&realIndex>=0)return state.room?.tabs?.[realIndex]||"";
+      return state.room?.tabs?.[state.activeTabIndex]||"";
+    }catch{return ""}
+  }
+  function tabHasLoadedMessages(tab){return !!tab&&!!state?.room?.messages?.some(message=>message.tab===tab)}
+  function scrollSnapshot(){
+    const scroll=activeScroll();
+    if(!scroll)return null;
+    return {top:scroll.scrollTop,max:Math.max(0,scroll.scrollHeight-scroll.clientHeight)};
+  }
+  async function restoreScroll(snapshot){
+    if(!snapshot)return;
+    await nextFrame();
+    const scroll=activeScroll();if(!scroll)return;
+    const max=Math.max(0,scroll.scrollHeight-scroll.clientHeight);
+    scroll.scrollTop=Math.min(snapshot.top,max);
   }
 
   async function loadChunk(index,{render=true}={}){
@@ -127,8 +149,9 @@
       stream.messageCount=Math.max(Number(stream.messageCount)||0,Number(data.messageCount)||0);
       rememberRoom();
       if(render&&typeof renderLog==="function"){
-        const anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
+        const snapshot=scrollSnapshot(),anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
         renderLog(anchor);
+        await restoreScroll(snapshot);
       }
       return true;
     }catch(error){console.warn("Log chunk load failed",error);return false}
@@ -139,25 +162,27 @@
     if(fillingViewport||!streamState())return;
     fillingViewport=true;
     try{
-      // Do not stop at a fixed message count. Keep reading only until the CURRENT
-      // tab has roughly one visible screen plus a small buffer below it.
+      // The current tab alone decides how far to read. Keep fetching sequential
+      // chunks until it contains a little more than one visible screen.
       for(let guard=0;guard<Math.max(1,Number(streamState()?.chunkCount)||1);guard++){
         await nextFrame();
-        const panel=activeScroll();
+        const panel=activeScroll(),tab=activeTab();
         if(!panel)return;
         const height=Math.max(1,panel.clientHeight);
         const remaining=panel.scrollHeight-panel.scrollTop-height;
         const atInitialTop=panel.scrollTop<4;
-        const enough=atInitialTop
-          ? panel.scrollHeight>=height*1.32
-          : remaining>=height*.62;
-        if(enough)return;
+        const hasTabRows=tabHasLoadedMessages(tab);
+        const enough=hasTabRows&&(atInitialTop
+          ? panel.scrollHeight>=height*1.18
+          : remaining>=height*.35);
+        if(enough||allChunksLoaded())return;
         const next=nextChunkIndex();
         if(next<0)return;
-        const anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
+        const snapshot=scrollSnapshot(),anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
         const loaded=await loadChunk(next,{render:false});
         if(!loaded)return;
         if(typeof renderLog==="function")renderLog(anchor);
+        await restoreScroll(snapshot);
       }
     }finally{fillingViewport=false}
   }
@@ -169,7 +194,7 @@
       scroll.addEventListener("scroll",()=>{
         if(!streamState()||loadingChunk||fillingViewport)return;
         const height=Math.max(1,scroll.clientHeight),remaining=scroll.scrollHeight-scroll.scrollTop-height;
-        if(remaining<height*.62)fillViewportBuffer().catch(()=>{});
+        if(remaining<height*.35)fillViewportBuffer().catch(()=>{});
       },{passive:true});
     });
     requestAnimationFrame(()=>fillViewportBuffer().catch(()=>{}));
@@ -197,6 +222,16 @@
   function installStreamingRuntime(){
     if(installDone||typeof state==="undefined"||typeof renderLog!=="function")return false;
     installDone=true;
+
+    if(typeof pagePanelHtml==="function"&&!pagePanelHtml.__jijinChunkPendingAware){
+      const raw=pagePanelHtml;
+      const wrapped=function(tab,...args){
+        const html=raw.call(this,tab,...args);
+        if(!streamState()||allChunksLoaded()||tabHasLoadedMessages(tab))return html;
+        return html.replace('<p class="empty">このタブに表示できる発言がありません。</p>','<p class="empty jijin-stream-pending">読み込み中…</p>');
+      };
+      wrapped.__jijinChunkPendingAware=true;pagePanelHtml=wrapped;
+    }
 
     if(typeof renderLog==="function"&&!renderLog.__jijinChunkBound){
       const raw=renderLog;
