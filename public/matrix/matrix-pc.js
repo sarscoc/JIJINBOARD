@@ -133,6 +133,7 @@
     const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
     if(currentKey===localKey)return false;
     await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
+    window.matrixBoardContext?.notifyChange?.("participants");
     return true;
   }
 
@@ -268,11 +269,10 @@
 
   setupBoardUi();
   setupPcControls();
-  // board-integration.js is the single owner of the parent active-room message.
-  // matrix-pc reacts only to its normalized room event so one room switch cannot
-  // start two participant GET/POST sequences in parallel.
+  // Room changes and actual participant mutations are the only server refresh
+  // triggers. Merely focusing the window no longer performs a GET.
   window.addEventListener("matrix-board-room",event=>load(event.detail?.roomId||activeRoom,true).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>load(activeRoom).catch(console.warn));
-  window.addEventListener("focus",()=>{if(window.matrixBoardContext?.isActive?.())load(activeRoom).catch(()=>{})});
+  window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
   setTimeout(()=>load(activeRoom).catch(console.warn),500);
 })();
