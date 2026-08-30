@@ -1,5 +1,22 @@
 "use strict";
 
+// Send a one-shot realtime event only after an actual room-scoped mutation.
+// There is no idle connection here: the socket exists only long enough to carry
+// the change signal, then closes immediately.
+window.jijinboardNotifyRoomChange=function(roomId,action){
+  const room=String(roomId||""),kind=String(action||"");
+  if(!room||!kind)return;
+  const protocol=location.protocol==="https:"?"wss:":"ws:";
+  let socket;
+  try{socket=new WebSocket(`${protocol}//${location.host}/api/rooms/${encodeURIComponent(room)}/realtime`)}catch{return}
+  const close=()=>{try{if(socket.readyState<2)socket.close()}catch{}};
+  socket.addEventListener("open",()=>{
+    try{socket.send(JSON.stringify({type:"change",action:kind}))}catch{}
+    setTimeout(close,0);
+  },{once:true});
+  socket.addEventListener("error",close,{once:true});
+};
+
 // The full profile editor lives in LOGCOMMENTS. When another board tool is active,
 // temporarily surface that same editor above the current iframe instead of duplicating it.
 (() => {
@@ -133,8 +150,14 @@
     const promise=new Promise((resolve,reject)=>slot.waiters.push({resolve,reject}));
     slot.timer=setTimeout(async()=>{
       pending.delete(room);
-      try{await baseSyncParticipants(slot.profile,room);settle(slot)}
-      catch(error){settle(slot,error)}
+      try{
+        const key=typeof participantSyncKey==="function"?participantSyncKey(room):"";
+        const before=key?localStorage.getItem(key):null;
+        await baseSyncParticipants(slot.profile,room);
+        const after=key?localStorage.getItem(key):null;
+        if(after&&after!==before)window.jijinboardNotifyRoomChange?.(room,"participants");
+        settle(slot);
+      }catch(error){settle(slot,error)}
     },280);
     return promise;
   };
