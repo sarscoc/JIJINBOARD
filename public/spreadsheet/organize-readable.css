@@ -1,7 +1,14 @@
 /* Readability + compactness pass for the Item Organize modal only. */
 #organizeModal{font-size:12px}
 #organizeModal .modal-head b{font-size:15px!important;line-height:1.25!important}
-#organizeModal .modal-body{font-size:12px!important;line-height:1.35!important;padding:0 9px 7px!important}
+#organizeModal .modal-body{
+  font-size:12px!important;
+  line-height:1.35!important;
+  padding:0 9px 7px!important;
+  /* Do not create a nested scroll container: sticky GROUP must follow the modal scroll. */
+  overflow-x:clip!important;
+  overflow-y:visible!important;
+}
 
 /* Keep creation controls/help visible while the modal itself scrolls.
    Their natural first position is directly below the title; no spacer above. */
@@ -29,15 +36,20 @@
   line-height:1.25!important;
 }
 
-/* Stretch the left column for the full grid height, then stick its contents.
-   Sticky on the short aside itself had no vertical travel range. */
+/* Make the left rail span the entire height of the right item table.
+   The sticky inner GROUP list can then travel from the first group to the very last row. */
+#organizeModal .organize-shell{
+  gap:6px!important;
+  align-items:stretch!important;
+}
 #organizeModal .organize-toc{
   position:relative!important;
   top:auto!important;
   align-self:stretch!important;
-  z-index:8!important;
+  height:auto!important;
   min-height:100%!important;
   max-height:none!important;
+  z-index:8!important;
   overflow:visible!important;
 }
 #organizeModal .organize-toc-inner{
@@ -58,7 +70,6 @@
 #organizeModal .icon-btn{font-size:12px!important;line-height:1.2!important}
 #organizeModal input,
 #organizeModal select{font-size:12px!important;min-height:30px!important;padding:4px 7px!important}
-#organizeModal .organize-shell{gap:6px!important}
 #organizeModal .organize-toc-title{font-size:10px!important;line-height:1.2!important;padding:2px 4px 4px!important}
 #organizeModal .organize-toc-btn{font-size:12px!important;line-height:1.18!important;padding:4px 6px!important}
 #organizeModal #organizeGrid,
