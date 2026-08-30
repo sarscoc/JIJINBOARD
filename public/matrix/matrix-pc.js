@@ -167,8 +167,12 @@
   async function syncLocalPcsIfNeeded(entry,room){
     const profile=me(),local=localPcs(room);if(!profile?.id||!profile?.plName||!local.length||!room)return false;
     const current=(entry?.participants||[]).filter(person=>person.authorId===profile.id);
-    const currentKey=current.map(person=>`${person.personaId}:${person.name}:${person.baseIcon||person.icon||""}`).sort().join("|");
-    const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}:${person.icon||""}`).sort().join("|");
+    // Server icons are normalized to /api/... URLs while local icons are data URLs.
+    // Comparing image strings therefore makes the same PC look changed forever and
+    // causes POST -> realtime refresh -> reload loops. Identity/name are enough here;
+    // actual icon changes are synchronized by the LOG/profile save path.
+    const currentKey=current.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
+    const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
     if(currentKey===localKey)return false;
     await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
     window.matrixBoardContext?.notifyChange?.("participants");
@@ -345,7 +349,7 @@
   window.addEventListener("matrix-board-active",()=>{
     paintParticipants();
     paintAfterLayout();
-    load(activeRoom,true).catch(console.warn);
+    load(activeRoom).catch(console.warn);
   });
 
   // Do not wait 500ms before the first participant request.
