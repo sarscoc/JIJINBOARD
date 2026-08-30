@@ -40,12 +40,13 @@
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const localPcs=(room=activeRoom)=>{try{return (JSON.parse(localStorage.getItem(`personas:${room}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
   const preferredImage=person=>person?.matrixIcon||person?.baseIcon||person?.icon||"";
+  const fallbackImage=person=>person?.baseIcon||person?.icon||"";
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
   const escHtml=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const clone=value=>{if(value===undefined)return undefined;try{return structuredClone(value)}catch{try{return JSON.parse(JSON.stringify(value))}catch{return value}}};
   const placementOnlyKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth","mobileSelected"]);
   const participantKey=list=>(list||[]).map(person=>[
-    person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person)
+    person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person),fallbackImage(person)
   ].join("\u001f")).sort().join("\u001e");
 
   function setupBoardUi(){
@@ -120,9 +121,9 @@
     const validIds=new Set(participants.map(person=>`participant:${person.authorId}:${person.personaId}`));
     let stateChanged=pruneRemovedParticipants(validIds,state);
     items=participants.map(person=>{
-      const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person);
+      const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person),fallback=fallbackImage(person);
       if(!state.items[id]){state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);stateChanged=true}
-      return{id,name:person.name,url:"",baseImage:image,imageSignature:`participant:${person.personaId}:${image}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
+      return{id,name:person.name,url:"",baseImage:image,imageFallback:fallback,imageSignature:`participant:${person.personaId}:${image}:${fallback}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     if(stateChanged)saveState(state);
     renderLibrary();renderPlaced();renderPcSources();
@@ -131,14 +132,31 @@
 
   function localParticipantRows(room=activeRoom){
     const profile=me();if(!profile?.id)return[];
-    return localPcs(room).map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:""}));
+    return localPcs(room).map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:person.matrixIcon||""}));
+  }
+
+  function mergeOwnLocalImages(list,room){
+    const profile=me();if(!profile?.id)return list||[];
+    const local=localPcs(room),byId=new Map(),byName=new Map();
+    for(const person of local){
+      const id=String(person?.id||person?.projectPersonId||"");if(id)byId.set(id,person);
+      const name=String(person?.name||"");if(name&&!byName.has(name))byName.set(name,person);
+    }
+    return (list||[]).map(person=>{
+      if(String(person?.authorId||"")!==String(profile.id))return person;
+      const localPerson=byId.get(String(person?.personaId||""))||byName.get(String(person?.name||""));
+      if(!localPerson)return person;
+      const localBase=String(localPerson.icon||"");
+      const localMatrix=String(localPerson.matrixIcon||"");
+      return {...person,icon:localBase||person.icon||"",baseIcon:localBase||person.baseIcon||person.icon||"",matrixIcon:localMatrix||person.matrixIcon||""};
+    });
   }
 
   async function syncLocalPcsIfNeeded(entry,room){
     const profile=me(),local=localPcs(room);if(!profile?.id||!profile?.plName||!local.length||!room)return false;
     const current=(entry?.participants||[]).filter(person=>person.authorId===profile.id);
-    const currentKey=current.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
-    const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
+    const currentKey=current.map(person=>`${person.personaId}:${person.name}:${person.baseIcon||person.icon||""}`).sort().join("|");
+    const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}:${person.icon||""}`).sort().join("|");
     if(currentKey===localKey)return false;
     await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
     window.matrixBoardContext?.notifyChange?.("participants");
@@ -162,7 +180,7 @@
         board=await api(`/api/boards/${encodeURIComponent(boardId)}`);entry=(board.logs||[]).find(log=>log.roomId===nextRoom);
       }
       if(seq!==loadSeq||activeRoom!==nextRoom)return;
-      let list=entry?.participants||[];
+      let list=mergeOwnLocalImages(entry?.participants||[],nextRoom);
       const profile=me();
       if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows(nextRoom)];
       setParticipants(list);
@@ -173,14 +191,34 @@
   }
 
   function sourceHtml(person){
-    const image=preferredImage(person),id=`participant:${person.authorId}:${person.personaId}`,name=person.name||"PC";
-    return `<span class="matrix-pc-source" draggable="true" data-matrix-pc-id="${escHtml(id)}" title="${escHtml(name)}をドラッグして配置" aria-label="${escHtml(name)}をドラッグして配置">${image?`<img src="${escHtml(image)}" alt="" draggable="false">`:'<span class="matrix-pc-empty">PC</span>'}</span>`;
+    const image=preferredImage(person),fallback=fallbackImage(person),id=`participant:${person.authorId}:${person.personaId}`,name=person.name||"PC";
+    return `<span class="matrix-pc-source" draggable="true" data-matrix-pc-id="${escHtml(id)}" title="${escHtml(name)}をドラッグして配置" aria-label="${escHtml(name)}をドラッグして配置">${image?`<img src="${escHtml(image)}" data-fallback-src="${escHtml(fallback)}" alt="" draggable="false">`:'<span class="matrix-pc-empty">PC</span>'}</span>`;
   }
 
   function renderPcSources(){
     const strip=document.querySelector("#matrixPcStrip");if(!strip)return;
     const own=mine();
     strip.innerHTML=own.length?own.map(sourceHtml).join(""):'<span class="matrix-pc-menu-empty">PCなし</span>';
+  }
+
+  function installImageFallback(){
+    if(document.documentElement.dataset.matrixPcImageFallback)return;
+    document.documentElement.dataset.matrixPcImageFallback="1";
+    document.addEventListener("error",event=>{
+      const image=event.target;if(!(image instanceof HTMLImageElement))return;
+      const source=image.closest?.("[data-matrix-pc-id]");
+      let fallback=image.dataset.fallbackSrc||"";
+      if(!fallback){
+        const placed=image.closest?.(".placed[data-id]");
+        const itemId=String(placed?.dataset?.id||"");
+        const item=(typeof items!=="undefined"&&Array.isArray(items))?items.find(entry=>String(entry?.id||"")===itemId):null;
+        fallback=String(item?.imageFallback||"");
+      }
+      if(fallback&&image.src!==new URL(fallback,location.href).href&&!image.dataset.fallbackTried){
+        image.dataset.fallbackTried="1";
+        image.src=fallback;
+      }
+    },true);
   }
 
   function dropPercent(event,canvas){
@@ -275,11 +313,13 @@
     renderPcSources();
   }
 
+  installImageFallback();
   setupBoardUi();
   setupPcControls();
   // Initial room load, room changes, and actual participant mutations are the
   // only server refresh triggers. Tool-tab activation by itself performs no GET.
   window.addEventListener("matrix-board-room",event=>{participantsSignature="";load(event.detail?.roomId||activeRoom,true).catch(console.warn)});
   window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
+  window.addEventListener("jijinboard-player-master-updated",()=>{participantsSignature="";load(activeRoom,true).catch(console.warn)});
   setTimeout(()=>load(activeRoom).catch(console.warn),500);
 })();
