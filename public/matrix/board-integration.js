@@ -1,4 +1,54 @@
 "use strict";
+
+// Reduce uploaded raster template images before MATRIX stores them. Keep vector /
+// animated formats untouched, preserve the original filename for the existing UI,
+// and never replace the source when WebP would actually be larger.
+(()=>{
+  if(typeof window.saveTemplateFile!=="function"||window.saveTemplateFile.__jijinTemplateOptimized)return;
+  const rawSaveTemplateFile=window.saveTemplateFile;
+  const MAX_SIDE=2560;
+  const WEBP_QUALITY=.88;
+
+  async function optimizeTemplateFile(file){
+    if(!(file instanceof Blob))return file;
+    const type=String(file.type||"").toLowerCase();
+    if(!type.startsWith("image/")||type==="image/svg+xml"||type==="image/gif")return file;
+    if(typeof createImageBitmap!=="function")return file;
+
+    let bitmap=null;
+    try{
+      bitmap=await createImageBitmap(file);
+      const sourceWidth=Math.max(1,Number(bitmap.width)||1),sourceHeight=Math.max(1,Number(bitmap.height)||1);
+      const scale=Math.min(1,MAX_SIDE/Math.max(sourceWidth,sourceHeight));
+      const width=Math.max(1,Math.round(sourceWidth*scale)),height=Math.max(1,Math.round(sourceHeight*scale));
+      const canvas=document.createElement("canvas");
+      canvas.width=width;canvas.height=height;
+      const context=canvas.getContext("2d",{alpha:true});
+      if(!context)return file;
+      context.drawImage(bitmap,0,0,width,height);
+      const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",WEBP_QUALITY));
+      if(!blob)return file;
+      if(scale===1&&Number(file.size)>0&&blob.size>=file.size)return file;
+      const name=typeof file.name==="string"&&file.name?file.name:"template.webp";
+      try{return new File([blob],name,{type:"image/webp",lastModified:file.lastModified||Date.now()})}
+      catch{blob.name=name;return blob}
+    }catch(error){
+      console.warn("Template image optimization skipped",error);
+      return file;
+    }finally{
+      try{bitmap?.close?.()}catch{}
+    }
+  }
+
+  const optimizedSave=async function(file,...args){
+    const optimized=await optimizeTemplateFile(file);
+    return rawSaveTemplateFile.call(this,optimized,...args);
+  };
+  optimizedSave.__jijinTemplateOptimized=true;
+  optimizedSave.__jijinRaw=rawSaveTemplateFile;
+  window.saveTemplateFile=optimizedSave;
+})();
+
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");if(!boardId)return;
   const embedded=params.get("embedded")==="1";
