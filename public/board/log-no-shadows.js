@@ -27,6 +27,20 @@
   });
   apply();
 
+  // Keep the main room websocket alive after the LOG tab has been opened once.
+  // The child defers expensive annotation refreshes while hidden, so switching
+  // tools no longer disconnects/reconnects or performs a catch-up GET when there
+  // was no actual change.
+  if(typeof setLogActive==="function"){
+    setLogActive=function(frame,active){
+      try{
+        const win=frame?.contentWindow;if(!win)return;
+        win.connectRealtime?.();
+        win.postMessage({type:"jijinboard-log-active",active:!!active},location.origin);
+      }catch{}
+    };
+  }
+
   // board-tab-settings.js owns the final openLogEdit implementation, while
   // board-log-meta.js owns the white/black display-mode controls. Keep those
   // two layers composed so opening another log never reuses the previous
