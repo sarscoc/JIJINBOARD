@@ -25,7 +25,7 @@
   const uiInk="rgb(75,75,75)";
   const noBlur="backdrop-filter:none!important;-webkit-backdrop-filter:none!important;";
   const hexRgba=(hex,alpha)=>{const value=validColor(hex)?hex:"#000000",n=parseInt(value.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`};
-  const whiteGradient=value=>`background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,${hexRgba(value.gradientColor1,.24)},transparent 28%),radial-gradient(circle at 86% 82%,${hexRgba(value.gradientColor2,.12)},transparent 30%)!important;background-repeat:no-repeat!important;`;
+  const whiteGradient=value=>`background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,${hexRgba(value.gradientColor1,.24)},transparent 28%),radial-gradient(circle at 86% 82%,${hexRgba(value.gradientColor2,.12)},transparent 30%)!important;background-repeat:no-repeat!important;background-position:0 0!important;background-size:auto!important;background-attachment:scroll!important;background-origin:padding-box!important;background-clip:border-box!important;`;
 
   function parentCss(value){return `
     .topbar .brand,.board-brand-kicker,.topbar .presence-person b,.topbar .app-tabs button,.log-list-head>span{color:${value.color1}!important}
