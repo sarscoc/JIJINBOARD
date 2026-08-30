@@ -1,7 +1,7 @@
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 
-export async function handleBoardParticipants(request,env,boardId,roomId){
-  if(request.method==="POST"){
+export async function handleBoardParticipants(request,env,boardId,roomId,personaId=""){
+  if(request.method==="POST"&&!personaId){
     let body=null;
     try{body=await request.clone().json()}catch{}
     const personas=Array.isArray(body?.personas)?body.personas:[];
@@ -19,6 +19,12 @@ export async function handleBoardParticipants(request,env,boardId,roomId){
     if(!authorId)return json({error:"発言者情報がありません"},400);
     const linked=await env.DB.prepare("SELECT 1 FROM board_logs WHERE board_id=? AND room_id=?").bind(boardId,roomId).first();
     if(!linked)return json({error:"この自陣にないログです"},404);
+
+    if(personaId){
+      const changed=await env.DB.prepare("DELETE FROM board_log_participants WHERE board_id=? AND room_id=? AND author_id=? AND persona_id=?").bind(boardId,roomId,authorId,personaId).run();
+      return json({ok:true,deleted:Number(changed.meta?.changes||0)});
+    }
+
     if(clearLegacy&&plName){
       await env.DB.prepare("DELETE FROM board_log_participants WHERE board_id=? AND room_id=? AND (author_id=? OR pl_name=?)").bind(boardId,roomId,authorId,plName).run();
     }else{
