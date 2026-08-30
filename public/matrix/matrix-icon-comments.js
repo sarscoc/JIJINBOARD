@@ -179,7 +179,6 @@
 
   window.openMatrixIconComment=id=>open(id);
   window.addEventListener("matrix-board-room",()=>{lastSerial="";load(true).catch(console.warn)});
-  window.addEventListener("matrix-board-active",()=>load().catch(console.warn));
   window.addEventListener("matrix-board-comments-changed",()=>load().catch(console.warn));
   setTimeout(()=>load().catch(console.warn),900);
 })();
