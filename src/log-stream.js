@@ -46,7 +46,7 @@ export async function handleLogStream(request,env,roomId,action,arg,executionCon
   const log=parseLog(row.log_json);
 
   if(action==="meta"){
-    const messageCount=Number(log.messageCount)||Array.isArray(log.messages)?log.messages.length:0;
+    const messageCount=Number(log.messageCount)|| (Array.isArray(log.messages)?log.messages.length:0);
     const count=log.storage==="r2-chunks"?Math.max(1,Number(log.chunkCount)||chunkCountFor(messageCount)):chunkCountFor(messageCount);
     return json({id:row.id,title:row.title,createdAt:row.created_at,tabs:log.tabs||[],messageCount,chunkSize:CHUNK_SIZE,chunkCount:count,streamed:true});
   }
