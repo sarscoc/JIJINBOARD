@@ -45,4 +45,18 @@
       return result;
     };
   }
+
+  // theme-scoped.js replaces the original Design tab button. That bypasses the
+  // settings workspace's normal disposeSpeaker() path, leaving a complete hidden
+  // LOG iframe alive behind the design page. Blank it while Design is open; the
+  // existing General-tab code will navigate the same iframe back when needed.
+  document.querySelector('[data-board-settings-tab="design"]')?.addEventListener("click",()=>{
+    const speakerFrame=document.querySelector("#boardSpeakerSlot iframe");
+    if(!speakerFrame||speakerFrame.getAttribute("src")==="about:blank")return;
+    try{
+      speakerFrame.contentWindow?.postMessage({type:"jijinboard-log-active",active:false},location.origin);
+      speakerFrame.contentWindow?.disconnectRealtime?.();
+    }catch{}
+    speakerFrame.src="about:blank";
+  });
 })();
