@@ -52,10 +52,10 @@
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");if(!boardId)return;
   const embedded=params.get("embedded")==="1";
-  let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false;
+  let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false,fullStateDirty=false;
   let loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
   let realtime=null,realtimeRoom="",dirtyState=false,dirtyParticipants=false,dirtyComments=false;
-  const pendingActions=new Set();
+  const pendingActions=new Map(),pointRequests=new Map();
   const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
     const response=await fetch(path,{headers:{"content-type":"application/json","x-realtime-client":realtimeClientId,...(options.headers||{})},...options});
@@ -65,7 +65,9 @@
   };
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const matrixPath=()=>`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(roomId)}`;
+  const pointPath=itemId=>`${matrixPath()}/points/${encodeURIComponent(itemId)}`;
   const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const pointKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth"]);
 
   function realtimeUrl(targetRoom=roomId){
     const protocol=location.protocol==="https:"?"wss:":"ws:";
@@ -78,7 +80,35 @@
     if(socket&&socket.readyState<2)try{socket.close()}catch{}
   }
 
-  function dispatchRefresh(action){
+  function pointPayload(itemId,item){
+    const payload={itemId:String(itemId||""),placed:!!item?.placed};
+    for(const key of ["x","y","templateX","templateY","coordVersion","scaleBaseWidth"]){
+      const value=Number(item?.[key]);
+      if(Number.isFinite(value))payload[key]=value;
+    }
+    return payload;
+  }
+
+  function applyRemotePoint(data){
+    const itemId=String(data?.itemId||"");
+    if(!itemId||!roomId)return;
+    const state=appState();state.items||={};
+    const item=state.items[itemId]||(state.items[itemId]=typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{});
+    for(const key of pointKeys){if(data?.[key]!==undefined)item[key]=key==="placed"?!!data[key]:Number(data[key])}
+    applyingRemote=true;
+    try{
+      saveJSON(STATE,state);
+      saveCurrentTemplateState(state);
+      const live=items?.find?.(entry=>entry.id===itemId);if(live)live.local=item;
+      if(typeof renderPlaced==="function")renderPlaced();
+    }finally{applyingRemote=false}
+  }
+
+  function dispatchRefresh(action,data=null){
+    if(action==="matrix-point"){
+      if(active)applyRemotePoint(data);else dirtyState=true;
+      return;
+    }
     if(action==="matrix-state"){
       if(active&&roomId)loadRoom(roomId).catch(console.warn);else dirtyState=true;
       return;
@@ -92,10 +122,11 @@
     }
   }
 
+  function actionKey(action,data){return action==="matrix-point"&&data?.itemId?`${action}:${data.itemId}`:action}
   function flushPendingActions(socket){
     if(socket!==realtime||socket.readyState!==WebSocket.OPEN)return;
-    for(const action of [...pendingActions]){
-      try{socket.send(JSON.stringify({type:"change",action}));pendingActions.delete(action)}catch{break}
+    for(const [key,payload] of [...pendingActions]){
+      try{socket.send(JSON.stringify({type:"change",action:payload.action,data:payload.data??null}));pendingActions.delete(key)}catch{break}
     }
   }
 
@@ -114,20 +145,37 @@
     socket.addEventListener("message",event=>{
       if(realtime!==socket)return;
       let data;try{data=JSON.parse(event.data)}catch{return}
-      if(data?.type==="refresh")dispatchRefresh(String(data.action||""));
+      if(data?.type==="refresh")dispatchRefresh(String(data.action||""),data.data??null);
     });
     socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom=""}});
     socket.addEventListener("error",()=>{try{socket.close()}catch{}});
   }
 
-  function notifyChange(action){
+  function notifyChange(action,data=null){
     if(!action)return false;
-    const socket=realtime;
-    if(!socket||socket.readyState!==WebSocket.OPEN){pendingActions.add(action);connectRealtimeEvents();return false}
-    try{socket.send(JSON.stringify({type:"change",action}));return true}catch{pendingActions.add(action);return false}
+    const key=actionKey(action,data),socket=realtime;
+    if(!socket||socket.readyState!==WebSocket.OPEN){pendingActions.set(key,{action,data});connectRealtimeEvents();return false}
+    try{socket.send(JSON.stringify({type:"change",action,data}));return true}catch{pendingActions.set(key,{action,data});return false}
   }
 
-  window.matrixBoardContext={boardId,get roomId(){return roomId},api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange};
+  async function savePoint(itemId,item){
+    if(!roomId||loadedRoom!==roomId||applyingRemote||!itemId)return;
+    const me=profile();if(!me?.plName)return;
+    const point=pointPayload(itemId,item),key=String(itemId);
+    pointRequests.set(key,point);
+    try{
+      const result=await api(pointPath(itemId),{method:"PATCH",body:JSON.stringify({authorId:me.id,authorName:me.plName,...point})});
+      if(pointRequests.get(key)!==point)return;
+      pointRequests.delete(key);
+      notifyChange("matrix-point",result.point||point);
+    }catch(error){
+      pointRequests.delete(key);
+      fullStateDirty=true;
+      requestSave(0);
+    }
+  }
+
+  window.matrixBoardContext={boardId,get roomId(){return roomId},api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange,savePoint};
 
   function notifyReady(){
     if(readySent)return;
@@ -162,6 +210,7 @@
           renderPlaced();
         }
         lastState=JSON.stringify(matrix.state||{});
+        fullStateDirty=false;
         loadedRoom=roomId;
         dirtyState=false;
       }finally{
@@ -178,15 +227,16 @@
   }
 
   async function save(){
-    if(!roomId||applyingRemote||loadedRoom!==roomId)return;
+    if(!roomId||applyingRemote||loadedRoom!==roomId||!fullStateDirty)return;
     if(saving){saveQueued=true;return}
     const me=profile();if(!me?.plName)return;
     const state=appState(),serial=JSON.stringify(state);
-    if(serial===lastState)return;
+    if(serial===lastState){fullStateDirty=false;return}
     saving=true;
     try{
       await api(matrixPath(),{method:"POST",keepalive:true,body:JSON.stringify({authorId:me.id,authorName:me.plName,state})});
       lastState=serial;
+      fullStateDirty=false;
       notifyChange("matrix-state");
     }catch{}finally{
       saving=false;
@@ -201,10 +251,10 @@
   }
 
   function saveOnPagehide(){
-    if(!roomId||applyingRemote||loadedRoom!==roomId)return;
+    if(!roomId||applyingRemote||loadedRoom!==roomId||!fullStateDirty)return;
     const me=profile();if(!me?.plName)return;
     const state=appState(),serial=JSON.stringify(state);
-    if(serial===lastState)return;
+    if(serial===lastState){fullStateDirty=false;return}
     const payload=JSON.stringify({authorId:me.id,authorName:me.plName,state});
     try{
       if(navigator.sendBeacon){
@@ -219,17 +269,52 @@
     const rawSaveState=window.saveState;
     const syncedSaveState=function(state){
       const result=rawSaveState(state);
-      if(!applyingRemote)requestSave(0);
+      if(!applyingRemote){fullStateDirty=true;requestSave(0)}
       return result;
     };
     syncedSaveState.__jijinboardImmediateSync=true;
     window.saveState=syncedSaveState;
   }
 
+  // Most drag/placement code goes through mutate(). Track exactly what the mutation
+  // touched. If one existing item changed only point fields, persist locally and send
+  // that one point instead of scheduling a complete MATRIX state upload.
+  if(typeof window.mutate==="function"&&!window.mutate.__jijinboardPointSync&&typeof saveJSON==="function"){
+    const wrap=(value,path,changes,cache)=>{
+      if(!value||typeof value!=="object")return value;
+      if(cache.has(value))return cache.get(value);
+      const proxy=new Proxy(value,{
+        get(target,key){const next=target[key];return next&&typeof next==="object"?wrap(next,[...path,String(key)],changes,cache):next},
+        set(target,key,next){changes.push([...path,String(key)]);target[key]=next;return true},
+        deleteProperty(target,key){changes.push([...path,String(key)]);delete target[key];return true}
+      });
+      cache.set(value,proxy);return proxy;
+    };
+    const optimizedMutate=function(fn){
+      const state=appState(),changes=[],cache=new WeakMap(),proxy=wrap(state,[],changes,cache);
+      fn(proxy);
+      let itemId="",pointOnly=changes.length>0;
+      for(const path of changes){
+        if(path.length!==3||path[0]!=="items"||!pointKeys.has(path[2])){pointOnly=false;break}
+        if(!itemId)itemId=path[1];else if(itemId!==path[1]){pointOnly=false;break}
+      }
+      if(pointOnly&&itemId&&state.items?.[itemId]){
+        saveJSON(STATE,state);
+        saveCurrentTemplateState(state);
+        savePoint(itemId,state.items[itemId]);
+        return;
+      }
+      saveState(state);
+      saveCurrentTemplateState(state);
+    };
+    optimizedMutate.__jijinboardPointSync=true;
+    window.mutate=optimizedMutate;
+  }
+
   const showComment=document.querySelector("#showComment");
   if(showComment){
-    showComment.addEventListener("input",()=>requestSave(0));
-    showComment.addEventListener("change",()=>requestSave(0));
+    showComment.addEventListener("input",()=>{fullStateDirty=true;requestSave(0)});
+    showComment.addEventListener("change",()=>{fullStateDirty=true;requestSave(0)});
   }
 
   function loadHelpers(){
@@ -270,8 +355,6 @@
         if(dirtyComments){dirtyComments=false;window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-change"}}))}
       }
       if(readySent)queueHelpers();
-    }else{
-      requestSave(0);
     }
   }
 
@@ -299,7 +382,7 @@
   window.addEventListener("online",()=>{if(roomId&&loadedRoom===roomId)connectRealtimeEvents()});
   window.addEventListener("pagehide",()=>{saveOnPagehide();disconnectRealtimeEvents()});
   document.addEventListener("visibilitychange",()=>{
-    if(document.visibilityState==="hidden")requestSave(0);
+    if(document.visibilityState==="hidden")saveOnPagehide();
     else if(roomId&&loadedRoom===roomId)connectRealtimeEvents();
   });
 })();
