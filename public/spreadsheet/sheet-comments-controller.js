@@ -16,7 +16,7 @@
       const parentRoom=new URL(parent.location.href).searchParams.get('room')||parent.document.querySelector('#logFrame')?.dataset.room||parent.document.querySelector('#logList [data-room]')?.dataset.room||'';
       if(parentRoom){const saved=JSON.parse(localStorage.getItem(`personas:${parentRoom}`)||'[]');if(Array.isArray(saved)&&saved.length)personas=saved}
     }catch{}
-    return [{name:p.plName||'PL',type:'PL',icon:p.plIcon||''},...personas.map(person=>({name:person.name||'',type:person.type||'PC',icon:person.icon||''}))].filter(person=>person.name);
+    return [{name:p.plName||'PL',type:'PL',icon:p.plIcon||'',color:p.plColor||'#ffe66b'},...personas.map(person=>({name:person.name||'',type:person.type||'PC',icon:person.icon||'',color:person.color||'#ffe66b'}))].filter(person=>person.name);
   };
   const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const iconFor=c=>c.persona_icon||people().find(person=>person.name===c.persona_name&&person.type===c.persona_type)?.icon||'';
@@ -94,13 +94,14 @@
 
   function syncDialogAvatar(d){
     const select=d.querySelector('select'),avatar=d.querySelector('.sheet-comment-input-avatar');if(!select||!avatar)return;
-    const person=people()[Number(select.value)||0],icon=person?.icon||'';
-    avatar.innerHTML=icon?`<img src="${esc(icon)}" alt="">`:'';
+    const person=people()[Number(select.value)||0],icon=person?.icon||'',name=person?.name||'?';
+    avatar.style.setProperty('--persona-marker',person?.color||'#ffe66b');
+    avatar.innerHTML=icon?`<img src="${esc(icon)}" alt="">`:`<span>${esc(name.slice(0,1))}</span>`;
   }
 
   function positionDialog(d){
     if(!pendingAnchor||innerWidth<=800){d.style.left='';d.style.top='';return}
-    const width=Math.min(390,innerWidth-24),height=Math.min(d.offsetHeight||230,innerHeight-24);
+    const width=Math.min(390,innerWidth-24),height=Math.min(d.offsetHeight||430,innerHeight-24);
     let left=pendingAnchor.right+12;
     if(left+width>innerWidth-12)left=Math.max(12,pendingAnchor.left-width-12);
     const top=Math.min(Math.max(12,pendingAnchor.top-24),Math.max(12,innerHeight-height-12));
@@ -125,7 +126,7 @@
     const p=profile();if(!p?.plName)return alert('先に発言者を登録してください。');
     panel().hidden=false;cell=id;reply=r;edit=e;pendingAnchor=anchor||pendingAnchor;
     const d=dialog(),old=comments.find(x=>x.id===e),ps=people(),select=d.querySelector('select');
-    select.innerHTML=ps.map((x,i)=>`<option value="${i}">${esc(x.name)} [${esc(x.type)}]</option>`).join('');
+    select.innerHTML=ps.map((x,i)=>`<option value="${i}">${esc(x.name)}（${esc(x.type)}）</option>`).join('');
     const oldIndex=old?ps.findIndex(x=>x.name===old.persona_name&&x.type===old.persona_type):-1;
     select.value=String(oldIndex>=0?oldIndex:0);
     d.querySelector('textarea').value=old?.body||'';
