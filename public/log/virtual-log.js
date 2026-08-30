@@ -9,6 +9,8 @@
     return Math.max(30, 30 + Math.min(6, Math.floor(length / 72)) * 18);
   };
   const matchesSearch = (message, search) => !search || `${message.speaker} ${message.text}`.toLowerCase().includes(search);
+  const streamIncomplete = () => !!state.room?.stream?.streamed && new Set((state.room.stream.loaded || []).map(Number)).size < Number(state.room.stream.chunkCount || 0);
+  const tabPending = (tab, search) => !search && streamIncomplete() && !state.room.messages.some(message => message.tab === tab);
   const prefixFor = meta => {
     if (meta.prefix && meta.prefix.length === meta.heights.length + 1) return meta.prefix;
     const prefix = new Array(meta.heights.length + 1); prefix[0] = 0;
@@ -146,7 +148,7 @@
     const items = state.room.messages.filter(m => m.tab === tab && matchesSearch(m, search));
     const key = `${state.virtualGeneration}:compact:${trackIndex}`;
     state.virtualPanels.set(key, { mode: "compact", tab, grouped, search, items, heights: items.map(compactEstimate), prefix: null, start: 0, end: 0, frame: 0 });
-    const body = items.length ? '<div class="virtual-spacer-top" aria-hidden="true"></div><div class="virtual-rows"></div><div class="virtual-spacer-bottom" aria-hidden="true"></div>' : '<p class="empty">このタブに表示できる発言がありません。</p>';
+    const body = items.length ? '<div class="virtual-spacer-top" aria-hidden="true"></div><div class="virtual-rows"></div><div class="virtual-spacer-bottom" aria-hidden="true"></div>' : tabPending(tab,search) ? '<p class="empty jijin-stream-pending">読み込み中…</p>' : '<p class="empty">このタブに表示できる発言がありません。</p>';
     return `<section class="log-page virtual-page" data-virtual-key="${key}" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll">${body}</div></section>`;
   };
 
