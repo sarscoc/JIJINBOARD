@@ -1,4 +1,5 @@
 import { onRequest as handleApi } from "../functions/api/[[path]].js";
+import { onRequest as handlePlayerMaster } from "../functions/api/player-master/[[path]].js";
 import { RoomHub } from "../realtime-worker/src/index.js";
 import { ensureSchema } from "./schema.js";
 import { handleLogTabSettings } from "./log-tab-settings.js";
@@ -70,6 +71,11 @@ export default {
 
     await ensureSchema(env.DB);
 
+    if (url.pathname === "/api/player-master" || url.pathname.startsWith("/api/player-master/")) {
+      const path=url.pathname.slice("/api/player-master/".length).split("/").filter(Boolean);
+      return handlePlayerMaster({request,env,params:{path}});
+    }
+
     if (request.method === "POST" && url.pathname === "/api/profile-transfers") {
       return createProfileTransfer(request, env);
     }
@@ -90,9 +96,6 @@ export default {
       );
     }
 
-    // Keep the legacy direct room API compatible after a room has migrated from
-    // one giant R2 JSON object to stream chunks. The normal log UI does not call
-    // this path for first paint; it uses /stream/meta + /stream/chunk/0 instead.
     const directRoomMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
     if(directRoomMatch&&request.method==="GET"&&url.searchParams.get("summary")!=="1"){
       return handleLogStream(request,env,decodeURIComponent(directRoomMatch[1]),"full","",executionContext);
@@ -102,9 +105,6 @@ export default {
       if(prepared)return prepared;
     }
 
-    // Board-side log deletion has its own API path. Clean R2 stream chunks only
-    // after validating the board-owner token, then let the existing deletion code
-    // remove D1 rows/comments/presence as before.
     const boardLogDeleteMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)$/);
     if(boardLogDeleteMatch&&request.method==="DELETE"){
       const boardId=decodeURIComponent(boardLogDeleteMatch[1]),roomId=decodeURIComponent(boardLogDeleteMatch[2]);
@@ -113,9 +113,6 @@ export default {
       await cleanupStreamChunks(env,roomId).catch(()=>{});
     }
 
-    // Spreadsheet data is board-wide rather than log-room-specific. Give it one
-    // silent Durable Object channel per board. The channel carries only change
-    // notifications; actual data is fetched only after a change event.
     const boardRealtimeMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/realtime$/);
     if(boardRealtimeMatch){
       if(request.method!=="GET"||request.headers.get("Upgrade")?.toLowerCase()!=="websocket")return json({error:"WebSocket接続が必要です"},426);
