@@ -61,13 +61,14 @@ export default {
       return createProfileTransfer(request, env);
     }
 
-    const participantMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants$/);
+    const participantMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?$/);
     if(participantMatch){
       const handled=await handleBoardParticipants(
         request,
         env,
         decodeURIComponent(participantMatch[1]),
-        decodeURIComponent(participantMatch[2])
+        decodeURIComponent(participantMatch[2]),
+        participantMatch[3]?decodeURIComponent(participantMatch[3]):""
       );
       if(handled)return handled;
     }
