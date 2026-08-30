@@ -4,7 +4,7 @@ import { ensureSchema } from "./schema.js";
 import { handleLogTabSettings } from "./log-tab-settings.js";
 import { handleMatrixTemplateComments } from "./matrix-template-comments.js";
 import { handleMatrixPoint } from "./matrix-point.js";
-import { handleLogStream, prepareStreamRoomDelete } from "./log-stream.js";
+import { createStreamRoom, handleLogStream, prepareStreamRoomDelete, cleanupStreamChunks } from "./log-stream.js";
 import { handleBoardTheme } from "./board-theme.js";
 import { handleGroupRowColors } from "./group-row-colors.js";
 import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
@@ -74,6 +74,10 @@ export default {
       return createProfileTransfer(request, env);
     }
 
+    if(request.method==="POST"&&url.pathname==="/api/rooms"){
+      return createStreamRoom(request,env);
+    }
+
     const logStreamMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/stream\/(meta|full|chunk|find)(?:\/([^/]+))?$/);
     if(logStreamMatch){
       return handleLogStream(
@@ -96,6 +100,17 @@ export default {
     if(directRoomMatch&&request.method==="DELETE"){
       const prepared=await prepareStreamRoomDelete(request,env,decodeURIComponent(directRoomMatch[1]));
       if(prepared)return prepared;
+    }
+
+    // Board-side log deletion has its own API path. Clean R2 stream chunks only
+    // after validating the board-owner token, then let the existing deletion code
+    // remove D1 rows/comments/presence as before.
+    const boardLogDeleteMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)$/);
+    if(boardLogDeleteMatch&&request.method==="DELETE"){
+      const boardId=decodeURIComponent(boardLogDeleteMatch[1]),roomId=decodeURIComponent(boardLogDeleteMatch[2]);
+      const board=await env.DB.prepare("SELECT admin_token FROM boards WHERE id=?").bind(boardId).first();
+      if(!board||request.headers.get("x-board-admin-token")!==board.admin_token)return json({error:"この自陣を編集できるのは部屋主だけです"},403);
+      await cleanupStreamChunks(env,roomId).catch(()=>{});
     }
 
     // Spreadsheet data is board-wide rather than log-room-specific. Give it one
