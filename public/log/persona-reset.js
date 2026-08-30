@@ -6,11 +6,11 @@
 
   function roomId(){return String(state?.roomId||params.get("room")||"")}
   function authorId(){return String(state?.profile?.id||"")}
-  function esc(value){return String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 
   function markExplicitEmpty(room,author){
     try{
       const vault=JSON.parse(localStorage.getItem(VAULT_KEY)||"{}")||{};
+      for(const key of Object.keys(vault))if(key.startsWith(`${room}::`))delete vault[key];
       vault[`${room}::${author}`]={personas:[],explicitEmpty:true,updatedAt:Date.now()};
       localStorage.setItem(VAULT_KEY,JSON.stringify(vault));
     }catch{}
@@ -19,7 +19,7 @@
   }
 
   async function resetAllPersonas(button){
-    const room=roomId(),author=authorId();
+    const room=roomId(),author=authorId(),plName=String(state?.profile?.plName||"").trim();
     if(!room||!author)return alert("この部屋の発言者情報を読み込めませんでした。");
     if(!confirm("この部屋で登録したPCをすべて削除しますか？\n\n見えていない古いPCデータもまとめて削除します。\n過去のCOMMENTS本文は残ります。"))return;
     button.disabled=true;
@@ -29,7 +29,7 @@
         const response=await fetch(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`,{
           method:"DELETE",
           headers:{"content-type":"application/json"},
-          body:JSON.stringify({authorId:author})
+          body:JSON.stringify({authorId:author,plName,clearLegacy:true})
         });
         const data=await response.json().catch(()=>({}));
         if(!response.ok)throw new Error(data.error||"共有PCデータを削除できませんでした");
@@ -53,7 +53,7 @@
   function install(){
     const form=document.querySelector("#profileForm");if(!form||form.querySelector("#resetAllPersonasBtn"))return;
     const wrap=document.createElement("div");wrap.className="profile-reset-all-wrap";
-    wrap.innerHTML=`<button id="resetAllPersonasBtn" type="button" class="profile-reset-all">PCをすべて削除</button>`;
+    wrap.innerHTML='<button id="resetAllPersonasBtn" type="button" class="profile-reset-all">PCをすべて削除</button>';
     const transfer=form.querySelector(".profile-transfer");
     if(transfer)form.insertBefore(wrap,transfer);else form.append(wrap);
     wrap.querySelector("button").addEventListener("click",event=>resetAllPersonas(event.currentTarget));
