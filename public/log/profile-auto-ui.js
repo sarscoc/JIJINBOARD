@@ -4,6 +4,7 @@
 // - no explicit close/save controls
 // - autosave edits
 // - click the dialog backdrop to close
+// - keep destructive PC controls folded by default
 // - keep the LOG light/dark toggle visible when embedded in JIJINBOARD
 (() => {
   const dialog = document.querySelector("#profileDialog");
@@ -14,6 +15,11 @@
     .compact-profile-dialog .profile-close-row,
     .compact-profile-dialog .profile-save{display:none!important}
     .compact-profile-dialog form{padding-top:14px!important}
+    .compact-profile-dialog .profile-remove{display:none!important}
+    .compact-profile-dialog.show-delete-controls .profile-remove{display:inline-grid!important}
+    .profile-delete-toggle-wrap{display:flex;justify-content:flex-end;margin:2px 0 4px}
+    .profile-delete-toggle{border:0;background:transparent;color:#8b9298;font-size:9px;padding:3px 0;cursor:pointer}
+    .compact-profile-dialog.show-delete-controls .profile-delete-toggle{color:#c85b64}
     html.embedded #themeBtn.embedded-theme-toggle{
       display:inline-grid!important;place-items:center;flex:0 0 30px;
       width:30px;height:30px;min-width:30px;padding:0;border-radius:8px
@@ -36,6 +42,32 @@
   }
 
   if (!dialog || !form) return;
+
+  const addWrap = dialog.querySelector(".profile-add-wrap");
+  if (addWrap && !dialog.querySelector(".profile-delete-toggle-wrap")) {
+    const wrap = document.createElement("div");
+    wrap.className = "profile-delete-toggle-wrap";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "profile-delete-toggle";
+    toggle.textContent = "PC削除を表示";
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", () => {
+      const open = dialog.classList.toggle("show-delete-controls");
+      toggle.textContent = open ? "PC削除を隠す" : "PC削除を表示";
+      toggle.setAttribute("aria-expanded", String(open));
+    });
+    wrap.append(toggle);
+    addWrap.insertAdjacentElement("afterend", wrap);
+  }
+  dialog.addEventListener("close", () => {
+    dialog.classList.remove("show-delete-controls");
+    const toggle = dialog.querySelector(".profile-delete-toggle");
+    if (toggle) {
+      toggle.textContent = "PC削除を表示";
+      toggle.setAttribute("aria-expanded", "false");
+    }
+  });
 
   let plTimer = 0;
   let closing = false;
