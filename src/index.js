@@ -7,6 +7,7 @@ import { handleBoardTheme } from "./board-theme.js";
 import { handleGroupRowColors } from "./group-row-colors.js";
 import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
 import { handleLogDisplayMode } from "./log-display-mode.js";
+import { handleBoardParticipants } from "./board-participants.js";
 
 export { RoomHub };
 
@@ -58,6 +59,17 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/profile-transfers") {
       return createProfileTransfer(request, env);
+    }
+
+    const participantMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants$/);
+    if(participantMatch){
+      const handled=await handleBoardParticipants(
+        request,
+        env,
+        decodeURIComponent(participantMatch[1]),
+        decodeURIComponent(participantMatch[2])
+      );
+      if(handled)return handled;
     }
 
     const themeMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/theme$/);
