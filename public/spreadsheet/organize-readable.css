@@ -1,5 +1,11 @@
 /* Readability + compactness pass for the Item Organize modal only. */
 #organizeModal{font-size:12px}
+#organizeModal .modal-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:40!important;
+  background:#fff!important;
+}
 #organizeModal .modal-head b{font-size:15px!important;line-height:1.25!important}
 #organizeModal .modal-body{
   font-size:12px!important;
@@ -10,12 +16,11 @@
   overflow-y:visible!important;
 }
 
-/* Keep creation controls/help visible while the modal itself scrolls.
-   Their natural first position is directly below the title; no spacer above. */
+/* Keep creation controls/help visible below the permanently fixed title row. */
 #organizeModal .modal-subtools{
   position:sticky!important;
-  top:0!important;
-  z-index:12!important;
+  top:49px!important;
+  z-index:30!important;
   display:flex!important;
   gap:4px!important;
   margin:0 -9px!important;
@@ -25,8 +30,8 @@
 }
 #organizeModal .organize-visibility-note{
   position:sticky!important;
-  top:42px!important;
-  z-index:12!important;
+  top:91px!important;
+  z-index:30!important;
   margin:0 -9px 4px!important;
   padding:2px 9px 5px!important;
   background:rgba(255,255,255,.98)!important;
@@ -54,8 +59,8 @@
 }
 #organizeModal .organize-toc-inner{
   position:sticky!important;
-  top:76px!important;
-  max-height:calc(88vh - 96px)!important;
+  top:125px!important;
+  max-height:calc(88vh - 145px)!important;
   overflow-y:auto!important;
   overflow-x:hidden!important;
   overscroll-behavior:contain!important;
@@ -108,7 +113,9 @@
 #organizeModal .mini,
 #organizeModal small{font-size:11px!important;line-height:1.25!important}
 @media(max-width:680px){
-  #organizeModal .organize-toc-inner{top:74px!important;max-height:calc(88vh - 92px)!important}
+  #organizeModal .modal-subtools{top:49px!important}
+  #organizeModal .organize-visibility-note{top:91px!important}
+  #organizeModal .organize-toc-inner{top:125px!important;max-height:calc(88vh - 145px)!important}
   #organizeModal .organize-toc-btn{font-size:11px!important}
   #organizeModal input,#organizeModal select{font-size:12px!important}
   #organizeModal .item-name,#organizeModal .legacy-part-name{font-size:12px!important}
