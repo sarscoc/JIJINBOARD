@@ -1,9 +1,6 @@
 (()=>{
   const board=new URL(location.href).searchParams.get('board');if(!board)return;
-  let comments=[],cell='',reply='',edit='',mode=localStorage.getItem('sheetCommentMode')||'comment';
-  const api=async(p,o={})=>{const r=await fetch(p,{headers:{'content-type':'application/json'},...o}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'コメントの取得に失敗しました');return d};
-  const me=()=>JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');
-  const people=()=>{const p=me();return[{name:p?.plName||'PL',type:'PL'},...(p?.personas||[])]};
+  let mode=localStorage.getItem('sheetCommentMode')||'comment';
 
   function setupTocOverlay(){
     if(!document.documentElement.classList.contains('embedded'))return;
@@ -342,21 +339,10 @@
     paint();
   }
 
-  function ui(){let a=document.querySelector('#sheetComments');if(a)return a;a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head"><b>COMMENTS <span></span></b><button type="button" title="コメントを閉じる">×</button></div><section><p>読み込み中…</p></section>';a.querySelector('button').onclick=()=>a.hidden=true;document.body.append(a);return a}
-  function card(c){return `<article data-cell="${c.cell_id}"><small>${c.persona_name} [${c.persona_type}]</small><p>${c.body}</p><button data-like="${c.id}">${c.liked_by_me?'♥':'♡'}${c.like_count||''}</button><button data-reply="${c.id}">↩</button>${c.author_id===me()?.id?`<button data-edit="${c.id}">✎</button>`:''}</article>`}
-  async function load(){try{comments=(await api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(me()?.id||'')}`)).comments||[]}catch(error){console.warn('Spreadsheet comments load failed',error);comments=[]}const a=ui();a.querySelector('b span').textContent=comments.length;a.querySelector('section').innerHTML=comments.map(card).join('')||'<p>セルへのコメントがここに並びます。</p>'}
-  function dialog(){let d=document.querySelector('#sheetCommentDialog');if(d)return d;d=document.createElement('dialog');d.id='sheetCommentDialog';d.innerHTML='<form><b>セルにコメント</b><select></select><textarea placeholder="感想を書く"></textarea><button>投稿</button><button type="button" data-close>閉じる</button><button type="button" data-delete hidden>削除</button></form>';document.body.append(d);d.querySelector('[data-close]').onclick=()=>d.close();d.querySelector('form').onsubmit=post;d.querySelector('[data-delete]').onclick=remove;return d}
-  function open(id,r='',e=''){const p=me();if(!p?.plName)return alert('先に発言者を登録してください。');ui().hidden=false;cell=id;reply=r;edit=e;const d=dialog(),old=comments.find(x=>x.id===e),ps=people();d.querySelector('select').innerHTML=ps.map((x,i)=>`<option value="${i}">${x.name} [${x.type}]</option>`).join('');d.querySelector('textarea').value=old?.body||'';d.querySelector('[data-delete]').hidden=!old;d.showModal()}
-  async function post(e){e.preventDefault();const d=dialog(),p=me(),person=people()[d.querySelector('select').value],body=d.querySelector('textarea').value.trim();if(!body)return;try{if(edit)await api(`/api/boards/${board}/spreadsheet/comments/${edit}`,{method:'PATCH',body:JSON.stringify({authorId:p.id,body})});else await api(`/api/boards/${board}/spreadsheet/comments`,{method:'POST',body:JSON.stringify({cellId:cell,parentId:reply,authorId:p.id,personaName:person.name,personaType:person.type,body})});d.close();load()}catch(x){alert(x.message)}}
-  async function remove(){if(!confirm('このコメントを削除しますか？'))return;await api(`/api/boards/${board}/spreadsheet/comments/${edit}`,{method:'DELETE',body:JSON.stringify({authorId:me().id})});dialog().close();load()}
-
   installDuplicateSafeItems();
   document.body.classList.toggle('sheet-comment-mode',mode==='comment');
   setupTocOverlay();
   bindTocJumpFallback();
   controls();
   setupOrganizeShiftGrouping();
-  ui();
-  document.addEventListener('click',e=>{const td=e.target.closest('[data-sheet-cell]'),b=e.target.closest('[data-like],[data-reply],[data-edit]'),a=e.target.closest('#sheetComments article');if(b){e.stopPropagation();const c=comments.find(x=>x.id===(b.dataset.like||b.dataset.reply||b.dataset.edit));if(b.dataset.like)api(`/api/boards/${board}/spreadsheet/comments/${c.id}/like`,{method:'POST',body:JSON.stringify({authorId:me().id})}).then(load);else open(c.cell_id,b.dataset.reply?c.id:'',b.dataset.edit?c.id:'');return}if(a){const t=document.querySelector(`[data-sheet-cell="${CSS.escape(a.dataset.cell)}"]`);t?.classList.add('sheet-comment-flash');setTimeout(()=>t?.classList.remove('sheet-comment-flash'),1100);t?.scrollIntoView({behavior:'smooth',block:'center'});return}if(mode==='comment'&&td){e.preventDefault();open(td.dataset.sheetCell)}});
-  load();
 })();
