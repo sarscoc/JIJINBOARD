@@ -72,6 +72,19 @@ export default {
       return createProfileTransfer(request, env);
     }
 
+    // Spreadsheet data is board-wide rather than log-room-specific. Give it one
+    // silent Durable Object channel per board. The channel carries only change
+    // notifications; actual data is fetched only after a change event.
+    const boardRealtimeMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/realtime$/);
+    if(boardRealtimeMatch){
+      if(request.method!=="GET"||request.headers.get("Upgrade")?.toLowerCase()!=="websocket")return json({error:"WebSocket接続が必要です"},426);
+      const boardId=decodeURIComponent(boardRealtimeMatch[1]);
+      const board=await env.DB.prepare("SELECT id FROM boards WHERE id=?").bind(boardId).first();
+      if(!board)return json({error:"自陣が見つかりません"},404);
+      const id=env.ROOMS.idFromName(`board:${boardId}`);
+      return env.ROOMS.get(id).fetch(request);
+    }
+
     const participantMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?$/);
     if(participantMatch){
       const handled=await handleBoardParticipants(
