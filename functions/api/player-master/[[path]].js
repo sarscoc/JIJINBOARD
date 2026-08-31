@@ -1,41 +1,129 @@
-const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+import { randomToken,tokenHash,storeImage,imageReference,ensurePlIdentity } from '../../../src/data-model.js';
+
+const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const body=async request=>{try{return await request.json()}catch{return null}};
-const token=(bytes=24)=>{const data=crypto.getRandomValues(new Uint8Array(bytes));return btoa(String.fromCharCode(...data)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")};
-const code4=()=>String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,"0");
-const hashBytes=async bytes=>[...new Uint8Array(await crypto.subtle.digest("SHA-256",bytes))].map(v=>v.toString(16).padStart(2,"0")).join("");
-const dataImage=value=>{const match=String(value||"").match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,([a-zA-Z0-9+/=]+)$/);if(!match)return null;const binary=atob(match[2]),bytes=new Uint8Array(binary.length);for(let i=0;i<binary.length;i++)bytes[i]=binary.charCodeAt(i);return{contentType:match[1],bytes}};
-const iconHash=value=>{const match=String(value||"").match(/(?:^r2:master-icons\/|\/api\/player-master\/icon\/)([a-f0-9]{64})(?:$|[?#])/i);return match?match[1].toLowerCase():""};
-const storeIcon=async(bucket,value)=>{if(!value)return"";const known=iconHash(value);if(known)return`r2:master-icons/${known}`;const image=dataImage(value);if(!image)return String(value||"").slice(0,2000);const hash=await hashBytes(image.bytes),key=`master-icons/${hash}`;if(bucket&&!await bucket.head(key))await bucket.put(key,image.bytes,{httpMetadata:{contentType:image.contentType,cacheControl:"private, max-age=31536000, immutable"},customMetadata:{sha256:hash}});return bucket?`r2:${key}`:String(value||"").slice(0,2000)};
-const publicIcon=value=>{const hash=iconHash(value);return hash?`/api/player-master/icon/${hash}`:String(value||"")};
-async function schema(db){await db.batch([
- db.prepare("CREATE TABLE IF NOT EXISTS player_masters (player_id TEXT PRIMARY KEY,access_token TEXT NOT NULL,pl_name TEXT NOT NULL DEFAULT '',pl_icon TEXT NOT NULL DEFAULT '',pl_color TEXT NOT NULL DEFAULT '#ffe66b',pl_color_dark TEXT NOT NULL DEFAULT '#ffe66b',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
- db.prepare("CREATE TABLE IF NOT EXISTS player_characters (player_id TEXT NOT NULL,character_id TEXT NOT NULL,type TEXT NOT NULL DEFAULT 'PC',name TEXT NOT NULL,icon TEXT NOT NULL DEFAULT '',matrix_icon TEXT NOT NULL DEFAULT '',color TEXT NOT NULL DEFAULT '#ffe66b',color_dark TEXT NOT NULL DEFAULT '#ffe66b',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(player_id,character_id))"),
- db.prepare("CREATE TABLE IF NOT EXISTS player_room_characters (player_id TEXT NOT NULL,board_id TEXT NOT NULL DEFAULT '',room_id TEXT NOT NULL,character_id TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(player_id,board_id,room_id,character_id))"),
- db.prepare("CREATE INDEX IF NOT EXISTS idx_player_room_characters_room ON player_room_characters(player_id,board_id,room_id)"),
- db.prepare("CREATE TABLE IF NOT EXISTS player_device_codes (code TEXT PRIMARY KEY,player_id TEXT NOT NULL,expires_at TEXT NOT NULL,used_at TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
-])}
-const authToken=request=>String(request.headers.get("x-player-token")||"");
-async function masterRow(db,playerId){return db.prepare("SELECT player_id,access_token,pl_name,pl_icon,pl_color,pl_color_dark,updated_at FROM player_masters WHERE player_id=?").bind(playerId).first()}
-async function authorized(db,request,playerId){const row=await masterRow(db,playerId);return row&&authToken(request)&&authToken(request)===row.access_token?row:null}
-async function characters(db,playerId){const result=await db.prepare("SELECT character_id,type,name,icon,matrix_icon,color,color_dark,updated_at FROM player_characters WHERE player_id=? ORDER BY updated_at,character_id").bind(playerId).all();return(result.results||[]).map(row=>({id:row.character_id,type:row.type,name:row.name,icon:publicIcon(row.icon),matrixIcon:publicIcon(row.matrix_icon),color:row.color,colorDark:row.color_dark,updatedAt:row.updated_at}))}
-async function responseMaster(db,row){return{playerId:row.player_id,plName:row.pl_name,plIcon:publicIcon(row.pl_icon),plColor:row.pl_color,plColorDark:row.pl_color_dark,characters:await characters(db,row.player_id),updatedAt:row.updated_at}}
-async function upsertCharacters(env,playerId,list){for(const item of Array.isArray(list)?list.slice(0,100):[]){const id=String(item?.id||item?.characterId||"").slice(0,120),name=String(item?.name||"").trim().slice(0,80);if(!id||!name)continue;const type=["PC","NPC"].includes(String(item?.type||"PC"))?String(item.type):"PC";const existing=await env.DB.prepare("SELECT icon,matrix_icon FROM player_characters WHERE player_id=? AND character_id=?").bind(playerId,id).first();const icon=String(item?.icon||"")?await storeIcon(env.LOGS,String(item.icon)):String(existing?.icon||"");const matrixIcon=String(item?.matrixIcon||"")?await storeIcon(env.LOGS,String(item.matrixIcon)):String(existing?.matrix_icon||"");await env.DB.prepare("INSERT INTO player_characters(player_id,character_id,type,name,icon,matrix_icon,color,color_dark,updated_at) VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(player_id,character_id) DO UPDATE SET type=excluded.type,name=excluded.name,icon=CASE WHEN excluded.icon<>'' THEN excluded.icon ELSE player_characters.icon END,matrix_icon=CASE WHEN excluded.matrix_icon<>'' THEN excluded.matrix_icon ELSE player_characters.matrix_icon END,color=excluded.color,color_dark=excluded.color_dark,updated_at=CURRENT_TIMESTAMP").bind(playerId,id,type,name,icon,matrixIcon,String(item?.color||"#ffe66b").slice(0,40),String(item?.colorDark||item?.color||"#ffe66b").slice(0,40)).run()}}
+const code4=()=>String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,'0');
+const authToken=request=>String(request.headers.get('x-player-token')||'');
+const publicIcon=key=>{if(!key)return'';const clean=String(key).replace(/^r2:/,''),hash=clean.split('/').pop();return `/api/player-master/icon/${encodeURIComponent(hash)}`};
+
+async function masterRow(db,playerId){return db.prepare('SELECT pl_id,access_token_hash,pl_name,pl_icon_key,pl_color,pl_color_dark,created_at,updated_at FROM pl WHERE pl_id=?').bind(playerId).first()}
+async function authorized(db,request,playerId){
+  const row=await masterRow(db,playerId),raw=authToken(request);if(!row||!raw)return null;
+  const hash=await tokenHash(raw);
+  if(hash===row.access_token_hash)return row;
+  const delegated=await db.prepare('SELECT 1 FROM transfer WHERE pl_id=? AND transfer_used_at IS NOT NULL AND transfer_code_hash=? LIMIT 1').bind(playerId,hash).first();
+  return delegated?row:null;
+}
+async function characters(db,playerId){
+  const result=await db.prepare('SELECT character_id,character_type,character_name,character_icon_key,matrix_icon_key,character_color,character_color_dark,updated_at FROM character WHERE pl_id=? ORDER BY updated_at,character_id').bind(playerId).all();
+  return(result.results||[]).map(row=>({id:row.character_id,type:row.character_type,name:row.character_name,icon:publicIcon(row.character_icon_key),matrixIcon:publicIcon(row.matrix_icon_key),color:row.character_color,colorDark:row.character_color_dark,updatedAt:row.updated_at}));
+}
+async function responseMaster(db,row){return{playerId:row.pl_id,plName:row.pl_name,plIcon:publicIcon(row.pl_icon_key),plColor:row.pl_color,plColorDark:row.pl_color_dark,characters:await characters(db,row.pl_id),updatedAt:row.updated_at}}
+
+async function upsertCharacters(env,playerId,list){
+  for(const item of Array.isArray(list)?list.slice(0,100):[]){
+    const id=String(item?.id||item?.characterId||'').slice(0,120),name=String(item?.name||'').trim().slice(0,80);if(!id||!name)continue;
+    const type=String(item?.type||'PC')==='NPC'?'NPC':'PC';
+    const existing=await env.DB.prepare('SELECT character_icon_key,matrix_icon_key FROM character WHERE character_id=? AND pl_id=?').bind(id,playerId).first();
+    const iconRaw=String(item?.icon||''),matrixRaw=String(item?.matrixIcon||'');
+    const icon=iconRaw?(await storeImage(env.LOGS,iconRaw,'character-icons')||String(existing?.character_icon_key||'')):String(existing?.character_icon_key||'');
+    const matrixIcon=matrixRaw?(await storeImage(env.LOGS,matrixRaw,'matrix-icons')||String(existing?.matrix_icon_key||'')):String(existing?.matrix_icon_key||'');
+    await env.DB.prepare(`INSERT INTO character(character_id,pl_id,character_type,character_name,character_icon_key,matrix_icon_key,character_color,character_color_dark,updated_at)
+      VALUES(?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(character_id) DO UPDATE SET pl_id=excluded.pl_id,character_type=excluded.character_type,character_name=excluded.character_name,character_icon_key=CASE WHEN excluded.character_icon_key<>'' THEN excluded.character_icon_key ELSE character.character_icon_key END,matrix_icon_key=CASE WHEN excluded.matrix_icon_key<>'' THEN excluded.matrix_icon_key ELSE character.matrix_icon_key END,character_color=excluded.character_color,character_color_dark=excluded.character_color_dark,updated_at=CURRENT_TIMESTAMP`).bind(playerId? id:id,playerId,type,name,icon,matrixIcon,String(item?.color||'#ffe66b').slice(0,40),String(item?.colorDark||item?.color||'#ffe66b').slice(0,40)).run();
+  }
+}
+
+async function serveIcon(env,hash){
+  if(!/^[A-Za-z0-9_-]{20,80}$/.test(hash)||!env.LOGS)return new Response('Not found',{status:404});
+  for(const prefix of ['pl-icons','character-icons','matrix-icons']){
+    const object=await env.LOGS.get(`${prefix}/${hash}`);if(!object)continue;
+    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, max-age=31536000, immutable'}});
+  }
+  return new Response('Not found',{status:404});
+}
+
 export async function onRequest({request,env,params}){
- if(!env.DB)return json({error:"D1データベースが接続されていません"},500);await schema(env.DB);
- const parts=Array.isArray(params.path)?params.path:String(params.path||"").split("/").filter(Boolean),method=request.method;
- if(parts[0]==="icon"&&parts[1]&&method==="GET"){const hash=String(parts[1]).toLowerCase();if(!/^[a-f0-9]{64}$/.test(hash)||!env.LOGS)return new Response("Not found",{status:404});const object=await env.LOGS.get(`master-icons/${hash}`);if(!object)return new Response("Not found",{status:404});return new Response(object.body,{headers:{"content-type":object.httpMetadata?.contentType||"image/webp","cache-control":"private, max-age=31536000, immutable"}})}
- if(parts[0]==="redeem"&&parts[1]&&method==="POST"){const code=String(parts[1]).padStart(4,"0"),row=await env.DB.prepare("SELECT player_id,expires_at,used_at FROM player_device_codes WHERE code=?").bind(code).first();if(!row||row.used_at)return json({error:"コードが無効、または使用済みです"},404);if(Date.parse(row.expires_at)<=Date.now())return json({error:"コードの有効期限が切れています"},410);await env.DB.prepare("UPDATE player_device_codes SET used_at=CURRENT_TIMESTAMP WHERE code=? AND used_at='' ").bind(code).run();const master=await masterRow(env.DB,row.player_id);if(!master)return json({error:"PLマスターが見つかりません"},404);return json({playerId:master.player_id,accessToken:master.access_token,master:await responseMaster(env.DB,master)})}
- const data=method==="GET"?null:await body(request),playerId=String(data?.playerId||new URL(request.url).searchParams.get("playerId")||"").slice(0,120);
- if(method==="POST"&&parts.length===0){if(!playerId||!String(data?.plName||"").trim())return json({error:"PL情報が足りません"},400);let row=await masterRow(env.DB,playerId);if(!row){const access=token(),plIcon=await storeIcon(env.LOGS,String(data?.plIcon||""));await env.DB.prepare("INSERT INTO player_masters(player_id,access_token,pl_name,pl_icon,pl_color,pl_color_dark) VALUES(?,?,?,?,?,?)").bind(playerId,access,String(data.plName).trim().slice(0,80),plIcon,String(data?.plColor||"#ffe66b").slice(0,40),String(data?.plColorDark||data?.plColor||"#ffe66b").slice(0,40)).run();row=await masterRow(env.DB,playerId)}else if(authToken(request)!==row.access_token)return json({error:"このPLマスターへのアクセス権がありません"},403);await upsertCharacters(env,playerId,data?.characters);row=await masterRow(env.DB,playerId);return json({playerId,accessToken:row.access_token,master:await responseMaster(env.DB,row)},row.created?201:200)}
- if(!playerId)return json({error:"playerIdがありません"},400);const master=await authorized(env.DB,request,playerId);if(!master)return json({error:"このPLマスターへのアクセス権がありません"},403);
- if(parts[0]==="code"&&method==="POST"){let code="";for(let i=0;i<20;i++){const candidate=code4(),exists=await env.DB.prepare("SELECT 1 FROM player_device_codes WHERE code=? AND used_at='' AND expires_at>CURRENT_TIMESTAMP").bind(candidate).first();if(!exists){code=candidate;break}}if(!code)return json({error:"コードを発行できませんでした"},503);const expires=new Date(Date.now()+10*60*1000).toISOString();await env.DB.prepare("INSERT OR REPLACE INTO player_device_codes(code,player_id,expires_at,used_at) VALUES(?,?,?,'')").bind(code,playerId,expires).run();return json({code,expiresAt:expires})}
- if(parts[0]==="room"){
-  const boardId=String(data?.boardId||new URL(request.url).searchParams.get("boardId")||"").slice(0,120),roomId=String(data?.roomId||new URL(request.url).searchParams.get("roomId")||"").slice(0,120);if(!roomId)return json({error:"roomIdがありません"},400);
-  if(method==="GET"){const result=await env.DB.prepare("SELECT character_id FROM player_room_characters WHERE player_id=? AND board_id=? AND room_id=? ORDER BY created_at,character_id").bind(playerId,boardId,roomId).all();return json({characterIds:(result.results||[]).map(r=>r.character_id)})}
-  if(method==="PUT"){const ids=[...new Set((Array.isArray(data?.characterIds)?data.characterIds:[]).map(v=>String(v).slice(0,120)).filter(Boolean))];await env.DB.prepare("DELETE FROM player_room_characters WHERE player_id=? AND board_id=? AND room_id=?").bind(playerId,boardId,roomId).run();const inserts=ids.map(id=>env.DB.prepare("INSERT OR IGNORE INTO player_room_characters(player_id,board_id,room_id,character_id) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM player_characters WHERE player_id=? AND character_id=?)").bind(playerId,boardId,roomId,id,playerId,id));if(inserts.length)await env.DB.batch(inserts);return json({ok:true,characterIds:ids})}
- }
- if(parts[0]==="characters"&&parts[1]&&method==="DELETE"){await env.DB.prepare("DELETE FROM player_room_characters WHERE player_id=? AND character_id=?").bind(playerId,parts[1]).run();await env.DB.prepare("DELETE FROM player_characters WHERE player_id=? AND character_id=?").bind(playerId,parts[1]).run();return json({ok:true})}
- if(method==="PUT"&&parts.length===0){const plIcon=String(data?.plIcon||"")?await storeIcon(env.LOGS,String(data.plIcon)):master.pl_icon;await env.DB.prepare("UPDATE player_masters SET pl_name=?,pl_icon=?,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE player_id=?").bind(String(data?.plName||master.pl_name).trim().slice(0,80),plIcon,String(data?.plColor||master.pl_color).slice(0,40),String(data?.plColorDark||data?.plColor||master.pl_color_dark).slice(0,40),playerId).run();await upsertCharacters(env,playerId,data?.characters);const row=await masterRow(env.DB,playerId);return json({master:await responseMaster(env.DB,row)})}
- if(method==="GET"&&parts.length===0)return json({master:await responseMaster(env.DB,master)});
- return json({error:"Not found"},404)
+  if(!env.DB)return json({error:'D1データベースが接続されていません'},500);
+  const parts=Array.isArray(params.path)?params.path:String(params.path||'').split('/').filter(Boolean),method=request.method;
+  if(parts[0]==='icon'&&parts[1]&&method==='GET')return serveIcon(env,String(parts[1]));
+
+  if(parts[0]==='redeem'&&parts[1]&&method==='POST'){
+    const code=String(parts[1]).padStart(4,'0'),codeHash=await tokenHash(code),row=await env.DB.prepare('SELECT transfer_id,pl_id,transfer_expires_at,transfer_used_at FROM transfer WHERE transfer_code_hash=?').bind(codeHash).first();
+    if(!row||row.transfer_used_at)return json({error:'コードが無効、または使用済みです'},404);
+    if(Date.parse(row.transfer_expires_at)<=Date.now())return json({error:'コードの有効期限が切れています'},410);
+    const master=await masterRow(env.DB,row.pl_id);if(!master)return json({error:'PLマスターが見つかりません'},404);
+    const accessToken=randomToken(24),newHash=await tokenHash(accessToken),oldHash=master.access_token_hash;
+    await env.DB.batch([
+      env.DB.prepare('UPDATE transfer SET transfer_code_hash=?,transfer_used_at=CURRENT_TIMESTAMP WHERE transfer_id=?').bind(oldHash,row.transfer_id),
+      env.DB.prepare('UPDATE pl SET access_token_hash=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(newHash,row.pl_id)
+    ]);
+    const fresh=await masterRow(env.DB,row.pl_id);
+    return json({playerId:fresh.pl_id,accessToken,master:await responseMaster(env.DB,fresh)});
+  }
+
+  const data=method==='GET'?null:await body(request),playerId=String(data?.playerId||new URL(request.url).searchParams.get('playerId')||'').slice(0,120);
+  if(method==='POST'&&parts.length===0){
+    if(!playerId||!String(data?.plName||'').trim())return json({error:'PL情報が足りません'},400);
+    let row=await masterRow(env.DB,playerId),accessToken='';
+    const implicit=!row||String(row.access_token_hash||'').startsWith('implicit:');
+    if(!row||implicit){
+      accessToken=randomToken(24);
+      const plIconKey=await storeImage(env.LOGS,String(data?.plIcon||''),'pl-icons');
+      if(!row)await env.DB.prepare('INSERT INTO pl(pl_id,access_token_hash,pl_name,pl_icon_key,pl_color,pl_color_dark) VALUES(?,?,?,?,?,?)').bind(playerId,await tokenHash(accessToken),String(data.plName).trim().slice(0,80),plIconKey,String(data?.plColor||'#ffe66b').slice(0,40),String(data?.plColorDark||data?.plColor||'#ffe66b').slice(0,40)).run();
+      else await env.DB.prepare('UPDATE pl SET access_token_hash=?,pl_name=?,pl_icon_key=CASE WHEN ?<>\'\' THEN ? ELSE pl_icon_key END,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(await tokenHash(accessToken),String(data.plName).trim().slice(0,80),plIconKey,plIconKey,String(data?.plColor||row.pl_color).slice(0,40),String(data?.plColorDark||data?.plColor||row.pl_color_dark).slice(0,40),playerId).run();
+    }else{
+      const allowed=await authorized(env.DB,request,playerId);if(!allowed)return json({error:'このPLマスターへのアクセス権がありません'},403);
+      accessToken=authToken(request);
+    }
+    await upsertCharacters(env,playerId,data?.characters);
+    row=await masterRow(env.DB,playerId);
+    return json({playerId,accessToken,master:await responseMaster(env.DB,row)},implicit?201:200);
+  }
+
+  if(!playerId)return json({error:'playerIdがありません'},400);
+  const master=await authorized(env.DB,request,playerId);if(!master)return json({error:'このPLマスターへのアクセス権がありません'},403);
+
+  if(parts[0]==='code'&&method==='POST'){
+    let code='';
+    for(let i=0;i<20;i++){
+      const candidate=code4(),candidateHash=await tokenHash(candidate),exists=await env.DB.prepare('SELECT 1 FROM transfer WHERE transfer_code_hash=? AND transfer_used_at IS NULL AND transfer_expires_at>CURRENT_TIMESTAMP').bind(candidateHash).first();
+      if(!exists){code=candidate;break}
+    }
+    if(!code)return json({error:'コードを発行できませんでした'},503);
+    const expires=new Date(Date.now()+10*60*1000).toISOString(),id=randomToken(18);
+    await env.DB.prepare('INSERT INTO transfer(transfer_id,pl_id,transfer_code_hash,transfer_expires_at) VALUES(?,?,?,?)').bind(id,playerId,await tokenHash(code),expires).run();
+    return json({code,expiresAt:expires});
+  }
+
+  if(parts[0]==='room'){
+    const roomId=String(data?.boardId||new URL(request.url).searchParams.get('boardId')||data?.roomId||new URL(request.url).searchParams.get('roomId')||'').slice(0,120);if(!roomId)return json({error:'roomIdがありません'},400);
+    if(method==='GET'){
+      const result=await env.DB.prepare('SELECT character_id FROM room_participant WHERE pl_id=? AND room_id=? AND character_id IS NOT NULL ORDER BY created_at,character_id').bind(playerId,roomId).all();
+      return json({characterIds:(result.results||[]).map(r=>r.character_id)});
+    }
+    if(method==='PUT'){
+      const ids=[...new Set((Array.isArray(data?.characterIds)?data.characterIds:[]).map(v=>String(v).slice(0,120)).filter(Boolean))];
+      await env.DB.prepare('DELETE FROM room_participant WHERE pl_id=? AND room_id=?').bind(playerId,roomId).run();
+      await env.DB.prepare('INSERT OR IGNORE INTO room_participant(room_id,pl_id,character_id) VALUES(?,?,NULL)').bind(roomId,playerId).run();
+      const inserts=ids.map(id=>env.DB.prepare('INSERT OR IGNORE INTO room_participant(room_id,pl_id,character_id) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM character WHERE pl_id=? AND character_id=?)').bind(roomId,playerId,id,playerId,id));
+      if(inserts.length)await env.DB.batch(inserts);
+      return json({ok:true,characterIds:ids});
+    }
+  }
+
+  if(parts[0]==='characters'&&parts[1]&&method==='DELETE'){
+    await env.DB.prepare('DELETE FROM character WHERE pl_id=? AND character_id=?').bind(playerId,parts[1]).run();
+    return json({ok:true});
+  }
+
+  if(method==='PUT'&&parts.length===0){
+    const plIconKey=String(data?.plIcon||'')?(await storeImage(env.LOGS,String(data.plIcon),'pl-icons')||master.pl_icon_key):master.pl_icon_key;
+    await env.DB.prepare('UPDATE pl SET pl_name=?,pl_icon_key=?,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(String(data?.plName||master.pl_name).trim().slice(0,80),plIconKey,String(data?.plColor||master.pl_color).slice(0,40),String(data?.plColorDark||data?.plColor||master.pl_color_dark).slice(0,40),playerId).run();
+    await upsertCharacters(env,playerId,data?.characters);
+    const row=await masterRow(env.DB,playerId);
+    return json({master:await responseMaster(env.DB,row)});
+  }
+  if(method==='GET'&&parts.length===0)return json({master:await responseMaster(env.DB,master)});
+  return json({error:'Not found'},404);
 }
