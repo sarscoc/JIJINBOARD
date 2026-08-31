@@ -1,1 +1,6 @@
-export { onRequest } from '../../src/api-v2.js';
+import worker from '../../src/index.js';
+
+export async function onRequest(context){
+  const executionContext={waitUntil:promise=>context.waitUntil(promise)};
+  return worker.fetch(context.request,context.env,executionContext);
+}
