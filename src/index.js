@@ -4,6 +4,7 @@ import { RoomHub } from '../realtime-worker/src/index.js';
 import { ensureSchema } from './schema.js';
 import { handleLogTabSettings } from './log-tab-settings.js';
 import { handleMatrixTemplateComments } from './matrix-template-comments.js';
+import { handleMatrixTemplates } from './matrix-templates.js';
 import { handleMatrixPoint } from './matrix-point.js';
 import { createStreamRoom,handleLogStream,prepareStreamRoomDelete } from './log-stream.js';
 import { handleBoardTheme } from './board-theme.js';
@@ -63,6 +64,8 @@ export default{
     const display=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/display-mode$/);if(display)return handleLogDisplayMode(request,env,decodeURIComponent(display[1]),decodeURIComponent(display[2]));
     const sheetState=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/state$/);if(sheetState)return handleSpreadsheetState(request,env,decodeURIComponent(sheetState[1]));
     const sheetComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);if(sheetComments)return handleSpreadsheetComments(request,env,decodeURIComponent(sheetComments[1]),sheetComments[2]?decodeURIComponent(sheetComments[2]):'',sheetComments[3]?decodeURIComponent(sheetComments[3]):'');
+    const matrixTemplateImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\/([^/]+)\/image$/);if(matrixTemplateImage)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplateImage[1]),'',decodeURIComponent(matrixTemplateImage[2]),true);
+    const matrixTemplates=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/templates(?:\/([^/]+))?$/);if(matrixTemplates)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplates[1]),decodeURIComponent(matrixTemplates[2]),matrixTemplates[3]?decodeURIComponent(matrixTemplates[3]):'',false);
     const matrixPoint=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/points\/([^/]+)$/);if(matrixPoint)return handleMatrixPoint(request,env,decodeURIComponent(matrixPoint[1]),decodeURIComponent(matrixPoint[2]),decodeURIComponent(matrixPoint[3]));
     const templateComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);if(templateComments)return handleMatrixTemplateComments(request,env,decodeURIComponent(templateComments[1]),decodeURIComponent(templateComments[2]),decodeURIComponent(templateComments[3]),executionContext);
     const tabSettings=url.pathname.match(/^\/api\/boards\/([^/]+)\/log-tab-settings\/([^/]+)$/);if(tabSettings)return handleLogTabSettings(request,env,decodeURIComponent(tabSettings[1]),decodeURIComponent(tabSettings[2]));
