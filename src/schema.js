@@ -22,8 +22,8 @@ const createStatements = [
   `CREATE INDEX IF NOT EXISTS idx_log_chunk_tab ON log_chunk(tab_id,chunk_index)`,
   `CREATE TABLE IF NOT EXISTS matrix_template (template_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,template_name TEXT NOT NULL,template_image_key TEXT NOT NULL DEFAULT '',template_definition TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
   `CREATE INDEX IF NOT EXISTS idx_matrix_template_room ON matrix_template(room_id,updated_at)`,
-  `CREATE TABLE IF NOT EXISTS matrix_point (point_id TEXT NOT NULL,room_id TEXT NOT NULL,character_id TEXT,template_id TEXT,is_placed INTEGER NOT NULL DEFAULT 0,point_x REAL,point_y REAL,template_x REAL,template_y REAL,scale_base_width REAL,coordinate_version INTEGER NOT NULL DEFAULT 0,supplement_body TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(room_id,point_id),FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE SET NULL,FOREIGN KEY(template_id) REFERENCES matrix_template(template_id) ON DELETE SET NULL)`,
-  `CREATE INDEX IF NOT EXISTS idx_matrix_point_room ON matrix_point(room_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS matrix_point (point_id TEXT NOT NULL,room_id TEXT NOT NULL,template_id TEXT NOT NULL,character_id TEXT,is_placed INTEGER NOT NULL DEFAULT 0,point_x REAL,point_y REAL,template_x REAL,template_y REAL,scale_base_width REAL,coordinate_version INTEGER NOT NULL DEFAULT 0,supplement_body TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(room_id,template_id,point_id),FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE SET NULL,FOREIGN KEY(template_id) REFERENCES matrix_template(template_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_matrix_point_room_template ON matrix_point(room_id,template_id,updated_at)`,
   `CREATE TABLE IF NOT EXISTS spreadsheet (sheet_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,sheet_name TEXT NOT NULL,row_count INTEGER NOT NULL DEFAULT 0,column_count INTEGER NOT NULL DEFAULT 0,sheet_settings TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
   `CREATE INDEX IF NOT EXISTS idx_spreadsheet_room ON spreadsheet(room_id,updated_at)`,
   `CREATE TABLE IF NOT EXISTS spreadsheet_cell (cell_id TEXT PRIMARY KEY,sheet_id TEXT NOT NULL,row_index INTEGER NOT NULL,column_index INTEGER NOT NULL,cell_value TEXT NOT NULL DEFAULT '',cell_type TEXT NOT NULL DEFAULT 'text',cell_style TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(sheet_id) REFERENCES spreadsheet(sheet_id) ON DELETE CASCADE,UNIQUE(sheet_id,row_index,column_index))`,
@@ -58,7 +58,7 @@ async function isV2(db){
   if(!matrixTemplateColumns.has('template_image_key'))return false;
   const matrixPoint=await db.prepare("PRAGMA table_info(matrix_point)").all();
   const matrixPk=new Map((matrixPoint.results||[]).map(item=>[item.name,Number(item.pk)||0]));
-  if(matrixPk.get('room_id')!==1||matrixPk.get('point_id')!==2)return false;
+  if(matrixPk.get('room_id')!==1||matrixPk.get('template_id')!==2||matrixPk.get('point_id')!==3)return false;
   const oldParticipant=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='log_participant'").first();
   return !oldParticipant;
 }
