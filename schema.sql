@@ -128,13 +128,14 @@ CREATE TABLE IF NOT EXISTS log_chunk (
 CREATE INDEX IF NOT EXISTS idx_log_chunk_tab ON log_chunk(tab_id, chunk_index);
 
 CREATE TABLE IF NOT EXISTS matrix_template (
-  template_id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
   room_id TEXT NOT NULL,
   template_name TEXT NOT NULL,
   template_image_key TEXT NOT NULL DEFAULT '',
   template_definition TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(room_id, template_id),
   FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_matrix_template_room ON matrix_template(room_id, updated_at);
@@ -157,7 +158,7 @@ CREATE TABLE IF NOT EXISTS matrix_point (
   PRIMARY KEY(room_id, template_id, point_id),
   FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,
   FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE SET NULL,
-  FOREIGN KEY(template_id) REFERENCES matrix_template(template_id) ON DELETE CASCADE
+  FOREIGN KEY(room_id, template_id) REFERENCES matrix_template(room_id, template_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_matrix_point_room_template ON matrix_point(room_id, template_id, updated_at);
 
