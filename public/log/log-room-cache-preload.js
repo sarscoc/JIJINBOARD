@@ -1,289 +1,52 @@
 "use strict";
 (()=>{
-  const params=new URL(location.href).searchParams;
-  const startupRoom=params.get("room")||"";
-  if(!startupRoom)return;
-
-  let parentCache=null;
-  if(params.get("embedded")==="1"&&parent!==window){
-    try{
-      if(!(parent.__jijinLogRoomCache instanceof Map))parent.__jijinLogRoomCache=new Map();
-      parentCache=parent.__jijinLogRoomCache;
-    }catch{}
-  }
-
-  const nativeFetch=window.fetch.bind(window);
-  let deferredAnnotations=false,installDone=false,loadingChunk=false,fillingViewport=false;
-  const jsonResponse=data=>new Response(JSON.stringify(data),{status:200,headers:{"content-type":"application/json; charset=utf-8"}});
-  const streamPath=(roomId,suffix)=>`/api/rooms/${encodeURIComponent(roomId)}/stream/${suffix}`;
-  const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+  const params=new URL(location.href).searchParams,startupRoom=params.get('room')||'';if(!startupRoom)return;
+  let parentCache=null;if(params.get('embedded')==='1'&&parent!==window){try{if(!(parent.__jijinLogRoomCache instanceof Map))parent.__jijinLogRoomCache=new Map();parentCache=parent.__jijinLogRoomCache}catch{}}
+  const nativeFetch=window.fetch.bind(window),jsonResponse=data=>new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json; charset=utf-8'}}),streamPath=(roomId,suffix)=>`/api/rooms/${encodeURIComponent(roomId)}/stream/${suffix}`,nextFrame=()=>new Promise(r=>requestAnimationFrame(r));let deferredAnnotations=false,installDone=false,loadingChunk=false,fillingViewport=false;
+  const chunkUrl=(roomId,index,tab)=>`${streamPath(roomId,`chunk/${index}`)}?tab=${encodeURIComponent(tab||'')}`;
 
   async function firstStreamedRoom(roomId){
-    const cached=parentCache?.get(roomId);
-    if(cached?.stream?.streamed&&Array.isArray(cached.messages)){
-      await new Promise(resolve=>setTimeout(resolve,0));
-      return cached;
-    }
+    const cached=parentCache?.get(roomId);if(cached?.stream?.streamed&&Array.isArray(cached.messages)){await new Promise(r=>setTimeout(r,0));return cached}
     try{
-      const [metaResponse,chunkResponse]=await Promise.all([
-        nativeFetch(streamPath(roomId,"meta")),
-        nativeFetch(streamPath(roomId,"chunk/0"))
-      ]);
-      if(!metaResponse.ok||!chunkResponse.ok)throw new Error("stream unavailable");
-      const meta=await metaResponse.json(),chunk=await chunkResponse.json();
-      const room={
-        id:meta.id||roomId,
-        title:meta.title||"TRPG LOG",
-        createdAt:meta.createdAt||"",
-        tabs:Array.isArray(meta.tabs)?meta.tabs:[],
-        messages:Array.isArray(chunk.messages)?chunk.messages:[],
-        stream:{streamed:true,chunkSize:Number(meta.chunkSize)||120,chunkCount:Math.max(1,Number(chunk.chunkCount||meta.chunkCount)||1),messageCount:Number(chunk.messageCount||meta.messageCount)||0,loaded:[0]}
-      };
-      parentCache?.set(roomId,room);
-      return room;
-    }catch(error){
-      console.warn("Chunked log first paint fallback",error);
-      const response=await nativeFetch(`/api/rooms/${encodeURIComponent(roomId)}`);
-      if(!response.ok)return null;
-      return response.json();
-    }
+      const metaResponse=await nativeFetch(streamPath(roomId,'meta'));if(!metaResponse.ok)throw new Error('stream unavailable');const meta=await metaResponse.json(),tabs=Array.isArray(meta.tabs)?meta.tabs:[],first=tabs[0]||'',chunkResponse=first?await nativeFetch(chunkUrl(roomId,0,first)):null;if(first&&(!chunkResponse||!chunkResponse.ok))throw new Error('stream unavailable');const chunk=chunkResponse?await chunkResponse.json():{messages:[]};
+      const loadedByTab={};if(first)loadedByTab[first]=[0];const room={id:meta.id||roomId,title:meta.title||'TRPG LOG',createdAt:meta.createdAt||'',tabs,messages:Array.isArray(chunk.messages)?chunk.messages:[],stream:{streamed:true,chunkSize:Number(meta.chunkSize)||120,messageCount:Number(meta.messageCount)||0,tabStreams:Array.isArray(meta.tabStreams)?meta.tabStreams:[],loadedByTab}};parentCache?.set(roomId,room);return room;
+    }catch(error){console.warn('Chunked log first paint fallback',error);const response=await nativeFetch(`/api/rooms/${encodeURIComponent(roomId)}`);return response.ok?response.json():null}
   }
 
-  window.fetch=async function(input,init={}){
-    const request=input instanceof Request?input:null;
-    const method=String(init?.method||request?.method||"GET").toUpperCase();
-    let url;
-    try{url=new URL(typeof input==="string"?input:request?.url||String(input),location.href)}catch{return nativeFetch(input,init)}
-    if(method!=="GET"||url.origin!==location.origin)return nativeFetch(input,init);
+  window.fetch=async function(input,init={}){const request=input instanceof Request?input:null,method=String(init?.method||request?.method||'GET').toUpperCase();let url;try{url=new URL(typeof input==='string'?input:request?.url||String(input),location.href)}catch{return nativeFetch(input,init)}if(method!=='GET'||url.origin!==location.origin)return nativeFetch(input,init);const roomMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);if(roomMatch&&!url.search){const roomId=decodeURIComponent(roomMatch[1]),room=await firstStreamedRoom(roomId);return room?jsonResponse(room):nativeFetch(input,init)}const annotationMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations$/);if(annotationMatch&&!deferredAnnotations&&decodeURIComponent(annotationMatch[1])===startupRoom){deferredAnnotations=true;const background=nativeFetch(input,init);background.then(r=>r.ok?r.clone().json():null).then(data=>{if(!data)return;window.__jijinInitialAnnotations={roomId:startupRoom,data};window.dispatchEvent(new CustomEvent('jijinboard-initial-annotations',{detail:window.__jijinInitialAnnotations}))}).catch(()=>{});return jsonResponse({annotations:[],version:-1,deferred:true})}return nativeFetch(input,init)};
 
-    const roomMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
-    if(roomMatch&&!url.search){
-      const roomId=decodeURIComponent(roomMatch[1]);
-      const room=await firstStreamedRoom(roomId);
-      return room?jsonResponse(room):nativeFetch(input,init);
-    }
-
-    const annotationMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations$/);
-    if(annotationMatch&&!deferredAnnotations&&decodeURIComponent(annotationMatch[1])===startupRoom){
-      deferredAnnotations=true;
-      const background=nativeFetch(input,init);
-      background.then(response=>response.ok?response.clone().json():null).then(data=>{
-        if(!data)return;
-        window.__jijinInitialAnnotations={roomId:startupRoom,data};
-        window.dispatchEvent(new CustomEvent("jijinboard-initial-annotations",{detail:window.__jijinInitialAnnotations}));
-      }).catch(()=>{});
-      return jsonResponse({annotations:[],version:-1,deferred:true});
-    }
-
-    return nativeFetch(input,init);
-  };
-
-  function streamState(){
-    try{return state?.room?.stream?.streamed?state.room.stream:null}catch{return null}
-  }
-  function markChunk(messages,index){
-    (messages||[]).forEach((message,offset)=>{
-      try{Object.defineProperty(message,"__jijinChunk",{value:index,writable:true,configurable:true,enumerable:false});Object.defineProperty(message,"__jijinOffset",{value:offset,writable:true,configurable:true,enumerable:false})}catch{}
-    });
-  }
-  function seedInitialChunkMarks(){
-    const stream=streamState();
-    if(!stream||!state?.room?.messages)return;
-    state.room.messages.forEach((message,offset)=>{
-      if(message.__jijinChunk!=null)return;
-      try{Object.defineProperty(message,"__jijinChunk",{value:0,writable:true,configurable:true,enumerable:false});Object.defineProperty(message,"__jijinOffset",{value:offset,writable:true,configurable:true,enumerable:false})}catch{}
-    });
-  }
-  function loadedSet(){return new Set((streamState()?.loaded||[]).map(Number).filter(Number.isFinite))}
-  function allChunksLoaded(){const stream=streamState();return !!stream&&loadedSet().size>=Number(stream.chunkCount||0)}
-  function nextChunkIndex(){
-    const stream=streamState();if(!stream)return -1;
-    const loaded=loadedSet();
-    for(let index=0;index<Number(stream.chunkCount||0);index++)if(!loaded.has(index))return index;
-    return -1;
-  }
+  function streamState(){try{return state?.room?.stream?.streamed?state.room.stream:null}catch{return null}}
+  function streamInfo(tab){const s=streamState();return s?.tabStreams?.find?.(x=>x.tabName===tab)||null}
+  function loadedSet(tab){return new Set((streamState()?.loadedByTab?.[tab]||[]).map(Number).filter(Number.isFinite))}
+  function allChunksLoaded(tab){const info=streamInfo(tab);return !!info&&loadedSet(tab).size>=Math.max(1,Number(info.chunkCount)||1)}
+  function nextChunkIndex(tab){const info=streamInfo(tab);if(!info)return-1;const loaded=loadedSet(tab),count=Math.max(1,Number(info.chunkCount)||1);for(let i=0;i<count;i++)if(!loaded.has(i))return i;return-1}
   function rememberRoom(){try{if(state?.room?.id)parentCache?.set(state.room.id,state.room)}catch{}}
-  function activePage(){
-    try{return document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`)||document.querySelector(".log-page")}catch{return null}
-  }
-  function activeScroll(){return activePage()?.querySelector(".page-scroll")||null}
-  function activeTab(){
-    try{
-      const page=activePage(),realIndex=Number(page?.dataset.realIndex);
-      if(Number.isInteger(realIndex)&&realIndex>=0)return state.room?.tabs?.[realIndex]||"";
-      return state.room?.tabs?.[state.activeTabIndex]||"";
-    }catch{return ""}
-  }
-  function tabHasLoadedMessages(tab){return !!tab&&!!state?.room?.messages?.some(message=>message.tab===tab)}
-  function scrollSnapshot(){
-    const scroll=activeScroll();
-    if(!scroll)return null;
-    return {top:scroll.scrollTop,max:Math.max(0,scroll.scrollHeight-scroll.clientHeight)};
-  }
-  async function restoreScroll(snapshot){
-    if(!snapshot)return;
-    await nextFrame();
-    const scroll=activeScroll();if(!scroll)return;
-    const max=Math.max(0,scroll.scrollHeight-scroll.clientHeight);
-    scroll.scrollTop=Math.min(snapshot.top,max);
+  function activePage(){try{return document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`)||document.querySelector('.log-page')}catch{return null}}
+  function activeScroll(){return activePage()?.querySelector('.page-scroll')||null}
+  function activeTab(){try{const page=activePage(),real=Number(page?.dataset.realIndex);if(Number.isInteger(real)&&real>=0)return state.room?.tabs?.[real]||'';return state.room?.tabs?.[state.activeTabIndex]||''}catch{return''}}
+  function tabHasLoadedMessages(tab){return !!tab&&!!state?.room?.messages?.some(m=>m.tab===tab)}
+  function snapshot(){const s=activeScroll();return s?{top:s.scrollTop,max:Math.max(0,s.scrollHeight-s.clientHeight)}:null}
+  async function restore(snap){if(!snap)return;await nextFrame();const s=activeScroll();if(s)s.scrollTop=Math.min(snap.top,Math.max(0,s.scrollHeight-s.clientHeight))}
+
+  async function loadChunk(index,{tab=activeTab(),render=true}={}){
+    const stream=streamState(),roomId=state?.roomId||state?.room?.id||startupRoom;if(!stream||!roomId||!tab)return false;const info=streamInfo(tab),count=Math.max(1,Number(info?.chunkCount)||1);if(index<0||index>=count)return false;const loaded=loadedSet(tab);if(loaded.has(index))return true;if(loadingChunk)return false;loadingChunk=true;
+    try{const response=await nativeFetch(chunkUrl(roomId,index,tab));if(!response.ok)throw new Error(`chunk ${tab}/${index}: ${response.status}`);const data=await response.json(),messages=Array.isArray(data.messages)?data.messages:[],current=state.room.messages||[],known=new Set(current.map(m=>m.id));current.push(...messages.filter(m=>!known.has(m.id)));current.sort((a,b)=>(Number(a.sourceIndex)||0)-(Number(b.sourceIndex)||0));stream.loadedByTab||={};stream.loadedByTab[tab]=[...loaded,index].sort((a,b)=>a-b);rememberRoom();if(render&&typeof renderLog==='function'){const snap=snapshot(),anchor=typeof currentReadingTime==='function'?currentReadingTime():'';renderLog(anchor);await restore(snap)}return true}catch(error){console.warn('Log chunk load failed',error);return false}finally{loadingChunk=false}
   }
 
-  async function loadChunk(index,{render=true}={}){
-    const stream=streamState(),roomId=state?.roomId||state?.room?.id||startupRoom;
-    if(!stream||!roomId||index<0||index>=Number(stream.chunkCount||0))return false;
-    const loaded=loadedSet();if(loaded.has(index))return true;
-    if(loadingChunk)return false;
-    loadingChunk=true;
-    try{
-      const response=await nativeFetch(streamPath(roomId,`chunk/${index}`));
-      if(!response.ok)throw new Error(`chunk ${index}: ${response.status}`);
-      const data=await response.json(),messages=Array.isArray(data.messages)?data.messages:[];
-      markChunk(messages,index);
-      seedInitialChunkMarks();
-      const current=state.room.messages||[];
-      const known=new Set(current.map(message=>message.id));
-      current.push(...messages.filter(message=>!known.has(message.id)));
-      current.sort((a,b)=>(Number(a.__jijinChunk)||0)-(Number(b.__jijinChunk)||0)||(Number(a.__jijinOffset)||0)-(Number(b.__jijinOffset)||0));
-      stream.loaded=[...loaded,index].sort((a,b)=>a-b);
-      stream.chunkCount=Math.max(Number(stream.chunkCount)||1,Number(data.chunkCount)||1);
-      stream.messageCount=Math.max(Number(stream.messageCount)||0,Number(data.messageCount)||0);
-      rememberRoom();
-      if(render&&typeof renderLog==="function"){
-        const snapshot=scrollSnapshot(),anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
-        renderLog(anchor);
-        await restoreScroll(snapshot);
-      }
-      return true;
-    }catch(error){console.warn("Log chunk load failed",error);return false}
-    finally{loadingChunk=false}
+  async function fillViewportBuffer(){if(fillingViewport||!streamState())return;fillingViewport=true;try{for(let guard=0;guard<1000;guard++){await nextFrame();const panel=activeScroll(),tab=activeTab();if(!panel||!tab)return;const height=Math.max(1,panel.clientHeight),remaining=panel.scrollHeight-panel.scrollTop-height,has=tabHasLoadedMessages(tab),enough=has&&(panel.scrollTop<4?panel.scrollHeight>=height*1.18:remaining>=height*.35);if(enough||allChunksLoaded(tab))return;const next=nextChunkIndex(tab);if(next<0)return;const snap=snapshot(),anchor=typeof currentReadingTime==='function'?currentReadingTime():'';if(!await loadChunk(next,{tab,render:false}))return;if(typeof renderLog==='function')renderLog(anchor);await restore(snap)}}finally{fillingViewport=false}}
+  function bindScrolls(){document.querySelectorAll('.log-page .page-scroll').forEach(scroll=>{if(scroll.dataset.jijinChunkStream)return;scroll.dataset.jijinChunkStream='1';scroll.addEventListener('scroll',()=>{if(!streamState()||loadingChunk||fillingViewport)return;const height=Math.max(1,scroll.clientHeight),remaining=scroll.scrollHeight-scroll.scrollTop-height;if(remaining<height*.35)fillViewportBuffer().catch(()=>{})},{passive:true})});requestAnimationFrame(()=>fillViewportBuffer().catch(()=>{}))}
+
+  async function ensureMessageLoaded(messageId){if(!streamState()||!messageId)return false;if(state.room.messages.some(m=>m.id===messageId))return true;try{const response=await nativeFetch(streamPath(state.roomId||startupRoom,`find/${encodeURIComponent(messageId)}`));if(!response.ok)return false;const data=await response.json(),index=Number(data.index),tab=String(data.tab||'');if(!Number.isInteger(index)||index<0||!tab)return false;return loadChunk(index,{tab})}catch{return false}}
+  async function fullRoom(room){if(!room?.stream?.streamed)return room;const response=await nativeFetch(streamPath(room.id||state.roomId||startupRoom,'full'));if(!response.ok)throw new Error('保存用ログ全文を取得できませんでした');return response.json()}
+  async function loadAllTabs(){const s=streamState();if(!s)return;for(const info of s.tabStreams||[]){const tab=info.tabName,count=Math.max(1,Number(info.chunkCount)||1);for(let i=0;i<count;i++)if(!loadedSet(tab).has(i))await loadChunk(i,{tab,render:false})}}
+
+  function installStreamingRuntime(){if(installDone||typeof state==='undefined'||typeof renderLog!=='function')return false;installDone=true;
+    if(typeof pagePanelHtml==='function'&&!pagePanelHtml.__jijinChunkPendingAware){const raw=pagePanelHtml;const wrapped=function(tab,...args){const html=raw.call(this,tab,...args);if(!streamState()||allChunksLoaded(tab)||tabHasLoadedMessages(tab))return html;return html.replace('<p class="empty">このタブに表示できる発言がありません。</p>','<p class="empty jijin-stream-pending">読み込み中…</p>')};wrapped.__jijinChunkPendingAware=true;pagePanelHtml=wrapped}
+    if(typeof renderLog==='function'&&!renderLog.__jijinChunkBound){const raw=renderLog;const wrapped=function(...args){if(streamState())rememberRoom();const result=raw.apply(this,args);queueMicrotask(bindScrolls);return result};wrapped.__jijinChunkBound=true;renderLog=wrapped}
+    if(typeof jumpToMessage==='function'&&!jumpToMessage.__jijinChunkAware){const raw=jumpToMessage;const wrapped=function(id,...args){if(!streamState()||state.room.messages.some(m=>m.id===id))return raw.call(this,id,...args);ensureMessageLoaded(id).then(ok=>{if(ok)raw.call(this,id,...args)}).catch(()=>{})};wrapped.__jijinChunkAware=true;jumpToMessage=wrapped}
+    if(typeof downloadArchive==='function'&&!downloadArchive.__jijinFullArchive){const raw=downloadArchive;const wrapped=async function(room,...args){return raw.call(this,await fullRoom(room),...args)};wrapped.__jijinFullArchive=true;downloadArchive=wrapped}
+    const search=document.getElementById('searchInput');if(search&&!search.dataset.jijinFullSearch){search.dataset.jijinFullSearch='1';let task=null;search.addEventListener('input',()=>{if(!search.value.trim()||!streamState()||task)return;task=loadAllTabs().then(()=>{if(typeof renderLog==='function')renderLog(typeof currentReadingTime==='function'?currentReadingTime():'')}).finally(()=>{task=null})})}
+    if(streamState()){rememberRoom();bindScrolls()}return true;
   }
-
-  async function fillViewportBuffer(){
-    if(fillingViewport||!streamState())return;
-    fillingViewport=true;
-    try{
-      // The current tab alone decides how far to read. Keep fetching sequential
-      // chunks until it contains a little more than one visible screen.
-      for(let guard=0;guard<Math.max(1,Number(streamState()?.chunkCount)||1);guard++){
-        await nextFrame();
-        const panel=activeScroll(),tab=activeTab();
-        if(!panel)return;
-        const height=Math.max(1,panel.clientHeight);
-        const remaining=panel.scrollHeight-panel.scrollTop-height;
-        const atInitialTop=panel.scrollTop<4;
-        const hasTabRows=tabHasLoadedMessages(tab);
-        const enough=hasTabRows&&(atInitialTop
-          ? panel.scrollHeight>=height*1.18
-          : remaining>=height*.35);
-        if(enough||allChunksLoaded())return;
-        const next=nextChunkIndex();
-        if(next<0)return;
-        const snapshot=scrollSnapshot(),anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
-        const loaded=await loadChunk(next,{render:false});
-        if(!loaded)return;
-        if(typeof renderLog==="function")renderLog(anchor);
-        await restoreScroll(snapshot);
-      }
-    }finally{fillingViewport=false}
-  }
-
-  function bindScrolls(){
-    document.querySelectorAll(".log-page .page-scroll").forEach(scroll=>{
-      if(scroll.dataset.jijinChunkStream)return;
-      scroll.dataset.jijinChunkStream="1";
-      scroll.addEventListener("scroll",()=>{
-        if(!streamState()||loadingChunk||fillingViewport)return;
-        const height=Math.max(1,scroll.clientHeight),remaining=scroll.scrollHeight-scroll.scrollTop-height;
-        if(remaining<height*.35)fillViewportBuffer().catch(()=>{});
-      },{passive:true});
-    });
-    requestAnimationFrame(()=>fillViewportBuffer().catch(()=>{}));
-  }
-
-  async function ensureMessageLoaded(messageId){
-    if(!streamState()||!messageId)return false;
-    if(state.room.messages.some(message=>message.id===messageId))return true;
-    try{
-      const response=await nativeFetch(streamPath(state.roomId||startupRoom,`find/${encodeURIComponent(messageId)}`));
-      if(!response.ok)return false;
-      const data=await response.json(),index=Number(data.index);
-      if(!Number.isInteger(index)||index<0)return false;
-      return loadChunk(index);
-    }catch{return false}
-  }
-
-  async function fullRoom(room){
-    if(!room?.stream?.streamed)return room;
-    const response=await nativeFetch(streamPath(room.id||state.roomId||startupRoom,"full"));
-    if(!response.ok)throw new Error("保存用ログ全文を取得できませんでした");
-    return response.json();
-  }
-
-  function installStreamingRuntime(){
-    if(installDone||typeof state==="undefined"||typeof renderLog!=="function")return false;
-    installDone=true;
-
-    if(typeof pagePanelHtml==="function"&&!pagePanelHtml.__jijinChunkPendingAware){
-      const raw=pagePanelHtml;
-      const wrapped=function(tab,...args){
-        const html=raw.call(this,tab,...args);
-        if(!streamState()||allChunksLoaded()||tabHasLoadedMessages(tab))return html;
-        return html.replace('<p class="empty">このタブに表示できる発言がありません。</p>','<p class="empty jijin-stream-pending">読み込み中…</p>');
-      };
-      wrapped.__jijinChunkPendingAware=true;pagePanelHtml=wrapped;
-    }
-
-    if(typeof renderLog==="function"&&!renderLog.__jijinChunkBound){
-      const raw=renderLog;
-      const wrapped=function(...args){
-        seedInitialChunkMarks();
-        if(streamState())rememberRoom();
-        const result=raw.apply(this,args);
-        queueMicrotask(bindScrolls);
-        return result;
-      };
-      wrapped.__jijinChunkBound=true;renderLog=wrapped;
-    }
-
-    if(typeof jumpToMessage==="function"&&!jumpToMessage.__jijinChunkAware){
-      const raw=jumpToMessage;
-      const wrapped=function(id,...args){
-        if(!streamState()||state.room.messages.some(message=>message.id===id))return raw.call(this,id,...args);
-        ensureMessageLoaded(id).then(ok=>{if(ok)raw.call(this,id,...args)}).catch(()=>{});
-      };
-      wrapped.__jijinChunkAware=true;jumpToMessage=wrapped;
-    }
-
-    if(typeof downloadArchive==="function"&&!downloadArchive.__jijinFullArchive){
-      const raw=downloadArchive;
-      const wrapped=async function(room,...args){return raw.call(this,await fullRoom(room),...args)};
-      wrapped.__jijinFullArchive=true;downloadArchive=wrapped;
-    }
-
-    const search=document.getElementById("searchInput");
-    if(search&&!search.dataset.jijinFullSearch){
-      search.dataset.jijinFullSearch="1";
-      let searchLoad=null;
-      search.addEventListener("input",()=>{
-        if(!search.value.trim()||!streamState()||loadedSet().size>=Number(streamState().chunkCount||0)||searchLoad)return;
-        searchLoad=(async()=>{
-          for(let index=0;index<Number(streamState().chunkCount||0);index++)if(!loadedSet().has(index))await loadChunk(index,{render:false});
-          if(typeof renderLog==="function")renderLog(typeof currentReadingTime==="function"?currentReadingTime():"");
-        })().finally(()=>{searchLoad=null});
-      });
-    }
-
-    // openRoom() is asynchronous and may finish after window.load. The renderLog
-    // wrapper above is therefore installed before state.room exists; its first real
-    // render starts viewport filling at exactly the right time.
-    if(streamState()){
-      seedInitialChunkMarks();
-      rememberRoom();
-      bindScrolls();
-    }
-    return true;
-  }
-
-  addEventListener("load",installStreamingRuntime,{once:true});
-  queueMicrotask(()=>{if(document.readyState==="complete")installStreamingRuntime()});
+  addEventListener('load',installStreamingRuntime,{once:true});queueMicrotask(()=>{if(document.readyState==='complete')installStreamingRuntime()});
 })();
