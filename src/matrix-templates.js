@@ -11,6 +11,20 @@ async function validateLog(db,roomId,logId){
 }
 function parseDefinition(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'?value:{}}catch{return{}}}
 const cleanState=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
+const cloneObject=value=>{try{return JSON.parse(JSON.stringify(cleanState(value)))}catch{return{}}};
+function applyPoint(state,point){
+  state.items=state.items&&typeof state.items==='object'&&!Array.isArray(state.items)?state.items:{};
+  const item=state.items[point.point_id]&&typeof state.items[point.point_id]==='object'?state.items[point.point_id]:{};
+  item.placed=!!point.is_placed;
+  if(point.point_x!==null)item.x=Number(point.point_x);
+  if(point.point_y!==null)item.y=Number(point.point_y);
+  if(point.template_x!==null)item.templateX=Number(point.template_x);
+  if(point.template_y!==null)item.templateY=Number(point.template_y);
+  if(point.scale_base_width!==null)item.scaleBaseWidth=Number(point.scale_base_width);
+  item.coordVersion=Number(point.coordinate_version)||0;
+  if(point.supplement_body)item.comment=point.supplement_body;
+  state.items[point.point_id]=item;
+}
 
 export async function handleMatrixTemplates(request,env,roomId,logId,templateId='',imageOnly=false){
   if(!roomId)return json({error:'自陣が見つかりません'},404);
@@ -24,8 +38,15 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
   if(!logId||!await validateLog(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
   if(request.method==='GET'&&!templateId){
-    const rows=(await env.DB.prepare("SELECT template_id,template_name,template_image_key,template_definition,created_at,updated_at FROM matrix_template WHERE room_id=? AND template_id NOT LIKE '__matrix_state__:%' ORDER BY created_at,template_id").bind(roomId).all()).results||[];
-    return json({templates:rows.map(row=>{const definition=parseDefinition(row.template_definition);return{record:{id:row.template_id,name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState:cleanState(definition.templateState)}})});
+    const rows=(await env.DB.prepare("SELECT template_id,template_name,template_image_key,template_definition,created_at,updated_at FROM matrix_template WHERE room_id=? ORDER BY created_at,template_id").bind(roomId).all()).results||[];
+    const points=(await env.DB.prepare('SELECT template_id,point_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,supplement_body FROM matrix_point WHERE room_id=?').bind(roomId).all()).results||[];
+    const pointsByTemplate=new Map();
+    for(const point of points){const list=pointsByTemplate.get(point.template_id)||[];list.push(point);pointsByTemplate.set(point.template_id,list)}
+    return json({templates:rows.map(row=>{
+      const definition=parseDefinition(row.template_definition),templateState=cloneObject(definition.templateState);
+      for(const point of pointsByTemplate.get(row.template_id)||[])applyPoint(templateState,point);
+      return{record:{id:row.template_id,name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState};
+    })});
   }
 
   if(request.method==='PUT'&&templateId){
