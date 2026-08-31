@@ -1,0 +1,37 @@
+name: Validate backend-data-v2
+
+on:
+  push:
+    branches:
+      - backend-data-v2
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check JavaScript syntax
+        run: |
+          node --check src/index.js
+          node --check src/schema.js
+          node --check src/data-model.js
+          node --check src/room-log-meta.js
+          node --check src/room-participants.js
+          node --check src/room-delete.js
+          node --check src/log-stream.js
+          node --check src/matrix-state.js
+          node --check src/matrix-point.js
+          node --check src/matrix-templates.js
+          node --check src/spreadsheet-state.js
+          node --check src/spreadsheet-images.js
+          node --check public/matrix/matrix-template-sync.js
+          node --check public/spreadsheet/sheet-image-sync.js
+      - name: Validate SQLite schema
+        run: |
+          sqlite3 /tmp/jijinboard.db < schema.sql
+          sqlite3 /tmp/jijinboard.db "PRAGMA foreign_key_check;"
+          test -z "$(sqlite3 /tmp/jijinboard.db 'PRAGMA foreign_key_check;')"
