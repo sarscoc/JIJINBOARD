@@ -9,6 +9,7 @@ import { createStreamRoom,handleLogStream,prepareStreamRoomDelete } from './log-
 import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
 import { handleSpreadsheetComments } from './spreadsheet-comments.js';
+import { handleSpreadsheetState } from './spreadsheet-state.js';
 import { handleLogDisplayMode } from './log-display-mode.js';
 import { handleRoomLogMeta } from './room-log-meta.js';
 import { handleRoomParticipants } from './room-participants.js';
@@ -60,6 +61,7 @@ export default{
     const theme=url.pathname.match(/^\/api\/boards\/([^/]+)\/theme$/);if(theme)return handleBoardTheme(request,env,decodeURIComponent(theme[1]));
     const group=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);if(group)return handleGroupRowColors(request,env,decodeURIComponent(group[1]));
     const display=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/display-mode$/);if(display)return handleLogDisplayMode(request,env,decodeURIComponent(display[1]),decodeURIComponent(display[2]));
+    const sheetState=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/state$/);if(sheetState)return handleSpreadsheetState(request,env,decodeURIComponent(sheetState[1]));
     const sheetComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);if(sheetComments)return handleSpreadsheetComments(request,env,decodeURIComponent(sheetComments[1]),sheetComments[2]?decodeURIComponent(sheetComments[2]):'',sheetComments[3]?decodeURIComponent(sheetComments[3]):'');
     const matrixPoint=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/points\/([^/]+)$/);if(matrixPoint)return handleMatrixPoint(request,env,decodeURIComponent(matrixPoint[1]),decodeURIComponent(matrixPoint[2]),decodeURIComponent(matrixPoint[3]));
     const templateComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);if(templateComments)return handleMatrixTemplateComments(request,env,decodeURIComponent(templateComments[1]),decodeURIComponent(templateComments[2]),decodeURIComponent(templateComments[3]),executionContext);
