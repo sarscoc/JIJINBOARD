@@ -27,6 +27,8 @@ const createStatements = [
   `CREATE INDEX IF NOT EXISTS idx_matrix_point_room_template ON matrix_point(room_id,template_id,updated_at)`,
   `CREATE TABLE IF NOT EXISTS spreadsheet (sheet_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,sheet_name TEXT NOT NULL,row_count INTEGER NOT NULL DEFAULT 0,column_count INTEGER NOT NULL DEFAULT 0,sheet_settings TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
   `CREATE INDEX IF NOT EXISTS idx_spreadsheet_room ON spreadsheet(room_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS spreadsheet_image (image_id TEXT PRIMARY KEY,sheet_id TEXT NOT NULL,image_type TEXT NOT NULL CHECK(image_type IN ('cell_image','global_background','character_background')),target_id TEXT NOT NULL,image_key TEXT NOT NULL,content_type TEXT NOT NULL DEFAULT 'image/webp',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(sheet_id) REFERENCES spreadsheet(sheet_id) ON DELETE CASCADE,UNIQUE(sheet_id,image_type,target_id))`,
+  `CREATE INDEX IF NOT EXISTS idx_spreadsheet_image_sheet ON spreadsheet_image(sheet_id,image_type,target_id)`,
   `CREATE TABLE IF NOT EXISTS spreadsheet_cell (cell_id TEXT PRIMARY KEY,sheet_id TEXT NOT NULL,row_index INTEGER NOT NULL,column_index INTEGER NOT NULL,cell_value TEXT NOT NULL DEFAULT '',cell_type TEXT NOT NULL DEFAULT 'text',cell_style TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(sheet_id) REFERENCES spreadsheet(sheet_id) ON DELETE CASCADE,UNIQUE(sheet_id,row_index,column_index))`,
   `CREATE INDEX IF NOT EXISTS idx_spreadsheet_cell_sheet ON spreadsheet_cell(sheet_id,row_index,column_index)`,
   `CREATE TABLE IF NOT EXISTS comment (comment_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,author_pl_id TEXT NOT NULL,author_character_id TEXT,comment_target_type TEXT NOT NULL CHECK(comment_target_type IN ('log_range','matrix_point','matrix_template','spreadsheet_cell')),comment_target_id TEXT NOT NULL,comment_body TEXT NOT NULL,comment_image_key TEXT,parent_comment_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(author_pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE,FOREIGN KEY(author_character_id) REFERENCES character(character_id) ON DELETE SET NULL,FOREIGN KEY(parent_comment_id) REFERENCES comment(comment_id) ON DELETE CASCADE)`,
@@ -39,7 +41,7 @@ const createStatements = [
 const legacyObjects = [
   'annotation_likes','annotations','presence','room_log_chunks','board_log_participants','log_participant','board_matrix_icon_comment_likes','board_matrix_icon_comments','board_matrix_comments','board_matrix_states','board_sheet_comment_likes','board_sheet_comments','board_spreadsheet_states','board_theme_settings','board_group_row_colors','board_log_display_modes','board_log_tab_settings','board_logs','boards','rooms','profile_transfers','player_room_characters','player_device_codes','player_characters','player_masters','top_sessions'
 ];
-const targetObjects = ['comment_reaction','log_comment_range','comment','spreadsheet_cell','spreadsheet','matrix_point','matrix_template','matrix_settings','log_chunk','log_tab','log','room_participant','room_theme','room','transfer','character','pl','top_session','top_auth'];
+const targetObjects = ['comment_reaction','log_comment_range','comment','spreadsheet_cell','spreadsheet_image','spreadsheet','matrix_point','matrix_template','matrix_settings','log_chunk','log_tab','log','room_participant','room_theme','room','transfer','character','pl','top_session','top_auth'];
 const ready = new WeakMap();
 
 async function isV2(db){
@@ -54,6 +56,8 @@ async function isV2(db){
   const spreadsheet=await db.prepare("PRAGMA table_info(spreadsheet)").all();
   const spreadsheetColumns=new Set((spreadsheet.results||[]).map(item=>item.name));
   if(!spreadsheetColumns.has('sheet_settings'))return false;
+  const spreadsheetImage=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='spreadsheet_image'").first();
+  if(!spreadsheetImage)return false;
   const matrixSettings=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='matrix_settings'").first();
   if(!matrixSettings)return false;
   const matrixTemplate=await db.prepare("PRAGMA table_info(matrix_template)").all();
