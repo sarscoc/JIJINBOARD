@@ -13,10 +13,8 @@ const createStatements = [
   `CREATE TABLE IF NOT EXISTS room_participant (room_id TEXT NOT NULL,pl_id TEXT NOT NULL,character_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE CASCADE)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_room_participant_unique ON room_participant(room_id,pl_id,COALESCE(character_id,''))`,
   `CREATE INDEX IF NOT EXISTS idx_room_participant_room ON room_participant(room_id,updated_at)`,
-  `CREATE TABLE IF NOT EXISTS log (log_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,log_name TEXT NOT NULL,scenario_title TEXT NOT NULL DEFAULT '',spoiler_enabled INTEGER NOT NULL DEFAULT 0,log_sort_order INTEGER NOT NULL DEFAULT 0,log_display_mode TEXT NOT NULL DEFAULT 'light' CHECK(log_display_mode IN ('light','dark')),original_html_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
+  `CREATE TABLE IF NOT EXISTS log (log_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,log_name TEXT NOT NULL,scenario_title TEXT NOT NULL DEFAULT '',scenario_participants TEXT NOT NULL DEFAULT '',spoiler_enabled INTEGER NOT NULL DEFAULT 0,log_sort_order INTEGER NOT NULL DEFAULT 0,log_display_mode TEXT NOT NULL DEFAULT 'light' CHECK(log_display_mode IN ('light','dark')),original_html_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
   `CREATE INDEX IF NOT EXISTS idx_log_room_order ON log(room_id,log_sort_order,created_at)`,
-  `CREATE TABLE IF NOT EXISTS log_participant (log_id TEXT NOT NULL,character_id TEXT NOT NULL,participant_sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(log_id,character_id),FOREIGN KEY(log_id) REFERENCES log(log_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE CASCADE)`,
-  `CREATE INDEX IF NOT EXISTS idx_log_participant_log ON log_participant(log_id,participant_sort_order,created_at)`,
   `CREATE TABLE IF NOT EXISTS log_tab (tab_id TEXT PRIMARY KEY,log_id TEXT NOT NULL,tab_name TEXT NOT NULL,tab_sort_order INTEGER NOT NULL DEFAULT 0,tab_hidden INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(log_id) REFERENCES log(log_id) ON DELETE CASCADE)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_log_tab_name ON log_tab(log_id,tab_name)`,
   `CREATE INDEX IF NOT EXISTS idx_log_tab_order ON log_tab(log_id,tab_sort_order,created_at)`,
@@ -38,17 +36,22 @@ const createStatements = [
 ];
 
 const legacyObjects = [
-  'annotation_likes','annotations','presence','room_log_chunks','board_log_participants','board_matrix_icon_comment_likes','board_matrix_icon_comments','board_matrix_comments','board_matrix_states','board_sheet_comment_likes','board_sheet_comments','board_spreadsheet_states','board_theme_settings','board_group_row_colors','board_log_display_modes','board_log_tab_settings','board_logs','boards','rooms','profile_transfers','player_room_characters','player_device_codes','player_characters','player_masters','top_sessions'
+  'annotation_likes','annotations','presence','room_log_chunks','board_log_participants','log_participant','board_matrix_icon_comment_likes','board_matrix_icon_comments','board_matrix_comments','board_matrix_states','board_sheet_comment_likes','board_sheet_comments','board_spreadsheet_states','board_theme_settings','board_group_row_colors','board_log_display_modes','board_log_tab_settings','board_logs','boards','rooms','profile_transfers','player_room_characters','player_device_codes','player_characters','player_masters','top_sessions'
 ];
-const targetObjects = ['comment_reaction','log_comment_range','comment','spreadsheet_cell','spreadsheet','matrix_point','matrix_template','log_chunk','log_tab','log_participant','log','room_participant','room_theme','room','transfer','character','pl','top_session','top_auth'];
+const targetObjects = ['comment_reaction','log_comment_range','comment','spreadsheet_cell','spreadsheet','matrix_point','matrix_template','log_chunk','log_tab','log','room_participant','room_theme','room','transfer','character','pl','top_session','top_auth'];
 const ready = new WeakMap();
 
 async function isV2(db){
-  const row=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='room'").first();
-  if(!row)return false;
+  const room=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='room'").first();
+  if(!room)return false;
   const auth=await db.prepare("PRAGMA table_info(top_auth)").all();
-  const columns=new Set((auth.results||[]).map(item=>item.name));
-  return columns.has('password_salt')&&columns.has('password_hash_version');
+  const authColumns=new Set((auth.results||[]).map(item=>item.name));
+  if(!authColumns.has('password_salt')||!authColumns.has('password_hash_version'))return false;
+  const log=await db.prepare("PRAGMA table_info(log)").all();
+  const logColumns=new Set((log.results||[]).map(item=>item.name));
+  if(!logColumns.has('scenario_participants'))return false;
+  const oldParticipant=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='log_participant'").first();
+  return !oldParticipant;
 }
 
 async function resetOldSchema(db){
