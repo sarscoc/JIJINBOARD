@@ -1,7 +1,5 @@
 "use strict";
 
-document.write('<script src="room-home.js?v=20260901-1"><\/script>');
-
 // Keep the room's original log title as a fallback for older board entries, but
 // present one canonical scenario title everywhere in the board shell.
 // The white / black LOGCOMMENTS appearance is stored per log and can only be
@@ -91,8 +89,6 @@ document.write('<script src="room-home.js?v=20260901-1"><\/script>');
     saveDisplayMode(roomId,selectedEditMode());
   });
 
-  // The uploader lives in the same-origin LOGCOMMENTS iframe. Read its owner-only
-  // white/black choice when the newly-created room is attached to this board.
   addEventListener("message",event=>{
     if(event.origin!==location.origin||event.data?.type!=="jijinboard-room-created")return;
     const roomId=event.data.roomId;if(!roomId)return;
@@ -101,8 +97,6 @@ document.write('<script src="room-home.js?v=20260901-1"><\/script>');
     saveDisplayMode(roomId,mode);
   });
 
-  // Re-assert the shared value after frame navigation. The LOG frame also fetches
-  // this itself, so this is only a cheap same-origin reliability pass.
   $("#logFrame")?.addEventListener("load",()=>{
     const roomId=$("#logFrame")?.dataset.room;if(!roomId)return;
     loadDisplayMode(roomId).then(mode=>$("#logFrame")?.contentWindow?.postMessage({type:"jijinboard-set-room-theme",displayMode:mode},location.origin));
