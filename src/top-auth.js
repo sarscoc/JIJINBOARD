@@ -95,7 +95,8 @@ export async function handleTopAuthApi(request,env,action){
     if(request.method==='GET'&&action==='status'){
       const row=await env.DB.prepare('SELECT password_hash_version FROM top_auth LIMIT 1').first();
       const configured=!!row&&Number(row.password_hash_version)===HASH_VERSION;
-      return json({configured,authenticated:configured?await isTopAuthenticated(request,env):false,needsReset:!!row&&!configured});
+      const anyRoom=await env.DB.prepare('SELECT room_id FROM room LIMIT 1').first();
+      return json({configured,authenticated:configured?await isTopAuthenticated(request,env):false,needsReset:!!row&&!configured,requiresOwnerProof:!!anyRoom});
     }
     if(request.method==='POST'&&action==='setup')return setup(request,env);
     if(request.method==='POST'&&action==='login')return login(request,env);
