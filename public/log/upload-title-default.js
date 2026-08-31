@@ -2,8 +2,8 @@
 
 // A board log has one canonical scenario title. Start it from the imported log
 // title, then let the user edit it before uploading. While preserving this UI,
-// the upload request is now bound to its parent ROOM and carries the original
-// HTML so the normalized R2 layout can keep it beside the parsed tab chunks.
+// the upload request is bound to its parent ROOM and carries the original HTML
+// plus the owner-entered free-text scenario metadata.
 (() => {
   let originalHtml=null;
   const baseHandleFile = handleFile;
@@ -25,6 +25,10 @@
     if(path==="/api/rooms"&&String(options?.method||"GET").toUpperCase()==="POST"){
       let payload={};try{payload=JSON.parse(options.body||"{}")||{}}catch{}
       payload.boardId=boardId;
+      payload.spoiler=!!document.querySelector("#spoilerInput")?.checked;
+      payload.scenarioTitle=document.querySelector("#scenarioTitleInput")?.value.trim()||payload.title||"";
+      payload.scenarioParticipants=document.querySelector("#scenarioParticipantsInput")?.value.trim()||"";
+      payload.logDisplayMode=document.querySelector('input[name="jijinRoomDisplayMode"]:checked')?.value==="dark"?"dark":"light";
       if(originalHtml&&payload.originalHtml==null)payload.originalHtml=originalHtml;
       const headers={...(options.headers||{})};
       if(boardId)headers["x-board-admin-token"]=localStorage.getItem(`boardAdmin:${boardId}`)||"";
