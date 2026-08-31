@@ -32,19 +32,19 @@ const sessionCookie=token=>`${SESSION_COOKIE}=${encodeURIComponent(token)}; Path
 const clearSessionCookie=()=>`${SESSION_COOKIE}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict`;
 
 async function createSession(db){
-  await db.prepare('DELETE FROM top_session WHERE session_expires_at<=?').bind(new Date().toISOString()).run();
-  const token=randomToken(32),sessionTokenHash=await tokenHash(token),expiresAt=new Date(Date.now()+SESSION_SECONDS*1000).toISOString();
-  await db.prepare('INSERT INTO top_session(session_token_hash,session_expires_at) VALUES(?,?)').bind(sessionTokenHash,expiresAt).run();
+  const token=randomToken(32),sessionTokenHash=await tokenHash(token),expiresAt=new Date(Date.now()+SESSION_SECONDS*1000).toISOString(),now=new Date().toISOString();
+  await db.batch([
+    db.prepare('DELETE FROM top_session WHERE session_expires_at<=?').bind(now),
+    db.prepare('INSERT INTO top_session(session_token_hash,session_expires_at) VALUES(?,?)').bind(sessionTokenHash,expiresAt)
+  ]);
   return {token,expiresAt};
 }
 
 export async function isTopAuthenticated(request,env){
   if(!env.DB)return false;
-  const auth=await env.DB.prepare('SELECT password_hash_version FROM top_auth LIMIT 1').first();
-  if(!auth||Number(auth.password_hash_version)!==HASH_VERSION)return false;
   const token=cookieValue(request,SESSION_COOKIE);if(!token)return false;
-  const sessionTokenHash=await tokenHash(token),row=await env.DB.prepare('SELECT session_expires_at FROM top_session WHERE session_token_hash=?').bind(sessionTokenHash).first();
-  if(!row)return false;
+  const sessionTokenHash=await tokenHash(token),row=await env.DB.prepare(`SELECT s.session_expires_at,a.password_hash_version FROM top_session s CROSS JOIN top_auth a WHERE s.session_token_hash=? LIMIT 1`).bind(sessionTokenHash).first();
+  if(!row||Number(row.password_hash_version)!==HASH_VERSION)return false;
   if(Date.parse(row.session_expires_at)<=Date.now()){await env.DB.prepare('DELETE FROM top_session WHERE session_token_hash=?').bind(sessionTokenHash).run();return false}
   return true;
 }
@@ -89,15 +89,25 @@ async function logout(request,env){
   return json({ok:true},200,{'set-cookie':clearSessionCookie()});
 }
 
+async function roomSummaries(request,env){
+  if(!await isTopAuthenticated(request,env))return json({error:'管理TOPへのログインが必要です'},401);
+  const result=await env.DB.prepare(`SELECT r.room_id AS id,r.room_name AS name,r.created_at AS createdAt,COUNT(l.log_id) AS logCount FROM room r LEFT JOIN log l ON l.room_id=r.room_id GROUP BY r.room_id,r.room_name,r.created_at ORDER BY r.created_at`).all();
+  return json({rooms:(result.results||[]).map(row=>({id:row.id,name:row.name,createdAt:row.createdAt,logCount:Number(row.logCount)||0}))});
+}
+
 export async function handleTopAuthApi(request,env,action){
   if(!env.DB)return json({error:'D1データベースが接続されていません'},503);
   try{
     if(request.method==='GET'&&action==='status'){
-      const row=await env.DB.prepare('SELECT password_hash_version FROM top_auth LIMIT 1').first();
+      const [row,anyRoom]=await Promise.all([
+        env.DB.prepare('SELECT password_hash_version FROM top_auth LIMIT 1').first(),
+        env.DB.prepare('SELECT room_id FROM room LIMIT 1').first()
+      ]);
       const configured=!!row&&Number(row.password_hash_version)===HASH_VERSION;
-      const anyRoom=await env.DB.prepare('SELECT room_id FROM room LIMIT 1').first();
-      return json({configured,authenticated:configured?await isTopAuthenticated(request,env):false,needsReset:!!row&&!configured,requiresOwnerProof:!!anyRoom});
+      const authenticated=configured&&cookieValue(request,SESSION_COOKIE)?await isTopAuthenticated(request,env):false;
+      return json({configured,authenticated,needsReset:!!row&&!configured,requiresOwnerProof:!!anyRoom});
     }
+    if(request.method==='GET'&&action==='rooms')return roomSummaries(request,env);
     if(request.method==='POST'&&action==='setup')return setup(request,env);
     if(request.method==='POST'&&action==='login')return login(request,env);
     if(request.method==='POST'&&action==='logout')return logout(request,env);
@@ -111,7 +121,7 @@ export async function handleTopAuthApi(request,env,action){
 export async function serveProtectedTop(request,env){
   if(!env.DB)return new Response('管理TOPを読み込めません。D1接続を確認してください。',{status:503,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
   let authenticated=false;
-  try{authenticated=await isTopAuthenticated(request,env)}catch(error){console.error('TOP auth page error',error)}
+  if(cookieValue(request,SESSION_COOKIE))try{authenticated=await isTopAuthenticated(request,env)}catch(error){console.error('TOP auth page error',error)}
   const url=new URL(request.url),assetUrl=new URL(authenticated?'/index.html':'/top-login.html',url.origin);
   const assetRequest=new Request(assetUrl,{method:request.method,headers:request.headers});
   const response=await env.ASSETS.fetch(assetRequest),headers=new Headers(response.headers);
