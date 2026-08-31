@@ -1,4 +1,4 @@
-import { verifyRoomAdmin } from './data-model.js';
+import { verifyRoomAdmin,deleteR2Prefix,bumpRoomRevision } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const safeBody=async request=>{try{return await request.json()}catch{return null}};
@@ -12,8 +12,14 @@ async function roomParticipants(env,roomId){
     WHERE rp.room_id=? AND rp.character_id IS NOT NULL ORDER BY rp.created_at,c.character_name`).bind(roomId).all();
   return (result.results||[]).map(item=>({authorId:item.pl_id,plName:item.pl_name,personaId:item.character_id,name:item.character_name,icon:iconUrl(item.matrix_icon_key||item.character_icon_key),baseIcon:iconUrl(item.character_icon_key),matrixIcon:iconUrl(item.matrix_icon_key)}));
 }
+async function notifyDeleted(env,roomId,logId,executionContext){
+  if(!env.ROOMS)return;
+  const hub=env.ROOMS.get(env.ROOMS.idFromName(roomId));
+  const task=hub.fetch('https://room/notify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action:'log-delete',data:{logId}})}).catch(()=>{});
+  if(executionContext?.waitUntil)executionContext.waitUntil(task);else await task;
+}
 
-export async function handleRoomLogMeta(request,env,roomId,logId=''){
+export async function handleRoomLogMeta(request,env,roomId,logId='',executionContext=null){
   const room=await roomRow(env.DB,roomId);if(!room)return json({error:'自陣の部屋が見つかりません'},404);
 
   if(request.method==='GET'&&!logId){
@@ -45,6 +51,19 @@ export async function handleRoomLogMeta(request,env,roomId,logId=''){
     if(!await verifyRoomAdmin(env.DB,roomId,request.headers.get('x-board-admin-token')||''))return json({error:'この自陣を編集できるのは部屋主だけです'},403);
     const body=await safeBody(request),result=await env.DB.prepare('UPDATE log SET spoiler_enabled=?,scenario_title=?,scenario_participants=?,updated_at=CURRENT_TIMESTAMP WHERE room_id=? AND log_id=?').bind(body?.spoiler?1:0,String(body?.scenarioTitle||'').trim().slice(0,120),String(body?.scenarioParticipants||'').trim().slice(0,300),roomId,logId).run();
     return result.meta?.changes?json({ok:true}):json({error:'ログが見つかりません'},404);
+  }
+
+  if(request.method==='DELETE'&&logId){
+    if(!await verifyRoomAdmin(env.DB,roomId,request.headers.get('x-board-admin-token')||''))return json({error:'この自陣を編集できるのは部屋主だけです'},403);
+    const log=await logRow(env.DB,roomId,logId);if(!log)return json({error:'ログが見つかりません'},404);
+    const images=(await env.DB.prepare("SELECT comment_image_key FROM comment WHERE room_id=? AND comment_target_type='log_range' AND comment_target_id=? AND comment_image_key IS NOT NULL AND comment_image_key<>''").bind(roomId,logId).all()).results||[];
+    for(const row of images)await env.LOGS.delete(String(row.comment_image_key||'').replace(/^r2:/,'')).catch(()=>{});
+    await env.DB.prepare("DELETE FROM comment WHERE room_id=? AND comment_target_type='log_range' AND comment_target_id=?").bind(roomId,logId).run();
+    await deleteR2Prefix(env.LOGS,`rooms/${roomId}/logs/${logId}/`).catch(()=>{});
+    await env.DB.prepare('DELETE FROM log WHERE room_id=? AND log_id=?').bind(roomId,logId).run();
+    await bumpRoomRevision(env.DB,roomId);
+    await notifyDeleted(env,roomId,logId,executionContext);
+    return json({ok:true});
   }
 
   return null;
