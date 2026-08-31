@@ -12,6 +12,7 @@ import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
 import { handleSpreadsheetComments } from './spreadsheet-comments.js';
 import { handleSpreadsheetState } from './spreadsheet-state.js';
+import { handleSpreadsheetImage } from './spreadsheet-images.js';
 import { handleLogDisplayMode } from './log-display-mode.js';
 import { handleRoomLogMeta } from './room-log-meta.js';
 import { handleRoomParticipants } from './room-participants.js';
@@ -26,7 +27,15 @@ async function serveAsset(request,env,url){
   if(request.method==='GET'&&/^\/matrix\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
     const type=response.headers.get('content-type')||'';
     if(type.includes('text/html')){
-      const html=(await response.text()).replace('</body>','<script src="/matrix/matrix-template-sync.js?v=20260831-1"></script></body>');
+      const html=(await response.text()).replace('</body>','<script src="/matrix/matrix-template-sync.js?v=20260831-2"></script></body>');
+      const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
+      return new Response(html,{status:response.status,statusText:response.statusText,headers});
+    }
+  }
+  if(request.method==='GET'&&/^\/spreadsheet\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
+    const type=response.headers.get('content-type')||'';
+    if(type.includes('text/html')){
+      const html=(await response.text()).replace('</body>','<script src="/spreadsheet/sheet-image-sync.js?v=20260831-1"></script></body>');
       const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
@@ -78,6 +87,7 @@ export default{
     const group=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);if(group)return handleGroupRowColors(request,env,decodeURIComponent(group[1]));
     const display=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/display-mode$/);if(display)return handleLogDisplayMode(request,env,decodeURIComponent(display[1]),decodeURIComponent(display[2]));
     const sheetState=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/state$/);if(sheetState)return handleSpreadsheetState(request,env,decodeURIComponent(sheetState[1]));
+    const sheetImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/image$/);if(sheetImage)return handleSpreadsheetImage(request,env,decodeURIComponent(sheetImage[1]));
     const sheetComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);if(sheetComments)return handleSpreadsheetComments(request,env,decodeURIComponent(sheetComments[1]),sheetComments[2]?decodeURIComponent(sheetComments[2]):'',sheetComments[3]?decodeURIComponent(sheetComments[3]):'');
     const matrixTemplateImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\/([^/]+)\/image$/);if(matrixTemplateImage)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplateImage[1]),'',decodeURIComponent(matrixTemplateImage[2]),true);
     const matrixTemplates=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/templates(?:\/([^/]+))?$/);if(matrixTemplates)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplates[1]),decodeURIComponent(matrixTemplates[2]),matrixTemplates[3]?decodeURIComponent(matrixTemplates[3]):'',false);
