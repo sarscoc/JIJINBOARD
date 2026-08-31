@@ -50,6 +50,8 @@ export async function isTopAuthenticated(request,env){
 }
 
 async function verifyOwnerProof(body,env){
+  const anyRoom=await env.DB.prepare('SELECT room_id FROM room LIMIT 1').first();
+  if(!anyRoom)return true;
   const roomId=String(body?.boardId||''),adminToken=String(body?.adminToken||'');
   if(!roomId||!adminToken)return false;
   const room=await env.DB.prepare('SELECT room_admin_token_hash FROM room WHERE room_id=?').bind(roomId).first();
