@@ -131,6 +131,7 @@ CREATE TABLE IF NOT EXISTS matrix_template (
   template_id TEXT PRIMARY KEY,
   room_id TEXT NOT NULL,
   template_name TEXT NOT NULL,
+  template_image_key TEXT NOT NULL DEFAULT '',
   template_definition TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
