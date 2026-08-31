@@ -2,6 +2,8 @@ import { randomToken,verifyRoomAdmin,deleteR2Prefix } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const CHUNK_SIZE=120;
+const IO_CONCURRENCY=4;
+const DB_BATCH_SIZE=50;
 const padChunk=index=>String(index+1).padStart(4,'0');
 const chunkKey=(roomId,logId,tabId,index)=>`rooms/${roomId}/logs/${logId}/tabs/${tabId}/chunk-${padChunk(index)}.json`;
 const originalKey=(roomId,logId)=>`rooms/${roomId}/logs/${logId}/original.html`;
@@ -20,6 +22,16 @@ const messageFromLine=(line,tabName)=>({
   id:String(line?.line_id||''),speaker:String(line?.speaker_name||''),text:String(line?.message_body||''),color:String(line?.speaker_color||''),time:String(line?.message_timestamp||''),tab:tabName,sourceIndex:Number(line?.source_order)||0,diceroll:line?.dice_roll_data??null,system:line?.system_message_data??null
 });
 
+async function mapConcurrent(items,limit,worker){
+  const results=new Array(items.length);let cursor=0;
+  async function run(){
+    while(true){const index=cursor++;if(index>=items.length)return;results[index]=await worker(items[index],index)}
+  }
+  await Promise.all(Array.from({length:Math.min(Math.max(1,limit),items.length)},run));
+  return results;
+}
+async function runBatches(env,statements,size=DB_BATCH_SIZE){for(let i=0;i<statements.length;i+=size)await env.DB.batch(statements.slice(i,i+size))}
+
 async function logRow(env,logId){return env.DB.prepare(`SELECT l.*,r.room_name,r.room_admin_token_hash FROM log l JOIN room r ON r.room_id=l.room_id WHERE l.log_id=?`).bind(logId).first()}
 async function tabRows(env,logId){const result=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,t.tab_sort_order,t.tab_hidden,t.created_at,t.updated_at,COUNT(c.chunk_id) AS chunk_count FROM log_tab t LEFT JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? GROUP BY t.tab_id ORDER BY t.tab_sort_order,t.created_at`).bind(logId).all();return result.results||[]}
 async function chunkRows(env,tabId){const result=await env.DB.prepare('SELECT chunk_id,chunk_index,chunk_r2_key FROM log_chunk WHERE tab_id=? ORDER BY chunk_index').bind(tabId).all();return result.results||[]}
@@ -28,8 +40,9 @@ async function readChunk(env,row,tabName){if(!env.LOGS)throw new Error('R2ログ
 async function tabMeta(env,logId){
   const tabs=await tabRows(env,logId),items=[];let total=0,totalChunks=0;
   for(const tab of tabs){
-    const chunks=await chunkRows(env,tab.tab_id);let count=0;
-    for(const chunk of chunks){const object=await env.LOGS.head(chunk.chunk_r2_key);count+=Number(object?.customMetadata?.lineCount)||0}
+    const chunks=await chunkRows(env,tab.tab_id);
+    const counts=await mapConcurrent(chunks,IO_CONCURRENCY,async chunk=>{const object=await env.LOGS.head(chunk.chunk_r2_key);return Number(object?.customMetadata?.lineCount)||0});
+    const count=counts.reduce((sum,value)=>sum+value,0);
     total+=count;totalChunks+=chunks.length;
     items.push({tabId:tab.tab_id,tabName:tab.tab_name,order:Number(tab.tab_sort_order)||0,hidden:!!tab.tab_hidden,chunkCount:chunks.length,messageCount:count});
   }
@@ -40,13 +53,12 @@ async function storeTab(env,roomId,logId,tabId,tabName,messages){
   const chunks=[];
   for(let i=0;i<messages.length;i+=CHUNK_SIZE)chunks.push(messages.slice(i,i+CHUNK_SIZE));
   if(!chunks.length)chunks.push([]);
-  const statements=[];
-  for(let index=0;index<chunks.length;index++){
-    const lines=chunks[index].map((message,offset)=>lineFromMessage(message,index*CHUNK_SIZE+offset)),key=chunkKey(roomId,logId,tabId,index),chunkId=randomToken(16);
+  const statements=await mapConcurrent(chunks,IO_CONCURRENCY,async(chunk,index)=>{
+    const lines=chunk.map((message,offset)=>lineFromMessage(message,index*CHUNK_SIZE+offset)),key=chunkKey(roomId,logId,tabId,index),chunkId=randomToken(16);
     await env.LOGS.put(key,JSON.stringify({tab_id:tabId,tab_name:tabName,chunk_index:index,lines}),{httpMetadata:{contentType:'application/json; charset=utf-8'},customMetadata:{roomId,logId,tabId,chunk:String(index),lineCount:String(lines.length)}});
-    statements.push(env.DB.prepare('INSERT INTO log_chunk(chunk_id,tab_id,chunk_index,chunk_r2_key) VALUES(?,?,?,?)').bind(chunkId,tabId,index,key));
-  }
-  if(statements.length)await env.DB.batch(statements);
+    return env.DB.prepare('INSERT INTO log_chunk(chunk_id,tab_id,chunk_index,chunk_r2_key) VALUES(?,?,?,?)').bind(chunkId,tabId,index,key);
+  });
+  if(statements.length)await runBatches(env,statements);
 }
 
 export async function createStreamRoom(request,env){
