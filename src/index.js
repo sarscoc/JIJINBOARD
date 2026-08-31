@@ -76,8 +76,8 @@ export default{
     if(boardRoot&&request.method==='GET')return handleRoomLogMeta(request,env,decodeURIComponent(boardRoot[1]));
     if(boardRoot&&request.method==='DELETE')return handleRoomDelete(request,env,decodeURIComponent(boardRoot[1]),executionContext);
     const boardLogs=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs(?:\/([^/]+))?$/);
-    if(boardLogs&&(request.method==='POST'||request.method==='PATCH')){
-      const handled=await handleRoomLogMeta(request,env,decodeURIComponent(boardLogs[1]),boardLogs[2]?decodeURIComponent(boardLogs[2]):'');
+    if(boardLogs&&(request.method==='POST'||request.method==='PATCH'||request.method==='DELETE')){
+      const handled=await handleRoomLogMeta(request,env,decodeURIComponent(boardLogs[1]),boardLogs[2]?decodeURIComponent(boardLogs[2]):'',executionContext);
       if(handled)return handled;
     }
     const participant=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?(?:\/matrix-icon)?$/);
