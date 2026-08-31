@@ -107,9 +107,6 @@
     try{
       const result=await api(`/api/player-master/?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
       master=result.master||master;
-      // Important: saving to the master must not rehydrate/re-render the open
-      // profile editor. That used to replace the active input after the first
-      // keystroke/color event and could also trigger a MATRIX participant reload.
       mergeMasterLocal(master,{notify:false});
       if(roomId()){
         for(const ch of roomChars){if(ch.type==="PC"&&!roomSelection.includes(String(ch.id)))roomSelection.push(String(ch.id))}
@@ -135,8 +132,6 @@
     try{await bootstrap();hookRoomLoad();if(typeof state!=="undefined")await hydrateRoom()}catch(error){console.warn("Player master bootstrap failed",error)}
     const issue=document.querySelector("#issueTransferBtn"),redeem=document.querySelector("#redeemTransferBtn");if(issue){issue.textContent="スマホ・別端末を追加";issue.onclick=issueDeviceCode}if(redeem)redeem.onclick=redeemDeviceCode;
     if(typeof state!=="undefined"){
-      // Never sync on raw `input`: text/color inputs fire it continuously and a
-      // master round-trip used to replace the editor DOM while the user typed.
       document.addEventListener("change",event=>{
         if(event.target.closest?.("#plName,[data-persona-name],[data-persona-color],[data-persona-color-dark],#plIconInput,[data-persona-icon],[data-matrix-icon]"))schedulePush(80);
       });
@@ -144,6 +139,16 @@
     }
   }
 
+  function scheduleStart(){
+    const embeddedLog=params.get("embedded")==="1"&&/\/log(?:\/|$)/.test(location.pathname);
+    if(!embeddedLog){start();return}
+    const run=()=>start();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(typeof requestIdleCallback==="function")requestIdleCallback(run,{timeout:900});
+      else setTimeout(run,250);
+    }));
+  }
+
   window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,hydrateRoom,pushCurrent,setRoomSelection,issueDeviceCode,redeemDeviceCode};
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",scheduleStart,{once:true});else scheduleStart();
 })();
