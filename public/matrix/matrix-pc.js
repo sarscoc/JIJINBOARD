@@ -39,6 +39,7 @@
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const localPcs=(room=activeRoom)=>{try{return (JSON.parse(localStorage.getItem(`personas:${room}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
+  const participantPath=room=>`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`;
   const preferredImage=person=>person?.matrixIcon||person?.baseIcon||person?.icon||"";
   const fallbackImage=person=>person?.baseIcon||person?.icon||"";
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
@@ -87,9 +88,6 @@
     state.items||={};
     const local=state.items[id]||(state.items[id]=makeLocalItemState(id));
     if(preserved)Object.assign(local,preserved);
-    // The image shown on the character page is captured exactly when the PC is
-    // placed. From this point on every viewer uses the same saved URL instead of
-    // depending on participant/profile refresh timing.
     if(placementImage)local.placedImage=placementImage;
     saveState(state);
     if(typeof saveCurrentTemplateState==="function")saveCurrentTemplateState(state);
@@ -104,9 +102,6 @@
     if(typeof renderPlaced==="function")renderPlaced();
   }
 
-  // Participant sync is eventually consistent. A short-lived missing participant
-  // must never erase a PC that is already placed on a template. Keep the last
-  // known participant record until the user explicitly removes the placed item.
   function retainPlacedParticipants(list){
     const next=Array.isArray(list)?[...list]:[];
     const known=new Set(next.map(person=>`participant:${person.authorId}:${person.personaId}`));
@@ -178,17 +173,13 @@
     });
   }
 
-  async function syncLocalPcsIfNeeded(entry,room){
+  async function syncLocalPcsIfNeeded(current,room){
     const profile=me(),local=localPcs(room);if(!profile?.id||!profile?.plName||!local.length||!room)return false;
-    const current=(entry?.participants||[]).filter(person=>person.authorId===profile.id);
-    // Server icons are normalized to /api/... URLs while local icons are data URLs.
-    // Comparing image strings therefore makes the same PC look changed forever and
-    // causes POST -> realtime refresh -> reload loops. Identity/name are enough here;
-    // actual icon changes are synchronized by the LOG/profile save path.
-    const currentKey=current.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
+    const mine=(current||[]).filter(person=>person.authorId===profile.id);
+    const currentKey=mine.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
     const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
     if(currentKey===localKey)return false;
-    await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
+    await api(participantPath(room),{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
     window.matrixBoardContext?.notifyChange?.("participants");
     return true;
   }
@@ -205,12 +196,10 @@
     const seq=++loadSeq;
     loadKey=nextRoom;
     const task=(async()=>{
-      let board=await api(`/api/boards/${encodeURIComponent(boardId)}`),entry=(board.logs||[]).find(log=>log.roomId===nextRoom);
-      if(await syncLocalPcsIfNeeded(entry,nextRoom).catch(()=>false)){
-        board=await api(`/api/boards/${encodeURIComponent(boardId)}`);entry=(board.logs||[]).find(log=>log.roomId===nextRoom);
-      }
+      let list=(await api(participantPath(nextRoom))).participants||[];
+      if(await syncLocalPcsIfNeeded(list,nextRoom).catch(()=>false))list=(await api(participantPath(nextRoom))).participants||[];
       if(seq!==loadSeq||activeRoom!==nextRoom)return;
-      let list=mergeOwnLocalImages(entry?.participants||[],nextRoom);
+      list=mergeOwnLocalImages(list,nextRoom);
       const profile=me();
       if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows(nextRoom)];
       setParticipants(list,{forcePaint:true});
@@ -347,7 +336,6 @@
   setupBoardUi();
   setupPcControls();
 
-  // Paint known local PCs immediately. Server participants then replace/merge them.
   const immediate=localParticipantRows(activeRoom);
   if(immediate.length)setParticipants(immediate,{forcePaint:true});
 
@@ -366,6 +354,5 @@
     load(activeRoom).catch(console.warn);
   });
 
-  // Do not wait 500ms before the first participant request.
   queueMicrotask(()=>load(activeRoom).catch(console.warn));
 })();
