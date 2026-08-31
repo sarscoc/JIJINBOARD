@@ -1,5 +1,7 @@
 "use strict";
 
+document.write('<script src="room-home.js?v=20260901-1"><\/script>');
+
 // Keep the room's original log title as a fallback for older board entries, but
 // present one canonical scenario title everywhere in the board shell.
 // The white / black LOGCOMMENTS appearance is stored per log and can only be
