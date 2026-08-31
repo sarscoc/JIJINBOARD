@@ -183,6 +183,20 @@ CREATE TABLE IF NOT EXISTS spreadsheet (
 );
 CREATE INDEX IF NOT EXISTS idx_spreadsheet_room ON spreadsheet(room_id, updated_at);
 
+CREATE TABLE IF NOT EXISTS spreadsheet_image (
+  image_id TEXT PRIMARY KEY,
+  sheet_id TEXT NOT NULL,
+  image_type TEXT NOT NULL CHECK(image_type IN ('cell_image','global_background','character_background')),
+  target_id TEXT NOT NULL,
+  image_key TEXT NOT NULL,
+  content_type TEXT NOT NULL DEFAULT 'image/webp',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(sheet_id) REFERENCES spreadsheet(sheet_id) ON DELETE CASCADE,
+  UNIQUE(sheet_id, image_type, target_id)
+);
+CREATE INDEX IF NOT EXISTS idx_spreadsheet_image_sheet ON spreadsheet_image(sheet_id, image_type, target_id);
+
 CREATE TABLE IF NOT EXISTS spreadsheet_cell (
   cell_id TEXT PRIMARY KEY,
   sheet_id TEXT NOT NULL,
