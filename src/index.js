@@ -19,6 +19,18 @@ import { handleTopAuthApi,serveProtectedTop } from './top-auth.js';
 export { RoomHub };
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const contextFor=(request,env,path,executionContext)=>({request,env,params:{path},waitUntil:p=>executionContext.waitUntil(p),next:()=>env.ASSETS.fetch(request)});
+async function serveAsset(request,env,url){
+  const response=await env.ASSETS.fetch(request);
+  if(request.method==='GET'&&/^\/matrix\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
+    const type=response.headers.get('content-type')||'';
+    if(type.includes('text/html')){
+      const html=(await response.text()).replace('</body>','<script src="/matrix/matrix-template-sync.js?v=20260831-1"></script></body>');
+      const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
+      return new Response(html,{status:response.status,statusText:response.statusText,headers});
+    }
+  }
+  return response;
+}
 
 export default{
   async fetch(request,env,executionContext){
@@ -30,7 +42,7 @@ export default{
       if(request.method!=='GET'&&request.method!=='HEAD')return new Response('Method not allowed',{status:405});
       return serveProtectedTop(request,env);
     }
-    if(!url.pathname.startsWith('/api/'))return env.ASSETS.fetch(request);
+    if(!url.pathname.startsWith('/api/'))return serveAsset(request,env,url);
     if(url.pathname.startsWith('/api/top-auth/'))return handleTopAuthApi(request,env,url.pathname.slice('/api/top-auth/'.length).split('/')[0]||'');
     if(!env.LOGS||!env.ROOMS)return json({error:'Cloudflareの保存先を準備中です。デプロイ完了後にもう一度お試しください。'},503);
 
