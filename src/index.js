@@ -11,6 +11,7 @@ import { handleGroupRowColors } from './group-row-colors.js';
 import { handleSpreadsheetComments } from './spreadsheet-comments.js';
 import { handleLogDisplayMode } from './log-display-mode.js';
 import { handleRoomLogMeta } from './room-log-meta.js';
+import { handleRoomParticipants } from './room-participants.js';
 import { handleTopAuthApi,serveProtectedTop } from './top-auth.js';
 
 export { RoomHub };
@@ -53,6 +54,8 @@ export default{
       const handled=await handleRoomLogMeta(request,env,decodeURIComponent(boardLogs[1]),boardLogs[2]?decodeURIComponent(boardLogs[2]):'');
       if(handled)return handled;
     }
+    const participant=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?(?:\/matrix-icon)?$/);
+    if(participant){const handled=await handleRoomParticipants(request,env,decodeURIComponent(participant[1]),decodeURIComponent(participant[2]),participant[3]?decodeURIComponent(participant[3]):'');if(handled)return handled}
 
     const theme=url.pathname.match(/^\/api\/boards\/([^/]+)\/theme$/);if(theme)return handleBoardTheme(request,env,decodeURIComponent(theme[1]));
     const group=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);if(group)return handleGroupRowColors(request,env,decodeURIComponent(group[1]));
