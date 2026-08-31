@@ -1,8 +1,6 @@
 "use strict";
 
-// Load template persistence/sync once MATRIX is active. Keeping it here avoids
-// another blocking script in the large MATRIX document.
-if(!document.querySelector('script[data-matrix-template-sync]')){
+if(!document.querySelector('script[src*="matrix-template-sync.js"]')){
   const script=document.createElement('script');
   script.src='matrix-template-sync.js';
   script.async=false;
@@ -10,8 +8,6 @@ if(!document.querySelector('script[data-matrix-template-sync]')){
   document.body.append(script);
 }
 
-// Deleting a MATRIX template also deletes the shared COMMENTS whose target_id
-// belongs to that template. Other templates and their comments are untouched.
 (() => {
   const originalDelete = window.deleteSavedTemplate;
   if (typeof originalDelete !== "function" || originalDelete.__matrixTemplateCommentCleanup) return;
