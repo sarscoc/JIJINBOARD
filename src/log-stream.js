@@ -1,156 +1,139 @@
-const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
-const CHUNK_SIZE=120;
-const legacyKey=roomId=>`rooms/${roomId}/log.json`;
-const chunkPrefix=roomId=>`rooms/${roomId}/chunks/`;
-const chunkKey=(roomId,index)=>`${chunkPrefix(roomId)}${index}.json`;
-const parseLog=value=>{try{return JSON.parse(value||"{}")||{}}catch{return{}}};
-const chunkCountFor=count=>Math.max(1,Math.ceil(Math.max(0,Number(count)||0)/CHUNK_SIZE));
-const randomToken=(bytes=18)=>{const data=crypto.getRandomValues(new Uint8Array(bytes));return btoa(String.fromCharCode(...data)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")};
+import { randomToken,verifyRoomAdmin,deleteR2Prefix } from './data-model.js';
 
-async function roomRow(env,roomId){return env.DB.prepare("SELECT id,title,log_json,admin_token,created_at FROM rooms WHERE id=?").bind(roomId).first()}
-async function readLegacy(env,roomId,log){
-  if(!env.LOGS)throw new Error("R2ログストレージが接続されていません");
-  const object=await env.LOGS.get(log.key||legacyKey(roomId));
-  if(!object)throw new Error("R2にログ本文が見つかりません");
-  const stored=JSON.parse(await object.text());
-  return {tabs:stored.tabs||log.tabs||[],messages:Array.isArray(stored.messages)?stored.messages:[]};
+const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
+const CHUNK_SIZE=120;
+const padChunk=index=>String(index+1).padStart(4,'0');
+const chunkKey=(roomId,logId,tabId,index)=>`rooms/${roomId}/logs/${logId}/tabs/${tabId}/chunk-${padChunk(index)}.json`;
+const originalKey=(roomId,logId)=>`rooms/${roomId}/logs/${logId}/original.html`;
+
+const lineFromMessage=(message,index)=>({
+  line_id:String(message?.id||`m${index}`),
+  speaker_name:String(message?.speaker||''),
+  message_body:String(message?.text||''),
+  speaker_color:String(message?.color||''),
+  message_timestamp:String(message?.time||''),
+  source_order:Number.isFinite(Number(message?.sourceIndex))?Number(message.sourceIndex):index,
+  dice_roll_data:message?.diceroll??null,
+  system_message_data:message?.system??null
+});
+const messageFromLine=(line,tabName)=>({
+  id:String(line?.line_id||''),speaker:String(line?.speaker_name||''),text:String(line?.message_body||''),color:String(line?.speaker_color||''),time:String(line?.message_timestamp||''),tab:tabName,sourceIndex:Number(line?.source_order)||0,diceroll:line?.dice_roll_data??null,system:line?.system_message_data??null
+});
+
+async function logRow(env,logId){return env.DB.prepare(`SELECT l.*,r.room_name,r.room_admin_token_hash FROM log l JOIN room r ON r.room_id=l.room_id WHERE l.log_id=?`).bind(logId).first()}
+async function tabRows(env,logId){const result=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,t.tab_sort_order,t.tab_hidden,t.created_at,t.updated_at,COUNT(c.chunk_id) AS chunk_count FROM log_tab t LEFT JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? GROUP BY t.tab_id ORDER BY t.tab_sort_order,t.created_at`).bind(logId).all();return result.results||[]}
+async function chunkRows(env,tabId){const result=await env.DB.prepare('SELECT chunk_id,chunk_index,chunk_r2_key FROM log_chunk WHERE tab_id=? ORDER BY chunk_index').bind(tabId).all();return result.results||[]}
+async function readChunk(env,row,tabName){if(!env.LOGS)throw new Error('R2ログストレージが接続されていません');const object=await env.LOGS.get(row.chunk_r2_key);if(!object)return[];const payload=JSON.parse(await object.text());const lines=Array.isArray(payload)?payload:Array.isArray(payload?.lines)?payload.lines:[];return lines.map(line=>messageFromLine(line,tabName))}
+
+async function tabMeta(env,logId){
+  const tabs=await tabRows(env,logId),items=[];let total=0,totalChunks=0;
+  for(const tab of tabs){
+    const chunks=await chunkRows(env,tab.tab_id);let count=0;
+    for(const chunk of chunks){const object=await env.LOGS.head(chunk.chunk_r2_key);count+=Number(object?.customMetadata?.lineCount)||0}
+    total+=count;totalChunks+=chunks.length;
+    items.push({tabId:tab.tab_id,tabName:tab.tab_name,order:Number(tab.tab_sort_order)||0,hidden:!!tab.tab_hidden,chunkCount:chunks.length,messageCount:count});
+  }
+  return {items,total,totalChunks};
 }
-async function readChunked(env,roomId,log,index){
-  if(!env.LOGS)throw new Error("R2ログストレージが接続されていません");
-  const object=await env.LOGS.get(chunkKey(roomId,index));
-  if(!object)return [];
-  const value=JSON.parse(await object.text());
-  return Array.isArray(value)?value:Array.isArray(value?.messages)?value.messages:[];
-}
-async function storeChunkObjects(env,roomId,tabs,messages){
+
+async function storeTab(env,roomId,logId,tabId,tabName,messages){
   const chunks=[];
   for(let i=0;i<messages.length;i+=CHUNK_SIZE)chunks.push(messages.slice(i,i+CHUNK_SIZE));
   if(!chunks.length)chunks.push([]);
-  for(let start=0;start<chunks.length;start+=8){
-    await Promise.all(chunks.slice(start,start+8).map((chunk,offset)=>env.LOGS.put(chunkKey(roomId,start+offset),JSON.stringify(chunk),{httpMetadata:{contentType:"application/json; charset=utf-8"},customMetadata:{roomId,chunk:String(start+offset),messageCount:String(chunk.length)}})));
+  const statements=[];
+  for(let index=0;index<chunks.length;index++){
+    const lines=chunks[index].map((message,offset)=>lineFromMessage(message,index*CHUNK_SIZE+offset)),key=chunkKey(roomId,logId,tabId,index),chunkId=randomToken(16);
+    await env.LOGS.put(key,JSON.stringify({tab_id:tabId,tab_name:tabName,chunk_index:index,lines}),{httpMetadata:{contentType:'application/json; charset=utf-8'},customMetadata:{roomId,logId,tabId,chunk:String(index),lineCount:String(lines.length)}});
+    statements.push(env.DB.prepare('INSERT INTO log_chunk(chunk_id,tab_id,chunk_index,chunk_r2_key) VALUES(?,?,?,?)').bind(chunkId,tabId,index,key));
   }
-  return {tabs:tabs||[],storage:"r2-chunks",chunkSize:CHUNK_SIZE,chunkCount:chunks.length,messageCount:messages.length,prefix:chunkPrefix(roomId)};
-}
-async function writeChunks(env,roomId,tabs,messages,oldKey=""){
-  const meta=await storeChunkObjects(env,roomId,tabs,messages);
-  await env.DB.prepare("UPDATE rooms SET log_json=? WHERE id=?").bind(JSON.stringify(meta),roomId).run();
-  if(oldKey)await env.LOGS.delete(oldKey).catch(()=>{});
-  return meta;
-}
-async function migrateLegacy(env,roomId,log,stored){
-  if(log.storage==="r2-chunks")return log;
-  const source=stored||await readLegacy(env,roomId,log);
-  return writeChunks(env,roomId,source.tabs,source.messages,log.storage==="r2"?(log.key||legacyKey(roomId)):"");
+  if(statements.length)await env.DB.batch(statements);
 }
 
 export async function createStreamRoom(request,env){
-  if(request.method!=="POST")return json({error:"Method not allowed"},405);
+  if(request.method!=='POST')return json({error:'Method not allowed'},405);
   let body=null;try{body=await request.json()}catch{}
-  if(!body||!Array.isArray(body.messages)||!body.messages.length)return json({error:"ログが空です"},400);
-  const ownerId=String(body.creatorId||"").slice(0,100);if(!ownerId)return json({error:"作成者情報がありません"},400);
-  const serialized=JSON.stringify(body.messages);
-  if(serialized.length>25_000_000)return json({error:"ログが大きすぎます（25MBまで）"},413);
-  const id=randomToken(20),adminToken=randomToken(24),title=String(body.title||"TRPG LOG").slice(0,200),tabs=Array.isArray(body.tabs)?body.tabs:[];
-  let meta=null;
+  if(!body||!Array.isArray(body.messages)||!body.messages.length)return json({error:'ログが空です'},400);
+  const parentRoomId=String(body.boardId||body.parentRoomId||'').slice(0,160);
+  if(!parentRoomId)return json({error:'ログを保存するルームが指定されていません'},400);
+  const adminToken=request.headers.get('x-board-admin-token')||request.headers.get('x-admin-token')||'';
+  if(!await verifyRoomAdmin(env.DB,parentRoomId,adminToken))return json({error:'このルームへログを追加できるのは部屋主だけです'},403);
+  const serialized=JSON.stringify(body.messages);if(serialized.length>25_000_000)return json({error:'ログが大きすぎます（25MBまで）'},413);
+  const id=randomToken(20),title=String(body.title||'TRPG LOG').slice(0,200);
+  const listed=Array.isArray(body.tabs)?body.tabs.map(String).filter(Boolean):[],messageTabs=body.messages.map(message=>String(message?.tab||'')).filter(Boolean),tabs=[...new Set([...listed,...messageTabs])];if(!tabs.length)tabs.push('メイン');
+  const last=await env.DB.prepare('SELECT COALESCE(MAX(log_sort_order),-1) AS value FROM log WHERE room_id=?').bind(parentRoomId).first();
+  const sourceByMessage=new Map(body.messages.map((message,index)=>[message,index]));
+  const createdKeys=[];
   try{
-    meta=await storeChunkObjects(env,id,tabs,body.messages);
-    await env.DB.prepare("INSERT INTO rooms (id,title,log_json,admin_token,owner_id) VALUES (?,?,?,?,?)").bind(id,title,JSON.stringify(meta),adminToken,ownerId).run();
-    return json({id,adminToken},201);
-  }catch(error){
-    if(meta)await cleanupStreamChunks(env,id,meta).catch(()=>{});
-    else{
-      const estimated=chunkCountFor(body.messages.length),keys=Array.from({length:estimated},(_,index)=>chunkKey(id,index));
-      if(keys.length)await env.LOGS.delete(keys).catch(()=>{});
+    const html=typeof body.originalHtml==='string'?body.originalHtml:'';let htmlKey=null;
+    if(html){htmlKey=originalKey(parentRoomId,id);await env.LOGS.put(htmlKey,html,{httpMetadata:{contentType:'text/html; charset=utf-8'},customMetadata:{roomId:parentRoomId,logId:id}});createdKeys.push(htmlKey)}
+    await env.DB.prepare('INSERT INTO log(log_id,room_id,log_name,log_sort_order,original_html_key) VALUES(?,?,?,?,?)').bind(id,parentRoomId,title,Number(last?.value)+1,htmlKey).run();
+    for(let order=0;order<tabs.length;order++){
+      const tabName=tabs[order],tabId=randomToken(16);
+      await env.DB.prepare('INSERT INTO log_tab(tab_id,log_id,tab_name,tab_sort_order) VALUES(?,?,?,?)').bind(tabId,id,tabName,order).run();
+      const messages=body.messages.filter(message=>String(message?.tab||tabs[0])===tabName).map(message=>({...message,sourceIndex:Number.isFinite(Number(message?.sourceIndex))?Number(message.sourceIndex):sourceByMessage.get(message)}));
+      await storeTab(env,parentRoomId,id,tabId,tabName,messages);
     }
+    return json({id,adminToken,title,roomId:parentRoomId},201);
+  }catch(error){
+    await deleteR2Prefix(env.LOGS,`rooms/${parentRoomId}/logs/${id}/`).catch(()=>{});
+    await env.DB.prepare('DELETE FROM log WHERE log_id=?').bind(id).run().catch(()=>{});
     return json({error:`ログの保存に失敗しました: ${String(error?.message||error).slice(0,180)}`},500);
   }
 }
 
-export async function handleLogStream(request,env,roomId,action,arg,executionContext){
-  if(request.method!=="GET")return json({error:"Method not allowed"},405);
-  const row=await roomRow(env,roomId);
-  if(!row)return json({error:"部屋が見つかりません"},404);
-  const log=parseLog(row.log_json);
+export async function handleLogStream(request,env,logId,action,arg){
+  if(request.method!=='GET')return json({error:'Method not allowed'},405);
+  const row=await logRow(env,logId);if(!row)return json({error:'部屋が見つかりません'},404);
+  const meta=await tabMeta(env,logId),tabs=meta.items.map(item=>item.tabName);
 
-  if(action==="meta"){
-    const messageCount=Number(log.messageCount)||(Array.isArray(log.messages)?log.messages.length:0);
-    const count=log.storage==="r2-chunks"?Math.max(1,Number(log.chunkCount)||chunkCountFor(messageCount)):chunkCountFor(messageCount);
-    return json({id:row.id,title:row.title,createdAt:row.created_at,tabs:log.tabs||[],messageCount,chunkSize:CHUNK_SIZE,chunkCount:count,streamed:true});
+  if(action==='meta')return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs,messageCount:meta.total,chunkSize:CHUNK_SIZE,chunkCount:Math.max(1,meta.totalChunks),tabStreams:meta.items,streamed:true});
+
+  if(action==='chunk'){
+    const index=Math.max(0,Number.parseInt(arg,10)||0),url=new URL(request.url),requestedTab=url.searchParams.get('tab')||'',requestedTabId=url.searchParams.get('tabId')||'';
+    if(requestedTab||requestedTabId){
+      const tab=meta.items.find(item=>requestedTabId?item.tabId===requestedTabId:item.tabName===requestedTab);if(!tab)return json({error:'タブが見つかりません'},404);
+      const chunks=await chunkRows(env,tab.tabId),chunk=chunks.find(item=>Number(item.chunk_index)===index),messages=chunk?await readChunk(env,chunk,tab.tabName):[];
+      return json({index,tab:tab.tabName,tabId:tab.tabId,messages,chunkCount:Math.max(1,tab.chunkCount),messageCount:tab.messageCount});
+    }
+    let virtual=index;
+    for(const tab of meta.items){
+      if(virtual<tab.chunkCount){const chunks=await chunkRows(env,tab.tabId),chunk=chunks.find(item=>Number(item.chunk_index)===virtual),messages=chunk?await readChunk(env,chunk,tab.tabName):[];return json({index,messages,chunkCount:Math.max(1,meta.totalChunks),messageCount:meta.total,tab:tab.tabName,tabId:tab.tabId})}
+      virtual-=tab.chunkCount;
+    }
+    return json({index,messages:[],chunkCount:Math.max(1,meta.totalChunks),messageCount:meta.total});
   }
 
-  if(action==="chunk"){
-    const index=Math.max(0,Number.parseInt(arg,10)||0);
-    try{
-      if(log.storage==="r2-chunks"){
-        const messages=await readChunked(env,roomId,log,index);
-        return json({index,messages,chunkCount:Number(log.chunkCount)||chunkCountFor(log.messageCount),messageCount:Number(log.messageCount)||0});
-      }
-      if(log.storage==="r2"){
-        const stored=await readLegacy(env,roomId,log);
-        const messages=stored.messages.slice(index*CHUNK_SIZE,(index+1)*CHUNK_SIZE);
-        executionContext?.waitUntil?.(migrateLegacy(env,roomId,log,stored).catch(()=>{}));
-        return json({index,messages,chunkCount:chunkCountFor(stored.messages.length),messageCount:stored.messages.length});
-      }
-      if(Array.isArray(log.messages)){
-        const messages=log.messages.slice(index*CHUNK_SIZE,(index+1)*CHUNK_SIZE);
-        executionContext?.waitUntil?.(writeChunks(env,roomId,log.tabs||[],log.messages).catch(()=>{}));
-        return json({index,messages,chunkCount:chunkCountFor(log.messages.length),messageCount:log.messages.length});
-      }
-      return json({index,messages:[],chunkCount:1,messageCount:0});
-    }catch(error){return json({error:String(error?.message||error)},500)}
+  if(action==='full'){
+    const messages=[];
+    for(const tab of meta.items){for(const chunk of await chunkRows(env,tab.tabId))messages.push(...await readChunk(env,chunk,tab.tabName))}
+    messages.sort((a,b)=>(Number(a.sourceIndex)||0)-(Number(b.sourceIndex)||0));
+    return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs,messages});
   }
 
-  if(action==="full"){
-    try{
-      let tabs=log.tabs||[],messages=[];
-      if(log.storage==="r2-chunks"){
-        const count=Math.max(1,Number(log.chunkCount)||chunkCountFor(log.messageCount));
-        for(let start=0;start<count;start+=8){
-          const batch=await Promise.all(Array.from({length:Math.min(8,count-start)},(_,offset)=>readChunked(env,roomId,log,start+offset)));
-          batch.forEach(chunk=>messages.push(...chunk));
-        }
-      }else if(log.storage==="r2"){
-        const stored=await readLegacy(env,roomId,log);tabs=stored.tabs;messages=stored.messages;
-      }else if(Array.isArray(log.messages))messages=log.messages;
-      return json({id:row.id,title:row.title,createdAt:row.created_at,tabs,messages});
-    }catch(error){return json({error:String(error?.message||error)},500)}
-  }
-
-  if(action==="find"){
-    const messageId=decodeURIComponent(String(arg||""));
-    if(!messageId)return json({error:"message id is required"},400);
-    try{
-      if(log.storage==="r2-chunks"){
-        const count=Math.max(1,Number(log.chunkCount)||chunkCountFor(log.messageCount));
-        for(let index=0;index<count;index++){
-          const messages=await readChunked(env,roomId,log,index);
-          if(messages.some(message=>String(message?.id||"")===messageId))return json({index});
-        }
-        return json({index:-1});
+  if(action==='find'){
+    const messageId=decodeURIComponent(String(arg||''));if(!messageId)return json({error:'message id is required'},400);
+    let globalIndex=0;
+    for(const tab of meta.items){
+      for(const chunk of await chunkRows(env,tab.tabId)){
+        const messages=await readChunk(env,chunk,tab.tabName);
+        if(messages.some(message=>String(message?.id||'')===messageId))return json({index:Number(chunk.chunk_index),globalIndex,tab:tab.tabName,tabId:tab.tabId});
+        globalIndex++;
       }
-      const stored=log.storage==="r2"?await readLegacy(env,roomId,log):{messages:Array.isArray(log.messages)?log.messages:[]};
-      const position=stored.messages.findIndex(message=>String(message?.id||"")===messageId);
-      if(position>=0&&log.storage==="r2")executionContext?.waitUntil?.(migrateLegacy(env,roomId,log,{tabs:stored.tabs||log.tabs||[],messages:stored.messages}).catch(()=>{}));
-      return json({index:position<0?-1:Math.floor(position/CHUNK_SIZE)});
-    }catch(error){return json({error:String(error?.message||error)},500)}
+    }
+    return json({index:-1,globalIndex:-1});
   }
-
-  return json({error:"Not found"},404);
+  return json({error:'Not found'},404);
 }
 
-export async function cleanupStreamChunks(env,roomId,logOverride=null){
-  const log=logOverride||parseLog((await roomRow(env,roomId))?.log_json);
-  if(log?.storage!=="r2-chunks")return;
-  const count=Math.max(1,Number(log.chunkCount)||chunkCountFor(log.messageCount));
-  const keys=Array.from({length:count},(_,index)=>chunkKey(roomId,index));
-  for(let start=0;start<keys.length;start+=1000)await env.LOGS.delete(keys.slice(start,start+1000));
+export async function cleanupStreamChunks(env,logId){
+  const row=await logRow(env,logId);if(!row)return;
+  await deleteR2Prefix(env.LOGS,`rooms/${row.room_id}/logs/${logId}/`);
 }
 
-export async function prepareStreamRoomDelete(request,env,roomId){
-  const row=await roomRow(env,roomId);
-  if(!row)return json({error:"部屋が見つかりません"},404);
-  const token=request.headers.get("x-admin-token")||"";
-  if(!token||token!==row.admin_token)return json({error:"部屋主だけが削除できます"},403);
-  await cleanupStreamChunks(env,roomId,parseLog(row.log_json));
+export async function prepareStreamRoomDelete(request,env,logId){
+  const row=await logRow(env,logId);if(!row)return json({error:'部屋が見つかりません'},404);
+  const token=request.headers.get('x-admin-token')||request.headers.get('x-board-admin-token')||'';
+  if(!await verifyRoomAdmin(env.DB,row.room_id,token))return json({error:'部屋主だけが削除できます'},403);
+  await cleanupStreamChunks(env,logId);
   return null;
 }
