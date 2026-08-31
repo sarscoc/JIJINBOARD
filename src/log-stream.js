@@ -59,14 +59,15 @@ export async function createStreamRoom(request,env){
   if(!await verifyRoomAdmin(env.DB,parentRoomId,adminToken))return json({error:'このルームへログを追加できるのは部屋主だけです'},403);
   const serialized=JSON.stringify(body.messages);if(serialized.length>25_000_000)return json({error:'ログが大きすぎます（25MBまで）'},413);
   const id=randomToken(20),title=String(body.title||'TRPG LOG').slice(0,200);
+  const scenarioTitle=String(body.scenarioTitle||title).trim().slice(0,120),scenarioParticipants=String(body.scenarioParticipants||'').trim().slice(0,300),spoiler=body.spoiler?1:0;
+  const displayMode=body.logDisplayMode==='dark'?'dark':'light';
   const listed=Array.isArray(body.tabs)?body.tabs.map(String).filter(Boolean):[],messageTabs=body.messages.map(message=>String(message?.tab||'')).filter(Boolean),tabs=[...new Set([...listed,...messageTabs])];if(!tabs.length)tabs.push('メイン');
   const last=await env.DB.prepare('SELECT COALESCE(MAX(log_sort_order),-1) AS value FROM log WHERE room_id=?').bind(parentRoomId).first();
   const sourceByMessage=new Map(body.messages.map((message,index)=>[message,index]));
-  const createdKeys=[];
   try{
     const html=typeof body.originalHtml==='string'?body.originalHtml:'';let htmlKey=null;
-    if(html){htmlKey=originalKey(parentRoomId,id);await env.LOGS.put(htmlKey,html,{httpMetadata:{contentType:'text/html; charset=utf-8'},customMetadata:{roomId:parentRoomId,logId:id}});createdKeys.push(htmlKey)}
-    await env.DB.prepare('INSERT INTO log(log_id,room_id,log_name,log_sort_order,original_html_key) VALUES(?,?,?,?,?)').bind(id,parentRoomId,title,Number(last?.value)+1,htmlKey).run();
+    if(html){htmlKey=originalKey(parentRoomId,id);await env.LOGS.put(htmlKey,html,{httpMetadata:{contentType:'text/html; charset=utf-8'},customMetadata:{roomId:parentRoomId,logId:id}})}
+    await env.DB.prepare('INSERT INTO log(log_id,room_id,log_name,scenario_title,scenario_participants,spoiler_enabled,log_sort_order,log_display_mode,original_html_key) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,parentRoomId,title,scenarioTitle,scenarioParticipants,spoiler,Number(last?.value)+1,displayMode,htmlKey).run();
     for(let order=0;order<tabs.length;order++){
       const tabName=tabs[order],tabId=randomToken(16);
       await env.DB.prepare('INSERT INTO log_tab(tab_id,log_id,tab_name,tab_sort_order) VALUES(?,?,?,?)').bind(tabId,id,tabName,order).run();
