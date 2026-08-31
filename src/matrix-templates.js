@@ -55,7 +55,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const row=await env.DB.prepare('SELECT template_image_key FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
     if(!row?.template_image_key)return new Response('Not found',{status:404});
     const object=await env.LOGS.get(row.template_image_key);if(!object)return new Response('Not found',{status:404});
-    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, max-age=31536000, immutable'}});
+    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, no-cache'}});
   }
   if(!logId||!await validateLog(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
@@ -82,7 +82,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
       const image=dataImage(raw);if(!image)return json({error:'テンプレ画像を読み込めません'},400);
       if(image.bytes.byteLength>4_500_000)return json({error:'圧縮後のテンプレ画像が大きすぎます'},413);
       key=templateKey(roomId,templateId);
-      await env.LOGS.put(key,image.bytes,{httpMetadata:{contentType:image.contentType||'image/webp',cacheControl:'private, max-age=31536000, immutable'}});
+      await env.LOGS.put(key,image.bytes,{httpMetadata:{contentType:image.contentType||'image/webp',cacheControl:'private, no-cache'}});
     }
     const name=String(record.name||'MATRIX').trim().slice(0,120)||'MATRIX';
     const createdAt=Number(record.createdAt)||Date.now(),updatedAt=Number(record.updatedAt)||Date.now();
