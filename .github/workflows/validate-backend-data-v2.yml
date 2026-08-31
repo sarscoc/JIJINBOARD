@@ -35,9 +35,10 @@ jobs:
           node --check realtime-worker/src/index.js
           node --check public/board/board2.js
           node --check public/board/board-log-meta.js
-          node --check public/board/room-home.js
           node --check public/project.js
           node --check public/log/comment-incremental-sync.js
+          node --check public/log/log-room-cache-preload.js
+          node --check public/log/embedded-ready.js
           node --check public/matrix/board-integration.js
           node --check public/matrix/matrix-template-sync.js
           node --check public/spreadsheet/sheet-sync.js
