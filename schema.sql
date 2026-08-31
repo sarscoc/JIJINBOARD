@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS log (
   room_id TEXT NOT NULL,
   log_name TEXT NOT NULL,
   scenario_title TEXT NOT NULL DEFAULT '',
+  scenario_participants TEXT NOT NULL DEFAULT '',
   spoiler_enabled INTEGER NOT NULL DEFAULT 0,
   log_sort_order INTEGER NOT NULL DEFAULT 0,
   log_display_mode TEXT NOT NULL DEFAULT 'light' CHECK(log_display_mode IN ('light','dark')),
@@ -102,17 +103,6 @@ CREATE TABLE IF NOT EXISTS log (
   FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS idx_log_room_order ON log(room_id, log_sort_order, created_at);
-
-CREATE TABLE IF NOT EXISTS log_participant (
-  log_id TEXT NOT NULL,
-  character_id TEXT NOT NULL,
-  participant_sort_order INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY(log_id, character_id),
-  FOREIGN KEY(log_id) REFERENCES log(log_id) ON DELETE CASCADE,
-  FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_log_participant_log ON log_participant(log_id, participant_sort_order, created_at);
 
 CREATE TABLE IF NOT EXISTS log_tab (
   tab_id TEXT PRIMARY KEY,
