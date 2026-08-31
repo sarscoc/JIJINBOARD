@@ -35,7 +35,7 @@ async function serveAsset(request,env,url){
   if(request.method==='GET'&&/^\/spreadsheet\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
     const type=response.headers.get('content-type')||'';
     if(type.includes('text/html')){
-      const html=(await response.text()).replace('</body>','<script src="/spreadsheet/sheet-image-sync.js?v=20260831-1"></script></body>');
+      const html=(await response.text()).replace('</body>','<script src="/spreadsheet/sheet-image-sync.js?v=20260831-2"></script></body>');
       const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
