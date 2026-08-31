@@ -23,6 +23,7 @@ jobs:
           node --check src/room-log-meta.js
           node --check src/room-participants.js
           node --check src/room-delete.js
+          node --check src/board-theme.js
           node --check src/log-stream.js
           node --check src/log-comments-fast.js
           node --check src/matrix-state.js
@@ -33,6 +34,8 @@ jobs:
           node --check functions/api/[[path]].js
           node --check realtime-worker/src/index.js
           node --check public/board/board2.js
+          node --check public/board/board-log-meta.js
+          node --check public/board/room-home.js
           node --check public/project.js
           node --check public/log/comment-incremental-sync.js
           node --check public/matrix/board-integration.js
