@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS matrix_point (
   scale_base_width REAL,
   coordinate_version INTEGER NOT NULL DEFAULT 0,
   supplement_body TEXT NOT NULL DEFAULT '',
+  point_settings TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY(room_id, template_id, point_id),
