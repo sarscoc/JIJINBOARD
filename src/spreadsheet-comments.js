@@ -1,85 +1,14 @@
-const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+import { randomToken,ensurePlIdentity,resolveCharacterIdentity } from './data-model.js';
+const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const safeBody=async request=>{try{return await request.json()}catch{return null}};
-const randomToken=(bytes=16)=>{const data=crypto.getRandomValues(new Uint8Array(bytes));return btoa(String.fromCharCode(...data)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")};
-
-let schemaReady=null;
-async function ensureSchema(db){
-  if(schemaReady)return schemaReady;
-  schemaReady=(async()=>{
-    await db.batch([
-      db.prepare("CREATE TABLE IF NOT EXISTS board_sheet_comments (id TEXT PRIMARY KEY,board_id TEXT NOT NULL,cell_id TEXT NOT NULL,parent_id TEXT NOT NULL DEFAULT '',author_id TEXT NOT NULL,persona_name TEXT NOT NULL,persona_type TEXT NOT NULL,persona_icon TEXT NOT NULL DEFAULT '',body TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)"),
-      db.prepare("CREATE INDEX IF NOT EXISTS idx_sheet_comments_board ON board_sheet_comments(board_id,created_at)"),
-      db.prepare("CREATE TABLE IF NOT EXISTS board_sheet_comment_likes (comment_id TEXT NOT NULL,author_id TEXT NOT NULL,PRIMARY KEY(comment_id,author_id))")
-    ]);
-    const info=await db.prepare("PRAGMA table_info(board_sheet_comments)").all();
-    if(!(info.results||[]).some(col=>col.name==="persona_icon")){
-      try{await db.prepare("ALTER TABLE board_sheet_comments ADD COLUMN persona_icon TEXT NOT NULL DEFAULT ''").run()}
-      catch(error){if(!String(error).includes("duplicate column"))throw error}
-    }
-  })();
-  try{await schemaReady}catch(error){schemaReady=null;throw error}
-}
-
-async function descendantIds(db,boardId,rootId){
-  const rows=await db.prepare("SELECT id,parent_id FROM board_sheet_comments WHERE board_id=?").bind(boardId).all();
-  const children=new Map();
-  for(const row of rows.results||[]){const list=children.get(row.parent_id)||[];list.push(row.id);children.set(row.parent_id,list)}
-  const result=[],stack=[rootId];
-  while(stack.length){const id=stack.pop();if(result.includes(id))continue;result.push(id);for(const child of children.get(id)||[])stack.push(child)}
-  return result;
-}
-
-export async function handleSpreadsheetComments(request,env,boardId,commentId="",action=""){
-  await ensureSchema(env.DB);
-  const board=await env.DB.prepare("SELECT id FROM boards WHERE id=?").bind(boardId).first();
-  if(!board)return json({error:"自陣が見つかりません"},404);
-  const method=request.method;
-
-  if(method==="GET"&&!commentId){
-    const viewer=new URL(request.url).searchParams.get("authorId")||"";
-    const result=await env.DB.prepare(`SELECT c.id,c.cell_id,c.parent_id,c.author_id,c.persona_name,c.persona_type,c.persona_icon,c.body,c.created_at,
-      (SELECT COUNT(*) FROM board_sheet_comment_likes l WHERE l.comment_id=c.id) like_count,
-      EXISTS(SELECT 1 FROM board_sheet_comment_likes l WHERE l.comment_id=c.id AND l.author_id=?) liked_by_me
-      FROM board_sheet_comments c WHERE c.board_id=? ORDER BY c.created_at,c.id`).bind(viewer,boardId).all();
-    return json({comments:result.results||[]});
-  }
-
-  if(method==="POST"&&!commentId){
-    const body=await safeBody(request),authorId=String(body?.authorId||"").slice(0,100),cellId=String(body?.cellId||"").slice(0,240),text=String(body?.body||"").trim().slice(0,4000),name=String(body?.personaName||"").slice(0,80),type=String(body?.personaType||"PL").slice(0,20),icon=String(body?.personaIcon||"").slice(0,220000),parentId=String(body?.parentId||"").slice(0,100);
-    if(!authorId||!cellId||!text||!name)return json({error:"コメント情報が足りません"},400);
-    if(parentId){const parent=await env.DB.prepare("SELECT cell_id FROM board_sheet_comments WHERE id=? AND board_id=?").bind(parentId,boardId).first();if(!parent)return json({error:"返信先が見つかりません"},404);}
-    const id=randomToken();
-    await env.DB.prepare("INSERT INTO board_sheet_comments(id,board_id,cell_id,parent_id,author_id,persona_name,persona_type,persona_icon,body) VALUES(?,?,?,?,?,?,?,?,?)").bind(id,boardId,cellId,parentId,authorId,name,type,icon,text).run();
-    return json({id},201);
-  }
-
-  if(method==="POST"&&commentId&&action==="like"){
-    const body=await safeBody(request),authorId=String(body?.authorId||"").slice(0,100);
-    if(!authorId)return json({error:"発言者情報がありません"},400);
-    const exists=await env.DB.prepare("SELECT 1 FROM board_sheet_comments WHERE id=? AND board_id=?").bind(commentId,boardId).first();
-    if(!exists)return json({error:"コメントが見つかりません"},404);
-    const old=await env.DB.prepare("SELECT 1 FROM board_sheet_comment_likes WHERE comment_id=? AND author_id=?").bind(commentId,authorId).first();
-    if(old)await env.DB.prepare("DELETE FROM board_sheet_comment_likes WHERE comment_id=? AND author_id=?").bind(commentId,authorId).run();
-    else await env.DB.prepare("INSERT INTO board_sheet_comment_likes(comment_id,author_id) VALUES(?,?)").bind(commentId,authorId).run();
-    return json({liked:!old});
-  }
-
-  if(method==="PATCH"&&commentId){
-    const body=await safeBody(request),row=await env.DB.prepare("SELECT author_id FROM board_sheet_comments WHERE id=? AND board_id=?").bind(commentId,boardId).first(),text=String(body?.body||"").trim().slice(0,4000);
-    if(!row||row.author_id!==String(body?.authorId||""))return json({error:"自分のコメントだけ編集できます"},403);
-    if(!text)return json({error:"感想を入力してください"},400);
-    await env.DB.prepare("UPDATE board_sheet_comments SET body=? WHERE id=?").bind(text,commentId).run();
-    return json({ok:true});
-  }
-
-  if(method==="DELETE"&&commentId){
-    const body=await safeBody(request),row=await env.DB.prepare("SELECT author_id FROM board_sheet_comments WHERE id=? AND board_id=?").bind(commentId,boardId).first();
-    if(!row||row.author_id!==String(body?.authorId||""))return json({error:"自分のコメントだけ削除できます"},403);
-    const ids=await descendantIds(env.DB,boardId,commentId);
-    for(const id of ids){await env.DB.prepare("DELETE FROM board_sheet_comment_likes WHERE comment_id=?").bind(id).run()}
-    for(const id of ids.reverse()){await env.DB.prepare("DELETE FROM board_sheet_comments WHERE id=? AND board_id=?").bind(id,boardId).run()}
-    return json({ok:true});
-  }
-
-  return json({error:"Method not allowed"},405);
+async function identity(env,b){const id=String(b?.authorId||'').slice(0,120),name=String(b?.authorName||b?.plName||'PL').trim().slice(0,80)||'PL';if(!id)return{id:'',characterId:null};await ensurePlIdentity(env.DB,id,name);const type=String(b?.personaType||'PL').toUpperCase();if(type==='PL')return{id,characterId:null};const ch=await resolveCharacterIdentity(env.DB,id,String(b?.personaName||''),type,{plName:name});return{id,characterId:ch?.character_id||null}}
+async function descendants(db,root){const r=await db.prepare(`WITH RECURSIVE d(id) AS (SELECT comment_id FROM comment WHERE comment_id=? UNION ALL SELECT c.comment_id FROM comment c JOIN d ON c.parent_comment_id=d.id) SELECT id FROM d`).bind(root).all();return(r.results||[]).map(x=>x.id)}
+export async function handleSpreadsheetComments(request,env,roomId,commentId='',action=''){
+  if(!await env.DB.prepare('SELECT room_id FROM room WHERE room_id=?').bind(roomId).first())return json({error:'自陣が見つかりません'},404);const method=request.method;
+  if(method==='GET'&&!commentId){const viewer=new URL(request.url).searchParams.get('authorId')||'',r=await env.DB.prepare(`SELECT c.comment_id,c.comment_target_id,c.parent_comment_id,c.author_pl_id,c.author_character_id,c.comment_body,c.created_at,p.pl_name,ch.character_name,ch.character_type,ch.character_icon_key,(SELECT COUNT(*) FROM comment_reaction x WHERE x.comment_id=c.comment_id) like_count,EXISTS(SELECT 1 FROM comment_reaction x WHERE x.comment_id=c.comment_id AND x.author_pl_id=?) liked_by_me FROM comment c JOIN pl p ON p.pl_id=c.author_pl_id LEFT JOIN character ch ON ch.character_id=c.author_character_id WHERE c.room_id=? AND c.comment_target_type='spreadsheet_cell' ORDER BY c.created_at,c.comment_id`).bind(viewer,roomId).all();return json({comments:(r.results||[]).map(c=>({id:c.comment_id,cell_id:c.comment_target_id,parent_id:c.parent_comment_id||'',author_id:c.author_pl_id,persona_name:c.character_name||c.pl_name,persona_type:c.character_type||'PL',persona_icon:c.character_icon_key?`/api/player-master/icon/${encodeURIComponent(String(c.character_icon_key).split('/').pop())}`:'',body:c.comment_body,created_at:c.created_at,like_count:Number(c.like_count)||0,liked_by_me:!!c.liked_by_me}))})}
+  if(method==='POST'&&!commentId){const b=await safeBody(request),cellId=String(b?.cellId||'').slice(0,240),text=String(b?.body||'').trim().slice(0,4000),parent=String(b?.parentId||'').slice(0,120),who=await identity(env,b);if(!who.id||!cellId||!text||!String(b?.personaName||'').trim())return json({error:'コメント情報が足りません'},400);if(parent&&!await env.DB.prepare('SELECT 1 FROM comment WHERE comment_id=? AND room_id=?').bind(parent,roomId).first())return json({error:'返信先が見つかりません'},404);const id=randomToken(16);await env.DB.prepare("INSERT INTO comment(comment_id,room_id,author_pl_id,author_character_id,comment_target_type,comment_target_id,comment_body,parent_comment_id) VALUES(?,?,?,?,'spreadsheet_cell',?,?,NULLIF(?,''))").bind(id,roomId,who.id,who.characterId,cellId,text,parent).run();return json({id},201)}
+  if(method==='POST'&&commentId&&action==='like'){const b=await safeBody(request),author=String(b?.authorId||'').slice(0,120);if(!author)return json({error:'発言者情報がありません'},400);await ensurePlIdentity(env.DB,author,'PL');if(!await env.DB.prepare("SELECT 1 FROM comment WHERE comment_id=? AND room_id=? AND comment_target_type='spreadsheet_cell'").bind(commentId,roomId).first())return json({error:'コメントが見つかりません'},404);const old=await env.DB.prepare('SELECT 1 FROM comment_reaction WHERE comment_id=? AND author_pl_id=?').bind(commentId,author).first();if(old)await env.DB.prepare('DELETE FROM comment_reaction WHERE comment_id=? AND author_pl_id=?').bind(commentId,author).run();else await env.DB.prepare('INSERT INTO comment_reaction(comment_id,author_pl_id) VALUES(?,?)').bind(commentId,author).run();return json({liked:!old})}
+  if(method==='PATCH'&&commentId){const b=await safeBody(request),row=await env.DB.prepare('SELECT author_pl_id FROM comment WHERE comment_id=? AND room_id=?').bind(commentId,roomId).first(),text=String(b?.body||'').trim().slice(0,4000);if(!row||row.author_pl_id!==String(b?.authorId||''))return json({error:'自分のコメントだけ編集できます'},403);if(!text)return json({error:'感想を入力してください'},400);await env.DB.prepare('UPDATE comment SET comment_body=?,updated_at=CURRENT_TIMESTAMP WHERE comment_id=?').bind(text,commentId).run();return json({ok:true})}
+  if(method==='DELETE'&&commentId){const b=await safeBody(request),row=await env.DB.prepare('SELECT author_pl_id FROM comment WHERE comment_id=? AND room_id=?').bind(commentId,roomId).first();if(!row||row.author_pl_id!==String(b?.authorId||''))return json({error:'自分のコメントだけ削除できます'},403);const ids=(await descendants(env.DB,commentId)).reverse();for(const id of ids)await env.DB.prepare('DELETE FROM comment WHERE comment_id=?').bind(id).run();return json({ok:true})}
+  return json({error:'Method not allowed'},405);
 }
