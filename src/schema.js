@@ -1,134 +1,74 @@
-const statements = [
-  `CREATE TABLE IF NOT EXISTS rooms (
-    id TEXT PRIMARY KEY,
-    title TEXT NOT NULL,
-    log_json TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    admin_token TEXT NOT NULL,
-    owner_id TEXT NOT NULL DEFAULT '',
-    annotation_version INTEGER NOT NULL DEFAULT 0
-  )`,
-  "CREATE INDEX IF NOT EXISTS idx_rooms_owner ON rooms(owner_id)",
-  `CREATE TABLE IF NOT EXISTS annotations (
-    id TEXT PRIMARY KEY,
-    room_id TEXT NOT NULL,
-    message_id TEXT NOT NULL,
-    end_message_id TEXT NOT NULL DEFAULT '',
-    parent_id TEXT NOT NULL DEFAULT '',
-    start_offset INTEGER NOT NULL,
-    end_offset INTEGER NOT NULL,
-    quote TEXT NOT NULL,
-    color TEXT NOT NULL DEFAULT 'yellow',
-    author_id TEXT NOT NULL,
-    author_name TEXT NOT NULL,
-    persona_name TEXT NOT NULL,
-    persona_type TEXT NOT NULL,
-    persona_icon TEXT NOT NULL DEFAULT '',
-    body TEXT NOT NULL,
-    image_data TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
-  )`,
-  "CREATE INDEX IF NOT EXISTS idx_annotations_room_created ON annotations(room_id,created_at)",
-  `CREATE TABLE IF NOT EXISTS annotation_likes (
-    annotation_id TEXT NOT NULL,
-    author_id TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(annotation_id,author_id)
-  )`,
-  `CREATE TABLE IF NOT EXISTS presence (
-    room_id TEXT NOT NULL,
-    author_id TEXT NOT NULL,
-    pl_name TEXT NOT NULL,
-    pl_icon TEXT NOT NULL DEFAULT '',
-    is_typing INTEGER NOT NULL DEFAULT 0,
-    typing_name TEXT NOT NULL DEFAULT '',
-    typing_icon TEXT NOT NULL DEFAULT '',
-    typing_message_id TEXT NOT NULL DEFAULT '',
-    last_seen TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY(room_id,author_id)
-  )`,
-  "CREATE INDEX IF NOT EXISTS idx_presence_room_seen ON presence(room_id,last_seen)",
-  `CREATE TABLE IF NOT EXISTS room_log_chunks (
-    room_id TEXT NOT NULL,
-    chunk_index INTEGER NOT NULL,
-    messages_json TEXT NOT NULL,
-    PRIMARY KEY(room_id,chunk_index),
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
-  )`,
-  `CREATE TABLE IF NOT EXISTS boards (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    admin_token TEXT NOT NULL,
-    owner_id TEXT NOT NULL DEFAULT '',
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`,
-  `CREATE TABLE IF NOT EXISTS board_logs (
-    board_id TEXT NOT NULL,
-    room_id TEXT NOT NULL,
-    sort_order INTEGER NOT NULL DEFAULT 0,
-    spoiler INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (board_id,room_id),
-    FOREIGN KEY (board_id) REFERENCES boards(id) ON DELETE CASCADE,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
-  )`,
-  "CREATE INDEX IF NOT EXISTS idx_board_logs_order ON board_logs(board_id,sort_order,created_at)",
-  `CREATE TABLE IF NOT EXISTS board_log_participants (
-    board_id TEXT NOT NULL,
-    room_id TEXT NOT NULL,
-    author_id TEXT NOT NULL,
-    persona_id TEXT NOT NULL,
-    pl_name TEXT NOT NULL DEFAULT '',
-    persona_name TEXT NOT NULL,
-    persona_icon TEXT NOT NULL DEFAULT '',
-    matrix_icon TEXT NOT NULL DEFAULT '',
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (board_id,room_id,author_id,persona_id),
-    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
-  )`,
-  `CREATE TABLE IF NOT EXISTS board_matrix_states (
-    board_id TEXT NOT NULL,
-    room_id TEXT NOT NULL,
-    state_json TEXT NOT NULL DEFAULT '{}',
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (board_id,room_id),
-    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
-  )`,
-  `CREATE TABLE IF NOT EXISTS board_matrix_comments (
-    id TEXT PRIMARY KEY,
-    board_id TEXT NOT NULL,
-    room_id TEXT NOT NULL,
-    author_id TEXT NOT NULL,
-    author_name TEXT NOT NULL,
-    body TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
-  )`,
-  "CREATE INDEX IF NOT EXISTS idx_matrix_comments_room ON board_matrix_comments(board_id,room_id,created_at)",
-  `CREATE TABLE IF NOT EXISTS board_matrix_icon_comments (
-    id TEXT PRIMARY KEY, board_id TEXT NOT NULL, room_id TEXT NOT NULL, target_id TEXT NOT NULL,
-    parent_id TEXT NOT NULL DEFAULT '', author_id TEXT NOT NULL, author_name TEXT NOT NULL,
-    persona_name TEXT NOT NULL, persona_type TEXT NOT NULL, persona_icon TEXT NOT NULL DEFAULT '',
-    body TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (board_id,room_id) REFERENCES board_logs(board_id,room_id) ON DELETE CASCADE
-  )`,
-  "CREATE INDEX IF NOT EXISTS idx_matrix_icon_comments_room ON board_matrix_icon_comments(board_id,room_id,created_at)",
-  `CREATE TABLE IF NOT EXISTS board_matrix_icon_comment_likes (
-    comment_id TEXT NOT NULL, author_id TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY(comment_id,author_id)
-  )`
+const createStatements = [
+  `CREATE TABLE IF NOT EXISTS top_auth (password_hash TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash_version INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS top_session (session_token_hash TEXT PRIMARY KEY,session_expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_top_session_expires ON top_session(session_expires_at)`,
+  `CREATE TABLE IF NOT EXISTS pl (pl_id TEXT PRIMARY KEY,access_token_hash TEXT NOT NULL,pl_name TEXT NOT NULL,pl_color TEXT NOT NULL DEFAULT '#ffe66b',pl_color_dark TEXT NOT NULL DEFAULT '#ffe66b',pl_icon_key TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE TABLE IF NOT EXISTS character (character_id TEXT PRIMARY KEY,pl_id TEXT NOT NULL,character_type TEXT NOT NULL DEFAULT 'PC' CHECK(character_type IN ('PC','NPC')),character_name TEXT NOT NULL,character_color TEXT NOT NULL DEFAULT '#ffe66b',character_color_dark TEXT NOT NULL DEFAULT '#ffe66b',character_icon_key TEXT NOT NULL DEFAULT '',matrix_icon_key TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_character_pl ON character(pl_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS transfer (transfer_id TEXT PRIMARY KEY,pl_id TEXT NOT NULL,transfer_code_hash TEXT NOT NULL UNIQUE,transfer_expires_at TEXT NOT NULL,transfer_used_at TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_transfer_expiry ON transfer(transfer_expires_at)`,
+  `CREATE TABLE IF NOT EXISTS room (room_id TEXT PRIMARY KEY,owner_pl_id TEXT NOT NULL,room_name TEXT NOT NULL,room_admin_token_hash TEXT NOT NULL,room_revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+  `CREATE INDEX IF NOT EXISTS idx_room_owner ON room(owner_pl_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS room_theme (room_id TEXT PRIMARY KEY,base_color TEXT NOT NULL DEFAULT '#171a20',alternate_cells_enabled INTEGER NOT NULL DEFAULT 0,alternate_cell_color TEXT NOT NULL DEFAULT '#f7f7f8',gradient_start_color TEXT NOT NULL DEFAULT '#67a3ff',gradient_end_color TEXT NOT NULL DEFAULT '#9f71ff',group_row_color TEXT NOT NULL DEFAULT '#ffffff',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
+  `CREATE TABLE IF NOT EXISTS room_participant (room_id TEXT NOT NULL,pl_id TEXT NOT NULL,character_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE CASCADE)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_room_participant_unique ON room_participant(room_id,pl_id,COALESCE(character_id,''))`,
+  `CREATE INDEX IF NOT EXISTS idx_room_participant_room ON room_participant(room_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS log (log_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,log_name TEXT NOT NULL,scenario_title TEXT NOT NULL DEFAULT '',spoiler_enabled INTEGER NOT NULL DEFAULT 0,log_sort_order INTEGER NOT NULL DEFAULT 0,log_display_mode TEXT NOT NULL DEFAULT 'light' CHECK(log_display_mode IN ('light','dark')),original_html_key TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_log_room_order ON log(room_id,log_sort_order,created_at)`,
+  `CREATE TABLE IF NOT EXISTS log_participant (log_id TEXT NOT NULL,character_id TEXT NOT NULL,participant_sort_order INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(log_id,character_id),FOREIGN KEY(log_id) REFERENCES log(log_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_log_participant_log ON log_participant(log_id,participant_sort_order,created_at)`,
+  `CREATE TABLE IF NOT EXISTS log_tab (tab_id TEXT PRIMARY KEY,log_id TEXT NOT NULL,tab_name TEXT NOT NULL,tab_sort_order INTEGER NOT NULL DEFAULT 0,tab_hidden INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(log_id) REFERENCES log(log_id) ON DELETE CASCADE)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_log_tab_name ON log_tab(log_id,tab_name)`,
+  `CREATE INDEX IF NOT EXISTS idx_log_tab_order ON log_tab(log_id,tab_sort_order,created_at)`,
+  `CREATE TABLE IF NOT EXISTS log_chunk (chunk_id TEXT PRIMARY KEY,tab_id TEXT NOT NULL,chunk_index INTEGER NOT NULL,chunk_r2_key TEXT NOT NULL,FOREIGN KEY(tab_id) REFERENCES log_tab(tab_id) ON DELETE CASCADE,UNIQUE(tab_id,chunk_index))`,
+  `CREATE INDEX IF NOT EXISTS idx_log_chunk_tab ON log_chunk(tab_id,chunk_index)`,
+  `CREATE TABLE IF NOT EXISTS matrix_template (template_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,template_name TEXT NOT NULL,template_definition TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_matrix_template_room ON matrix_template(room_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS matrix_point (point_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,character_id TEXT,template_id TEXT,is_placed INTEGER NOT NULL DEFAULT 0,point_x REAL,point_y REAL,template_x REAL,template_y REAL,scale_base_width REAL,coordinate_version INTEGER NOT NULL DEFAULT 0,supplement_body TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE SET NULL,FOREIGN KEY(template_id) REFERENCES matrix_template(template_id) ON DELETE SET NULL)`,
+  `CREATE INDEX IF NOT EXISTS idx_matrix_point_room ON matrix_point(room_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS spreadsheet (sheet_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,sheet_name TEXT NOT NULL,row_count INTEGER NOT NULL DEFAULT 0,column_count INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_spreadsheet_room ON spreadsheet(room_id,updated_at)`,
+  `CREATE TABLE IF NOT EXISTS spreadsheet_cell (cell_id TEXT PRIMARY KEY,sheet_id TEXT NOT NULL,row_index INTEGER NOT NULL,column_index INTEGER NOT NULL,cell_value TEXT NOT NULL DEFAULT '',cell_type TEXT NOT NULL DEFAULT 'text',cell_style TEXT NOT NULL DEFAULT '{}',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(sheet_id) REFERENCES spreadsheet(sheet_id) ON DELETE CASCADE,UNIQUE(sheet_id,row_index,column_index))`,
+  `CREATE INDEX IF NOT EXISTS idx_spreadsheet_cell_sheet ON spreadsheet_cell(sheet_id,row_index,column_index)`,
+  `CREATE TABLE IF NOT EXISTS comment (comment_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,author_pl_id TEXT NOT NULL,author_character_id TEXT,comment_target_type TEXT NOT NULL CHECK(comment_target_type IN ('log_range','matrix_point','matrix_template','spreadsheet_cell')),comment_target_id TEXT NOT NULL,comment_body TEXT NOT NULL,comment_image_key TEXT,parent_comment_id TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(author_pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE,FOREIGN KEY(author_character_id) REFERENCES character(character_id) ON DELETE SET NULL,FOREIGN KEY(parent_comment_id) REFERENCES comment(comment_id) ON DELETE CASCADE)`,
+  `CREATE INDEX IF NOT EXISTS idx_comment_room_created ON comment(room_id,created_at,comment_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_comment_target ON comment(comment_target_type,comment_target_id,created_at)`,
+  `CREATE TABLE IF NOT EXISTS log_comment_range (comment_id TEXT PRIMARY KEY,start_line_id TEXT NOT NULL,start_character_offset INTEGER NOT NULL DEFAULT 0,end_line_id TEXT NOT NULL,end_character_offset INTEGER NOT NULL DEFAULT 0,selected_text TEXT NOT NULL DEFAULT '',marker_color TEXT NOT NULL DEFAULT 'yellow',FOREIGN KEY(comment_id) REFERENCES comment(comment_id) ON DELETE CASCADE)`,
+  `CREATE TABLE IF NOT EXISTS comment_reaction (comment_id TEXT NOT NULL,author_pl_id TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(comment_id,author_pl_id),FOREIGN KEY(comment_id) REFERENCES comment(comment_id) ON DELETE CASCADE,FOREIGN KEY(author_pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE)`
 ];
 
+const legacyObjects = [
+  'annotation_likes','annotations','presence','room_log_chunks','board_log_participants','board_matrix_icon_comment_likes','board_matrix_icon_comments','board_matrix_comments','board_matrix_states','board_sheet_comment_likes','board_sheet_comments','board_spreadsheet_states','board_theme_settings','board_group_row_colors','board_log_display_modes','board_log_tab_settings','board_logs','boards','rooms','profile_transfers','player_room_characters','player_device_codes','player_characters','player_masters','top_sessions'
+];
+const targetObjects = ['comment_reaction','log_comment_range','comment','spreadsheet_cell','spreadsheet','matrix_point','matrix_template','log_chunk','log_tab','log_participant','log','room_participant','room_theme','room','transfer','character','pl','top_session','top_auth'];
 const ready = new WeakMap();
 
-export function ensureSchema(db) {
-  let task = ready.get(db);
-  if (!task) {
-    task = db.batch(statements.map(sql => db.prepare(sql)));
-    ready.set(db, task);
-    task.catch(() => ready.delete(db));
+async function isV2(db){
+  const row=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='room'").first();
+  if(!row)return false;
+  const auth=await db.prepare("PRAGMA table_info(top_auth)").all();
+  const columns=new Set((auth.results||[]).map(item=>item.name));
+  return columns.has('password_salt')&&columns.has('password_hash_version');
+}
+
+async function resetOldSchema(db){
+  await db.prepare('PRAGMA foreign_keys=OFF').run().catch(()=>{});
+  for(const name of [...legacyObjects,...targetObjects]){
+    try{await db.prepare(`DROP VIEW IF EXISTS ${name}`).run()}catch{}
+    try{await db.prepare(`DROP TABLE IF EXISTS ${name}`).run()}catch{}
+  }
+  await db.prepare('PRAGMA foreign_keys=ON').run().catch(()=>{});
+}
+
+export function ensureSchema(db){
+  let task=ready.get(db);
+  if(!task){
+    task=(async()=>{
+      if(!await isV2(db))await resetOldSchema(db);
+      for(const sql of createStatements)await db.prepare(sql).run();
+    })();
+    ready.set(db,task);
+    task.catch(()=>ready.delete(db));
   }
   return task;
 }
