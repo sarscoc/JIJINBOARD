@@ -35,9 +35,11 @@ jobs:
           node --check public/board/board2.js
           node --check public/project.js
           node --check public/log/comment-incremental-sync.js
+          node --check public/matrix/board-integration.js
           node --check public/matrix/matrix-template-sync.js
           node --check public/spreadsheet/sheet-sync.js
           node --check public/spreadsheet/sheet-image-sync.js
+          node --check public/spreadsheet/sheet-comments-controller.js
       - name: Validate SQLite schema
         run: |
           sqlite3 /tmp/jijinboard.db < schema.sql
