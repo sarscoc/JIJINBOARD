@@ -78,7 +78,7 @@ export async function verifyRoomAdmin(db,roomId,token){
 }
 
 export async function parentRoomForLog(db,logId){
-  return db.prepare('SELECT r.*,l.log_id,l.log_name,l.scenario_title,l.spoiler_enabled,l.log_sort_order,l.log_display_mode,l.original_html_key,l.created_at AS log_created_at,l.updated_at AS log_updated_at FROM log l JOIN room r ON r.room_id=l.room_id WHERE l.log_id=?').bind(logId).first();
+  return db.prepare('SELECT r.*,l.log_id,l.log_name,l.scenario_title,l.scenario_participants,l.spoiler_enabled,l.log_sort_order,l.log_display_mode,l.original_html_key,l.created_at AS log_created_at,l.updated_at AS log_updated_at FROM log l JOIN room r ON r.room_id=l.room_id WHERE l.log_id=?').bind(logId).first();
 }
 
 export async function bumpRoomRevision(db,roomId){
