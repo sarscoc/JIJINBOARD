@@ -36,17 +36,18 @@ async function logRow(env,logId){return env.DB.prepare(`SELECT l.*,r.room_name,r
 async function tabRows(env,logId){const result=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,t.tab_sort_order,t.tab_hidden,t.created_at,t.updated_at,COUNT(c.chunk_id) AS chunk_count FROM log_tab t LEFT JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? GROUP BY t.tab_id ORDER BY t.tab_sort_order,t.created_at`).bind(logId).all();return result.results||[]}
 async function chunkRows(env,tabId){const result=await env.DB.prepare('SELECT chunk_id,chunk_index,chunk_r2_key FROM log_chunk WHERE tab_id=? ORDER BY chunk_index').bind(tabId).all();return result.results||[]}
 async function readChunk(env,row,tabName){if(!env.LOGS)throw new Error('R2ログストレージが接続されていません');const object=await env.LOGS.get(row.chunk_r2_key);if(!object)return[];const payload=JSON.parse(await object.text());const lines=Array.isArray(payload)?payload:Array.isArray(payload?.lines)?payload.lines:[];return lines.map(line=>messageFromLine(line,tabName))}
-
+async function tabMessageCount(env,chunks){
+  if(!chunks.length)return 0;
+  const last=chunks[chunks.length-1],object=await env.LOGS.head(last.chunk_r2_key),lastCount=Number(object?.customMetadata?.lineCount)||0;
+  return Math.max(0,chunks.length-1)*CHUNK_SIZE+lastCount;
+}
 async function tabMeta(env,logId){
-  const tabs=await tabRows(env,logId),items=[];let total=0,totalChunks=0;
-  for(const tab of tabs){
-    const chunks=await chunkRows(env,tab.tab_id);
-    const counts=await mapConcurrent(chunks,IO_CONCURRENCY,async chunk=>{const object=await env.LOGS.head(chunk.chunk_r2_key);return Number(object?.customMetadata?.lineCount)||0});
-    const count=counts.reduce((sum,value)=>sum+value,0);
-    total+=count;totalChunks+=chunks.length;
-    items.push({tabId:tab.tab_id,tabName:tab.tab_name,order:Number(tab.tab_sort_order)||0,hidden:!!tab.tab_hidden,chunkCount:chunks.length,messageCount:count});
-  }
-  return {items,total,totalChunks};
+  const tabs=await tabRows(env,logId);
+  const items=await mapConcurrent(tabs,IO_CONCURRENCY,async tab=>{
+    const chunks=await chunkRows(env,tab.tab_id),count=await tabMessageCount(env,chunks);
+    return {tabId:tab.tab_id,tabName:tab.tab_name,order:Number(tab.tab_sort_order)||0,hidden:!!tab.tab_hidden,chunkCount:chunks.length,messageCount:count};
+  });
+  return {items,total:items.reduce((sum,item)=>sum+item.messageCount,0),totalChunks:items.reduce((sum,item)=>sum+item.chunkCount,0)};
 }
 
 async function storeTab(env,roomId,logId,tabId,tabName,messages){
@@ -97,39 +98,43 @@ export async function createStreamRoom(request,env){
 export async function handleLogStream(request,env,logId,action,arg){
   if(request.method!=='GET')return json({error:'Method not allowed'},405);
   const row=await logRow(env,logId);if(!row)return json({error:'部屋が見つかりません'},404);
-  const meta=await tabMeta(env,logId),tabs=meta.items.map(item=>item.tabName);
 
-  if(action==='meta')return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs,messageCount:meta.total,chunkSize:CHUNK_SIZE,chunkCount:Math.max(1,meta.totalChunks),tabStreams:meta.items,streamed:true});
+  if(action==='meta'){
+    const meta=await tabMeta(env,logId),tabs=meta.items.map(item=>item.tabName);
+    return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs,messageCount:meta.total,chunkSize:CHUNK_SIZE,chunkCount:Math.max(1,meta.totalChunks),tabStreams:meta.items,streamed:true});
+  }
 
+  const tabs=await tabRows(env,logId);
   if(action==='chunk'){
     const index=Math.max(0,Number.parseInt(arg,10)||0),url=new URL(request.url),requestedTab=url.searchParams.get('tab')||'',requestedTabId=url.searchParams.get('tabId')||'';
     if(requestedTab||requestedTabId){
-      const tab=meta.items.find(item=>requestedTabId?item.tabId===requestedTabId:item.tabName===requestedTab);if(!tab)return json({error:'タブが見つかりません'},404);
-      const chunks=await chunkRows(env,tab.tabId),chunk=chunks.find(item=>Number(item.chunk_index)===index),messages=chunk?await readChunk(env,chunk,tab.tabName):[];
-      return json({index,tab:tab.tabName,tabId:tab.tabId,messages,chunkCount:Math.max(1,tab.chunkCount),messageCount:tab.messageCount});
+      const tab=tabs.find(item=>requestedTabId?item.tab_id===requestedTabId:item.tab_name===requestedTab);if(!tab)return json({error:'タブが見つかりません'},404);
+      const chunks=await chunkRows(env,tab.tab_id),chunk=chunks.find(item=>Number(item.chunk_index)===index),messages=chunk?await readChunk(env,chunk,tab.tab_name):[],messageCount=await tabMessageCount(env,chunks);
+      return json({index,tab:tab.tab_name,tabId:tab.tab_id,messages,chunkCount:Math.max(1,chunks.length),messageCount});
     }
-    let virtual=index;
-    for(const tab of meta.items){
-      if(virtual<tab.chunkCount){const chunks=await chunkRows(env,tab.tabId),chunk=chunks.find(item=>Number(item.chunk_index)===virtual),messages=chunk?await readChunk(env,chunk,tab.tabName):[];return json({index,messages,chunkCount:Math.max(1,meta.totalChunks),messageCount:meta.total,tab:tab.tabName,tabId:tab.tabId})}
-      virtual-=tab.chunkCount;
+    let virtual=index,totalChunks=0;for(const tab of tabs)totalChunks+=Number(tab.chunk_count)||0;
+    for(const tab of tabs){
+      const count=Number(tab.chunk_count)||0;
+      if(virtual<count){const chunks=await chunkRows(env,tab.tab_id),chunk=chunks.find(item=>Number(item.chunk_index)===virtual),messages=chunk?await readChunk(env,chunk,tab.tab_name):[];return json({index,messages,chunkCount:Math.max(1,totalChunks),tab:tab.tab_name,tabId:tab.tab_id})}
+      virtual-=count;
     }
-    return json({index,messages:[],chunkCount:Math.max(1,meta.totalChunks),messageCount:meta.total});
+    return json({index,messages:[],chunkCount:Math.max(1,totalChunks)});
   }
 
   if(action==='full'){
     const messages=[];
-    for(const tab of meta.items){for(const chunk of await chunkRows(env,tab.tabId))messages.push(...await readChunk(env,chunk,tab.tabName))}
+    for(const tab of tabs){for(const chunk of await chunkRows(env,tab.tab_id))messages.push(...await readChunk(env,chunk,tab.tab_name))}
     messages.sort((a,b)=>(Number(a.sourceIndex)||0)-(Number(b.sourceIndex)||0));
-    return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs,messages});
+    return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs:tabs.map(tab=>tab.tab_name),messages});
   }
 
   if(action==='find'){
     const messageId=decodeURIComponent(String(arg||''));if(!messageId)return json({error:'message id is required'},400);
     let globalIndex=0;
-    for(const tab of meta.items){
-      for(const chunk of await chunkRows(env,tab.tabId)){
-        const messages=await readChunk(env,chunk,tab.tabName);
-        if(messages.some(message=>String(message?.id||'')===messageId))return json({index:Number(chunk.chunk_index),globalIndex,tab:tab.tabName,tabId:tab.tabId});
+    for(const tab of tabs){
+      for(const chunk of await chunkRows(env,tab.tab_id)){
+        const messages=await readChunk(env,chunk,tab.tab_name);
+        if(messages.some(message=>String(message?.id||'')===messageId))return json({index:Number(chunk.chunk_index),globalIndex,tab:tab.tab_name,tabId:tab.tab_id});
         globalIndex++;
       }
     }
