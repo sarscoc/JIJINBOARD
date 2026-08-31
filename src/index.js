@@ -6,6 +6,7 @@ import { handleLogTabSettings } from './log-tab-settings.js';
 import { handleMatrixTemplateComments } from './matrix-template-comments.js';
 import { handleMatrixTemplates } from './matrix-templates.js';
 import { handleMatrixPoint } from './matrix-point.js';
+import { handleMatrixState } from './matrix-state.js';
 import { createStreamRoom,handleLogStream,prepareStreamRoomDelete } from './log-stream.js';
 import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
@@ -79,6 +80,7 @@ export default{
     const matrixTemplateImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\/([^/]+)\/image$/);if(matrixTemplateImage)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplateImage[1]),'',decodeURIComponent(matrixTemplateImage[2]),true);
     const matrixTemplates=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/templates(?:\/([^/]+))?$/);if(matrixTemplates)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplates[1]),decodeURIComponent(matrixTemplates[2]),matrixTemplates[3]?decodeURIComponent(matrixTemplates[3]):'',false);
     const matrixPoint=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/points\/([^/]+)$/);if(matrixPoint)return handleMatrixPoint(request,env,decodeURIComponent(matrixPoint[1]),decodeURIComponent(matrixPoint[2]),decodeURIComponent(matrixPoint[3]));
+    const matrixState=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)$/);if(matrixState)return handleMatrixState(request,env,decodeURIComponent(matrixState[1]),decodeURIComponent(matrixState[2]));
     const templateComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);if(templateComments)return handleMatrixTemplateComments(request,env,decodeURIComponent(templateComments[1]),decodeURIComponent(templateComments[2]),decodeURIComponent(templateComments[3]),executionContext);
     const tabSettings=url.pathname.match(/^\/api\/boards\/([^/]+)\/log-tab-settings\/([^/]+)$/);if(tabSettings)return handleLogTabSettings(request,env,decodeURIComponent(tabSettings[1]),decodeURIComponent(tabSettings[2]));
 
