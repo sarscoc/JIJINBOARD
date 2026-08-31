@@ -85,5 +85,16 @@
     try{const response=await fetch(endpoint(partId,charId),{method:'DELETE'});if(!response.ok&&response.status!==404)throw new Error(`画像削除エラー (${response.status})`);window.jijinSpreadsheetNotifyChange?.('spreadsheet-image')}catch(error){console.warn('Spreadsheet image delete failed',error)}
   };
 
-  window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{if(event.detail?.action==='spreadsheet-image')checked.clear()});
+  async function refreshVisibleImages(){
+    try{await window.applyGlobalBackgroundImage?.()}catch(error){console.warn('Spreadsheet background refresh failed',error)}
+    try{window.syncAllVisibleCharacterDesigns?.()}catch(error){console.warn('Spreadsheet character background refresh failed',error)}
+    try{window.renderDataTable?.()}catch(error){console.warn('Spreadsheet image table refresh failed',error)}
+    try{if(window.state?.currentView==='character')window.renderCharacterView?.()}catch(error){console.warn('Spreadsheet character image refresh failed',error)}
+    try{if(window.state?.currentView==='question')window.renderQuestionView?.()}catch(error){console.warn('Spreadsheet question image refresh failed',error)}
+  }
+  window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{
+    if(event.detail?.action!=='spreadsheet-image')return;
+    checked.clear();
+    setTimeout(()=>refreshVisibleImages(),0);
+  });
 })();
