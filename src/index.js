@@ -28,7 +28,11 @@ async function serveAsset(request,env,url){
   if(request.method==='GET'&&/^\/log\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
     const type=response.headers.get('content-type')||'';
     if(type.includes('text/html')){
-      const html=(await response.text()).replace('</body>','<script src="/log/comment-incremental-sync.js?v=20260831-1"></script></body>');
+      const html=(await response.text())
+        .replace('log-room-cache-preload.js?v=20260831-fast1','log-room-cache-preload.js?v=20260901-simple1')
+        .replace('../shared/player-master.js?v=20260830-4','../shared/player-master.js?v=20260901-idle1')
+        .replace('embedded-ready.js?v=20260829-1','embedded-ready.js?v=20260901-simple1')
+        .replace('</body>','<script src="/log/comment-incremental-sync.js?v=20260831-1"></script></body>');
       const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
@@ -44,7 +48,9 @@ async function serveAsset(request,env,url){
   if(request.method==='GET'&&/^\/spreadsheet\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
     const type=response.headers.get('content-type')||'';
     if(type.includes('text/html')){
-      const html=(await response.text()).replace('</body>','<script src="/spreadsheet/sheet-image-sync.js?v=20260831-2"></script></body>');
+      const html=(await response.text())
+        .replace('src="sheet-sync.js"','src="sheet-sync.js?v=20260901-localfirst1"')
+        .replace('</body>','<script src="/spreadsheet/sheet-image-sync.js?v=20260831-2"></script></body>');
       const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
