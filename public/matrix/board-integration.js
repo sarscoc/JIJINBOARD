@@ -66,7 +66,6 @@
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const matrixPath=()=>`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(roomId)}`;
   const pointPath=itemId=>`${matrixPath()}/points/${encodeURIComponent(itemId)}`;
-  const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const pointKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth"]);
 
   function realtimeUrl(targetRoom=roomId){
@@ -221,7 +220,7 @@
     }
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
     try{
-      const [matrix]=await Promise.all([api(matrixPath()),wait(180)]);
+      const matrix=await api(matrixPath());
       if(seq!==loadSeq)return;
       applyingRemote=true;
       try{
@@ -400,7 +399,7 @@
     if(event.data?.type==="jijinboard-matrix-active")setActive(event.data.active);
   });
 
-  setTimeout(()=>{if(!loadRequested)loadRoom(roomId).catch(console.warn)},80);
+  queueMicrotask(()=>{if(!loadRequested)loadRoom(roomId).catch(console.warn)});
   if(active)connectRealtimeEvents();
   window.addEventListener("online",()=>{if(roomId&&loadedRoom===roomId)connectRealtimeEvents()});
   window.addEventListener("pagehide",()=>{saveOnPagehide();disconnectRealtimeEvents()});
