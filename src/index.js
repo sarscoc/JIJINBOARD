@@ -8,6 +8,7 @@ import { handleMatrixTemplates } from './matrix-templates.js';
 import { handleMatrixPoint } from './matrix-point.js';
 import { handleMatrixState } from './matrix-state.js';
 import { createStreamRoom,handleLogStream,prepareStreamRoomDelete } from './log-stream.js';
+import { handleLogCommentMutation } from './log-comments-fast.js';
 import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
 import { handleSpreadsheetComments } from './spreadsheet-comments.js';
@@ -24,6 +25,14 @@ const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:
 const contextFor=(request,env,path,executionContext)=>({request,env,params:{path},waitUntil:p=>executionContext.waitUntil(p),next:()=>env.ASSETS.fetch(request)});
 async function serveAsset(request,env,url){
   const response=await env.ASSETS.fetch(request);
+  if(request.method==='GET'&&/^\/log\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
+    const type=response.headers.get('content-type')||'';
+    if(type.includes('text/html')){
+      const html=(await response.text()).replace('</body>','<script src="/log/comment-incremental-sync.js?v=20260831-1"></script></body>');
+      const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
+      return new Response(html,{status:response.status,statusText:response.statusText,headers});
+    }
+  }
   if(request.method==='GET'&&/^\/matrix\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
     const type=response.headers.get('content-type')||'';
     if(type.includes('text/html')){
@@ -68,6 +77,11 @@ export default{
     const direct=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
     if(direct&&request.method==='GET'&&url.searchParams.get('summary')!=='1')return handleLogStream(request,env,decodeURIComponent(direct[1]),'full','',executionContext);
     if(direct&&request.method==='DELETE'){const prepared=await prepareStreamRoomDelete(request,env,decodeURIComponent(direct[1]));if(prepared)return prepared}
+    const logComment=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations(?:\/([^/]+))?(?:\/([^/]+))?$/);
+    if(logComment&&request.method!=='GET'){
+      const handled=await handleLogCommentMutation(request,env,decodeURIComponent(logComment[1]),logComment[2]?decodeURIComponent(logComment[2]):'',logComment[3]?decodeURIComponent(logComment[3]):'',executionContext);
+      if(handled)return handled;
+    }
 
     const boardRealtime=url.pathname.match(/^\/api\/boards\/([^/]+)\/realtime$/);
     if(boardRealtime){if(request.method!=='GET'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'WebSocket接続が必要です'},426);const roomId=decodeURIComponent(boardRealtime[1]);if(!await env.DB.prepare('SELECT room_id FROM room WHERE room_id=?').bind(roomId).first())return json({error:'自陣が見つかりません'},404);return env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch(new Request(new URL('/realtime',request.url),request))}
