@@ -23,7 +23,8 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="profile-compact.css?v=20260829-3">
   <link rel="stylesheet" href="embedded-layout.css?v=20260830-3">
-  <script>if(new URL(location.href).searchParams.get("embedded")==="1")document.documentElement.classList.add("embedded")</script>
+  <script>(function(){const p=new URL(location.href).searchParams;if(p.get("embedded")==="1")document.documentElement.classList.add("embedded");if(p.get("room"))document.documentElement.classList.add("existing-log")})()</script>
+  <style>html.existing-log #homeView{display:none!important}html.existing-log #roomView.hidden{display:block!important}</style>
 </head>
 <body>
   <header class="topbar">
