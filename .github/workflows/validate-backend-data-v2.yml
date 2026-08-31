@@ -24,6 +24,7 @@ jobs:
           node --check src/room-participants.js
           node --check src/room-delete.js
           node --check src/log-stream.js
+          node --check src/log-comments-fast.js
           node --check src/matrix-state.js
           node --check src/matrix-point.js
           node --check src/matrix-templates.js
@@ -33,6 +34,7 @@ jobs:
           node --check realtime-worker/src/index.js
           node --check public/board/board2.js
           node --check public/project.js
+          node --check public/log/comment-incremental-sync.js
           node --check public/matrix/matrix-template-sync.js
           node --check public/spreadsheet/sheet-sync.js
           node --check public/spreadsheet/sheet-image-sync.js
