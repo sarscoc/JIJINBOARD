@@ -127,6 +127,13 @@ CREATE TABLE IF NOT EXISTS log_chunk (
 );
 CREATE INDEX IF NOT EXISTS idx_log_chunk_tab ON log_chunk(tab_id, chunk_index);
 
+CREATE TABLE IF NOT EXISTS matrix_settings (
+  room_id TEXT PRIMARY KEY,
+  matrix_settings TEXT NOT NULL DEFAULT '{}',
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS matrix_template (
   template_id TEXT NOT NULL,
   room_id TEXT NOT NULL,
