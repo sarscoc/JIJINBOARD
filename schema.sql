@@ -142,8 +142,8 @@ CREATE INDEX IF NOT EXISTS idx_matrix_template_room ON matrix_template(room_id, 
 CREATE TABLE IF NOT EXISTS matrix_point (
   point_id TEXT NOT NULL,
   room_id TEXT NOT NULL,
+  template_id TEXT NOT NULL,
   character_id TEXT,
-  template_id TEXT,
   is_placed INTEGER NOT NULL DEFAULT 0,
   point_x REAL,
   point_y REAL,
@@ -154,12 +154,12 @@ CREATE TABLE IF NOT EXISTS matrix_point (
   supplement_body TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY(room_id, point_id),
+  PRIMARY KEY(room_id, template_id, point_id),
   FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,
   FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE SET NULL,
-  FOREIGN KEY(template_id) REFERENCES matrix_template(template_id) ON DELETE SET NULL
+  FOREIGN KEY(template_id) REFERENCES matrix_template(template_id) ON DELETE CASCADE
 );
-CREATE INDEX IF NOT EXISTS idx_matrix_point_room ON matrix_point(room_id, updated_at);
+CREATE INDEX IF NOT EXISTS idx_matrix_point_room_template ON matrix_point(room_id, template_id, updated_at);
 
 CREATE TABLE IF NOT EXISTS spreadsheet (
   sheet_id TEXT PRIMARY KEY,
