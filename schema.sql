@@ -139,7 +139,7 @@ CREATE TABLE IF NOT EXISTS matrix_template (
 CREATE INDEX IF NOT EXISTS idx_matrix_template_room ON matrix_template(room_id, updated_at);
 
 CREATE TABLE IF NOT EXISTS matrix_point (
-  point_id TEXT PRIMARY KEY,
+  point_id TEXT NOT NULL,
   room_id TEXT NOT NULL,
   character_id TEXT,
   template_id TEXT,
@@ -153,6 +153,7 @@ CREATE TABLE IF NOT EXISTS matrix_point (
   supplement_body TEXT NOT NULL DEFAULT '',
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY(room_id, point_id),
   FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,
   FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE SET NULL,
   FOREIGN KEY(template_id) REFERENCES matrix_template(template_id) ON DELETE SET NULL
