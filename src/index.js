@@ -15,6 +15,7 @@ import { handleSpreadsheetState } from './spreadsheet-state.js';
 import { handleLogDisplayMode } from './log-display-mode.js';
 import { handleRoomLogMeta } from './room-log-meta.js';
 import { handleRoomParticipants } from './room-participants.js';
+import { handleRoomDelete } from './room-delete.js';
 import { handleTopAuthApi,serveProtectedTop } from './top-auth.js';
 
 export { RoomHub };
@@ -64,6 +65,7 @@ export default{
 
     const boardRoot=url.pathname.match(/^\/api\/boards\/([^/]+)$/);
     if(boardRoot&&request.method==='GET')return handleRoomLogMeta(request,env,decodeURIComponent(boardRoot[1]));
+    if(boardRoot&&request.method==='DELETE')return handleRoomDelete(request,env,decodeURIComponent(boardRoot[1]),executionContext);
     const boardLogs=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs(?:\/([^/]+))?$/);
     if(boardLogs&&(request.method==='POST'||request.method==='PATCH')){
       const handled=await handleRoomLogMeta(request,env,decodeURIComponent(boardLogs[1]),boardLogs[2]?decodeURIComponent(boardLogs[2]):'');
