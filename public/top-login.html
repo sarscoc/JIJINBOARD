@@ -22,13 +22,14 @@
     <label class="field"><span>新しいパスワード</span><input id="setupPassword" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></label>
     <label class="field"><span>もう一度</span><input id="setupPasswordConfirm" type="password" minlength="8" maxlength="256" autocomplete="new-password" required></label>
     <button type="submit">パスワードを設定</button>
-    <p class="quiet">初回だけ、このブラウザに保存済みの部屋主管理情報で本人確認します。</p>
+    <p id="ownerProofNote" class="quiet">初回だけ、このブラウザに保存済みの部屋主管理情報で本人確認します。</p>
   </form>
   <p id="status" class="status"></p>
 </main>
 <script>
 "use strict";
 const $=selector=>document.querySelector(selector),status=$("#status"),note=$("#note"),loginForm=$("#loginForm"),setupForm=$("#setupForm");
+let requiresOwnerProof=true;
 async function api(path,options={}){const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body}
 function parse(value,fallback){try{return JSON.parse(value)||fallback}catch{return fallback}}
 function ownerProof(){
@@ -48,13 +49,15 @@ function busy(form,on){form.querySelectorAll("button,input").forEach(el=>el.disa
 async function boot(){
   try{
     const state=await api("/api/top-auth/status");
+    requiresOwnerProof=!!state.requiresOwnerProof;
+    $("#ownerProofNote").classList.toggle("hidden",!requiresOwnerProof);
     if(state.authenticated){location.replace("/");return}
     if(state.configured){note.textContent="管理TOPは非公開です。パスワードを入力してください。";loginForm.classList.remove("hidden");setTimeout(()=>$("#loginPassword").focus(),0)}
     else{note.textContent="最初に、この管理TOP専用のパスワードを設定してください。";setupForm.classList.remove("hidden");setTimeout(()=>$("#setupPassword").focus(),0)}
   }catch(error){status.textContent=error.message;note.textContent="管理TOPを確認できませんでした。"}
 }
 loginForm.addEventListener("submit",async event=>{event.preventDefault();status.textContent="";busy(loginForm,true);try{await api("/api/top-auth/login",{method:"POST",body:JSON.stringify({password:$("#loginPassword").value})});location.replace("/")}catch(error){status.textContent=error.message;busy(loginForm,false);$("#loginPassword").select()}});
-setupForm.addEventListener("submit",async event=>{event.preventDefault();status.textContent="";const password=$("#setupPassword").value,confirmPassword=$("#setupPasswordConfirm").value;if(password!==confirmPassword){status.textContent="パスワードが一致しません";return}const proof=ownerProof();if(!proof){status.textContent="このブラウザに部屋主の管理情報が見つかりません。普段JIJINBOARDを管理しているブラウザで開いてください。";return}busy(setupForm,true);try{await api("/api/top-auth/setup",{method:"POST",body:JSON.stringify({password,...proof})});location.replace("/")}catch(error){status.textContent=error.message;busy(setupForm,false)}});
+setupForm.addEventListener("submit",async event=>{event.preventDefault();status.textContent="";const password=$("#setupPassword").value,confirmPassword=$("#setupPasswordConfirm").value;if(password!==confirmPassword){status.textContent="パスワードが一致しません";return}const proof=ownerProof();if(requiresOwnerProof&&!proof){status.textContent="このブラウザに部屋主の管理情報が見つかりません。普段JIJINBOARDを管理しているブラウザで開いてください。";return}busy(setupForm,true);try{await api("/api/top-auth/setup",{method:"POST",body:JSON.stringify({password,...(proof||{})})});location.replace("/")}catch(error){status.textContent=error.message;busy(setupForm,false)}});
 boot();
 </script>
 </body>
