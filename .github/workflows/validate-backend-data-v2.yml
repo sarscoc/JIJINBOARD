@@ -17,6 +17,7 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check src/index.js
+          node --check src/api-v2.js
           node --check src/schema.js
           node --check src/data-model.js
           node --check src/room-log-meta.js
@@ -28,7 +29,12 @@ jobs:
           node --check src/matrix-templates.js
           node --check src/spreadsheet-state.js
           node --check src/spreadsheet-images.js
+          node --check functions/api/[[path]].js
+          node --check realtime-worker/src/index.js
+          node --check public/board/board2.js
+          node --check public/project.js
           node --check public/matrix/matrix-template-sync.js
+          node --check public/spreadsheet/sheet-sync.js
           node --check public/spreadsheet/sheet-image-sync.js
       - name: Validate SQLite schema
         run: |
