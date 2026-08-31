@@ -1,9 +1,30 @@
 import { ensurePlIdentity,resolveCharacterIdentity,storeImage,parentRoomForLog } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
+const iconUrl=key=>{if(!key)return'';const hash=String(key).replace(/^r2:/,'').split('/').pop();return `/api/player-master/icon/${encodeURIComponent(hash)}`};
 
 export async function handleRoomParticipants(request,env,roomId,logId='',characterId=''){
   if(logId){const log=await parentRoomForLog(env.DB,logId);if(!log||log.room_id!==roomId)return json({error:'この自陣にないログです'},404)}
+
+  if(request.method==='GET'&&!characterId){
+    const result=await env.DB.prepare(`SELECT rp.pl_id,c.character_id,c.character_name,c.character_type,c.character_icon_key,c.matrix_icon_key,p.pl_name
+      FROM room_participant rp
+      JOIN pl p ON p.pl_id=rp.pl_id
+      JOIN character c ON c.character_id=rp.character_id
+      WHERE rp.room_id=? AND rp.character_id IS NOT NULL
+      ORDER BY rp.created_at,c.created_at,c.character_name`).bind(roomId).all();
+    return json({participants:(result.results||[]).map(row=>({
+      authorId:row.pl_id,
+      plName:row.pl_name,
+      personaId:row.character_id,
+      name:row.character_name,
+      type:row.character_type,
+      icon:iconUrl(row.matrix_icon_key||row.character_icon_key),
+      baseIcon:iconUrl(row.character_icon_key),
+      matrixIcon:iconUrl(row.matrix_icon_key)
+    }))});
+  }
+
   let body=null;try{body=await request.json()}catch{}
   const plId=String(body?.authorId||'').slice(0,120),plName=String(body?.plName||'').trim().slice(0,80);if(!plId)return json({error:'発言者情報がありません'},400);
 
