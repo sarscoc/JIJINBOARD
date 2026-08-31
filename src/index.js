@@ -10,7 +10,7 @@ import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
 import { handleSpreadsheetComments } from './spreadsheet-comments.js';
 import { handleLogDisplayMode } from './log-display-mode.js';
-import { handleBoardParticipants } from './board-participants.js';
+import { handleRoomLogMeta } from './room-log-meta.js';
 import { handleTopAuthApi,serveProtectedTop } from './top-auth.js';
 
 export { RoomHub };
@@ -46,8 +46,14 @@ export default{
     const boardRealtime=url.pathname.match(/^\/api\/boards\/([^/]+)\/realtime$/);
     if(boardRealtime){if(request.method!=='GET'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'WebSocket接続が必要です'},426);const roomId=decodeURIComponent(boardRealtime[1]);if(!await env.DB.prepare('SELECT room_id FROM room WHERE room_id=?').bind(roomId).first())return json({error:'自陣が見つかりません'},404);return env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch(new Request(new URL('/realtime',request.url),request))}
 
-    const participant=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?(?:\/matrix-icon)?$/);
-    if(participant){const handled=await handleBoardParticipants(request,env,decodeURIComponent(participant[1]),decodeURIComponent(participant[2]),participant[3]?decodeURIComponent(participant[3]):'');if(handled)return handled}
+    const boardRoot=url.pathname.match(/^\/api\/boards\/([^/]+)$/);
+    if(boardRoot&&request.method==='GET')return handleRoomLogMeta(request,env,decodeURIComponent(boardRoot[1]));
+    const boardLogs=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs(?:\/([^/]+))?$/);
+    if(boardLogs&&(request.method==='POST'||request.method==='PATCH')){
+      const handled=await handleRoomLogMeta(request,env,decodeURIComponent(boardLogs[1]),boardLogs[2]?decodeURIComponent(boardLogs[2]):'');
+      if(handled)return handled;
+    }
+
     const theme=url.pathname.match(/^\/api\/boards\/([^/]+)\/theme$/);if(theme)return handleBoardTheme(request,env,decodeURIComponent(theme[1]));
     const group=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);if(group)return handleGroupRowColors(request,env,decodeURIComponent(group[1]));
     const display=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/display-mode$/);if(display)return handleLogDisplayMode(request,env,decodeURIComponent(display[1]),decodeURIComponent(display[2]));
