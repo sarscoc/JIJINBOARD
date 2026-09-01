@@ -39,6 +39,7 @@ jobs:
           node --check public/log/comment-incremental-sync.js
           node --check public/log/log-room-cache-preload.js
           node --check public/log/embedded-ready.js
+          node --check public/log/log-app-bridge.js
           node --check public/matrix/board-integration.js
           node --check public/matrix/matrix-template-sync.js
           node --check public/spreadsheet/sheet-sync.js
