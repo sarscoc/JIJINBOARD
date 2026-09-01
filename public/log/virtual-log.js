@@ -10,7 +10,12 @@
   };
   const matchesSearch = (message, search) => !search || `${message.speaker} ${message.text}`.toLowerCase().includes(search);
   const streamIncomplete = () => !!state.room?.stream?.streamed && new Set((state.room.stream.loaded || []).map(Number)).size < Number(state.room.stream.chunkCount || 0);
-  const tabPending = (tab, search) => !search && streamIncomplete() && !state.room.messages.some(message => message.tab === tab);
+  const messagesForTab = tab => {
+    const indexed = state.__jijinMessagesByTab;
+    if (indexed instanceof Map) return indexed.get(tab) || [];
+    return state.room?.messages?.filter(message => message.tab === tab) || [];
+  };
+  const tabPending = (tab, search) => !search && streamIncomplete() && messagesForTab(tab).length === 0;
   const prefixFor = meta => {
     if (meta.prefix && meta.prefix.length === meta.heights.length + 1) return meta.prefix;
     const prefix = new Array(meta.heights.length + 1); prefix[0] = 0;
@@ -145,7 +150,8 @@
 
   pagePanelHtml = function(tab, realIndex, trackIndex, grouped, search, clone = "") {
     if (state.archiveMode) return originalPagePanelHtml(tab, realIndex, trackIndex, grouped, search, clone);
-    const items = state.room.messages.filter(m => m.tab === tab && matchesSearch(m, search));
+    const source = messagesForTab(tab);
+    const items = search ? source.filter(m => matchesSearch(m, search)) : source;
     const key = `${state.virtualGeneration}:compact:${trackIndex}`;
     state.virtualPanels.set(key, { mode: "compact", tab, grouped, search, items, heights: items.map(compactEstimate), prefix: null, start: 0, end: 0, frame: 0 });
     const body = items.length ? '<div class="virtual-spacer-top" aria-hidden="true"></div><div class="virtual-rows"></div><div class="virtual-spacer-bottom" aria-hidden="true"></div>' : tabPending(tab,search) ? '<p class="empty jijin-stream-pending">読み込み中…</p>' : '<p class="empty">このタブに表示できる発言がありません。</p>';
@@ -172,7 +178,9 @@
   };
 
   jumpToMessage = function(id, annotationId) {
-    const message = state.room?.messages.find(m => m.id === id); if (!message) return;
+    const indexed = state.__jijinMessageIndex?.get?.(id);
+    const message = Number.isInteger(indexed) ? state.room?.messages?.[indexed] : state.room?.messages?.find(m => m.id === id);
+    if (!message) return;
     const index = state.room.tabs.indexOf(message.tab);
     if (state.hiddenTabs.has(message.tab)) {
       state.hiddenTabs.delete(message.tab); localStorage.setItem(`hiddenTabs:${state.roomId}`, JSON.stringify([...state.hiddenTabs])); state.activeTabIndex = index; renderLog(message.time);
