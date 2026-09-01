@@ -47,6 +47,11 @@
       return mode;
     }catch{return displayModes.get(roomId)||"light"}
   }
+  function applyDisplayMode(mode){
+    const frame=$("#logFrame"),bridge=logBridge?.();
+    if(bridge?.setDisplayMode)bridge.setDisplayMode(mode);
+    else frame?.contentWindow?.postMessage({type:"jijinboard-set-room-theme",displayMode:mode},location.origin);
+  }
   async function saveDisplayMode(roomId,mode){
     mode=mode==="dark"?"dark":"light";
     displayModes.set(roomId,mode);
@@ -54,7 +59,7 @@
       const data=await api(endpoint(roomId),{method:"POST",headers:{"x-board-admin-token":adminToken()},body:JSON.stringify({displayMode:mode})});
       displayModes.set(roomId,data.displayMode==="dark"?"dark":"light");
     }catch(error){console.warn("Log display mode save failed",error)}
-    if(state.activeRoom===roomId)$("#logFrame")?.contentWindow?.postMessage({type:"jijinboard-set-room-theme",displayMode:mode},location.origin);
+    if(state.activeRoom===roomId)applyDisplayMode(mode);
   }
 
   renderLogs = function() {
@@ -99,6 +104,6 @@
 
   $("#logFrame")?.addEventListener("load",()=>{
     const roomId=$("#logFrame")?.dataset.room;if(!roomId)return;
-    loadDisplayMode(roomId).then(mode=>$("#logFrame")?.contentWindow?.postMessage({type:"jijinboard-set-room-theme",displayMode:mode},location.origin));
+    loadDisplayMode(roomId).then(applyDisplayMode);
   });
 })();
