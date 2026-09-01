@@ -3,7 +3,7 @@
   const params=new URL(location.href).searchParams,startupRoom=params.get('room')||'';if(!startupRoom)return;
   let parentCache=null;if(params.get('embedded')==='1'&&parent!==window){try{if(!(parent.__jijinLogRoomCache instanceof Map))parent.__jijinLogRoomCache=new Map();parentCache=parent.__jijinLogRoomCache}catch{}}
   const nativeFetch=window.fetch.bind(window),jsonResponse=data=>new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json; charset=utf-8'}}),streamPath=(roomId,suffix)=>`/api/rooms/${encodeURIComponent(roomId)}/stream/${suffix}`;
-  const inFlight=new Map();let installed=false;
+  const inFlight=new Map();let installed=false,initialAnnotationsStarted=false;
   const chunkUrl=(roomId,index,tab)=>`${streamPath(roomId,`chunk/${index}`)}?tab=${encodeURIComponent(tab||'')}`;
 
   function preferredTab(roomId,tabs){
@@ -29,10 +29,25 @@
     }
   }
 
+  function deferInitialAnnotations(input,init,url,roomId){
+    if(initialAnnotationsStarted)return null;
+    initialAnnotationsStarted=true;
+    nativeFetch(input,init).then(async response=>{
+      if(!response.ok)return;
+      const data=await response.clone().json().catch(()=>null);if(!data)return;
+      const detail={roomId,data};
+      window.__jijinInitialAnnotations=detail;
+      window.dispatchEvent(new CustomEvent('jijinboard-initial-annotations',{detail}));
+    }).catch(error=>console.warn('Initial comments deferred',error));
+    return jsonResponse({annotations:[],version:0});
+  }
+
   window.fetch=async function(input,init={}){
     const request=input instanceof Request?input:null,method=String(init?.method||request?.method||'GET').toUpperCase();let url;
     try{url=new URL(typeof input==='string'?input:request?.url||String(input),location.href)}catch{return nativeFetch(input,init)}
     if(method!=='GET'||url.origin!==location.origin)return nativeFetch(input,init);
+    const annotationMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations$/);
+    if(annotationMatch&&decodeURIComponent(annotationMatch[1])===startupRoom){const fast=deferInitialAnnotations(input,init,url,startupRoom);if(fast)return fast}
     const match=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
     if(match&&!url.search){const roomId=decodeURIComponent(match[1]),room=await firstStreamedRoom(roomId);return room?jsonResponse(room):nativeFetch(input,init)}
     return nativeFetch(input,init);
