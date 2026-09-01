@@ -94,6 +94,18 @@
       try{Object.defineProperty(message,"__jijinChunk",{value:0,writable:true,configurable:true,enumerable:false});Object.defineProperty(message,"__jijinOffset",{value:offset,writable:true,configurable:true,enumerable:false})}catch{}
     });
   }
+  function insertChunkInSourceOrder(current,messages,index){
+    if(!messages.length)return;
+    if(!current.length){current.push(...messages);return}
+    const lastChunk=Number(current[current.length-1]?.__jijinChunk);
+    if(Number.isFinite(lastChunk)&&lastChunk<index){current.push(...messages);return}
+    let insertAt=current.length;
+    for(let position=0;position<current.length;position++){
+      const chunk=Number(current[position]?.__jijinChunk);
+      if(Number.isFinite(chunk)&&chunk>index){insertAt=position;break}
+    }
+    current.splice(insertAt,0,...messages);
+  }
   function loadedSet(){return new Set((streamState()?.loaded||[]).map(Number).filter(Number.isFinite))}
   function allChunksLoaded(){const stream=streamState();return !!stream&&loadedSet().size>=Number(stream.chunkCount||0)}
   function nextChunkIndex(){
@@ -114,7 +126,12 @@
       return state.room?.tabs?.[state.activeTabIndex]||"";
     }catch{return ""}
   }
-  function tabHasLoadedMessages(tab){return !!tab&&!!state?.room?.messages?.some(message=>message.tab===tab)}
+  function tabHasLoadedMessages(tab){
+    if(!tab)return false;
+    const indexed=state?.__jijinMessagesByTab;
+    if(indexed instanceof Map)return (indexed.get(tab)||[]).length>0;
+    return !!state?.room?.messages?.some(message=>message.tab===tab);
+  }
   function scrollSnapshot(){
     const scroll=activeScroll();
     if(!scroll)return null;
@@ -141,9 +158,7 @@
       markChunk(messages,index);
       seedInitialChunkMarks();
       const current=state.room.messages||[];
-      const known=new Set(current.map(message=>message.id));
-      current.push(...messages.filter(message=>!known.has(message.id)));
-      current.sort((a,b)=>(Number(a.__jijinChunk)||0)-(Number(b.__jijinChunk)||0)||(Number(a.__jijinOffset)||0)-(Number(b.__jijinOffset)||0));
+      insertChunkInSourceOrder(current,messages,index);
       stream.loaded=[...loaded,index].sort((a,b)=>a-b);
       stream.chunkCount=Math.max(Number(stream.chunkCount)||1,Number(data.chunkCount)||1);
       stream.messageCount=Math.max(Number(stream.messageCount)||0,Number(data.messageCount)||0);
