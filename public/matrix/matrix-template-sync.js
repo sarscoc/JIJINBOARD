@@ -66,10 +66,10 @@
     try{localStorage.removeItem("magiaMatrix.currentTemplate.v1")}catch{}
     try{window.showTemplateRecord?.(null)}catch{}
     try{
-      if(typeof appState==="function"&&typeof saveState==="function"){
+      if(typeof appState==="function"&&typeof saveJSON==="function"&&typeof STATE!=="undefined"){
         const state=appState();
         state.items={};
-        saveState(state);
+        saveJSON(STATE,state);
       }
     }catch{}
     rebindItemsForRender();
