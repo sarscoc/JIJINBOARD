@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,noarchive">
   <title>JIJINBOARD</title>
-  <link rel="stylesheet" href="board.css">
+  <link rel="stylesheet" href="board.css?v=20260902-v2top1">
   <link rel="stylesheet" href="board-extra.css">
   <link rel="stylesheet" href="participant.css?v=20260830-5">
   <link rel="stylesheet" href="theme-settings-compact.css?v=20260830-2">
@@ -19,7 +19,6 @@
     .board-brand-title{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;font-weight:700;color:rgb(75,75,75)}
     .topbar>.presence-bar{flex:1 1 auto;min-width:0;margin-left:34px}
 
-    /* Owner log settings: keep the same controls, but make the editor a compact card. */
     #logEditDialog{width:min(430px,calc(100vw - 20px))!important;max-width:430px!important;max-height:min(560px,calc(100vh - 20px))!important;border-radius:13px!important;overflow:auto!important}
     #logEditDialog .log-edit-card{min-width:0!important;padding:11px 13px 10px!important;gap:7px!important;background:rgba(255,255,255,.96)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
     #logEditDialog .log-edit-card>div:first-child{height:20px!important}
@@ -86,11 +85,16 @@
     <aside id="logSidebar" class="log-sidebar">
       <div class="log-list-head"><span>LOGS</span><button id="addLogButton" class="hidden" type="button">＋</button></div>
       <div id="logList" class="log-list"></div>
-      <p id="emptyLogs" class="empty-note">まだログはありません。</p>
-      <button id="uploadLogButton" class="upload-log hidden" type="button">＋ HTMLログを追加</button>
+      <p id="emptyLogs" class="empty-note hidden">まだログはありません。</p>
     </aside>
     <main class="tool-stage">
-      <section id="welcome" class="welcome"><p>左の一覧からログを選択してください。</p></section>
+      <section id="welcome" class="welcome board-home">
+        <div class="board-home-shell">
+          <img id="boardHomeImage" class="board-home-image hidden" alt="部屋のトップ画像">
+          <div id="boardHomeEmpty" class="board-home-empty"><strong>JIJINBOARD</strong></div>
+          <label id="boardHomeUpload" class="board-home-upload hidden"><span id="boardHomeUploadLabel">スクショを設定</span><input id="boardHomeInput" type="file" accept="image/*"></label>
+        </div>
+      </section>
       <iframe id="logFrame" class="tool-frame hidden" title="LOGCOMMENTS"></iframe>
       <iframe id="matrixFrame" class="tool-frame hidden" title="MAGIA MATRIX"></iframe>
       <iframe id="spreadsheetFrame" class="tool-frame hidden" title="SPREADSHEET" style="visibility:hidden"></iframe>
@@ -98,7 +102,7 @@
   </div>
   <dialog id="spoilerDialog"><div class="spoiler-card"><p>UNOPENED LOG</p><span id="spoilerLabel" class="hidden">LOG</span><h2 id="spoilerTitle"></h2><small id="spoilerParticipants" class="hidden"></small><strong>この先にはシナリオのネタバレを含みます。</strong><div><button id="confirmOpen" class="primary">ログを開く</button></div></div></dialog>
   <dialog id="logEditDialog"><form id="logEditForm" class="log-edit-card"><div><span></span><button type="button" id="closeLogEdit" class="log-edit-close">×</button></div><label class="log-spoiler-edit"><input id="logSpoilerInput" type="checkbox"><span>このログをネタバレ有りにする</span></label><label>シナリオタイトル<input id="logScenarioTitle" maxlength="120"></label><label>参加キャラ<input id="logScenarioParticipants" maxlength="300"></label><div><button type="submit" class="primary">保存</button><button type="button" id="deleteLogButton" class="log-delete-text">ログを削除する</button></div></form></dialog>
-  <dialog id="boardProfileDialog"><form id="boardProfileForm" class="board-profile-card"><p>PL SETUP</p><h2 id="boardProfileTitle">PLの設定</h2><label>あなたのPL名<input id="boardPlName" maxlength="80" required></label><label>PLアイコン（任意）<input id="boardPlIcon" type="file" accept="image/*"></label><button class="primary" type="submit">この部屋に入る</button></form></dialog>
+  <dialog id="boardProfileDialog"><form id="boardProfileForm" class="board-profile-card"><p>PL SETUP</p><h2 id="boardProfileTitle">PLの設定</h2><label>あなたのPL名<input id="boardPlName" maxlength="80" required></label><label>PLアイコン（任意）<input id="boardPlIcon" type="file" accept="image/*"></label><label>PLのマーカー色<input id="boardPlColor" type="color" value="#ffe66b"></label><button class="primary" type="submit">この部屋に入る</button></form></dialog>
   <script>
     const __boardIdForOpenedState=new URL(location.href).searchParams.get("id");
     if(__boardIdForOpenedState)sessionStorage.removeItem(`jijinboardOpenedLogs:${__boardIdForOpenedState}`);
@@ -109,32 +113,14 @@
       if(empty)empty.textContent="ページを再読み込みしてください。";
     }
   </script>
-  <script src="board2.js?v=20260830-7" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board2.js?v=20260902-v2top1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board-home.js?v=20260902-v2top1"></script>
   <script src="board-profile-overlay.js?v=20260830-1"></script>
   <script src="matrix-icon-bridge.js?v=20260829-2"></script>
   <script src="board-spoiler-preview.js?v=20260829-2"></script>
   <script src="board-log-meta.js?v=20260830-6"></script>
   <script src="board-tab-settings.js?v=20260829-2"></script>
-  <script>
-    (()=>{
-      const name=document.getElementById('boardName');
-      const loadProfile=()=>{
-        const value=name?.textContent?.trim()||'';
-        if(!value||value==='読み込み中…'||value==='読み込みに失敗しました')return false;
-        if(document.querySelector('script[data-board-profile-loader]'))return true;
-        const script=document.createElement('script');
-        script.src='board-profile.js?v=20260831-1';
-        script.dataset.boardProfileLoader='1';
-        document.body.appendChild(script);
-        return true;
-      };
-      if(!loadProfile()&&name){
-        const observer=new MutationObserver(()=>{if(loadProfile())observer.disconnect()});
-        observer.observe(name,{childList:true,characterData:true,subtree:true});
-        setTimeout(()=>observer.disconnect(),10000);
-      }
-    })();
-  </script>
+  <script src="board-profile.js?v=20260829-5"></script>
   <script src="theme-scoped.js?v=20260830-8"></script>
   <script src="shared-background-sync.js?v=20260830-1"></script>
   <script src="log-no-shadows.js?v=20260830-1"></script>
