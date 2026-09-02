@@ -10,7 +10,17 @@
     },
     openProfile(){try{if(typeof openProfile==="function")openProfile();else localMessage({type:"jijinboard-open-profile"})}catch{}},
     requestProfile(){try{if(typeof emitIntegratedProfile==="function")emitIntegratedProfile();else localMessage({type:"jijinboard-request-profile"})}catch{}},
-    setDisplayMode(displayMode){localMessage({type:"jijinboard-set-room-theme",displayMode:displayMode==="dark"?"dark":"light"})},
+    setDisplayMode(displayMode){
+      const mode=displayMode==="dark"?"dark":"light";
+      try{
+        document.documentElement.classList.toggle("dark",mode==="dark");
+        document.documentElement.style.backgroundColor=mode==="dark"?"#424242":"";
+        if(document.body)document.body.style.backgroundColor=mode==="dark"?"#424242":"";
+        const roomId=bridge.getRoomId();
+        if(roomId)localStorage.setItem(`theme:${roomId}`,mode);
+      }catch{}
+      localMessage({type:"jijinboard-set-room-theme",displayMode:mode});
+    },
     getRoomId(){try{return typeof state!=="undefined"?String(state.roomId||""):""}catch{return""}},
     destroy(){try{window.disconnectRealtime?.()}catch{}},
   };
