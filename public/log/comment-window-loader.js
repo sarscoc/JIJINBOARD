@@ -1,5 +1,7 @@
 "use strict";
 (()=>{
+  if(window.__jijinboardCommentWindowLoader)return;
+  window.__jijinboardCommentWindowLoader=true;
   const nativeFetch=window.fetch.bind(window);
   const annotationListUrl=value=>{try{const u=new URL(typeof value==='string'?value:value?.url||'',location.href);return /^\/api\/rooms\/[^/]+\/annotations$/.test(u.pathname)?u:null}catch{return null}};
   let shieldInitial=true;
