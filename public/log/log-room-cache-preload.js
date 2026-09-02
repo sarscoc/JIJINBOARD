@@ -13,10 +13,14 @@
   }
 
   const nativeFetch=window.fetch.bind(window);
-  let deferredAnnotations=false,installDone=false,loadingChunk=false,fillingViewport=false;
+  let deferredAnnotations=false,installDone=false,loadingChunk=false,fillingViewport=false,lastLoadedChunkMessages=[];
   const jsonResponse=data=>new Response(JSON.stringify(data),{status:200,headers:{"content-type":"application/json; charset=utf-8"}});
   const streamPath=(roomId,suffix)=>`/api/rooms/${encodeURIComponent(roomId)}/stream/${suffix}`;
   const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>resolve()));
+  const estimateMessageHeight=message=>{
+    const length=String(message?.speaker||"").length+String(message?.text||"").length;
+    return Math.max(30,30+Math.min(6,Math.floor(length/72))*18);
+  };
 
   async function firstStreamedRoom(roomId){
     const cached=parentCache?.get(roomId);
@@ -146,6 +150,7 @@
   }
 
   async function loadChunk(index,{render=true}={}){
+    lastLoadedChunkMessages=[];
     const stream=streamState(),roomId=state?.roomId||state?.room?.id||startupRoom;
     if(!stream||!roomId||index<0||index>=Number(stream.chunkCount||0))return false;
     const loaded=loadedSet();if(loaded.has(index))return true;
@@ -155,6 +160,7 @@
       const response=await nativeFetch(streamPath(roomId,`chunk/${index}`));
       if(!response.ok)throw new Error(`chunk ${index}: ${response.status}`);
       const data=await response.json(),messages=Array.isArray(data.messages)?data.messages:[];
+      lastLoadedChunkMessages=messages;
       markChunk(messages,index);
       seedInitialChunkMarks();
       const current=state.room.messages||[];
@@ -177,28 +183,38 @@
     if(fillingViewport||!streamState())return;
     fillingViewport=true;
     try{
-      // The current tab alone decides how far to read. Keep fetching sequential
-      // chunks until it contains a little more than one visible screen.
+      await nextFrame();
+      const panel=activeScroll(),tab=activeTab();
+      if(!panel)return;
+      const height=Math.max(1,panel.clientHeight);
+      const remaining=panel.scrollHeight-panel.scrollTop-height;
+      const atInitialTop=panel.scrollTop<4;
+      let hasTabRows=tabHasLoadedMessages(tab);
+      const targetCoverage=atInitialTop?height*1.18:height*.35;
+      let estimatedCoverage=atInitialTop?panel.scrollHeight:remaining;
+      if((hasTabRows&&estimatedCoverage>=targetCoverage)||allChunksLoaded())return;
+
+      const snapshot=scrollSnapshot(),anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
+      let changed=false;
+      // Fetch as many sequential chunks as the current tab needs, but keep the
+      // existing DOM untouched. Repaint once after the batch so chunk streaming
+      // cannot visibly flash the whole log pane between requests.
       for(let guard=0;guard<Math.max(1,Number(streamState()?.chunkCount)||1);guard++){
-        await nextFrame();
-        const panel=activeScroll(),tab=activeTab();
-        if(!panel)return;
-        const height=Math.max(1,panel.clientHeight);
-        const remaining=panel.scrollHeight-panel.scrollTop-height;
-        const atInitialTop=panel.scrollTop<4;
-        const hasTabRows=tabHasLoadedMessages(tab);
-        const enough=hasTabRows&&(atInitialTop
-          ? panel.scrollHeight>=height*1.18
-          : remaining>=height*.35);
-        if(enough||allChunksLoaded())return;
         const next=nextChunkIndex();
-        if(next<0)return;
-        const snapshot=scrollSnapshot(),anchor=typeof currentReadingTime==="function"?currentReadingTime():"";
+        if(next<0)break;
         const loaded=await loadChunk(next,{render:false});
-        if(!loaded)return;
-        if(typeof renderLog==="function")renderLog(anchor);
-        await restoreScroll(snapshot);
+        if(!loaded)break;
+        changed=true;
+        const additions=lastLoadedChunkMessages.filter(message=>message.tab===tab);
+        if(additions.length){
+          hasTabRows=true;
+          estimatedCoverage+=additions.reduce((sum,message)=>sum+estimateMessageHeight(message),0);
+        }
+        if((hasTabRows&&estimatedCoverage>=targetCoverage)||allChunksLoaded())break;
       }
+      if(!changed)return;
+      if(typeof renderLog==="function")renderLog(anchor);
+      await restoreScroll(snapshot);
     }finally{fillingViewport=false}
   }
 
