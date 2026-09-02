@@ -68,9 +68,20 @@
     (window.requestIdleCallback||((callback)=>setTimeout(callback,250)))(warm);
   }
 
+  function installBoardHomeLink(){
+    const brand=$(".board-brand-stack");if(!brand)return;
+    const href=`/board/?id=${encodeURIComponent(boardId)}`;
+    const ownerLink=$("#ownerTopLink");if(ownerLink)ownerLink.href=href;
+    brand.setAttribute("role","link");brand.tabIndex=0;brand.title="自陣TOPに戻る";brand.style.cursor="pointer";
+    const go=()=>{location.href=href};
+    brand.addEventListener("click",event=>{event.preventDefault();go()});
+    brand.addEventListener("keydown",event=>{if(event.key==="Enter"||event.key===" "){event.preventDefault();go()}});
+  }
+
   const upload=$("#boardHomeUpload"),input=$("#boardHomeInput");
   upload?.classList.remove("hidden");
   input?.addEventListener("change",event=>uploadScreenshot(event.target.files?.[0]));
   showImage(imageUrl());
   installLogTransitionGuard();
+  installBoardHomeLink();
 })();
