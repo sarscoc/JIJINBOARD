@@ -13,12 +13,21 @@ const equalBytes=(a,b)=>{if(a.length!==b.length)return false;let diff=0;for(let 
 const equalText=(a,b)=>{a=String(a||"");b=String(b||"");if(a.length!==b.length)return false;let diff=0;for(let i=0;i<a.length;i++)diff|=a.charCodeAt(i)^b.charCodeAt(i);return diff===0};
 const safeBody=async request=>{try{return await request.json()}catch{return null}};
 
+const topAuthSchemaReady=new WeakMap();
 async function ensureTopAuthSchema(db){
-  // Keep these sequential. It is more robust on a brand-new D1 database than
-  // preparing an index in the same batch that creates its table.
-  await db.prepare("CREATE TABLE IF NOT EXISTS top_auth (id INTEGER PRIMARY KEY CHECK(id=1),salt TEXT NOT NULL,password_hash TEXT NOT NULL,iterations INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
-  await db.prepare("CREATE TABLE IF NOT EXISTS top_sessions (token_hash TEXT PRIMARY KEY,expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
-  await db.prepare("CREATE INDEX IF NOT EXISTS idx_top_sessions_expires ON top_sessions(expires_at)").run();
+  let task=topAuthSchemaReady.get(db);
+  if(!task){
+    task=(async()=>{
+      // Keep these sequential. It is more robust on a brand-new D1 database than
+      // preparing an index in the same batch that creates its table.
+      await db.prepare("CREATE TABLE IF NOT EXISTS top_auth (id INTEGER PRIMARY KEY CHECK(id=1),salt TEXT NOT NULL,password_hash TEXT NOT NULL,iterations INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+      await db.prepare("CREATE TABLE IF NOT EXISTS top_sessions (token_hash TEXT PRIMARY KEY,expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)").run();
+      await db.prepare("CREATE INDEX IF NOT EXISTS idx_top_sessions_expires ON top_sessions(expires_at)").run();
+    })();
+    topAuthSchemaReady.set(db,task);
+    task.catch(()=>topAuthSchemaReady.delete(db));
+  }
+  return task;
 }
 
 async function passwordHash(password,salt){
@@ -53,10 +62,12 @@ async function createSession(db){
 
 export async function isTopAuthenticated(request,env){
   if(!env.DB)return false;
+  // An unauthenticated visit does not need D1 at all. Serving the login page
+  // must remain fast even if D1 is temporarily slow or locked.
+  const token=cookieValue(request,SESSION_COOKIE);if(!token)return false;
   await ensureTopAuthSchema(env.DB);
   const auth=await env.DB.prepare("SELECT iterations FROM top_auth WHERE id=1").first();
   if(!auth||Number(auth.iterations)!==HASH_VERSION)return false;
-  const token=cookieValue(request,SESSION_COOKIE);if(!token)return false;
   const tokenHash=base64url(await sha256(token)),row=await env.DB.prepare("SELECT expires_at FROM top_sessions WHERE token_hash=?").bind(tokenHash).first();
   if(!row)return false;
   if(Date.parse(row.expires_at)<=Date.now()){await env.DB.prepare("DELETE FROM top_sessions WHERE token_hash=?").bind(tokenHash).run();return false}
