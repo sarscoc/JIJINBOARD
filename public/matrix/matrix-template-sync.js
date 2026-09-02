@@ -139,15 +139,28 @@
   async function pruneLocalTemplates(remote){
     const remoteIds=new Set(remote.map(item=>String(item?.record?.id||"")).filter(Boolean));
     const local=await window.tplAllRecords();
+    const previousStates=window.templateStates()||{};
+    const unsynced=[];
 
     applying=true;
     try{
       if(typeof window.tplDeleteRecord==="function"){
         for(const rec of local){
           const id=String(rec?.id||"");
-          if(id&&!remoteIds.has(id))await window.tplDeleteRecord(id);
+          if(!id||remoteIds.has(id))continue;
+
+          const dataUrl=String(rec?.dataUrl||"");
+          const serverMatch=dataUrl.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\//);
+          const localState=previousStates[id]&&typeof previousStates[id]==="object"?previousStates[id]:null;
+          const looksUnsynced=dataUrl.startsWith("data:image/")||(!serverMatch&&localState&&Object.keys(localState).length>0);
+
+          // 同期不全でサーバーに届かなかったローカル作業は消さない。
+          // 一方、サーバーURLを持つのに一覧に存在しないレコードは古いキャッシュなので除去する。
+          if(looksUnsynced)unsynced.push({record:rec,templateState:clone(localState||{})});
+          else await window.tplDeleteRecord(id);
         }
       }
+
       const states={};
       for(const item of remote){
         const rec=item?.record;
@@ -155,15 +168,21 @@
         await rawSet(rec.id,rec);
         states[rec.id]=item?.templateState&&typeof item.templateState==="object"?item.templateState:{};
       }
+      for(const item of unsynced){
+        const id=String(item.record?.id||"");
+        if(id&&!remoteIds.has(id))states[id]=item.templateState||{};
+      }
       window.setTemplateStates(states);
 
       const current=String(window.currentTemplateId?.()||"");
-      if(current&&!remoteIds.has(current)){
+      const keptIds=new Set([...remoteIds,...unsynced.map(item=>String(item.record?.id||"")).filter(Boolean)]);
+      if(current&&!keptIds.has(current)){
         try{localStorage.removeItem("magiaMatrix.currentTemplate.v1")}catch{}
       }
     }finally{
       applying=false;
     }
+    return unsynced;
   }
 
   async function hydrate(logId=currentLogId()){
@@ -184,7 +203,7 @@
         // IndexedDB のテンプレキャッシュは board/room で自動分離されないため、
         // サーバーに存在しない古いレコードを残すと別自陣のテンプレが混ざる。
         // JIJINBOARD ではサーバーを正としてローカルキャッシュを揃える。
-        await pruneLocalTemplates(remote);
+        const unsynced=await pruneLocalTemplates(remote);
         if(seq!==hydrateSeq)return false;
 
         try{
@@ -197,6 +216,11 @@
           console.warn("MATRIX template redraw failed",error);
         }
         hydrated=true;
+        // 以前の不具合でサーバーへ届かなかった作業だけ、同期準備後に救済保存する。
+        for(const item of unsynced){
+          const id=String(item.record?.id||"");
+          if(id)putRemote(target,id,item.record,item.templateState||{});
+        }
         return true;
       }catch(error){
         console.warn("MATRIX template hydrate failed",error);
