@@ -151,17 +151,36 @@
   window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{if(event.detail?.action!=='spreadsheet-state')return;remoteDirty=true;if(boardActive)refreshRemote()});
 
   function notifyReady(){if(readySent)return;readySent=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{try{parent.postMessage({type:'jijinboard-spreadsheet-ready'},location.origin)}catch{}}))}
+  function finishLocalReady(){loading=false;remoteDirty=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady()}
 
-  (async()=>{
+  async function initialRemoteSync(){
     let remote=null,cleanRemote=null,remoteString='';
-    const cleanLocal=currentSnapshot(),localString=JSON.stringify(cleanLocal),hasLocal=!!meaningful(cleanLocal);
-    if(embedded&&hasLocal)notifyReady();
     try{
       remote=(await api(endpoint)).state;
       cleanRemote=sanitizeSnapshot(remote||{});remoteString=JSON.stringify(cleanRemote);
-      if(remote&&meaningful(cleanRemote)){if(remoteString!==localString)applyRemote(cleanRemote);else lastRemoteSerial=remoteString}
-      else if(hasLocal){await api(endpoint,{method:'POST',body:JSON.stringify({state:cleanLocal})});lastRemoteSerial=localString;window.jijinSpreadsheetNotifyChange?.('spreadsheet-state')}
-    }catch(error){console.warn('Spreadsheet initial sync failed',error)}finally{loading=false;remoteDirty=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady()}
+      const local=currentSnapshot(),localString=JSON.stringify(local),hasLocal=!!meaningful(local);
+      if(remote&&meaningful(cleanRemote)){
+        if(remoteString!==localString)applyRemote(cleanRemote);else lastRemoteSerial=remoteString;
+      }else if(hasLocal){
+        await api(endpoint,{method:'POST',body:JSON.stringify({state:local})});
+        lastRemoteSerial=localString;
+        window.jijinSpreadsheetNotifyChange?.('spreadsheet-state');
+      }
+    }catch(error){console.warn('Spreadsheet initial sync failed',error)}finally{
+      if(loading)finishLocalReady();
+    }
     if(remote&&remoteString&&JSON.stringify(remote)!==remoteString)pushNow();
-  })();
+  }
+
+  const localAtStart=currentSnapshot(),hasLocalAtStart=!!meaningful(localAtStart);
+  if(embedded&&hasLocalAtStart){
+    finishLocalReady();
+    const run=()=>initialRemoteSync();
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:900});
+      else setTimeout(run,250);
+    }));
+  }else{
+    initialRemoteSync();
+  }
 })();

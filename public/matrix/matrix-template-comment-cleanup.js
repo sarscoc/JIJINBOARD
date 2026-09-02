@@ -1,7 +1,13 @@
 "use strict";
 
-// Deleting a MATRIX template also deletes the shared COMMENTS whose target_id
-// belongs to that template. Other templates and their comments are untouched.
+if(!document.querySelector('script[src*="matrix-template-sync.js"]')){
+  const script=document.createElement('script');
+  script.src='matrix-template-sync.js';
+  script.async=false;
+  script.dataset.matrixTemplateSync='1';
+  document.body.append(script);
+}
+
 (() => {
   const originalDelete = window.deleteSavedTemplate;
   if (typeof originalDelete !== "function" || originalDelete.__matrixTemplateCommentCleanup) return;
@@ -28,8 +34,6 @@
     const result = await originalDelete.call(this, templateId, ...rest);
     if (!id) return result;
 
-    // The original function asks for confirmation. If the user cancelled, the
-    // IndexedDB template record still exists, so do not touch shared comments.
     if (await templateStillExists(id)) return result;
 
     removeLocalDisplayComments(id);
@@ -49,8 +53,6 @@
         }
       );
 
-      // MATRIX icon comments already refresh on matrix-board-active. Re-use the
-      // same path so the deleted template's comments disappear immediately.
       window.dispatchEvent(new CustomEvent("matrix-board-active"));
     } catch (error) {
       console.warn("MATRIX template comments cleanup failed", error);
