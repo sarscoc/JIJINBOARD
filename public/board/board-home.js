@@ -4,29 +4,6 @@
   if(!boardId)return;
   const $=selector=>document.querySelector(selector);
   const imageUrl=()=>`/api/boards/${encodeURIComponent(boardId)}/home-image?v=${Date.now()}`;
-  const logFrame=$("#logFrame"),welcome=$("#welcome");
-  let uploaderRequested=false;
-
-  function frameRoom(){
-    if(!logFrame)return "";
-    try{return new URL(logFrame.getAttribute("src")||"",location.href).searchParams.get("room")||""}catch{return ""}
-  }
-  function showTopCover(){
-    if(!logFrame||!welcome)return;
-    welcome.classList.remove("hidden");
-    logFrame.classList.add("hidden");
-  }
-  function showPreparedLog(){
-    if(!logFrame||!welcome)return;
-    logFrame.classList.remove("hidden");
-    welcome.classList.add("hidden");
-  }
-  function prewarmLogShell(){
-    if(!logFrame||logFrame.getAttribute("src")||logFrame.dataset.room)return;
-    logFrame.dataset.jijinPrewarm="1";
-    logFrame.classList.add("hidden");
-    logFrame.src=`/log/?embedded=1&board=${encodeURIComponent(boardId)}&prewarm=1`;
-  }
 
   function showImage(src){
     const image=$("#boardHomeImage"),empty=$("#boardHomeEmpty"),label=$("#boardHomeUploadLabel");if(!image||!empty)return;
@@ -51,40 +28,6 @@
       if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);
       showImage(imageUrl());
     }catch(error){alert(error.message);if(label)label.textContent=old}finally{if(input){input.disabled=false;input.value=""}}
-  }
-
-  if(logFrame){
-    new MutationObserver(()=>{
-      const src=logFrame.getAttribute("src")||"";
-      if(!src)return;
-      if(frameRoom()){uploaderRequested=false;showTopCover()}
-      else if(!uploaderRequested)showTopCover();
-    }).observe(logFrame,{attributes:true,attributeFilter:["src"]});
-
-    addEventListener("message",event=>{
-      if(event.origin!==location.origin||event.source!==logFrame.contentWindow)return;
-      const message=event.data||{};if(message.type!=="jijinboard-log-ready")return;
-      const readyRoom=String(message.roomId||""),currentRoom=frameRoom();
-      if(readyRoom){
-        if(readyRoom===currentRoom){uploaderRequested=false;showPreparedLog()}
-        return;
-      }
-      if(uploaderRequested&&!currentRoom)showPreparedLog();
-      else showTopCover();
-    });
-
-    document.addEventListener("click",event=>{
-      if(event.target.closest("#addLogButton")){
-        uploaderRequested=true;
-        queueMicrotask(showTopCover);
-        return;
-      }
-      if(event.target.closest('[data-tool="log"]')){
-        queueMicrotask(()=>{if(!frameRoom()&&!uploaderRequested)showTopCover()});
-      }
-    });
-
-    queueMicrotask(prewarmLogShell);
   }
 
   const upload=$("#boardHomeUpload"),input=$("#boardHomeInput");
