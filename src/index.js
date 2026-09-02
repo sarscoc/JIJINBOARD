@@ -19,6 +19,7 @@ import { handleRoomLogMeta } from './room-log-meta.js';
 import { handleRoomParticipants } from './room-participants.js';
 import { handleRoomDelete } from './room-delete.js';
 import { handleTopAuthApi,serveProtectedTop } from './top-auth.js';
+import { handleBoardHomeImage } from './board-home-image.js';
 
 export { RoomHub };
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -92,6 +93,8 @@ export default{
     const boardRealtime=url.pathname.match(/^\/api\/boards\/([^/]+)\/realtime$/);
     if(boardRealtime){if(request.method!=='GET'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'WebSocket接続が必要です'},426);const roomId=decodeURIComponent(boardRealtime[1]);if(!await env.DB.prepare('SELECT room_id FROM room WHERE room_id=?').bind(roomId).first())return json({error:'自陣が見つかりません'},404);return env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch(new Request(new URL('/realtime',request.url),request))}
 
+    const boardHomeImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/home-image$/);
+    if(boardHomeImage)return handleBoardHomeImage(request,env,decodeURIComponent(boardHomeImage[1]));
     const boardRoot=url.pathname.match(/^\/api\/boards\/([^/]+)$/);
     if(boardRoot&&request.method==='GET')return handleRoomLogMeta(request,env,decodeURIComponent(boardRoot[1]));
     if(boardRoot&&request.method==='DELETE')return handleRoomDelete(request,env,decodeURIComponent(boardRoot[1]),executionContext);
