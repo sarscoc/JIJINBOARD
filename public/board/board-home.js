@@ -3,7 +3,6 @@
   const params=new URL(location.href).searchParams,boardId=params.get("id")||"";
   if(!boardId)return;
   const $=selector=>document.querySelector(selector);
-  const adminToken=()=>localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||"";
   const imageUrl=()=>`/api/boards/${encodeURIComponent(boardId)}/home-image?v=${Date.now()}`;
 
   function showImage(src){
@@ -12,7 +11,6 @@
     image.onload=()=>{image.classList.remove("hidden");empty.classList.add("hidden");if(label)label.textContent="スクショを変更"};
     image.onerror=()=>{image.classList.add("hidden");empty.classList.remove("hidden");if(label)label.textContent="スクショを設定"};
   }
-  function syncOwner(){const upload=$("#boardHomeUpload");if(upload)upload.classList.toggle("hidden",!adminToken())}
 
   async function resizeScreenshot(file){
     const bitmap=await createImageBitmap(file),max=2560,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement("canvas");
@@ -26,13 +24,14 @@
     const label=$("#boardHomeUploadLabel"),input=$("#boardHomeInput"),old=label?.textContent||"スクショを設定";
     try{
       if(label)label.textContent="保存中…";if(input)input.disabled=true;
-      const blob=await resizeScreenshot(file),response=await fetch(`/api/boards/${encodeURIComponent(boardId)}/home-image`,{method:"POST",headers:{"content-type":blob.type||"image/webp","x-board-admin-token":adminToken()},body:blob}),body=await response.json().catch(()=>({}));
+      const blob=await resizeScreenshot(file),response=await fetch(`/api/boards/${encodeURIComponent(boardId)}/home-image`,{method:"POST",headers:{"content-type":blob.type||"image/webp"},body:blob}),body=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);
       showImage(imageUrl());
     }catch(error){alert(error.message);if(label)label.textContent=old}finally{if(input){input.disabled=false;input.value=""}}
   }
 
-  const input=$("#boardHomeInput");if(input)input.addEventListener("change",event=>uploadScreenshot(event.target.files?.[0]));
-  syncOwner();showImage(imageUrl());
-  addEventListener("storage",syncOwner);
+  const upload=$("#boardHomeUpload"),input=$("#boardHomeInput");
+  upload?.classList.remove("hidden");
+  input?.addEventListener("change",event=>uploadScreenshot(event.target.files?.[0]));
+  showImage(imageUrl());
 })();
