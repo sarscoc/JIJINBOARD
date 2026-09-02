@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,noarchive">
   <title>JIJINBOARD</title>
-  <link rel="stylesheet" href="board.css">
+  <link rel="stylesheet" href="board.css?v=20260902-1">
   <link rel="stylesheet" href="board-extra.css">
   <link rel="stylesheet" href="participant.css?v=20260830-5">
   <link rel="stylesheet" href="theme-settings-compact.css?v=20260830-2">
@@ -86,11 +86,16 @@
     <aside id="logSidebar" class="log-sidebar">
       <div class="log-list-head"><span>LOGS</span><button id="addLogButton" class="hidden" type="button">＋</button></div>
       <div id="logList" class="log-list"></div>
-      <p id="emptyLogs" class="empty-note">まだログはありません。</p>
-      <button id="uploadLogButton" class="upload-log hidden" type="button">＋ HTMLログを追加</button>
+      <p id="emptyLogs" class="empty-note hidden">まだログはありません。</p>
     </aside>
     <main class="tool-stage">
-      <section id="welcome" class="welcome"><p>左の一覧からログを選択してください。</p></section>
+      <section id="welcome" class="welcome board-home">
+        <div class="board-home-shell">
+          <img id="boardHomeImage" class="board-home-image hidden" alt="部屋のトップ画像">
+          <div id="boardHomeEmpty" class="board-home-empty"><strong>JIJINBOARD</strong></div>
+          <label id="boardHomeUpload" class="board-home-upload hidden"><span id="boardHomeUploadLabel">スクショを設定</span><input id="boardHomeInput" type="file" accept="image/*"></label>
+        </div>
+      </section>
       <iframe id="logFrame" class="tool-frame hidden" title="LOGCOMMENTS"></iframe>
       <iframe id="matrixFrame" class="tool-frame hidden" title="MAGIA MATRIX"></iframe>
       <iframe id="spreadsheetFrame" class="tool-frame hidden" title="SPREADSHEET" style="visibility:hidden"></iframe>
@@ -109,7 +114,8 @@
       if(empty)empty.textContent="ページを再読み込みしてください。";
     }
   </script>
-  <script src="board2.js?v=20260830-7" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board2.js?v=20260902-1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board-home.js?v=20260902-1"></script>
   <script src="board-profile-overlay.js?v=20260830-1"></script>
   <script src="matrix-icon-bridge.js?v=20260829-2"></script>
   <script src="board-spoiler-preview.js?v=20260829-2"></script>
