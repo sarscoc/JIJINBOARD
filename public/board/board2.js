@@ -1,7 +1,7 @@
 "use strict";
 
 const $=selector=>document.querySelector(selector),params=new URL(location.href).searchParams,boardId=params.get("id");
-const state={board:null,tool:"log",activeRoom:params.get("room")||"",pendingRoom:"",editingRoom:"",summaries:{},opened:{},profile:null};
+const state={board:null,tool:"log",activeRoom:"",pendingRoom:"",editingRoom:"",summaries:{},opened:{},profile:null};
 
 function esc(value=""){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 async function api(path,options={}){const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body}
@@ -87,12 +87,12 @@ async function syncParticipants(profile,roomId){
   await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}/participants`,{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas})});
   localStorage.setItem(key,signature);state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);renderLogs();if(state.tool==="matrix")$("#matrixFrame").contentWindow?.postMessage({type:"jijinboard-active-room",roomId},location.origin)
 }
-async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{state.opened=loadOpened();state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);$("#boardName").textContent=state.board.name;document.title=`${state.board.name} | JIJINBOARD`;const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);$("#uploadLogButton").classList.toggle("hidden",!owner);renderLogs();if(state.activeRoom&&state.board.logs.some(item=>item.roomId===state.activeRoom))requestOpen(state.activeRoom);else if(state.board.logs?.length===1)requestOpen(state.board.logs[0].roomId)}catch(error){document.body.innerHTML=`<p style="padding:30px">${esc(error.message)}</p>`}}
+async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{state.opened=loadOpened();state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);$("#boardName").textContent=state.board.name;document.title=`${state.board.name} | JIJINBOARD`;const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);renderLogs();const url=new URL(location.href);if(url.searchParams.has("room")){url.searchParams.delete("room");history.replaceState(null,"",url.pathname+url.search)}}catch(error){document.body.innerHTML=`<p style="padding:30px">${esc(error.message)}</p>`}}
 
 document.querySelectorAll("[data-tool]").forEach(button=>button.onclick=()=>selectTool(button.dataset.tool));
 $("#confirmOpen").onclick=async()=>{const room=state.pendingRoom,title=$("#spoilerTitle").textContent;closeSpoiler();if(room)await openLog(room,title)};
 function showUploader(){closeSpoiler();$("#welcome").classList.add("hidden");const frame=$("#logFrame");setLogActive(frame,false);delete frame.dataset.room;setToolFrameLoading(frame);frame.src=`/log/?embedded=1&board=${encodeURIComponent(boardId)}`;selectTool("log")}
-$("#addLogButton").onclick=showUploader;$("#uploadLogButton").onclick=showUploader;
+$("#addLogButton").onclick=showUploader;
 $("#closeLogEdit").onclick=()=>$("#logEditDialog").close();$("#logEditForm").onsubmit=saveLogEdit;$("#deleteLogButton").onclick=removeLog;
 $("#shareBoard").onclick=async()=>{await navigator.clipboard.writeText(`${location.origin}/board/?id=${encodeURIComponent(boardId)}`);const old=$("#shareBoard").textContent;$("#shareBoard").textContent="コピー済";setTimeout(()=>$("#shareBoard").textContent=old,1400)};
 $("#profileButton").onclick=()=>$("#logFrame").contentWindow?.postMessage({type:"jijinboard-open-profile"},location.origin);
