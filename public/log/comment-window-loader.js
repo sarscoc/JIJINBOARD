@@ -29,15 +29,21 @@
 
     function activePanel(){return document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`)||document.querySelector('.log-page')}
     function visibleWindowIds(){
-      const panel=activePanel(),nodes=[...(panel?.querySelectorAll?.('.log-message[data-message]')||[])];
+      const panel=activePanel(),scroll=panel?.querySelector?.('.page-scroll'),nodes=[...(panel?.querySelectorAll?.('.log-message[data-message]')||[])];
       if(!nodes.length)return[];
-      const rendered=nodes.map(node=>node.dataset.message).filter(Boolean),first=rendered[0],last=rendered[rendered.length-1];
+      let focus=nodes;
+      if(scroll){
+        const box=scroll.getBoundingClientRect(),buffer=Math.max(120,box.height*.5);
+        const near=nodes.filter(node=>{const r=node.getBoundingClientRect();return r.bottom>=box.top-buffer&&r.top<=box.bottom+buffer});
+        if(near.length)focus=near;
+      }
+      const rendered=focus.map(node=>node.dataset.message).filter(Boolean),first=rendered[0],last=rendered[rendered.length-1];
       const firstMessage=state.room.messages.find(m=>m.id===first),tab=firstMessage?.tab||'';
       const tabMessages=state.room.messages.filter(m=>!tab||m.tab===tab),index=new Map(tabMessages.map((m,i)=>[m.id,i]));
       let lo=index.get(first),hi=index.get(last);
       if(lo===undefined||hi===undefined)return rendered.slice(0,80);
       if(lo>hi)[lo,hi]=[hi,lo];
-      lo=Math.max(0,lo-18);hi=Math.min(tabMessages.length-1,hi+28);
+      lo=Math.max(0,lo-14);hi=Math.min(tabMessages.length-1,hi+22);
       return tabMessages.slice(lo,hi+1).map(m=>m.id).slice(0,80);
     }
 
