@@ -206,6 +206,42 @@
     if(active)queueHelpers();
   }
 
+  function emptyRoomState(){
+    const current=typeof appState==="function"?appState():{};
+    const display=current?.display&&typeof current.display==="object"?{...current.display}:{};
+    return {items:{},display};
+  }
+
+  function normalizedRoomState(remoteState){
+    if(remoteState&&typeof remoteState==="object"&&!Array.isArray(remoteState)&&Object.keys(remoteState).length)return remoteState;
+    return emptyRoomState();
+  }
+
+  function rebindLiveItems(state){
+    if(typeof items==="undefined"||!Array.isArray(items))return;
+    const stateItems=state?.items&&typeof state.items==="object"?state.items:{};
+    for(const entry of items){
+      if(!entry?.id)continue;
+      entry.local=stateItems[entry.id]||(typeof makeLocalItemState==="function"?makeLocalItemState(entry.id):{});
+    }
+  }
+
+  function redrawMatrix(state=appState(),afterLayout=false){
+    rebindLiveItems(state);
+    try{restoreDisplay()}catch(error){console.warn("MATRIX display restore failed",error)}
+    try{restorePaneWidth()}catch(error){console.warn("MATRIX pane restore failed",error)}
+    try{renderLibrary()}catch(error){console.warn("MATRIX library render failed",error)}
+    try{renderPlaced()}catch(error){console.warn("MATRIX placement render failed",error)}
+    if(!afterLayout)return;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(!active)return;
+      const liveState=appState();
+      rebindLiveItems(liveState);
+      try{renderLibrary()}catch{}
+      try{renderPlaced()}catch{}
+    }));
+  }
+
   async function loadRoom(nextRoom){
     loadRequested=true;
     const seq=++loadSeq;
@@ -216,6 +252,12 @@
     if(roomId!==previousRoom){
       disconnectRealtimeEvents();
       dirtyState=dirtyParticipants=dirtyComments=false;
+      applyingRemote=true;
+      try{
+        const blank=emptyRoomState();
+        saveState(blank);
+        redrawMatrix(blank,false);
+      }finally{applyingRemote=false}
       window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
     }
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
@@ -224,13 +266,9 @@
       if(seq!==loadSeq)return;
       applyingRemote=true;
       try{
-        if(matrix.state&&Object.keys(matrix.state).length){
-          saveState(matrix.state);
-          restoreDisplay();
-          restorePaneWidth();
-          renderLibrary();
-          renderPlaced();
-        }
+        const roomState=normalizedRoomState(matrix.state);
+        saveState(roomState);
+        redrawMatrix(roomState,active);
         lastState=JSON.stringify(matrix.state||{});
         fullStateDirty=false;
         loadedRoom=roomId;
@@ -373,6 +411,7 @@
       else{
         connectRealtimeEvents();
         if(dirtyState)loadRoom(roomId).catch(console.warn);
+        else redrawMatrix(appState(),true);
         if(dirtyParticipants){dirtyParticipants=false;window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}))}
         if(dirtyComments){dirtyComments=false;window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-change"}}))}
       }
