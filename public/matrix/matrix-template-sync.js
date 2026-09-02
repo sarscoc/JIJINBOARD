@@ -5,7 +5,7 @@
   if(!boardId)return;
 
   let lastLogId=params.get("room")||"";
-  let applying=false,hydrated=false,hydratePromise=null,hydrateSeq=0,rehydrateQueued=false;
+  let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
   const saveTimers=new Map();
 
   const waitForGlobals=async()=>{
@@ -90,9 +90,9 @@
 
     // MATRIXをLOGより先に開いた場合は room が後から届く。
     // その時点で一度サーバーを正として同期してから保存する。
-    if(!hydrated){
+    if(!hydrated||hydratedLogId!==logId){
       await hydrate(logId);
-      if(!hydrated)return;
+      if(!hydrated||hydratedLogId!==logId)return;
     }
 
     try{
@@ -188,23 +188,26 @@
   async function hydrate(logId=currentLogId()){
     const target=String(logId||"");
     if(!target)return false;
+    if(hydrated&&hydratedLogId===target&&!hydratePromise)return true;
     if(hydratePromise){
       rehydrateQueued=true;
+      if(target!==hydratingLogId)hydrateSeq++;
       return hydratePromise;
     }
 
     const seq=++hydrateSeq;
+    hydratingLogId=target;
     const task=(async()=>{
       try{
         const result=await api(endpoint(target,""));
-        if(seq!==hydrateSeq)return false;
+        if(seq!==hydrateSeq||target!==currentLogId())return false;
         const remote=Array.isArray(result?.templates)?result.templates:[];
 
         // IndexedDB のテンプレキャッシュは board/room で自動分離されないため、
         // サーバーに存在しない古いレコードを残すと別自陣のテンプレが混ざる。
         // JIJINBOARD ではサーバーを正としてローカルキャッシュを揃える。
         const unsynced=await pruneLocalTemplates(remote);
-        if(seq!==hydrateSeq)return false;
+        if(seq!==hydrateSeq||target!==currentLogId())return false;
 
         try{
           await window.renderTemplateTabs?.();
@@ -216,6 +219,7 @@
           console.warn("MATRIX template redraw failed",error);
         }
         hydrated=true;
+        hydratedLogId=target;
         // 以前の不具合でサーバーへ届かなかった作業だけ、同期準備後に救済保存する。
         for(const item of unsynced){
           const id=String(item.record?.id||"");
@@ -232,7 +236,7 @@
     try{
       return await task;
     }finally{
-      if(hydratePromise===task)hydratePromise=null;
+      if(hydratePromise===task){hydratePromise=null;hydratingLogId=""}
       if(rehydrateQueued){
         rehydrateQueued=false;
         const next=currentLogId();
@@ -279,13 +283,18 @@
 
   window.addEventListener("matrix-board-room",event=>{
     const next=String(event.detail?.roomId||"");
-    if(next)lastLogId=next;
-    if(next&&!hydrated)hydrate(next).catch(()=>{});
+    if(!next)return;
+    lastLogId=next;
+    if(hydratedLogId!==next){
+      hydrated=false;
+      hydratedLogId="";
+    }
+    hydrate(next).catch(()=>{});
   });
 
   window.addEventListener("matrix-board-active",()=>{
     const logId=currentLogId();
-    if(logId&&!hydrated)hydrate(logId).catch(()=>{});
+    if(logId&&(!hydrated||hydratedLogId!==logId))hydrate(logId).catch(()=>{});
     requestAnimationFrame(()=>requestAnimationFrame(()=>{
       rebindItemsForRender();
       try{renderLibrary()}catch{}
@@ -296,6 +305,7 @@
   window.addEventListener("matrix-board-comments-changed",event=>{
     if(event.detail?.action==="matrix-template-state"){
       hydrated=false;
+      hydratedLogId="";
       hydrate(currentLogId()).catch(()=>{});
     }
   });
