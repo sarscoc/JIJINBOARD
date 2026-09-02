@@ -12,6 +12,7 @@ import { handleSpreadsheetComments } from "./spreadsheet-comments.js";
 import { handleLogDisplayMode } from "./log-display-mode.js";
 import { handleBoardParticipants } from "./board-participants.js";
 import { handleTopAuthApi, serveProtectedTop } from "./top-auth.js";
+import { handleBoardHomeImage } from "./board-home-image.js";
 
 export { RoomHub };
 
@@ -178,6 +179,11 @@ export default {
       if(!board)return json({error:"自陣が見つかりません"},404);
       const id=env.ROOMS.idFromName(`board:${boardId}`);
       return env.ROOMS.get(id).fetch(request);
+    }
+
+    const boardHomeImageMatch=url.pathname.match(/^\/api\/boards\/([^/]+)\/home-image$/);
+    if(boardHomeImageMatch){
+      return handleBoardHomeImage(request,env,decodeURIComponent(boardHomeImageMatch[1]));
     }
 
     const boardReadMatch=url.pathname.match(/^\/api\/boards\/([^/]+)$/);
