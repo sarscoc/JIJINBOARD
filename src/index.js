@@ -9,6 +9,7 @@ import { handleMatrixPoint } from './matrix-point.js';
 import { handleMatrixState } from './matrix-state.js';
 import { createStreamRoom,handleLogStream,prepareStreamRoomDelete } from './log-stream.js';
 import { handleLogCommentMutation } from './log-comments-fast.js';
+import { handleLogCommentWindow } from './log-comments-window.js';
 import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
 import { handleSpreadsheetComments } from './spreadsheet-comments.js';
@@ -31,6 +32,7 @@ async function serveAsset(request,env,url){
     if(type.includes('text/html')){
       const html=(await response.text())
         .replace('log-room-cache-preload.js?v=20260831-fast1','log-room-cache-preload.js?v=20260901-simple1')
+        .replace('<script src="app.js"></script>','<script src="/log/comment-window-loader.js?v=20260902-1"></script><script src="app.js"></script>')
         .replace('../shared/player-master.js?v=20260830-4','../shared/player-master.js?v=20260901-idle1')
         .replace('embedded-ready.js?v=20260829-1','embedded-ready.js?v=20260901-simple1')
         .replace('</body>','<script src="/log/comment-incremental-sync.js?v=20260831-1"></script></body>');
@@ -84,6 +86,8 @@ export default{
     const direct=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
     if(direct&&request.method==='GET'&&url.searchParams.get('summary')!=='1')return handleLogStream(request,env,decodeURIComponent(direct[1]),'full','',executionContext);
     if(direct&&request.method==='DELETE'){const prepared=await prepareStreamRoomDelete(request,env,decodeURIComponent(direct[1]));if(prepared)return prepared}
+    const logCommentWindow=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations-window$/);
+    if(logCommentWindow&&request.method==='GET')return handleLogCommentWindow(request,env,decodeURIComponent(logCommentWindow[1]));
     const logComment=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations(?:\/([^/]+))?(?:\/([^/]+))?$/);
     if(logComment&&request.method!=='GET'){
       const handled=await handleLogCommentMutation(request,env,decodeURIComponent(logComment[1]),logComment[2]?decodeURIComponent(logComment[2]):'',logComment[3]?decodeURIComponent(logComment[3]):'',executionContext);
