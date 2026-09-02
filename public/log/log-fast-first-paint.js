@@ -73,23 +73,6 @@
     };
   }
 
-  function refreshVisibleMarkers(){
-    if(!state.room)return;
-    ensureIndexes();
-    const grouped=groupAnnotations();
-    document.querySelectorAll("#logPane .log-message[data-message]").forEach(node=>{
-      const id=node.dataset.message,index=messageIndex.get(id),message=index==null?null:state.room.messages[index];
-      if(!message)return;
-      const annotations=grouped[id]||[],text=node.querySelector(".message-text");
-      if(text)text.innerHTML=markedText(message,annotations);
-      let count=node.querySelector(".annotation-count");
-      if(annotations.length){
-        if(!count){count=document.createElement("button");count.className="annotation-count";count.dataset.messageComments=id;node.appendChild(count)}
-        count.textContent=String(annotations.length);
-      }else count?.remove();
-    });
-  }
-
   function applyInitialAnnotations(payload){
     if(!payload?.data||payload.roomId!==state.roomId)return;
     const data=payload.data;
@@ -99,7 +82,7 @@
     state.annotations=data.annotations||[];
     state.annotationVersion=Number(data.version)||0;
     if(state.room)renderComments();
-    if(markersChanged&&state.room&&document.querySelector("#logPane .log-page"))refreshVisibleMarkers();
+    if(markersChanged&&state.room&&document.querySelector("#logPane .log-page"))renderLog(currentReadingTime());
   }
 
   window.addEventListener("jijinboard-initial-annotations",event=>applyInitialAnnotations(event.detail));
