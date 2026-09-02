@@ -30,8 +30,47 @@
     }catch(error){alert(error.message);if(label)label.textContent=old}finally{if(input){input.disabled=false;input.value=""}}
   }
 
+  function installLogTransitionGuard(){
+    const frame=$("#logFrame"),welcome=$("#welcome");
+    if(!frame||!welcome||typeof setToolFrameLoading!=="function"||typeof setToolFrameReady!=="function"||typeof selectTool!=="function")return;
+
+    const rawLoading=setToolFrameLoading,rawReady=setToolFrameReady,rawSelect=selectTool;
+    const keepTop=()=>{frame.style.visibility="hidden";frame.classList.add("hidden");welcome.classList.remove("hidden")};
+    const reveal=()=>{frame.style.visibility="";frame.classList.remove("hidden");welcome.classList.add("hidden")};
+    const frameMatches=()=>{
+      const expected=frame.dataset.room||"";
+      try{return (new URL(frame.contentWindow.location.href).searchParams.get("room")||"")===expected}catch{return true}
+    };
+
+    setToolFrameLoading=function(target){
+      rawLoading(target);
+      if(target===frame)keepTop();
+    };
+    setToolFrameReady=function(target){
+      rawReady(target);
+      if(target!==frame)return;
+      keepTop();
+      requestAnimationFrame(()=>requestAnimationFrame(()=>{
+        if(target.dataset.ready!=="1"||state.tool!=="log"||!frameMatches())return;
+        reveal();
+      }));
+    };
+    selectTool=function(tool){
+      rawSelect(tool);
+      if(tool==="log"&&frame.getAttribute("src")&&frame.dataset.ready!=="1")keepTop();
+    };
+
+    const warm=()=>{
+      for(const href of ["/log/style.css","/log/profile-compact.css?v=20260829-3","/log/embedded-layout.css?v=20260830-3"]){
+        const link=document.createElement("link");link.rel="prefetch";link.as="style";link.href=href;document.head.appendChild(link);
+      }
+    };
+    (window.requestIdleCallback||((callback)=>setTimeout(callback,250)))(warm);
+  }
+
   const upload=$("#boardHomeUpload"),input=$("#boardHomeInput");
   upload?.classList.remove("hidden");
   input?.addEventListener("change",event=>uploadScreenshot(event.target.files?.[0]));
   showImage(imageUrl());
+  installLogTransitionGuard();
 })();
