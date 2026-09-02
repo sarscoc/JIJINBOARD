@@ -1,0 +1,2 @@
+JIJINBOARD production deploy probe 2026-09-02
+If you can read this on workers.dev, the latest main static assets are live.
