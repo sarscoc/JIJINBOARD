@@ -307,7 +307,7 @@
       ctx.drawImage(bitmap,0,0,w,h);
       const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",QUALITY));
       if(!blob)return file;
-      const name=(String(file.name||"template").replace(/\.[^.]+$/,"||")||"template")+".webp";
+      const name=(String(file.name||"template").replace(/\.[^.]+$/,"")||"template")+".webp";
       return new File([blob],name,{type:"image/webp",lastModified:file.lastModified||Date.now()});
     }catch{
       return file;
