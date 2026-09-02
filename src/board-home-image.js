@@ -4,7 +4,7 @@ const allowedTypes=new Set(["image/webp","image/png","image/jpeg","image/gif"]);
 
 export async function handleBoardHomeImage(request,env,boardId){
   if(!env.DB||!env.LOGS)return json({error:"保存先が接続されていません"},503);
-  const board=await env.DB.prepare("SELECT admin_token FROM boards WHERE id=?").bind(boardId).first();
+  const board=await env.DB.prepare("SELECT id FROM boards WHERE id=?").bind(boardId).first();
   if(!board)return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
 
   if(request.method==="GET"||request.method==="HEAD"){
@@ -18,15 +18,6 @@ export async function handleBoardHomeImage(request,env,boardId){
     return new Response(request.method==="HEAD"?null:object.body,{status:200,headers});
   }
 
-  if(request.headers.get("x-board-admin-token")!==board.admin_token){
-    return json({error:"トップ画像を変更できるのは部屋主だけです"},403);
-  }
-
-  if(request.method==="DELETE"){
-    await env.LOGS.delete(imageKey(boardId));
-    return json({ok:true});
-  }
-
   if(request.method==="POST"){
     const contentType=String(request.headers.get("content-type")||"").split(";",1)[0].trim().toLowerCase();
     if(!allowedTypes.has(contentType))return json({error:"PNG / JPEG / WebP / GIF画像を選択してください"},415);
@@ -37,5 +28,5 @@ export async function handleBoardHomeImage(request,env,boardId){
     return json({ok:true});
   }
 
-  return new Response("Method not allowed",{status:405,headers:{allow:"GET, HEAD, POST, DELETE"}});
+  return new Response("Method not allowed",{status:405,headers:{allow:"GET, HEAD, POST"}});
 }
