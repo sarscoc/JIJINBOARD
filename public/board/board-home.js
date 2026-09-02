@@ -79,7 +79,15 @@
   }
 
   const upload=$("#boardHomeUpload"),input=$("#boardHomeInput");
-  upload?.classList.remove("hidden");
+  if(upload){
+    upload.classList.remove("hidden");
+    upload.style.position="fixed";
+    upload.style.right="14px";
+    upload.style.bottom="14px";
+    upload.style.padding="4px 7px";
+    upload.style.fontSize="8px";
+    upload.style.zIndex="20";
+  }
   input?.addEventListener("change",event=>uploadScreenshot(event.target.files?.[0]));
   showImage(imageUrl());
   installLogTransitionGuard();
