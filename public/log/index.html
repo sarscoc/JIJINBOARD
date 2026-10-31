@@ -36,6 +36,9 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
   <link rel="stylesheet" href="embedded-layout.css?v=20260830-3">
   <script>(function(){const p=new URL(location.href).searchParams;if(p.get("embedded")==="1")document.documentElement.classList.add("embedded");if(p.get("room"))document.documentElement.classList.add("existing-log")})()</script>
   <style>html.existing-log #homeView{display:none!important}html.existing-log #roomView.hidden{display:block!important}</style>
+<script>
+(()=>{if(parent===window)return;try{parent.JIJINBOARD_APPLY_FRAME_THEME?.(document,"log")}catch{}})();
+</script>
 </head>
 <body>
   <header class="topbar">

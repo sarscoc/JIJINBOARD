@@ -84,6 +84,10 @@
   `}
 
   function styleIn(doc,id,css){if(!doc?.head)return;let style=doc.getElementById(id);if(!style){style=doc.createElement("style");style.id=id;doc.head.append(style)}if(style.textContent!==css)style.textContent=css}
+  // Child heads call this synchronously, before their first paint.
+  window.JIJINBOARD_APPLY_FRAME_THEME=(doc,scope)=>{
+    styleIn(doc,"jijinboardScopedThemeStyle",scope==="log"?logCss(theme):scope==="matrix"?matrixCss(theme):sheetCss(theme));
+  };
   function applyToFrame(frame,scope){try{const doc=frame?.contentDocument;if(!doc?.head)return;styleIn(doc,"jijinboardScopedThemeStyle",scope==="log"?logCss(theme):scope==="matrix"?matrixCss(theme):sheetCss(theme))}catch{}}
   function applyAll(){styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));applyToFrame(document.getElementById("logFrame"),"log");applyToFrame(document.getElementById("matrixFrame"),"matrix");applyToFrame(document.getElementById("spreadsheetFrame"),"sheet")}
   for(const [id,scope] of [["logFrame","log"],["matrixFrame","matrix"],["spreadsheetFrame","sheet"]])document.getElementById(id)?.addEventListener("load",()=>applyToFrame(document.getElementById(id),scope));

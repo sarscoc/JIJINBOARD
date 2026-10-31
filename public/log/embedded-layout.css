@@ -188,5 +188,5 @@ html.embedded #themeBtn{display:none!important}
 }
 
 /* Stable log background from first paint; only dark mode changes it. */
-html.embedded,html.embedded body{background:#fff!important;background-image:none!important;transition:none!important}
+html.embedded,html.embedded body{background:transparent!important;background-image:none!important;transition:none!important}
 html.embedded.dark,html.embedded.dark body{background:#424242!important;background-image:none!important}
