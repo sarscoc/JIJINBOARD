@@ -42,8 +42,8 @@
     html.embedded .comments-head{color:${value.color1}!important}
     html.embedded .filters input::placeholder{color:${uiInk}!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
-    html.embedded .log-pane,html.embedded .comments-pane{background:color-mix(in srgb,var(--paper) 85%,transparent)!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
-    html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:rgba(53,53,53,.85)!important}
+    html.embedded .log-pane,html.embedded .comments-pane{background:#fff!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
+    html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:#353535!important}
     html.embedded .comments-pane:has(.comments-list>.empty){height:160px!important;min-height:160px!important;max-height:160px!important;align-self:start!important}
     html.embedded .cylinder-nav,html.embedded .page-title,html.embedded .tab-navigation,html.embedded .comments-head,html.embedded .comments-list{background:transparent!important;${noBlur}}
     html.embedded .comment-card{background:var(--paper)!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}

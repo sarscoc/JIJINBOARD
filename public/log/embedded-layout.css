@@ -190,3 +190,9 @@ html.embedded #themeBtn{display:none!important}
 /* Stable log background from first paint; only dark mode changes it. */
 html.embedded,html.embedded body{background:transparent!important;background-image:none!important;transition:none!important}
 html.embedded.dark,html.embedded.dark body{background:#424242!important;background-image:none!important}
+
+/* Paint the final chat surface immediately, before parent load handlers. */
+html.embedded{--shadow:none!important}
+html.embedded body,html.embedded body *{box-shadow:none!important}
+html.embedded .log-pane,html.embedded .comments-pane{background:#fff!important;border-color:#e2e7ed!important;transition:none!important;animation:none!important;backdrop-filter:none!important}
+html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:#353535!important;border-color:#5b5b5b!important}
