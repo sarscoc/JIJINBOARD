@@ -49,7 +49,7 @@
     d=document.createElement("dialog");
     d.id="matrixIconCommentDialog";
     d.dataset.logcommentsInput="1";
-    d.innerHTML='<form class="matrix-comment-log-form"><div class="comment-persona-picker"><span class="matrix-comment-input-avatar comment-input-avatar"></span><select id="matrixCommentPersona" aria-label="発言者"></select></div><textarea id="matrixCommentBody" rows="5" maxlength="4000" aria-label="感想"></textarea><p id="matrixCommentStatus" role="status" aria-live="polite"></p><button id="matrixCommentDelete" class="comment-edit-delete" type="button" hidden>このコメントを削除</button></form>';
+    d.innerHTML='<form class="matrix-comment-log-form"><div class="comment-persona-picker"><span class="matrix-comment-input-avatar comment-input-avatar"></span><select id="matrixCommentPersona" aria-label="発言者"></select></div><textarea id="matrixCommentBody" rows="3" maxlength="4000" aria-label="感想"></textarea><p id="matrixCommentStatus" role="status" aria-live="polite"></p><button id="matrixCommentDelete" class="comment-edit-delete" type="button" hidden>このコメントを削除</button></form>';
     document.body.append(d);
     d.querySelector("form").addEventListener("submit",post);
     d.querySelector("#matrixCommentDelete").addEventListener("click",remove);
@@ -178,7 +178,7 @@
     if(!body)return;
     if(!c||!commentRoom()||!p?.id||!person){alert("発言者情報を確認してください。");return;}
     posting=true;d.dataset.submitting="1";
-    const status=d.querySelector("#matrixCommentStatus");status.textContent="保存中…";
+    const status=d.querySelector("#matrixCommentStatus");status.textContent="";
     try{
       if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
       else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});

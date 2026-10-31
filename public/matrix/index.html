@@ -4022,17 +4022,8 @@ async function restoreTemplate(){
   let id=currentTemplateId();
   let rec=id?await tplGetRecord(id):null;
 
-  // Recover from old blank/dummy current records without deleting them.
-  if(!isMeaningful(rec)){
-    const real=recs.find(isMeaningful)||null;
-    if(real){
-      rec=real;
-      id=real.id;
-      localStorage.setItem(TEMPLATE_CURRENT,id);
-    }else if(!rec){
-      localStorage.removeItem(TEMPLATE_CURRENT);
-    }
-  }
+  // Restore only the selected record; never replace it with an unrelated template.
+  if(id&&!rec)localStorage.removeItem(TEMPLATE_CURRENT);
 
   if(rec){
     showTemplateRecord(rec);

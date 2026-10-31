@@ -5,7 +5,7 @@
   if(!boardId)return;
 
   let lastLogId=params.get("room")||"";
-  let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false,blankLogId="";
+  let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
   const saveTimers=new Map();
 
   const waitForGlobals=async()=>{
@@ -59,23 +59,6 @@
     const wrappedRenderPlaced=function(...args){rebindItemsForRender();return rawRenderPlaced.apply(this,args)};
     wrappedRenderPlaced.__jijinStateBound=true;
     renderPlaced=wrappedRenderPlaced;
-  }
-
-  function showBlankTemplate(logId){
-    blankLogId=logId;
-    try{localStorage.removeItem("magiaMatrix.currentTemplate.v1")}catch{}
-    try{window.showTemplateRecord?.(null)}catch{}
-    try{
-      if(typeof appState==="function"&&typeof saveJSON==="function"&&typeof STATE!=="undefined"){
-        const state=appState();
-        state.items={};
-        saveJSON(STATE,state);
-      }
-    }catch{}
-    rebindItemsForRender();
-    try{window.renderTemplateTabs?.()}catch{}
-    try{window.renderLibrary?.()}catch{}
-    try{window.renderPlaced?.()}catch{}
   }
 
   if(!window.fetch.__jijinMatrixTemplateScoped){
@@ -133,7 +116,7 @@
   wrappedSet.__jijinTemplateRemoteSync=true;
   window.tplSetRecord=wrappedSet;
 
-  async function pruneLocalTemplates(remote){
+  async function pruneLocalTemplates(remote,syncStartedAt=Infinity){
     const remoteIds=new Set(remote.map(item=>String(item?.record?.id||"")).filter(Boolean));
     const local=await window.tplAllRecords(),previousStates=window.templateStates()||{},unsynced=[];
     applying=true;
@@ -153,6 +136,12 @@
       const states={};
       for(const item of remote){
         const rec=item?.record;if(!rec?.id)continue;
+        const localRecord=local.find(entry=>entry.id===rec.id);
+        if(localRecord&&Number(previousStates[rec.id]?.savedAt)>syncStartedAt){
+          states[rec.id]=previousStates[rec.id];
+          unsynced.push({record:localRecord,templateState:clone(previousStates[rec.id])});
+          continue;
+        }
         await rawSet(rec.id,rec);
         states[rec.id]=item?.templateState&&typeof item.templateState==="object"?item.templateState:{};
       }
@@ -170,17 +159,18 @@
     if(hydrated&&hydratedLogId===target&&!hydratePromise)return true;
     if(hydratePromise){rehydrateQueued=true;if(target!==hydratingLogId)hydrateSeq++;return hydratePromise}
     const seq=++hydrateSeq;hydratingLogId=target;
+    const syncStartedAt=Date.now();
     const task=(async()=>{
       try{
         const result=await api(endpoint(target,""));
         if(seq!==hydrateSeq||target!==currentLogId())return false;
         const remote=Array.isArray(result?.templates)?result.templates:[];
-        const unsynced=await pruneLocalTemplates(remote);
+        const unsynced=await pruneLocalTemplates(remote,syncStartedAt);
         if(seq!==hydrateSeq||target!==currentLogId())return false;
         try{
           await window.renderTemplateTabs?.();
-          if(blankLogId!==target)showBlankTemplate(target);
-          else await window.restoreTemplate?.();
+          const selected=String(window.currentTemplateId?.()||"");
+          if(selected)await window.restoreTemplate?.();
           rebindItemsForRender();
           window.renderLibrary?.();
           window.renderPlaced?.();

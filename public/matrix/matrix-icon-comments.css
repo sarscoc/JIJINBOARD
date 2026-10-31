@@ -294,3 +294,6 @@ html.embedded .library{
 
 #matrixIconCommentDialog #matrixCommentSubmit{justify-self:end;border:0;border-radius:8px;padding:7px 16px;background:var(--matrix-ink);color:#fff;font-size:12px;cursor:pointer}
 #matrixIconCommentDialog #matrixCommentSubmit:disabled{opacity:.5;cursor:wait}
+
+#matrixIconCommentDialog #matrixCommentStatus{margin:0;font-size:11px;line-height:1.4;color:#c44}
+#matrixIconCommentDialog #matrixCommentStatus:empty{display:none}
