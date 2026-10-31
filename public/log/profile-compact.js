@@ -32,6 +32,9 @@
     saved[id]={light,dark};
     try{localStorage.setItem(swatchKey(),JSON.stringify(saved))}catch{}
     saveProfile();
+    const name=id==="PL"?state.profile.plName:state.profile.personas.find(p=>p.id===id)?.name;
+    for(const a of state.annotations||[]){if(a.author_id===state.profile.id&&a.persona_name===name)a.color=`${light}|${dark}`}
+    recolorVisibleAnnotations();
   }
 
   function safeColor(value, fallback="#ffe66b") {
