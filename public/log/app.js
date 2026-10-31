@@ -167,13 +167,26 @@ function groupAnnotations() {
   state.annotations.forEach(a => { if(a.parent_id)return;const start=indexes.get(a.message_id), end=indexes.get(a.end_message_id || a.message_id); if(start==null)return; for(let i=start;i<=(end??start);i++)(map[state.room.messages[i].id] ||= []).push(a); });
   return map;
 }
+function annotationMarkerColor(annotation){
+  const current=state.annotations.find(item=>item.id===annotation.id)||annotation;
+  if(current.author_id===state.profile?.id){
+    try{
+      const board=new URL(location.href).searchParams.get("board")||"";
+      const choices=JSON.parse(localStorage.getItem(`jijinboardSelectedColors:${board}:${state.profile.id}`)||"{}");
+      const persona=state.profile.personas.find(p=>p.name===current.persona_name&&p.type===current.persona_type);
+      const pair=current.persona_type==="PL"?choices.PL:choices[persona?.id]||choices[`name:${current.persona_type}:${current.persona_name}`];
+      if(pair)return markerColor(`${pair.light}|${pair.dark}`);
+    }catch{}
+  }
+  return markerColor(current.color);
+}
 function markedText(message, anns) {
   if (!anns?.length) return esc(message.text);
   const indexes = new Map(state.room.messages.map((m,i)=>[m.id,i])), messageIndex=indexes.get(message.id);
   const ranges = [...anns].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(a => {
     const startIndex=indexes.get(a.message_id),endIndex=indexes.get(a.end_message_id||a.message_id)??startIndex;
     if(messageIndex<startIndex||messageIndex>endIndex)return null;
-    return {start:messageIndex===startIndex?Math.max(0,a.start_offset):0,end:messageIndex===endIndex?Math.min(message.text.length,a.end_offset):message.text.length,id:a.id,color:markerColor(a.color)};
+    return {start:messageIndex===startIndex?Math.max(0,a.start_offset):0,end:messageIndex===endIndex?Math.min(message.text.length,a.end_offset):message.text.length,id:a.id,color:annotationMarkerColor(a)};
   }).filter(r=>r&&r.end>r.start);
   const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
       const segments=[];

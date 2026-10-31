@@ -49,7 +49,7 @@
           start:current===startIndex?Math.max(0,annotation.start_offset):0,
           end:current===endIndex?Math.min(message.text.length,annotation.end_offset):message.text.length,
           id:annotation.id,
-          color:markerColor(annotation.color)
+          color:annotationMarkerColor(annotation)
         };
       }).filter(range=>range&&range.end>range.start);
       const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
