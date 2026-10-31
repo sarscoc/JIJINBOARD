@@ -63,7 +63,10 @@ export async function resolveCharacterIdentity(db,plId,personaName,personaType='
   let row=null;
   if(options.characterId)row=await db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(String(options.characterId).slice(0,120),plId).first();
   if(!row)row=await db.prepare('SELECT * FROM character WHERE pl_id=? AND character_type=? AND character_name=? ORDER BY updated_at DESC LIMIT 1').bind(plId,type==='NPC'?'NPC':'PC',name).first();
-  if(row)return row;
+  if(row){
+    await db.prepare("UPDATE character SET character_name=?,character_icon_key=CASE WHEN ?<>'' THEN ? ELSE character_icon_key END,updated_at=CURRENT_TIMESTAMP WHERE character_id=? AND pl_id=?").bind(name,String(options.iconKey||''),String(options.iconKey||''),row.character_id,plId).run();
+    return db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(row.character_id,plId).first();
+  }
   const id=String(options.characterId||`auto_${(await hashText(`${plId}\0${type}\0${name}`)).slice(0,40)}`).slice(0,120);
   await db.prepare('INSERT OR IGNORE INTO character(character_id,pl_id,character_type,character_name,character_color,character_color_dark,character_icon_key,matrix_icon_key) VALUES(?,?,?,?,?,?,?,?)').bind(id,plId,type==='NPC'?'NPC':'PC',name,String(options.color||'#ffe66b'),String(options.colorDark||options.color||'#ffe66b'),String(options.iconKey||''),String(options.matrixIconKey||'')).run();
   return db.prepare('SELECT * FROM character WHERE character_id=?').bind(id).first();

@@ -8,7 +8,7 @@
   const params = new URL(location.href).searchParams;
   const boardId = params.get("board") || "";
   let nameTimer = 0;
-  let syncing = false;
+  let syncing = false, syncQueued=false;
 
   const style = document.createElement("style");
   style.textContent = `
@@ -45,7 +45,7 @@
   }
 
   async function syncNow() {
-    if (syncing) return;
+    if (syncing) {syncQueued=true;return;}
     syncing = true;
     try {
       saveProfile();
@@ -61,6 +61,7 @@
       console.warn("Immediate persona sync failed", error);
     } finally {
       syncing = false;
+      if(syncQueued){syncQueued=false;syncNow();}
     }
   }
 

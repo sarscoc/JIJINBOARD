@@ -28,7 +28,7 @@
     });
     const personas=typeof state!=="undefined"?named(state.profile?.personas):[];
     const map=new Map();
-    for(const item of [...owned,...personas]){const data=charPayload(item),key=data.id||`${data.type}:${data.name}`;if(data.name&&!map.has(key))map.set(key,data)}
+    for(const item of [...personas,...owned]){const data=charPayload(item),key=data.id||`${data.type}:${data.name}`;if(data.name&&!map.has(key))map.set(key,data)}
     return [...map.values()];
   }
 
@@ -97,14 +97,20 @@
     }finally{hydratingRoom=""}
   }
 
-  async function pushCurrent(){
+  let pushRunning=null,pushQueued=false;
+  function pushCurrent(){
+    if(pushRunning){pushQueued=true;return pushRunning}
+    pushRunning=(async()=>{do{pushQueued=false;await pushSnapshot()}while(pushQueued)})().finally(()=>{pushRunning=null});
+    return pushRunning;
+  }
+  async function pushSnapshot(){
     if(applying)return;
     if(!master||!playerId||!token)await bootstrap();
     if(!master||!playerId||!token)return;
     const p=profile();if(!p)return;
     const roomChars=typeof state!=="undefined"?named(state.profile?.personas).map(charPayload):[];
     const candidates=localCandidates(),map=new Map();
-    for(const ch of [...candidates,...roomChars]){const key=String(ch.id||`${ch.type}:${ch.name}`);if(ch.name&&!map.has(key))map.set(key,ch)}
+    for(const ch of [...roomChars,...candidates]){const key=String(ch.id||`${ch.type}:${ch.name}`);if(ch.name&&!map.has(key))map.set(key,ch)}
     const chars=[...map.values()];
     try{
       const result=await api(`/api/player-master/?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
