@@ -45,6 +45,10 @@
     html.embedded .typing-comment>i{background:${value.color1}!important}
     html.embedded .filters input::placeholder{color:${uiInk}!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
+    html.embedded .font-size-control input::-webkit-slider-runnable-track{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important}
+    html.embedded .font-size-control input::-moz-range-track{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important}
+    html.embedded .font-size-control input::-webkit-slider-thumb{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important;box-shadow:0 1px 7px ${hexRgba(value.gradientColor1,.4)}!important}
+    html.embedded .font-size-control input::-moz-range-thumb{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important;box-shadow:0 1px 7px ${hexRgba(value.gradientColor1,.4)}!important}
     html.embedded .log-pane,html.embedded .comments-pane{background:#fff!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
     html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:#353535!important}
     html.embedded .comments-pane:has(.comments-list>.empty){height:160px!important;min-height:160px!important;max-height:160px!important;align-self:start!important}
