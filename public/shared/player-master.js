@@ -7,7 +7,7 @@
   const PEOPLE_KEY="trpgProjectPeople.v1";
   const params=new URL(location.href).searchParams;
   const boardId=params.get("board")||params.get("id")||"";
-  const roomId=()=>String((typeof state!=="undefined"&&state?.roomId)||params.get("room")||"");
+  const roomId=()=>String((typeof state!=="undefined"&&state?.roomId)||params.get("room")||boardId||"");
   let master=null,token="",playerId="",syncTimer=0,applying=false,roomSelection=[],hydratingRoom="";
 
   const read=(key,fallback)=>{try{const value=JSON.parse(localStorage.getItem(key)||"");return value??fallback}catch{return fallback}};
@@ -98,7 +98,9 @@
   }
 
   async function pushCurrent(){
-    if(applying||!master||!playerId||!token)return;
+    if(applying)return;
+    if(!master||!playerId||!token)await bootstrap();
+    if(!master||!playerId||!token)return;
     const p=profile();if(!p)return;
     const roomChars=typeof state!=="undefined"?named(state.profile?.personas).map(charPayload):[];
     const candidates=localCandidates(),map=new Map();
@@ -110,7 +112,8 @@
       mergeMasterLocal(master,{notify:false});
       if(roomId()){
         for(const ch of roomChars){if(ch.type==="PC"&&!roomSelection.includes(String(ch.id)))roomSelection.push(String(ch.id))}
-        if(roomSelection.length)await persistRoomSelection(roomSelection);
+        await persistRoomSelection(roomSelection);
+        try{parent.postMessage({type:"jijinboard-participants-saved",boardId},location.origin)}catch{}
       }
       window.dispatchEvent(new CustomEvent("jijinboard-player-master-saved",{detail:{master}}));
     }catch(error){console.warn("Player master sync failed",error)}

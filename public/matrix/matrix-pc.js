@@ -34,12 +34,12 @@
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");
   if(!boardId)return;
-  let activeRoom=params.get("room")||"",participants=[],draggingPcId="",participantsSignature="";
+  let activeRoom=params.get("room")||boardId,participants=[],draggingPcId="",participantsSignature="";
   let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0,activePaintFrame=0;
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const localPcs=(room=activeRoom)=>{try{return (JSON.parse(localStorage.getItem(`personas:${room}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
-  const participantPath=room=>`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`;
+  const participantPath=room=>room===boardId?`/api/boards/${encodeURIComponent(boardId)}/participants`:`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`;
   const preferredImage=person=>person?.matrixIcon||person?.baseIcon||person?.icon||"";
   const fallbackImage=person=>person?.baseIcon||person?.icon||"";
   const mine=()=>{const profile=me();if(!profile)return[];const byId=participants.filter(person=>person.authorId===profile.id);return byId.length?byId:participants.filter(person=>person.plName&&profile.plName&&person.plName===profile.plName)};
@@ -174,7 +174,7 @@
   }
 
   async function syncLocalPcsIfNeeded(current,room){
-    const profile=me(),local=localPcs(room);if(!profile?.id||!profile?.plName||!local.length||!room)return false;
+    const profile=me(),local=localPcs(room);if(!profile?.id||!profile?.plName||!local.length||!room||room===boardId)return false;
     const mine=(current||[]).filter(person=>person.authorId===profile.id);
     const currentKey=mine.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
     const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
@@ -340,7 +340,7 @@
   if(immediate.length)setParticipants(immediate,{forcePaint:true});
 
   window.addEventListener("matrix-board-room",event=>{
-    activeRoom=event.detail?.roomId||activeRoom;
+    activeRoom=event.detail?.roomId||boardId;
     participantsSignature="";
     const local=localParticipantRows(activeRoom);
     if(local.length)setParticipants(local,{forcePaint:true});
@@ -354,5 +354,7 @@
     load(activeRoom).catch(console.warn);
   });
 
+  window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-participants-saved")load(activeRoom,true).catch(console.warn)});
+  setInterval(()=>{if(document.visibilityState!=="hidden"&&window.matrixBoardContext?.isActive?.()!==false)load(activeRoom,true).catch(console.warn)},5000);
   queueMicrotask(()=>load(activeRoom).catch(console.warn));
 })();

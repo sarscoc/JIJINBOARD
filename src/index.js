@@ -107,6 +107,8 @@ export default{
       const handled=await handleRoomLogMeta(request,env,decodeURIComponent(boardLogs[1]),boardLogs[2]?decodeURIComponent(boardLogs[2]):'',executionContext);
       if(handled)return handled;
     }
+    const boardParticipant=url.pathname.match(/^\/api\/boards\/([^/]+)\/participants$/);
+    if(boardParticipant&&request.method==='GET')return handleRoomParticipants(request,env,decodeURIComponent(boardParticipant[1]));
     const participant=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?(?:\/matrix-icon)?$/);
     if(participant){const handled=await handleRoomParticipants(request,env,decodeURIComponent(participant[1]),decodeURIComponent(participant[2]),participant[3]?decodeURIComponent(participant[3]):'');if(handled)return handled}
 
