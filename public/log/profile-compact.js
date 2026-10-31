@@ -14,6 +14,26 @@
   const darkProfileKey = "trpgMarkerProfileColorsV2";
   let matrixIcons = new Map();
 
+  const swatchKey=()=>`jijinboardSelectedColors:${boardId}:${state.profile?.id||""}`;
+  function savedSwatches(){try{return JSON.parse(localStorage.getItem(swatchKey())||"{}")||{}}catch{return{}}}
+  function restoreSwatches(){
+    const saved=savedSwatches();
+    if(saved.PL){state.profile.plColor=saved.PL.light;state.profile.plColorDark=saved.PL.dark}
+    for(const persona of state.profile.personas||[]){
+      const colors=saved[persona.id];if(colors){persona.color=colors.light;persona.colorDark=colors.dark}
+    }
+  }
+  function persistSwatch(input){
+    const saved=savedSwatches();let id="PL",light,dark;
+    if(input.matches("[data-persona-color],[data-persona-color-dark]")){
+      const index=Number(input.dataset.personaColor??input.dataset.personaColorDark),persona=state.profile.personas[index];
+      if(!persona?.id)return;id=persona.id;light=persona.color;dark=persona.colorDark||light;
+    }else{light=state.profile.plColor;dark=state.profile.plColorDark||light}
+    saved[id]={light,dark};
+    try{localStorage.setItem(swatchKey(),JSON.stringify(saved))}catch{}
+    saveProfile();
+  }
+
   function safeColor(value, fallback="#ffe66b") {
     return baseMarkerColor(value || fallback);
   }
@@ -118,7 +138,7 @@
     // Async hydration must never replace an input while its name/IME is being edited.
     if(document.activeElement?.matches?.("[data-persona-name]")){pendingPersonaRender=true;return}
     pendingPersonaRender=false;
-    hydratePersonaColors();
+    hydratePersonaColors();restoreSwatches();
     const list = $("#personaList");
     if (!list) return;
     list.innerHTML = state.profile.personas.map((persona, index) => {
@@ -148,7 +168,7 @@
   }
 
   function syncStaticControls() {
-    hydratePlDarkColor();
+    hydratePlDarkColor();restoreSwatches();
     const light = $("#plMarkerColor"), dark = $("#plMarkerColorDark");
     if (light) light.value = safeColor(state.profile.plColor);
     if (dark) dark.value = safeColor(state.profile.plColorDark || state.profile.plColor);
@@ -268,12 +288,12 @@
 
   document.addEventListener("input", event => {
     const input = event.target.closest("#plMarkerColor,#plMarkerColorDark,[data-persona-color],[data-persona-color-dark]");
-    if (input) updatePreview(input);
+    if (input) {updatePreview(input);persistSwatch(input);}
   });
 
   document.addEventListener("change",event=>{
     const input=event.target.closest("#plMarkerColor,#plMarkerColorDark,[data-persona-color],[data-persona-color-dark]");
-    if(input)updatePreview(input);
+    if(input){updatePreview(input);persistSwatch(input);}
   },true);
 
   document.addEventListener("change", async event => {
