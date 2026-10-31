@@ -441,13 +441,21 @@ let markerNavigation=0;
 function pulseLogMarker(element,id){
   if(!id){element.scrollIntoView({behavior:"smooth",block:"center"});return}
   const token=++markerNavigation;
+  const clickedId=id,seenParents=new Set();
+  let annotation=state.annotations.find(item=>item.id===id);
+  while(annotation?.parent_id&&!seenParents.has(annotation.id)){
+    seenParents.add(annotation.id);
+    const parentAnnotation=state.annotations.find(item=>item.id===annotation.parent_id);
+    if(!parentAnnotation)break;
+    annotation=parentAnnotation;id=annotation.id;
+  }
   state.activeMarkerId=id;
   const grouped=groupAnnotations();
   for(const row of document.querySelectorAll(".log-message[data-message]")){
     const message=state.room?.messages.find(m=>m.id===row.dataset.message),text=row.querySelector(".message-text");
     if(message&&text)text.innerHTML=markedText(message,grouped[message.id]||[]);
   }
-  focusCommentChain(id);
+  focusCommentChain(clickedId);
   let hiding=document.getElementById("jijin-marker-navigation-hide");
   if(!hiding){hiding=document.createElement("style");hiding.id="jijin-marker-navigation-hide";document.head.append(hiding)}
   const selector=`mark[data-ann="${CSS.escape(id)}"]`;
