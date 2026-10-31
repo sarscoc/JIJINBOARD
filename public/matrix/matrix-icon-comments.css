@@ -23,7 +23,7 @@ html.embedded .library{background:rgba(255,255,255,.78)!important;backdrop-filte
 /* LOGCOMMENTS baseline: 12px outer inset, 8px column gap, 320px COMMENTS. */
 html.embedded .stage-shell{
   display:grid!important;
-  grid-template-columns:var(--matrix-comments-width) minmax(0,1fr)!important;
+  grid-template-columns:minmax(0,1fr) var(--matrix-comments-width)!important;
   grid-template-rows:var(--matrix-toolbar-height) minmax(0,1fr)!important;
   column-gap:var(--matrix-column-gap)!important;
   row-gap:8px!important;
@@ -54,7 +54,7 @@ html.embedded .stage-area-toolbar{
 html.embedded .stage-toolbar-primary,html.embedded .stage-toolbar-actions{min-width:0!important;height:30px!important;align-items:center!important}
 html.embedded .stage-toolbar-actions{margin-left:auto!important}
 html.embedded .stage{
-  grid-column:2!important;
+  grid-column:1!important;
   grid-row:2!important;
   width:100%!important;
   height:100%!important;
@@ -76,13 +76,13 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 
 /* Start compact, grow with comments, stop at the MATRIX viewport, then scroll inside only. */
 #matrixIconComments{
-  grid-column:1;
+  grid-column:2;
   grid-row:2;
   position:relative;
   inset:auto;
   width:100%;
   height:auto;
-  min-height:var(--matrix-comments-min-height);
+  min-height:0;
   max-height:100%;
   align-self:start;
   display:flex;
@@ -95,7 +95,7 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
   box-shadow:none;
   backdrop-filter:blur(22px) saturate(135%);
   -webkit-backdrop-filter:blur(22px) saturate(135%);
-  font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif;
+  font:15px/1.75 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif;
   color:var(--matrix-ink);
 }
 
@@ -109,7 +109,7 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
   border-bottom:1px solid var(--matrix-line);
   background:transparent;
   font-size:11px;
-  line-height:1.5;
+  line-height:1.75;
   letter-spacing:.12em;
 }
 .matrix-comment-head span{font:inherit;letter-spacing:inherit;margin-left:auto}
@@ -117,12 +117,12 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 
 /* LOGCOMMENTS compact density: 6px list inset, 8px cards, 6px between cards. */
 .matrix-comment-head+section{
-  flex:1 1 auto;
+  flex:0 1 auto;
   min-height:0;
   overflow-y:auto;
   overscroll-behavior:contain;
   padding:6px;
-  scrollbar-gutter:stable;
+  scrollbar-gutter:auto;
   scrollbar-width:thin;
   scrollbar-color:color-mix(in srgb,var(--matrix-ink) 32%,transparent) transparent;
 }
@@ -288,3 +288,6 @@ html.embedded .library{
   .matrix-comment-author time{display:none}
   #matrixIconCommentDialog{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:72vh!important}
 }
+
+#matrixIconComments:has(section>.matrix-comment-empty) section{overflow-y:hidden;scrollbar-gutter:auto}
+#matrixIconComments:has(section>.matrix-comment-empty) section::-webkit-scrollbar{display:none}
