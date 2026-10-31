@@ -34,7 +34,7 @@
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function logCss(value){return `
-    html.embedded,html.embedded body{${whiteGradient(value)}transition:none!important}
+    html.embedded,html.embedded body{background:transparent!important;background-image:none!important;transition:none!important}
     html.embedded.dark,html.embedded.dark body{background:#424242!important;background-image:none!important}
     html.embedded #roomTitle{color:${uiInk}!important}
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),html.embedded .filters .font-size-control{background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;color:${uiInk}!important}
@@ -53,7 +53,7 @@
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
   `}
   function matrixCss(value){return `
-    html.embedded body{${whiteGradient(value)}}
+    html.embedded body{background:transparent!important;background-image:none!important}
     html.embedded{--matrix-glass:rgba(255,255,255,.85)!important;--matrix-glass-strong:rgba(255,255,255,.85)!important}
     html.embedded .library,html.embedded .stage,html.embedded #matrixIconComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
     html.embedded .matrix-comment-head,html.embedded #matrixIconComments .matrix-comments-body{background:transparent!important;${noBlur}}
@@ -64,7 +64,7 @@
     html.embedded .library::-webkit-scrollbar-thumb,html.embedded #matrixIconComments>section::-webkit-scrollbar-thumb,html.embedded .template-tabs::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function sheetCss(value){return `
-    html.embedded body{${whiteGradient(value)}}
+    html.embedded body{background:transparent!important;background-image:none!important}
     html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
     html.embedded #databaseLayout,html.embedded #sheetComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
     html.embedded .table-actions > :is(.btn,button),html.embedded .table-actions .btn,html.embedded .view-switch .btn,

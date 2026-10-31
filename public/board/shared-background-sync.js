@@ -23,7 +23,7 @@
   }
   function applyBackground(doc){
     if(!doc?.documentElement||!doc?.body)return;
-    const isLog=/\/log(?:\/|$)/.test(doc.location?.pathname||"");
+    const embedded=doc.documentElement.classList.contains("embedded");
     const dark=doc.documentElement.classList.contains("dark");
     const value=currentTheme();
     const one=rgba(value.gradientColor1,.24),two=rgba(value.gradientColor2,.12);
@@ -32,8 +32,8 @@
     const image=`radial-gradient(circle at 12% 8%,${one},transparent 28%),radial-gradient(circle at 86% 82%,${two},transparent 30%)`;
     for(const node of [doc.documentElement,doc.body]){
       const style=node.style;
-      style.setProperty("background-color",dark?"#424242":"#f5f7fa","important");
-      style.setProperty("background-image",dark?"none":image,"important");
+      style.setProperty("background-color",dark?"#424242":embedded||node===doc.body?"transparent":"#f5f7fa","important");
+      style.setProperty("background-image",dark||embedded||node===doc.body?"none":image,"important");
       style.setProperty("transition","none","important");
       style.setProperty("background-repeat","no-repeat","important");
       style.setProperty("background-position","0 0","important");
@@ -62,7 +62,7 @@
       }
     }catch{}
   }
-  function syncAll(){for(const id of frameIds)syncFrame(document.getElementById(id))}
+  function syncAll(){applyBackground(document);for(const id of frameIds)syncFrame(document.getElementById(id))}
 
   for(const id of frameIds){
     const frame=document.getElementById(id);
