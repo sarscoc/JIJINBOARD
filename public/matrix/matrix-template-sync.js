@@ -143,7 +143,9 @@
           const id=String(rec?.id||"");
           if(!id||remoteIds.has(id))continue;
           const dataUrl=String(rec?.dataUrl||""),serverMatch=dataUrl.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\//),localState=previousStates[id]&&typeof previousStates[id]==="object"?previousStates[id]:null;
-          const looksUnsynced=dataUrl.startsWith("data:image/")||(!serverMatch&&localState&&Object.keys(localState).length>0);
+          const owned=String(rec.boardId||"")===boardId;
+          const foreignImage=serverMatch&&decodeURIComponent(serverMatch[1])!==boardId;
+          const looksUnsynced=owned&&!foreignImage&&(dataUrl.startsWith("data:image/")||(!serverMatch&&localState&&Object.keys(localState).length>0));
           if(looksUnsynced)unsynced.push({record:rec,templateState:clone(localState||{})});
           else await window.tplDeleteRecord(id);
         }

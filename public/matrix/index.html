@@ -3697,9 +3697,11 @@ function restoreLibraryPage(){
 const TEMPLATE_CURRENT='magiaMatrix.currentTemplate.v1';
 const TEMPLATE_STATES='magiaMatrix.templateStates.v1';
 
+const MATRIX_STORAGE_BOARD=new URL(location.href).searchParams.get('board')||'';
+const MATRIX_DB_NAME=MATRIX_STORAGE_BOARD?'magiaMatrixDB.board.'+encodeURIComponent(MATRIX_STORAGE_BOARD):'magiaMatrixDB.standalone.v1';
 function idb(){
   return new Promise((ok,no)=>{
-    const r=indexedDB.open('magiaMatrixDB',3);
+    const r=indexedDB.open(MATRIX_DB_NAME,3);
     r.onupgradeneeded=()=>{
       const db=r.result;
       if(!db.objectStoreNames.contains('templates'))db.createObjectStore('templates');
@@ -3722,7 +3724,7 @@ async function tplSetRecord(id,record){
   const db=await idb();
   return new Promise((ok,no)=>{
     const t=db.transaction('templates','readwrite');
-    t.objectStore('templates').put(record,id);
+    t.objectStore('templates').put({...record,boardId:MATRIX_STORAGE_BOARD},id);
     t.oncomplete=ok;
     t.onerror=()=>no(t.error);
   });

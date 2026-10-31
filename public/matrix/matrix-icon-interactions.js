@@ -148,6 +148,7 @@
     if (!placed || placed._draggedByPointer) return;
     stopPlacedAction(event);
     filterCurrentPage();
+    if(sharedCommentComposer)sharedCommentComposer(placed.dataset.id||"");
   }, true);
 
   document.addEventListener("click", event => {
@@ -175,7 +176,7 @@
     const ownerId = String(item?.ownerId || "");
     const mine = !ownerId || ownerId === myId;
 
-    if (mine && event.shiftKey) {
+    if (mine) {
       if (typeof window.openDrawer === "function") window.openDrawer(id);
       else if (typeof window.openInlineCommentEditor === "function") window.openInlineCommentEditor(id, placed);
       raiseInlineEditorSoon(placed);
