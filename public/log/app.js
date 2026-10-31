@@ -385,17 +385,39 @@ function saveProfileForm(e) { e.preventDefault(); const name=$("#plName").value.
 async function issueProfileTransfer(){if(!state.profile.plName)return alert("先にPL名を保存してください。");try{const data=await api("/api/profile-transfers",{method:"POST",body:JSON.stringify({profile:{id:state.profile.id,plName:state.profile.plName,plIcon:state.profile.plIcon||"",plColor:state.profile.plColor||"#ffe66b",personas:state.profile.personas||[]}})});await navigator.clipboard?.writeText(data.code).catch(()=>{});alert(`引き継ぎコード：${data.code}\n30分以内に、新しい端末の「発言者の設定」で入力してください。\nコードは一度使うと無効になります。`)}catch(error){alert(error.message)}}
 async function redeemProfileTransfer(){const code=$("#transferCodeInput").value.trim();if(!code)return;try{const data=await api(`/api/profile-transfers/${encodeURIComponent(code)}`,{method:"POST"}),profile=data.profile;state.profile={id:profile.id,plName:profile.plName,plIcon:profile.plIcon||"",plColor:profile.plColor||"#ffe66b",personas:Array.isArray(profile.personas)?profile.personas:[]};saveProfile();$("#transferCodeInput").value="";emitIntegratedProfile();fillPersonaSelect();renderPlIcon();renderPersonas();alert("このPLとPCを引き継ぎました。") }catch(error){alert(error.message)}}
 async function syncPersonaColor(persona){if(!state.roomId||!persona?.name)return;await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/color`,{method:"PATCH",body:JSON.stringify({authorId:state.profile.id,personaName:persona.name,personaType:persona.type,color:persona.color})});await refreshAnnotations()}
+let markerNavigation=0;
 function pulseLogMarker(element,id){
-  if(!id)return;
-  setTimeout(()=>{
-    for(const mark of element.querySelectorAll(`[data-ann="${CSS.escape(id)}"]`)){
-      mark.getAnimations().forEach(animation=>animation.cancel());
+  if(!id){element.scrollIntoView({behavior:"smooth",block:"center"});return}
+  const token=++markerNavigation;
+  document.querySelectorAll(".comment-card.focused").forEach(card=>card.classList.remove("focused"));
+  document.getElementById("comment-"+id)?.classList.add("focused");
+  let hiding=document.getElementById("jijin-marker-navigation-hide");
+  if(!hiding){hiding=document.createElement("style");hiding.id="jijin-marker-navigation-hide";document.head.append(hiding)}
+  const selector=`mark[data-ann="${CSS.escape(id)}"]`;
+  document.querySelectorAll(selector).forEach(mark=>mark.getAnimations().forEach(animation=>animation.cancel()));
+  hiding.textContent=`${selector}{background:transparent!important}`;
+  element.scrollIntoView({behavior:"smooth",block:"center"});
+  const started=performance.now();let previous=null,stable=0;
+  function settled(){
+    if(token!==markerNavigation)return;
+    const panel=document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`);
+    const target=panel?.querySelector(`[data-message="${CSS.escape(element.dataset.message)}"]`)||element;
+    const rect=target.getBoundingClientRect(),position=[rect.top,rect.left];
+    stable=previous&&Math.abs(previous[0]-position[0])<.5&&Math.abs(previous[1]-position[1])<.5?stable+1:0;previous=position;
+    if((performance.now()-started<180||stable<8)&&performance.now()-started<2500){requestAnimationFrame(settled);return}
+    hiding.textContent="";
+    for(const mark of (panel||document).querySelectorAll(selector)){
       const color=getComputedStyle(mark).backgroundColor;
-      mark.animate([{backgroundColor:"transparent",offset:0},{backgroundColor:"transparent",offset:.35},{backgroundColor:color,offset:.65},{backgroundColor:color,offset:1}],{duration:500,easing:"ease-out"});
+      mark.animate([
+        {backgroundColor:"transparent",backgroundImage:`linear-gradient(${color},${color})`,backgroundRepeat:"no-repeat",backgroundSize:"0% 100%"},
+        {backgroundColor:"transparent",backgroundImage:`linear-gradient(${color},${color})`,backgroundRepeat:"no-repeat",backgroundSize:"100% 100%"}
+      ],{duration:320,easing:"cubic-bezier(.2,.9,.25,1)"});
     }
-  },350);
+  }
+  requestAnimationFrame(settled);
 }
-function jumpToMessage(id, annotationId) { const message=state.room?.messages.find(m=>m.id===id); if(!message)return;const index=state.room.tabs.indexOf(message.tab);if(state.hiddenTabs.has(message.tab)){state.hiddenTabs.delete(message.tab);localStorage.setItem(`hiddenTabs:${state.roomId}`,JSON.stringify([...state.hiddenTabs]));state.activeTabIndex=index;renderLog(message.time)}else if(index!==state.activeTabIndex){if(state.viewMode==="timeline")goToTab(index);else{state.activeTabIndex=index;renderLog(message.time)}}const panel=document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`),el=panel?.querySelector(`[data-message="${CSS.escape(id)}"]`);if(!el)return;const annotation=annotationId&&state.annotations.find(item=>item.id===annotationId),color=markerColor(annotation?.color||"#ffe66b");el.style.setProperty("--flash-color",color);el.querySelector(".annotation-count")?.style.setProperty("--flash-color",color);el.scrollIntoView({behavior:"smooth",block:"center"});el.classList.remove("flash");pulseLogMarker(el,annotationId);}
+
+function jumpToMessage(id, annotationId) { const message=state.room?.messages.find(m=>m.id===id); if(!message)return;const index=state.room.tabs.indexOf(message.tab);if(state.hiddenTabs.has(message.tab)){state.hiddenTabs.delete(message.tab);localStorage.setItem(`hiddenTabs:${state.roomId}`,JSON.stringify([...state.hiddenTabs]));state.activeTabIndex=index;renderLog(message.time)}else if(index!==state.activeTabIndex){if(state.viewMode==="timeline")goToTab(index);else{state.activeTabIndex=index;renderLog(message.time)}}const panel=document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`),el=panel?.querySelector(`[data-message="${CSS.escape(id)}"]`);if(!el)return;const annotation=annotationId&&state.annotations.find(item=>item.id===annotationId),color=markerColor(annotation?.color||"#ffe66b");el.style.setProperty("--flash-color",color);el.querySelector(".annotation-count")?.style.setProperty("--flash-color",color);el.classList.remove("flash");pulseLogMarker(el,annotationId);}
 
 async function resizeIcon(file) {
   if (!file) return "";
