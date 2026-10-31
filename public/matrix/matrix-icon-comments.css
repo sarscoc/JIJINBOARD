@@ -136,7 +136,7 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
   cursor:pointer;
   box-shadow:none;
 }
-.matrix-comment-card:hover{border-color:var(--matrix-ink)}
+.matrix-comment-card:hover{border-color:var(--matrix-line)}
 
 /* Author row follows LOGCOMMENTS: avatar, name/type, edit, date, like, reply. */
 .matrix-comment-author{
@@ -231,12 +231,12 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 }
 .matrix-comment-empty{color:var(--matrix-muted);padding:32px 8px;text-align:center;font-size:12px}
 
-/* Comment jump: exactly one soft pulse around the image alpha silhouette. */
+/* Pop the whole avatar once, without zooming inside its clipping mask. */
 .matrix-comment-flash .placed-avatar{box-shadow:none!important;outline:0!important}
-.matrix-comment-flash .placed-avatar img{animation:matrixCommentFlash 1.05s ease both}
+.matrix-comment-flash .placed-avatar img{animation:none!important}
 @keyframes matrixCommentFlash{
   0%,100%{transform:scale(1);filter:none}
-  45%{transform:scale(1.12);filter:none}
+  50%{transform:scale(1.08);filter:none}
 }
 
 /* Input box = LOGCOMMENTS commentDialog exactly. */
@@ -304,4 +304,6 @@ html.embedded .library{
 .matrix-comment-author .matrix-comment-target-arrow{font-size:11px;line-height:1}
 .matrix-comment-body-row{display:block}
 .matrix-comment-body-row p{font-size:13px;line-height:1.5;margin:4px 0 0}
-.matrix-comment-flash .placed-avatar img{animation:matrixCommentFlash .34s ease-out both!important;filter:none!important}
+.matrix-comment-flash .placed-avatar{animation:matrixCommentFlash .24s ease-in-out!important;transform-origin:center}
+.matrix-comment-flash .placed-avatar img{animation:none!important;filter:none!important}
+.matrix-comment-card.focused:hover{border-left-color:var(--comment-marker)!important}
