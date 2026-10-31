@@ -307,3 +307,9 @@ html.embedded .library{
 .matrix-comment-flash .placed-avatar{animation:matrixCommentFlash .24s ease-in-out!important;transform-origin:center}
 .matrix-comment-flash .placed-avatar img{animation:none!important;filter:none!important}
 .matrix-comment-card.focused:hover{border-left-color:var(--comment-marker)!important}
+
+html .matrix-comment-card:hover,
+html .matrix-comment-card:focus-visible{
+  border-color:var(--comment-marker,var(--matrix-line))!important;
+  outline:none!important;
+}

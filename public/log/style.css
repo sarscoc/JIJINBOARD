@@ -70,3 +70,9 @@ body{background-color:var(--bg);background-image:radial-gradient(circle at 12% 8
 .log-empty-spinner{display:flex;justify-content:center;padding:24px 8px;color:var(--log-loader-color,var(--accent))}
 .log-empty-spinner>span{display:block;width:14px;height:14px;border:2px solid color-mix(in srgb,currentColor 20%,transparent);border-top-color:currentColor;border-radius:50%;animation:logEmptySpin .8s linear infinite}
 @keyframes logEmptySpin{to{transform:rotate(360deg)}}
+
+html .comment-card:hover,
+html .comment-card:focus-visible{
+  border-color:var(--comment-marker,var(--mark))!important;
+  outline:none!important;
+}
