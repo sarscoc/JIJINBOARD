@@ -1,16 +1,25 @@
 "use strict";
 (()=>{
-  let comments=[],targetId="",replyTo="",editingId="",posting=false,pendingAnchor=null,loadPromise=null,lastSerial="";
+  let comments=[],targetId="",replyTo="",editingId="",posting=false,pendingAnchor=null,loadPromise=null,lastSerial="",composerPeople=[];
   const TARGET_SEP="@@matrix-template@@";
   const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const ctx=()=>window.matrixBoardContext;
   const profile=()=>ctx()?.profile?.();
+  const commentRoom=()=>ctx()?.roomId||ctx()?.boardId||"";
   function targetParts(value){const raw=String(value||""),at=raw.indexOf(TARGET_SEP);return at>=0?{templateId:raw.slice(0,at),itemId:raw.slice(at+TARGET_SEP.length)}:{templateId:"",itemId:raw}}
   function storedTarget(value){const parts=targetParts(value);if(parts.templateId)return value;const tid=typeof currentTemplateId==="function"?currentTemplateId():"";return tid?`${tid}${TARGET_SEP}${parts.itemId}`:parts.itemId}
   const targetItem=id=>items.find(item=>item.id===targetParts(id).itemId);
   const targetImage=id=>displayImage(targetItem(id))||"";
   const targetName=id=>targetItem(id)?.name||"PC";
-  const pcList=()=>{const p=profile();return [{name:p?.plName||"PL",type:"PL",icon:p?.plIcon||"",color:p?.plColor||"#ffe66b"},...(p?.personas||[]).map(person=>({...person,color:person.color||"#ffe66b"}))];};
+  const pcList=()=>{
+    const p=profile(),pcs=new Map();
+    let local=[];try{local=JSON.parse(localStorage.getItem(`personas:${commentRoom()}`)||"[]")}catch{}
+    for(const item of (typeof items!=="undefined"?items:[])){
+      if(item.ownerId===p?.id)pcs.set(String(item.personaId||item.id),{id:item.personaId,name:item.name,type:"PC",icon:item.baseImage||"",color:item.color||"#ffe66b"});
+    }
+    for(const person of [...local,...(p?.personas||[])])if(person?.name)pcs.set(String(person.id||person.name),person);
+    return [{name:p?.plName||"PL",type:"PL",icon:p?.plIcon||"",color:p?.plColor||"#ffe66b"},...[...pcs.values()].filter(person=>person.name)];
+  };
   function formatCommentDate(value){if(!value)return"";const raw=String(value),normalized=/Z|[+-]\d\d:?\d\d$/.test(raw)?raw:raw.replace(" ","T")+"Z",date=new Date(normalized);return Number.isNaN(date.getTime())?raw:new Intl.DateTimeFormat("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(date)}
 
   function panel(){
@@ -28,7 +37,7 @@
   function syncDialogAvatar(d){
     const select=d.querySelector("#matrixCommentPersona"),avatar=d.querySelector(".matrix-comment-input-avatar");
     if(!select||!avatar)return;
-    const person=pcList()[Number(select.value)||0],icon=person?.icon||"",name=person?.name||"?";
+    const person=composerPeople[Number(select.value)||0],icon=person?.icon||"",name=person?.name||"?";
     avatar.style.setProperty("--persona-marker",person?.color||"#ffe66b");
     avatar.innerHTML=icon?`<img src="${esc(icon)}" alt="">`:`<span>${esc(name.slice(0,1))}</span>`;
   }
@@ -40,7 +49,7 @@
     d=document.createElement("dialog");
     d.id="matrixIconCommentDialog";
     d.dataset.logcommentsInput="1";
-    d.innerHTML='<form class="matrix-comment-log-form" method="dialog"><div class="comment-persona-picker"><span class="matrix-comment-input-avatar comment-input-avatar"></span><select id="matrixCommentPersona" aria-label="発言者"></select></div><textarea id="matrixCommentBody" rows="5" maxlength="4000" aria-label="感想"></textarea><button id="matrixCommentDelete" class="comment-edit-delete" type="button" hidden>このコメントを削除</button></form>';
+    d.innerHTML='<form class="matrix-comment-log-form" method="dialog"><div class="comment-persona-picker"><span class="matrix-comment-input-avatar comment-input-avatar"></span><select id="matrixCommentPersona" aria-label="発言者"></select></div><textarea id="matrixCommentBody" rows="5" maxlength="4000" aria-label="感想"></textarea><button id="matrixCommentSubmit" type="submit">投稿</button><button id="matrixCommentDelete" class="comment-edit-delete" type="button" hidden>このコメントを削除</button></form>';
     document.body.append(d);
     d.querySelector("form").addEventListener("submit",post);
     d.querySelector("#matrixCommentDelete").addEventListener("click",remove);
@@ -113,10 +122,10 @@
   }
   function render(){const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(comments.map(c=>c.id));comments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=comments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=comments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>'}
   async function load(force=false){
-    const c=ctx();if(!c?.roomId)return;
+    const c=ctx();if(!c||!commentRoom())return;
     if(loadPromise)return loadPromise;
     const task=(async()=>{
-      const data=await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments?authorId=${encodeURIComponent(profile()?.id||"")}`);
+      const data=await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments?authorId=${encodeURIComponent(profile()?.id||"")}`);
       const next=data.comments||[],serial=JSON.stringify(next);
       if(force||serial!==lastSerial){comments=next;lastSerial=serial;render()}
     })();
@@ -130,6 +139,7 @@
     const p=profile();if(!p?.plName)return alert("先に発言者を登録してください。");
     targetId=id;replyTo=reply;editingId=edit;pendingAnchor=anchor||targetAnchor(id);
     const d=dialog(),select=d.querySelector("#matrixCommentPersona"),all=pcList();
+    composerPeople=all;
     select.innerHTML=all.map((person,i)=>`<option value="${i}">${esc(person.name)}（${esc(person.type||"PC")}）</option>`).join("");
     const old=comments.find(c=>c.id===edit);
     if(old){
@@ -150,17 +160,19 @@
   async function post(event){
     event.preventDefault();
     if(posting)return;
-    const c=ctx(),p=profile(),d=dialog(),body=d.querySelector("#matrixCommentBody").value.trim(),person=pcList()[Number(d.querySelector("#matrixCommentPersona").value)||0];
-    if(!body||!c?.roomId||!p?.id||!person)return;
+    const c=ctx(),p=profile(),d=dialog(),body=d.querySelector("#matrixCommentBody").value.trim(),person=composerPeople[Number(d.querySelector("#matrixCommentPersona").value)||0];
+    if(!body)return;
+    if(!c||!commentRoom()||!p?.id||!person){alert("発言者情報を確認してください。");return;}
     posting=true;d.dataset.submitting="1";
+    const submit=d.querySelector("#matrixCommentSubmit");submit.disabled=true;submit.textContent="保存中…";
     try{
-      if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
-      else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
+      if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
+      else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
       d.close();await load(true);
-    }catch(error){alert(error.message)}finally{posting=false;delete d.dataset.submitting}
+    }catch(error){alert(error.message)}finally{posting=false;delete d.dataset.submitting;submit.disabled=false;submit.textContent="投稿"}
   }
-  async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
-  async function like(id){const c=ctx();try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(c.roomId)}/comments/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:profile()?.id})});await load(true)}catch(error){alert(error.message)}}
+  async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
+  async function like(id){const c=ctx();try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:profile()?.id})});await load(true)}catch(error){alert(error.message)}}
 
   document.addEventListener("click",event=>{
     const likeButton=event.target.closest("[data-matrix-like]"),replyButton=event.target.closest("[data-matrix-reply]"),editButton=event.target.closest("[data-matrix-edit]"),card=event.target.closest("[data-comment-target]");

@@ -291,3 +291,6 @@ html.embedded .library{
 
 #matrixIconComments:has(section>.matrix-comment-empty) section{overflow-y:hidden;scrollbar-gutter:auto}
 #matrixIconComments:has(section>.matrix-comment-empty) section::-webkit-scrollbar{display:none}
+
+#matrixIconCommentDialog #matrixCommentSubmit{justify-self:end;border:0;border-radius:8px;padding:7px 16px;background:var(--matrix-ink);color:#fff;font-size:12px;cursor:pointer}
+#matrixIconCommentDialog #matrixCommentSubmit:disabled{opacity:.5;cursor:wait}
