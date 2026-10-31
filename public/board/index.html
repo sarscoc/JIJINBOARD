@@ -161,9 +161,9 @@
     setTimeout(()=>{
       const name=document.getElementById("boardName");
       if(window.__jijinboardBootstrapStarted&&name?.textContent==="読み込み中…"){
-        name.textContent="読み込みに失敗しました";
+        name.textContent="部屋情報を読み込み中…";
         const empty=document.getElementById("emptyLogs");
-        if(empty)empty.textContent="再読み込みしても直らない場合は接続を確認してください。";
+        if(empty)empty.textContent="通信に時間がかかっています。そのままお待ちください。";
       }
     },8000);
   </script>

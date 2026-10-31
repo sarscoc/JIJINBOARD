@@ -64,6 +64,7 @@ async function serveAsset(request,env,url){
 export default{
   async fetch(request,env,executionContext){
     const url=new URL(request.url);
+    if(!url.pathname.startsWith('/api/')&&url.pathname!=='/'&&!/^\/index(?:\.html)?\/?$/.test(url.pathname))return serveAsset(request,env,url);
     if(!env.DB){if(url.pathname.startsWith('/api/'))return json({error:'D1データベースが接続されていません'},503);return new Response('管理TOPを読み込めません。D1接続を確認してください。',{status:503})}
     await ensureSchema(env.DB);
 

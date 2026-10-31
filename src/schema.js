@@ -83,8 +83,10 @@ export function ensureSchema(db){
   let task=ready.get(db);
   if(!task){
     task=(async()=>{
-      if(!await isV2(db))await resetOldSchema(db);
-      for(const sql of createStatements)await db.prepare(sql).run();
+      if(await isV2(db))return;
+      const existing=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%' LIMIT 1").first();
+      if(existing)throw new Error('データベースの構成が現行版と異なります。保存データを保護するため自動初期化を停止しました。');
+      await db.batch(createStatements.map(sql=>db.prepare(sql)));
     })();
     ready.set(db,task);
     task.catch(()=>ready.delete(db));
