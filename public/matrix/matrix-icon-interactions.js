@@ -141,7 +141,7 @@
     requestAnimationFrame(() => requestAnimationFrame(() => keepInlineEditorVisible(placed)));
   }
 
-  window.openMatrixIconComment = () => filterCurrentPage();
+  window.openMatrixIconComment = id => {if(sharedCommentComposer)sharedCommentComposer(id);else filterCurrentPage()};
 
   document.addEventListener("click", event => {
     const placed = placedFromEvent(event);
@@ -175,7 +175,7 @@
     const ownerId = String(item?.ownerId || "");
     const mine = !ownerId || ownerId === myId;
 
-    if (mine) {
+    if (mine && event.shiftKey) {
       if (typeof window.openDrawer === "function") window.openDrawer(id);
       else if (typeof window.openInlineCommentEditor === "function") window.openInlineCommentEditor(id, placed);
       raiseInlineEditorSoon(placed);

@@ -35,6 +35,7 @@
       id: persona.id || "",
       name: String(persona.name || "").trim(),
       type: "PC",
+      color:persona.color, colorDark:persona.colorDark,
       icon: persona.icon || ""
     }));
     if (!personas.length) return;

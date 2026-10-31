@@ -184,7 +184,7 @@
 
   async function ensureBoardParticipants() {
     if (!boardId || !state.roomId || !state.profile?.id || !state.profile?.plName) return;
-    const personas = (state.profile.personas || []).filter(persona => persona.type === "PC" && String(persona.name || "").trim()).map(persona => ({ id:persona.id || uid(), name:persona.name, type:"PC", icon:persona.icon || "" }));
+    const personas = (state.profile.personas || []).filter(persona => persona.type === "PC" && String(persona.name || "").trim()).map(persona => ({ id:persona.id || uid(), name:persona.name, type:"PC", color:persona.color, colorDark:persona.colorDark, icon:persona.icon || "" }));
     if (!personas.length) return;
     await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(state.roomId)}/participants`, { method:"POST", body:JSON.stringify({ authorId:state.profile.id, plName:state.profile.plName, personas }) });
   }

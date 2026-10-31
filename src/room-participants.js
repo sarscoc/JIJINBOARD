@@ -43,7 +43,7 @@ export async function handleRoomParticipants(request,env,roomId,logId='',charact
     for(const persona of personas){
       const name=String(persona?.name||'').trim().slice(0,80);if(!name)continue;
       const iconKey=await storeImage(env.LOGS,String(persona?.icon||persona?.baseIcon||''),'character-icons');
-      const character=await resolveCharacterIdentity(env.DB,plId,name,String(persona?.type||'PC'),{characterId:persona?.id,plName,iconKey});if(character)ids.push(character.character_id);
+      const character=await resolveCharacterIdentity(env.DB,plId,name,String(persona?.type||'PC'),{characterId:persona?.id,plName,iconKey,color:persona?.color?String(persona.color).split('|')[0]:undefined,colorDark:persona?.colorDark});if(character)ids.push(character.character_id);
     }
     await env.DB.prepare('DELETE FROM room_participant WHERE room_id=? AND pl_id=?').bind(roomId,plId).run();
     await env.DB.prepare('INSERT OR IGNORE INTO room_participant(room_id,pl_id,character_id) VALUES(?,?,NULL)').bind(roomId,plId).run();
