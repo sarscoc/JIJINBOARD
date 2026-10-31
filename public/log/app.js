@@ -126,7 +126,9 @@ async function openRoom(id) {
     state.room=room;
     rememberRecentRoom(state.room);
     state.hiddenTabs=new Set(JSON.parse(localStorage.getItem(`hiddenTabs:${id}`)||"[]").filter(tab=>state.room.tabs.includes(tab)));
-    $("#roomTitle").textContent = state.room.title; document.title = `${state.room.title} | TRPG LOG MARKER`;
+    let displayTitle=state.room.scenarioTitle||state.room.title;
+    try{displayTitle=parent.JIJINBOARD_LOG_TITLE?.(id)||displayTitle}catch{}
+    $("#roomTitle").textContent=displayTitle;document.title=`${displayTitle} | TRPG LOG MARKER`;
     $("#tabFilter").innerHTML='<option value="">メインタブを選択</option>';
     state.room.tabs.forEach(tab => $("#tabFilter").insertAdjacentHTML("beforeend", `<option>${esc(tab)}</option>`));
     const savedMain=localStorage.getItem(`mainTab:${id}`);state.mainTab=state.room.tabs.includes(savedMain)?savedMain:(state.room.tabs.find(tab=>/^メイン$/i.test(tab))||state.room.tabs[0]||"");$("#tabFilter").value=state.mainTab;
@@ -372,7 +374,7 @@ function positionCommentDialog(){const dialog=$("#commentDialog"),a=state.pendin
 async function postComment(event) {
   event.preventDefault(); const persona = currentPersona(), body = $("#commentBody").value.trim(); if (!body&&!state.commentImage&&state.commentImage!==null) return;
   const payload = { ...state.pendingSelection, parentId:state.replyTo||"", color: persona.color || "#ffe66b", authorId: state.profile.id, authorName: state.profile.plName, personaName: persona.name, personaType: persona.type, personaIcon: persona.icon || "", body,imageData:state.commentImage };
-  try { const editingId=state.editingCommentId;await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`, { method:editingId?"PATCH":"POST", body:JSON.stringify(payload) }); setTyping(false); $("#commentDialog").close(); state.pendingSelection=null; state.selection=null; state.replyTo=null;state.editingCommentId=null; getSelection()?.removeAllRanges(); $("#selectionBar").classList.add("hidden"); await refreshAnnotations(); if(!payload.parentId)jumpToMessage(payload.messageId); } catch(e) { alert(e.message); }
+  try { const editingId=state.editingCommentId;await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`, { method:editingId?"PATCH":"POST", body:JSON.stringify(payload) }); setTyping(false); $("#commentDialog").close(); state.pendingSelection=null; state.selection=null; state.replyTo=null;state.editingCommentId=null; getSelection()?.removeAllRanges(); $("#selectionBar").classList.add("hidden"); await refreshAnnotations(true); if(!payload.parentId)jumpToMessage(payload.messageId); } catch(e) { alert(e.message); }
 }
 function openProfile() {
   $("#plName").value = state.profile.plName; $("#plMarkerColor").value=markerColor(state.profile.plColor); renderPlIcon(); renderPersonas(); $("#profileDialog").showModal();
