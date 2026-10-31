@@ -12,19 +12,26 @@
   window.fetch=async function(input,options){
     const request=new Request(input,options),url=new URL(request.url);
     if(request.method!=="GET"||url.origin!==location.origin||!url.pathname.startsWith("/api/")||url.pathname.includes("realtime"))return network(input,options);
-    // Network always owns shared state; cached data is only an offline fallback.
-    let response;
-    try{response=await network(input,options)}catch(error){
-      if(request.signal.aborted||error?.name==="AbortError")throw error;
-      try{const cache=await caches.open(cacheName),cached=await cache.match(await keyFor(request));if(cached)return cached}catch{}
-      throw error;
-    }
-    if(response.ok){
-      const copy=response.clone();
-      (async()=>{try{const cache=await caches.open(cacheName);await cache.put(await keyFor(request),copy)}catch{}})();
-    }else if([401,403,404,410].includes(response.status)){
-      (async()=>{try{const cache=await caches.open(cacheName);await cache.delete(await keyFor(request))}catch{}})();
-    }
-    return response;
+    let cache,key,cached;
+    try{
+      // Do not let unavailable storage block a network request.
+      const hit=await Promise.race([(async()=>{const c=await caches.open(cacheName),k=await keyFor(request);return {cache:c,key:k,cached:await c.match(k)}})(),new Promise(resolve=>setTimeout(()=>resolve(null),60))]);
+      if(hit)({cache,key,cached}=hit);
+    }catch{}
+    const refresh=async()=>{
+      const response=await network(input,options);
+      try{
+        cache||=await caches.open(cacheName);key||=await keyFor(request);
+        if(response.ok){
+          let changed=false;
+          if(cached&&response.headers.get("content-type")?.includes("application/json"))changed=await cached.clone().text()!==await response.clone().text();
+          await cache.put(key,response.clone());
+          if(changed)window.dispatchEvent(new CustomEvent("jijinboard-cache-updated",{detail:{url:request.url}}));
+        }else if([401,403,404,410].includes(response.status))await cache.delete(key);
+      }catch{}
+      return response;
+    };
+    if(cached){refresh().catch(()=>{});return cached}
+    return refresh();
   };
 })();

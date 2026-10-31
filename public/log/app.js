@@ -421,3 +421,8 @@ $("#markBtn").onclick=openCommentDialog; $("#viewMode").value=state.viewMode; $(
 $("#shareBtn").onclick=async()=>{await navigator.clipboard.writeText(location.href);$("#roomStatus").textContent="共有URLをコピーしました";setTimeout(()=>$("#roomStatus").textContent="",1800)};
 function applyFontSize(value){const size=Math.min(20,Math.max(10,Number(value)||12.5));document.documentElement.style.setProperty("--log-font-size",`${size}px`);$("#fontSize").value=String(size);localStorage.setItem("trpgMarkerFontSize",String(size))}$("#fontSize").oninput=e=>applyFontSize(e.target.value);applyFontSize(localStorage.getItem("trpgMarkerFontSize")||12.5);
 const startupUrl=new URL(location.href),siteOwnerKey=startupUrl.searchParams.get("owner");if(siteOwnerKey){localStorage.setItem("trpgMarkerSiteOwnerKey",siteOwnerKey);startupUrl.searchParams.delete("owner");history.replaceState(null,"",startupUrl.pathname+startupUrl.search)}const roomId=startupUrl.searchParams.get("room");if(window.__TRPG_ARCHIVE__)openArchiveData(window.__TRPG_ARCHIVE__);else if(roomId)openRoom(roomId);
+
+addEventListener("jijinboard-cache-updated",event=>{
+  const url=new URL(event.detail.url);
+  if(url.pathname===`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`)refreshAnnotations().catch(()=>{});
+});
