@@ -45,28 +45,39 @@ const targetObjects = ['comment_reaction','log_comment_range','comment','spreads
 const ready = new WeakMap();
 
 async function isV2(db){
-  const room=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='room'").first();
+  const checks=await db.batch([
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='room'"),
+    db.prepare("PRAGMA table_info(top_auth)"),
+    db.prepare("PRAGMA table_info(log)"),
+    db.prepare("PRAGMA table_info(spreadsheet)"),
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='spreadsheet_image'"),
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='matrix_settings'"),
+    db.prepare("PRAGMA table_info(matrix_template)"),
+    db.prepare("PRAGMA table_info(matrix_point)"),
+    db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='log_participant'")
+  ]);
+  const room=checks[0].results?.[0]||null;
   if(!room)return false;
-  const auth=await db.prepare("PRAGMA table_info(top_auth)").all();
+  const auth=checks[1];
   const authColumns=new Set((auth.results||[]).map(item=>item.name));
   if(!authColumns.has('password_salt')||!authColumns.has('password_hash_version'))return false;
-  const log=await db.prepare("PRAGMA table_info(log)").all();
+  const log=checks[2];
   const logColumns=new Set((log.results||[]).map(item=>item.name));
   if(!logColumns.has('scenario_participants'))return false;
-  const spreadsheet=await db.prepare("PRAGMA table_info(spreadsheet)").all();
+  const spreadsheet=checks[3];
   const spreadsheetColumns=new Set((spreadsheet.results||[]).map(item=>item.name));
   if(!spreadsheetColumns.has('sheet_settings'))return false;
-  const spreadsheetImage=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='spreadsheet_image'").first();
+  const spreadsheetImage=checks[4].results?.[0]||null;
   if(!spreadsheetImage)return false;
-  const matrixSettings=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='matrix_settings'").first();
+  const matrixSettings=checks[5].results?.[0]||null;
   if(!matrixSettings)return false;
-  const matrixTemplate=await db.prepare("PRAGMA table_info(matrix_template)").all();
+  const matrixTemplate=checks[6];
   const matrixTemplateRows=matrixTemplate.results||[],matrixTemplateColumns=new Set(matrixTemplateRows.map(item=>item.name)),matrixTemplatePk=new Map(matrixTemplateRows.map(item=>[item.name,Number(item.pk)||0]));
   if(!matrixTemplateColumns.has('template_image_key')||matrixTemplatePk.get('room_id')!==1||matrixTemplatePk.get('template_id')!==2)return false;
-  const matrixPoint=await db.prepare("PRAGMA table_info(matrix_point)").all();
+  const matrixPoint=checks[7];
   const matrixPointRows=matrixPoint.results||[],matrixPointColumns=new Set(matrixPointRows.map(item=>item.name)),matrixPk=new Map(matrixPointRows.map(item=>[item.name,Number(item.pk)||0]));
   if(!matrixPointColumns.has('point_settings')||matrixPk.get('room_id')!==1||matrixPk.get('template_id')!==2||matrixPk.get('point_id')!==3)return false;
-  const oldParticipant=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='log_participant'").first();
+  const oldParticipant=checks[8].results?.[0]||null;
   return !oldParticipant;
 }
 

@@ -5,6 +5,19 @@ const state={board:null,tool:"log",activeRoom:"",pendingRoom:"",editingRoom:"",s
 
 function esc(value=""){return String(value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 async function api(path,options={}){const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body}
+async function loadBoard(){
+  let failure;
+  for(let attempt=0;attempt<2;attempt++){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+    try{
+      const data=await api(`/api/boards/${encodeURIComponent(boardId)}`,{signal:controller.signal});
+      if(!data?.id||!Array.isArray(data.logs))throw new Error('部屋情報の応答形式が正しくありません');
+      return data;
+    }catch(error){failure=error;if(attempt===0)$("#boardName").textContent="再接続中…";}
+    finally{clearTimeout(timer)}
+  }
+  throw new Error(failure?.name==='AbortError'?'部屋情報の取得がタイムアウトしました。再読み込みしてください。':failure?.message||'部屋情報を取得できませんでした');
+}
 function adminToken(){return localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||""}
 function openedKey(){return `jijinboardOpenedLogs:${boardId}`}
 function saveOpened(){try{sessionStorage.setItem(openedKey(),JSON.stringify(state.opened))}catch{}}
@@ -75,7 +88,7 @@ async function attachRoom(message){const token=adminToken();if(!token)return;awa
 function openLogEdit(roomId){closeSpoiler();const item=state.board.logs.find(log=>log.roomId===roomId);if(!item)return;state.editingRoom=roomId;$("#logSpoilerInput").checked=!!item.spoiler;$("#logScenarioTitle").value=item.scenarioTitle||"";$("#logScenarioParticipants").value=item.scenarioParticipants||"";$("#logEditDialog").showModal()}
 async function saveLogEdit(event){event.preventDefault();const roomId=state.editingRoom;if(!roomId)return;const spoiler=$("#logSpoilerInput").checked;try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`,{method:"PATCH",headers:{"x-board-admin-token":adminToken()},body:JSON.stringify({spoiler,scenarioTitle:$("#logScenarioTitle").value,scenarioParticipants:$("#logScenarioParticipants").value})});state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);if(spoiler){delete state.opened[roomId];saveOpened()}renderLogs();$("#logEditDialog").close();if(spoiler&&state.activeRoom===roomId)requestOpen(roomId)}catch(error){alert(error.message)}}
 async function removeLog(){const roomId=state.editingRoom;if(!roomId||!confirm("このログを完全に削除しますか？\nログ本文・感想・MATRIXの配置とコメントも元に戻せません。"))return;try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`,{method:"DELETE",headers:{"x-board-admin-token":adminToken()}});["admin:","personas:","mainTab:","hiddenTabs:","theme:"].forEach(prefix=>localStorage.removeItem(prefix+roomId));delete state.opened[roomId];saveOpened();state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);if(state.activeRoom===roomId){state.activeRoom="";state.profile=null;const frame=$("#logFrame");logBridge()?.destroy?.();setLogActive(frame,false);frame.removeAttribute("src");delete frame.dataset.room;frame.dataset.ready="";frame.style.visibility="";$("#welcome").classList.remove("hidden")}$("#logEditDialog").close();renderLogs()}catch(error){alert(error.message)}}
-async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{state.opened=loadOpened();state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);$("#boardName").textContent=state.board.name;document.title=`${state.board.name} | JIJINBOARD`;const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);renderLogs();const url=new URL(location.href);if(url.searchParams.has("room")){url.searchParams.delete("room");history.replaceState(null,"",url.pathname+url.search)}}catch(error){document.body.innerHTML=`<p style="padding:30px">${esc(error.message)}</p>`}}
+async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{state.opened=loadOpened();state.board=await loadBoard();$("#boardName").textContent=state.board.name;document.title=`${state.board.name} | JIJINBOARD`;const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);renderLogs();const url=new URL(location.href);if(url.searchParams.has("room")){url.searchParams.delete("room");history.replaceState(null,"",url.pathname+url.search)}}catch(error){document.body.innerHTML=`<p style="padding:30px">${esc(error.message)}</p>`}}
 
 document.querySelectorAll("[data-tool]").forEach(button=>button.onclick=()=>selectTool(button.dataset.tool));
 $("#confirmOpen").onclick=async()=>{const room=state.pendingRoom,title=$("#spoilerTitle").textContent;closeSpoiler();if(room)await openLog(room,title)};
