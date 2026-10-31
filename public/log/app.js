@@ -105,7 +105,7 @@ const logTextCache=(()=>{
   })).catch(()=>null)}
   async function read(id){try{const database=await db();if(!database)return null;return await new Promise(resolve=>{
     const request=database.transaction("logs").objectStore("logs").get(id);
-    request.onsuccess=()=>resolve(request.result&&Date.now()-request.result.savedAt<86400000?request.result.data:null);
+    request.onsuccess=()=>resolve(request.result?.data||null);
     request.onerror=()=>resolve(null);
   })}catch{return null}}
   async function write(id,data){try{const database=await db();if(!database)return;
@@ -114,7 +114,7 @@ const logTextCache=(()=>{
     store.put({id,data,bytes,savedAt:Date.now()});
     const request=store.getAll();request.onsuccess=()=>{
       let total=0,count=0;for(const row of request.result.sort((a,b)=>b.savedAt-a.savedAt)){
-        total+=row.bytes;count++;if(count>10||total>25*1024*1024||Date.now()-row.savedAt>86400000)store.delete(row.id);
+        total+=row.bytes;count++;if(count>10||total>25*1024*1024)store.delete(row.id);
       }
     };
   }catch{}}
