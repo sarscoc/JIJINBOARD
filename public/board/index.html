@@ -68,6 +68,9 @@
       }catch{}
     })();
   </script>
+<script>
+(()=>{const id=new URL(location.href).searchParams.get('id');if(!id)return;const preload=document.createElement('link');preload.rel='preload';preload.as='image';preload.href='/api/boards/'+encodeURIComponent(id)+'/home-image';preload.fetchPriority='high';document.head.append(preload)})();
+</script>
 </head>
 <body>
   <header class="topbar">

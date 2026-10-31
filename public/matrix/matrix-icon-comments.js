@@ -49,7 +49,7 @@
     d=document.createElement("dialog");
     d.id="matrixIconCommentDialog";
     d.dataset.logcommentsInput="1";
-    d.innerHTML='<form class="matrix-comment-log-form" method="dialog"><div class="comment-persona-picker"><span class="matrix-comment-input-avatar comment-input-avatar"></span><select id="matrixCommentPersona" aria-label="発言者"></select></div><textarea id="matrixCommentBody" rows="5" maxlength="4000" aria-label="感想"></textarea><button id="matrixCommentSubmit" type="submit">投稿</button><button id="matrixCommentDelete" class="comment-edit-delete" type="button" hidden>このコメントを削除</button></form>';
+    d.innerHTML='<form class="matrix-comment-log-form"><div class="comment-persona-picker"><span class="matrix-comment-input-avatar comment-input-avatar"></span><select id="matrixCommentPersona" aria-label="発言者"></select></div><textarea id="matrixCommentBody" rows="5" maxlength="4000" aria-label="感想"></textarea><p id="matrixCommentStatus" role="status" aria-live="polite"></p><button id="matrixCommentDelete" class="comment-edit-delete" type="button" hidden>このコメントを削除</button></form>';
     document.body.append(d);
     d.querySelector("form").addEventListener("submit",post);
     d.querySelector("#matrixCommentDelete").addEventListener("click",remove);
@@ -133,7 +133,7 @@
     try{return await task}finally{if(loadPromise===task)loadPromise=null}
   }
 
-  function open(id,reply="",edit="",anchor=null){
+  async function open(id,reply="",edit="",anchor=null){
     if(!id||posting)return;
     panel().hidden=false;
     const p=profile();if(!p?.plName)return alert("先に発言者を登録してください。");
@@ -141,6 +141,8 @@
     const d=dialog(),select=d.querySelector("#matrixCommentPersona"),all=pcList();
     composerPeople=all;
     select.innerHTML=all.map((person,i)=>`<option value="${i}">${esc(person.name)}（${esc(person.type||"PC")}）</option>`).join("");
+    const sessionTarget=id;
+    d.querySelector("#matrixCommentStatus").textContent="";
     const old=comments.find(c=>c.id===edit);
     if(old){
       const index=all.findIndex(person=>person.name===old.persona_name&&person.type===old.persona_type);
@@ -155,6 +157,18 @@
     if(!d.open)d.show();
     positionDialog(d);
     setTimeout(()=>d.querySelector("textarea")?.focus(),0);
+    try{
+      const data=await ctx().api(`/api/boards/${encodeURIComponent(ctx().boardId)}/participants`);
+      if(!d.open||targetId!==sessionTarget||posting)return;
+      const selected=composerPeople[Number(select.value)||0];
+      const own=(data.participants||[]).filter(person=>String(person.authorId)===String(p.id)).map(person=>({id:person.personaId,name:person.name,type:person.type||"PC",icon:person.baseIcon||person.icon||"",color:person.color||"#ffe66b"}));
+      const byId=new Map(composerPeople.slice(1).map(person=>[String(person.id||person.name),person]));
+      for(const person of own)byId.set(String(person.id||person.name),person);
+      composerPeople=[composerPeople[0],...byId.values()];
+      select.innerHTML=composerPeople.map((person,i)=>`<option value="${i}">${esc(person.name)}（${esc(person.type||"PC")}）</option>`).join("");
+      select.value=String(Math.max(0,composerPeople.findIndex(person=>person.type===selected?.type&&(person.id?person.id===selected?.id:person.name===selected?.name))));
+      syncDialogAvatar(d);
+    }catch(error){d.querySelector("#matrixCommentStatus").textContent="PC一覧を取得できませんでした："+error.message;}
   }
 
   async function post(event){
@@ -164,12 +178,12 @@
     if(!body)return;
     if(!c||!commentRoom()||!p?.id||!person){alert("発言者情報を確認してください。");return;}
     posting=true;d.dataset.submitting="1";
-    const submit=d.querySelector("#matrixCommentSubmit");submit.disabled=true;submit.textContent="保存中…";
+    const status=d.querySelector("#matrixCommentStatus");status.textContent="保存中…";
     try{
       if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
       else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
       d.close();await load(true);
-    }catch(error){alert(error.message)}finally{posting=false;delete d.dataset.submitting;submit.disabled=false;submit.textContent="投稿"}
+    }catch(error){status.textContent="保存できませんでした："+error.message;}finally{posting=false;delete d.dataset.submitting}
   }
   async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
   async function like(id){const c=ctx();try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:profile()?.id})});await load(true)}catch(error){alert(error.message)}}
@@ -181,13 +195,18 @@
     if(editButton){event.stopPropagation();const c=comments.find(x=>x.id===editButton.dataset.matrixEdit);open(c?.target_id,"",c?.id,editButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
     if(card){revealTarget(card.dataset.commentTarget)}
   });
-  document.addEventListener("pointerdown",event=>{
+  function saveOutside(){
     const d=document.querySelector("#matrixIconCommentDialog");
-    if(!d?.open||posting||d.contains(event.target))return;
-    const textarea=d.querySelector("#matrixCommentBody");
-    if(textarea?.value.trim())d.querySelector("form")?.requestSubmit();
+    if(!d?.open||posting)return;
+    if(d.querySelector("#matrixCommentBody")?.value.trim())post({preventDefault(){}});
     else d.close();
-  });
+  }
+  document.addEventListener("click",event=>{
+    const d=document.querySelector("#matrixIconCommentDialog");
+    if(d?.open&&!d.contains(event.target))saveOutside();
+  },true);
+  window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-save-matrix-comment")saveOutside()});
+
 
   render();
   window.openMatrixIconComment=id=>open(id);

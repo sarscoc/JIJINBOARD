@@ -13,7 +13,8 @@ export async function handleBoardHomeImage(request,env,roomId){
     const headers=new Headers();
     object.writeHttpMetadata(headers);
     headers.set("content-type",headers.get("content-type")||"image/webp");
-    headers.set("cache-control","private, no-cache");
+    headers.set("cache-control","private, max-age=60, stale-while-revalidate=86400");
+    if(object.httpEtag&&request.headers.get("if-none-match")===object.httpEtag)return new Response(null,{status:304,headers});
     headers.set("etag",object.httpEtag||"");
     return new Response(request.method==="HEAD"?null:object.body,{status:200,headers});
   }

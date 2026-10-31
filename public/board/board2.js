@@ -92,3 +92,5 @@ addEventListener("message",event=>{if(event.origin!==location.origin)return;cons
 
 init();
 addEventListener("message",event=>{if(event.origin!==location.origin||event.data?.type!=="jijinboard-participants-saved"||event.data.boardId!==boardId)return;$("#matrixFrame").contentWindow?.postMessage({type:"jijinboard-participants-saved"},location.origin)});
+
+document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFrame")?.contentWindow?.postMessage({type:"jijinboard-save-matrix-comment"},location.origin)},true);
