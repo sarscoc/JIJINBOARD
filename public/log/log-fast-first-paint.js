@@ -53,13 +53,18 @@
         };
       }).filter(range=>range&&range.end>range.start);
       const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
-      let out="";
+      const segments=[];
       for(let i=0;i<edges.length-1;i++){
         const start=edges[i],end=edges[i+1],covering=ranges.filter(r=>r.start<=start&&r.end>=end);
-        const winner=covering.find(r=>r.id===state.activeMarkerId)||covering[0],text=esc(message.text.slice(start,end));
-        out+=winner?`<mark data-ann="${esc(winner.id)}" style="--marker:${esc(winner.color)}">${text}</mark>`:text;
+        const winner=covering.find(r=>r.id===state.activeMarkerId)||covering[0];
+        const previous=segments[segments.length-1];
+        if(previous&&previous.winner?.id===winner?.id&&previous.end===start)previous.end=end;
+        else segments.push({start,end,winner});
       }
-      return out;
+      return segments.map(({start,end,winner})=>{
+        const text=esc(message.text.slice(start,end));
+        return winner?`<mark data-ann="${esc(winner.id)}" style="--marker:${esc(winner.color)}">${text}</mark>`:text;
+      }).join("");
     };
   }
 

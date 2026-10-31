@@ -176,13 +176,18 @@ function markedText(message, anns) {
     return {start:messageIndex===startIndex?Math.max(0,a.start_offset):0,end:messageIndex===endIndex?Math.min(message.text.length,a.end_offset):message.text.length,id:a.id,color:markerColor(a.color)};
   }).filter(r=>r&&r.end>r.start);
   const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
-  let out="";
-  for(let i=0;i<edges.length-1;i++){
-    const start=edges[i],end=edges[i+1],covering=ranges.filter(r=>r.start<=start&&r.end>=end);
-    const winner=covering.find(r=>r.id===state.activeMarkerId)||covering[0],text=esc(message.text.slice(start,end));
-    out+=winner?`<mark data-ann="${esc(winner.id)}" style="--marker:${esc(winner.color)}">${text}</mark>`:text;
-  }
-  return out;
+      const segments=[];
+      for(let i=0;i<edges.length-1;i++){
+        const start=edges[i],end=edges[i+1],covering=ranges.filter(r=>r.start<=start&&r.end>=end);
+        const winner=covering.find(r=>r.id===state.activeMarkerId)||covering[0];
+        const previous=segments[segments.length-1];
+        if(previous&&previous.winner?.id===winner?.id&&previous.end===start)previous.end=end;
+        else segments.push({start,end,winner});
+      }
+      return segments.map(({start,end,winner})=>{
+        const text=esc(message.text.slice(start,end));
+        return winner?`<mark data-ann="${esc(winner.id)}" style="--marker:${esc(winner.color)}">${text}</mark>`:text;
+      }).join("");
 }
 function markerColor(value){return /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(value||"")?value:"#ffe66b"}
 function messageHtml(m, grouped) {
