@@ -120,7 +120,15 @@
     const targetIcon=target?`<img class="matrix-comment-target-icon" src="${esc(target)}" alt="" title="${esc(targetLabel)}">`:`<span class="matrix-comment-target-icon matrix-comment-target-empty" title="${esc(targetLabel)}"></span>`;
     return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" data-comment-target="${esc(c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row">${targetIcon}<span class="matrix-comment-target-arrow" aria-hidden="true">›</span><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
-  function render(){const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(comments.map(c=>c.id));comments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=comments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=comments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>'}
+  function render(){
+    const tid=typeof currentTemplateId==="function"?String(currentTemplateId()||""):"";
+    const visibleComments=comments.filter(comment=>{
+      const target=targetParts(comment.target_id);
+      if(!tid)return false;
+      if(target.templateId)return target.templateId===tid;
+      return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
+    });
+const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>'}
   async function load(force=false){
     const c=ctx();if(!c||!commentRoom())return;
     if(loadPromise)return loadPromise;
@@ -208,6 +216,7 @@
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-save-matrix-comment")saveOutside()});
 
 
+  window.addEventListener("matrix-template-selected",()=>{render()});
   render();
   window.openMatrixIconComment=id=>open(id);
   window.addEventListener("matrix-board-room",()=>{lastSerial="";load(true).catch(console.warn)});

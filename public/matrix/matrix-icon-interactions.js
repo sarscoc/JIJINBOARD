@@ -85,10 +85,7 @@
     applyPageFilter();
   }
 
-  function showAllComments() {
-    pageFilter = "";
-    applyPageFilter();
-  }
+  function showAllComments() { filterCurrentPage(); }
 
   function ensureListObserver() {
     const list = document.querySelector("#matrixIconCommentList");
@@ -200,14 +197,14 @@
 
   document.addEventListener("click", event => {
     if (!(event.target instanceof Element)) return;
-    if (event.target.closest("#templatesPage .template-tab")) setTimeout(showAllComments, 0);
+    if (event.target.closest("#templatesPage .template-tab")) setTimeout(filterCurrentPage, 0);
   });
 
   if (typeof window.switchTemplate === "function") {
     const baseSwitchTemplate = window.switchTemplate;
     window.switchTemplate = async function(...args) {
       const result = await baseSwitchTemplate.apply(this, args);
-      showAllComments();
+      filterCurrentPage();
       return result;
     };
   }
@@ -251,7 +248,8 @@
 
   window.filterMatrixCommentsToCurrentPage = filterCurrentPage;
   window.showAllMatrixComments = showAllComments;
-  window.addEventListener("matrix-board-room", showAllComments);
+  window.addEventListener("matrix-board-room", filterCurrentPage);
+  window.addEventListener("matrix-template-selected",filterCurrentPage);
 
   let tries = 0;
   const waitForComments = setInterval(() => {

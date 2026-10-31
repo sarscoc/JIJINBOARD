@@ -101,9 +101,45 @@ $("#logFrame").addEventListener("load",()=>{const frame=$("#logFrame");hydratePr
 $("#matrixFrame").addEventListener("load",()=>{const frame=$("#matrixFrame");frame.contentWindow?.postMessage({type:"jijinboard-matrix-active",active:state.tool==="matrix"},location.origin)});
 $("#spreadsheetFrame").addEventListener("load",()=>$("#spreadsheetFrame").contentWindow?.postMessage({type:"jijinboard-spreadsheet-active",active:state.tool==="spreadsheet"},location.origin));
 addEventListener("storage",event=>{if(event.key===`personas:${state.activeRoom}`||event.key==="trpgMarkerProfile")hydrateProfile()});
-addEventListener("message",event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==="jijinboard-room-created")attachRoom(message).catch(error=>alert(error.message));if(message.type==="jijinboard-profile")acceptProfile(message);if(message.type==="jijinboard-presence")$("#presenceBar").innerHTML=(message.people||[]).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||"?").slice(0,1))}</i>`}<b>${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':""}</span>`).join("");if(message.type==="jijinboard-log-ready"&&event.source===$("#logFrame").contentWindow)setToolFrameReady($("#logFrame"));if(message.type==="jijinboard-matrix-ready"&&event.source===$("#matrixFrame").contentWindow)setToolFrameReady($("#matrixFrame"));if(message.type==="jijinboard-spreadsheet-ready"&&event.source===$("#spreadsheetFrame").contentWindow)setToolFrameReady($("#spreadsheetFrame"))});
+addEventListener("message",event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==="jijinboard-room-created")attachRoom(message).catch(error=>alert(error.message));if(message.type==="jijinboard-profile")acceptProfile(message);if(message.type==="jijinboard-presence"&&!window.__boardPresenceOwner)$("#presenceBar").innerHTML=(message.people||[]).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||"?").slice(0,1))}</i>`}<b>${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':""}</span>`).join("");if(message.type==="jijinboard-log-ready"&&event.source===$("#logFrame").contentWindow)setToolFrameReady($("#logFrame"));if(message.type==="jijinboard-matrix-ready"&&event.source===$("#matrixFrame").contentWindow)setToolFrameReady($("#matrixFrame"));if(message.type==="jijinboard-spreadsheet-ready"&&event.source===$("#spreadsheetFrame").contentWindow)setToolFrameReady($("#spreadsheetFrame"))});
 
 init();
 addEventListener("message",event=>{if(event.origin!==location.origin||event.data?.type!=="jijinboard-participants-saved"||event.data.boardId!==boardId)return;$("#matrixFrame").contentWindow?.postMessage({type:"jijinboard-participants-saved"},location.origin)});
 
 document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFrame")?.contentWindow?.postMessage({type:"jijinboard-save-matrix-comment"},location.origin)},true);
+
+// Presence belongs to the board page, independent of which tool/log is open.
+(()=>{
+  if(!boardId)return;
+  window.__boardPresenceOwner=true;
+  let socket=null,reconnectTimer=0,stopped=false,attempt=0;
+  const clientId=crypto.randomUUID();
+  const visitorId=`visitor:${clientId}`;
+  const currentProfile=()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')}catch{return null}};
+  function publish(type='presence'){
+    if(socket?.readyState!==WebSocket.OPEN)return;
+    const p=currentProfile();
+    socket.send(JSON.stringify({type,clientId,authorId:p?.id||visitorId,plName:p?.plName||'ゲスト',plIcon:p?.plIcon||'',isTyping:false}));
+  }
+  function draw(people){
+    const bar=document.querySelector('#presenceBar');if(!bar)return;
+    bar.innerHTML=(people||[]).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||'?').slice(0,1))}</i>`}<b>${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':''}</span>`).join('');
+  }
+  function connect(){
+    if(stopped||socket&&socket.readyState<2)return;
+    const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`);
+    socket=ws;
+    ws.addEventListener('open',()=>{if(socket===ws){attempt=0;publish('join')}});
+    ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence')draw(data.presence)});
+    ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped){clearTimeout(reconnectTimer);reconnectTimer=setTimeout(connect,Math.min(30000,1000*2**attempt++))}});
+    ws.addEventListener('error',()=>ws.close());
+  }
+  connect();
+  let heartbeat=setInterval(()=>{connect();publish()},20000);
+  document.querySelector("#boardProfileDialog")?.addEventListener("close",()=>publish());
+  window.addEventListener('storage',event=>{if(event.key==='trpgMarkerProfile')publish()});
+  window.addEventListener('message',event=>{if(event.origin===location.origin&&event.data?.type==='jijinboard-profile')publish()});
+  window.addEventListener('online',connect);
+  window.addEventListener('pageshow',()=>{if(stopped){stopped=false;connect();heartbeat=setInterval(()=>{connect();publish()},20000)}});
+  window.addEventListener('pagehide',()=>{stopped=true;clearInterval(heartbeat);clearTimeout(reconnectTimer);socket?.close()});
+})();
