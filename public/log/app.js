@@ -170,10 +170,19 @@ function groupAnnotations() {
 function markedText(message, anns) {
   if (!anns?.length) return esc(message.text);
   const indexes = new Map(state.room.messages.map((m,i)=>[m.id,i])), messageIndex=indexes.get(message.id);
-  const ranges = anns.map(a => { const startIndex=indexes.get(a.message_id),endIndex=indexes.get(a.end_message_id||a.message_id)??startIndex;if(messageIndex<startIndex||messageIndex>endIndex)return null;return {start:messageIndex===startIndex?Math.max(0,a.start_offset):0,end:messageIndex===endIndex?Math.min(message.text.length,a.end_offset):message.text.length,id:a.id,color:markerColor(a.color)}; }).filter(r=>r&&r.end>r.start).sort((a,b)=>a.start-b.start);
-  let out = "", pos = 0;
-  ranges.forEach(r => { if (r.start < pos) return; out += esc(message.text.slice(pos, r.start)); out += `<mark data-ann="${esc(r.id)}" style="--marker:${esc(r.color)}">${esc(message.text.slice(r.start, r.end))}</mark>`; pos = r.end; });
-  return out + esc(message.text.slice(pos));
+  const ranges = [...anns].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(a => {
+    const startIndex=indexes.get(a.message_id),endIndex=indexes.get(a.end_message_id||a.message_id)??startIndex;
+    if(messageIndex<startIndex||messageIndex>endIndex)return null;
+    return {start:messageIndex===startIndex?Math.max(0,a.start_offset):0,end:messageIndex===endIndex?Math.min(message.text.length,a.end_offset):message.text.length,id:a.id,color:markerColor(a.color)};
+  }).filter(r=>r&&r.end>r.start);
+  const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
+  let out="";
+  for(let i=0;i<edges.length-1;i++){
+    const start=edges[i],end=edges[i+1],covering=ranges.filter(r=>r.start<=start&&r.end>=end);
+    const winner=covering.find(r=>r.id===state.activeMarkerId)||covering[0],text=esc(message.text.slice(start,end));
+    out+=winner?`<mark data-ann="${esc(winner.id)}" style="--marker:${esc(winner.color)}">${text}</mark>`:text;
+  }
+  return out;
 }
 function markerColor(value){return /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(value||"")?value:"#ffe66b"}
 function messageHtml(m, grouped) {
@@ -395,6 +404,12 @@ let markerNavigation=0;
 function pulseLogMarker(element,id){
   if(!id){element.scrollIntoView({behavior:"smooth",block:"center"});return}
   const token=++markerNavigation;
+  state.activeMarkerId=id;
+  const grouped=groupAnnotations();
+  for(const row of document.querySelectorAll(".log-message[data-message]")){
+    const message=state.room?.messages.find(m=>m.id===row.dataset.message),text=row.querySelector(".message-text");
+    if(message&&text)text.innerHTML=markedText(message,grouped[message.id]||[]);
+  }
   document.querySelectorAll(".comment-card.focused").forEach(card=>card.classList.remove("focused"));
   document.getElementById("comment-"+id)?.classList.add("focused");
   let hiding=document.getElementById("jijin-marker-navigation-hide");

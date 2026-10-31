@@ -41,6 +41,8 @@
     html.embedded .filters :is(input:not([type="range"]),select,button,.quiet,.primary),html.embedded .filters .font-size-control{background:#fff!important;border-color:#dfe3e8!important;box-shadow:none!important;color:${uiInk}!important}
     html.embedded .filters .font-size-control :is(span,strong){color:${uiInk}!important}
     html.embedded .comments-head{color:${value.color1}!important}
+    html.embedded .typing-comment{border-left-color:${value.color1}!important}
+    html.embedded .typing-comment>i{background:${value.color1}!important}
     html.embedded .filters input::placeholder{color:${uiInk}!important;opacity:1!important}
     html.embedded .filters input[type="range"]{accent-color:${value.color1}!important}
     html.embedded .log-pane,html.embedded .comments-pane{background:#fff!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
