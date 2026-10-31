@@ -186,3 +186,7 @@ html.embedded #themeBtn{display:none!important}
   }
   html.embedded .comments-pane:has(.comments-list>.empty) .comments-list::-webkit-scrollbar{display:none!important}
 }
+
+/* Stable log background from first paint; only dark mode changes it. */
+html.embedded,html.embedded body{background:#fff!important;background-image:none!important;transition:none!important}
+html.embedded.dark,html.embedded.dark body{background:#424242!important;background-image:none!important}

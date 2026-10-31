@@ -23,12 +23,15 @@
   }
   function applyBackground(doc){
     if(!doc?.documentElement||!doc?.body)return;
+    const isLog=/\/log(?:\/|$)/.test(doc.location?.pathname||"");
+    const dark=doc.documentElement.classList.contains("dark");
     const value=currentTheme();
     const image=`radial-gradient(circle at 12% 8%,${rgba(value.gradientColor1,.24)},transparent 28%),radial-gradient(circle at 86% 82%,${rgba(value.gradientColor2,.12)},transparent 30%)`;
     for(const node of [doc.documentElement,doc.body]){
       const style=node.style;
-      style.setProperty("background-color","#f5f7fa","important");
-      style.setProperty("background-image",image,"important");
+      style.setProperty("background-color",isLog?(dark?"#424242":"#fff"):"#f5f7fa","important");
+      style.setProperty("background-image",isLog?"none":image,"important");
+      if(isLog)style.setProperty("transition","none","important");
       style.setProperty("background-repeat","no-repeat","important");
       style.setProperty("background-position","0 0","important");
       style.setProperty("background-size","auto","important");
@@ -47,7 +50,14 @@
     }catch{}
   }
   function syncFrame(frame){
-    try{applyBackground(frame?.contentDocument);attachThemeObserver(frame)}catch{}
+    try{
+      const doc=frame?.contentDocument;
+      applyBackground(doc);attachThemeObserver(frame);
+      if(frame?.id==="logFrame"&&doc?.documentElement&&!doc.documentElement.__plainLogObserved){
+        doc.documentElement.__plainLogObserved=true;
+        new MutationObserver(()=>applyBackground(doc)).observe(doc.documentElement,{attributes:true,attributeFilter:["class"]});
+      }
+    }catch{}
   }
   function syncAll(){for(const id of frameIds)syncFrame(document.getElementById(id))}
 
