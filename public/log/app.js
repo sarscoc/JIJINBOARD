@@ -95,17 +95,54 @@ function rememberRecentRoom(room){const recent=JSON.parse(localStorage.getItem("
 async function renderRecentRooms(){const saved=JSON.parse(localStorage.getItem("trpgMarkerRecentRooms")||"[]"),box=$("#recentRooms"),list=$("#recentRoomList");if(!saved.length){box.classList.add("hidden");return}const rooms=(await Promise.all(saved.slice(0,12).map(async item=>{try{const room=await api(`/api/rooms/${encodeURIComponent(item.id)}?summary=1`);return{...item,title:room.title,available:true}}catch{return{...item,available:false}}}))).filter(room=>room.available);if(!rooms.length){box.classList.add("hidden");return}list.innerHTML=rooms.map(room=>`<a class="recent-room" href="/log/?room=${encodeURIComponent(room.id)}"><span><b>${esc(room.title)}</b><small>${esc(formatCommentDate(room.visitedAt))}</small></span><i>開く ›</i></a>`).join("");box.classList.remove("hidden")}
 async function deleteOwnedRoom(id,title){if(!confirm(`「${title}」を完全に削除しますか？\nログと感想も元に戻せなくなります。`))return;const token=localStorage.getItem(`admin:${id}`);if(!token)return alert("この部屋の管理情報がありません");const button=document.querySelector(`[data-delete-room="${CSS.escape(id)}"]`);if(button){button.disabled=true;button.textContent="…"}try{await api(`/api/rooms/${encodeURIComponent(id)}`,{method:"DELETE",headers:{"x-admin-token":token}});localStorage.removeItem(`admin:${id}`);localStorage.removeItem(`personas:${id}`);localStorage.removeItem(`mainTab:${id}`);localStorage.removeItem(`hiddenTabs:${id}`);const owned=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}");delete owned[id];localStorage.setItem("trpgMarkerOwnedRooms",JSON.stringify(owned));document.querySelector(`[data-owned-room="${CSS.escape(id)}"]`)?.remove();if(!document.querySelector("[data-owned-room]"))$("#ownedRooms").classList.add("hidden")}catch(error){alert(error.message);if(button){button.disabled=false;button.textContent="×"}}}
 
+// Bounded browser cache for log text only; shared comments remain server-backed.
+const logTextCache=(()=>{
+  let opening;
+  function db(){return opening||=(new Promise((resolve,reject)=>{
+    const request=indexedDB.open("jijinboard-log-text-v1",1);
+    request.onupgradeneeded=()=>request.result.createObjectStore("logs",{keyPath:"id"});
+    request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);
+  })).catch(()=>null)}
+  async function read(id){try{const database=await db();if(!database)return null;return await new Promise(resolve=>{
+    const request=database.transaction("logs").objectStore("logs").get(id);
+    request.onsuccess=()=>resolve(request.result&&Date.now()-request.result.savedAt<86400000?request.result.data:null);
+    request.onerror=()=>resolve(null);
+  })}catch{return null}}
+  async function write(id,data){try{const database=await db();if(!database)return;
+    const bytes=JSON.stringify(data).length*2;if(bytes>25*1024*1024)return;
+    const tx=database.transaction("logs","readwrite"),store=tx.objectStore("logs");
+    store.put({id,data,bytes,savedAt:Date.now()});
+    const request=store.getAll();request.onsuccess=()=>{
+      let total=0,count=0;for(const row of request.result.sort((a,b)=>b.savedAt-a.savedAt)){
+        total+=row.bytes;count++;if(count>10||total>25*1024*1024||Date.now()-row.savedAt>86400000)store.delete(row.id);
+      }
+    };
+  }catch{}}
+  return {read,write};
+})();
+
 async function openRoom(id) {
   state.roomId = id;applyTheme(localStorage.getItem(`theme:${id}`)||localStorage.getItem("theme")||"light"); loadRoomPersonas(id); $("#homeView").classList.add("hidden"); $("#roomView").classList.remove("hidden"); $("#profileBtn").classList.remove("hidden");
   $("#roomStatus").textContent = "ログを読み込んでいます…";
   try {
-    state.room = await api(`/api/rooms/${encodeURIComponent(id)}`);
+    const fresh=api(`/api/rooms/${encodeURIComponent(id)}`);
+    // A blocked browser database must never delay the network path.
+    const cached=await Promise.race([logTextCache.read(id),fresh.then(()=>null,()=>null),new Promise(resolve=>setTimeout(()=>resolve(null),80))]);
+    const paintRoom=room=>{
+    state.room=room;
     rememberRecentRoom(state.room);
     state.hiddenTabs=new Set(JSON.parse(localStorage.getItem(`hiddenTabs:${id}`)||"[]").filter(tab=>state.room.tabs.includes(tab)));
     $("#roomTitle").textContent = state.room.title; document.title = `${state.room.title} | TRPG LOG MARKER`;
+    $("#tabFilter").innerHTML='<option value="">メインタブを選択</option>';
     state.room.tabs.forEach(tab => $("#tabFilter").insertAdjacentHTML("beforeend", `<option>${esc(tab)}</option>`));
     const savedMain=localStorage.getItem(`mainTab:${id}`);state.mainTab=state.room.tabs.includes(savedMain)?savedMain:(state.room.tabs.find(tab=>/^メイン$/i.test(tab))||state.room.tabs[0]||"");$("#tabFilter").value=state.mainTab;
     renderLog(); $("#roomStatus").textContent = "";
+    };
+    paintRoom(cached||await fresh);
+    fresh.then(room=>{
+      logTextCache.write(id,room);
+      if(cached&&state.roomId===id&&JSON.stringify(cached)!==JSON.stringify(room))paintRoom(room);
+    }).catch(error=>{if(state.roomId===id)$("#roomStatus").textContent=error.message});
     refreshAnnotations().catch(error=>{console.warn("Comment loading failed",error)});
     connectRealtime();
     if (!state.profile.plName) openProfile();
