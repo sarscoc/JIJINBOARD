@@ -147,9 +147,9 @@
 const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>'}
   async function load(force=false){
     const c=ctx();if(!c||!commentRoom())return;
-    if(loadPromise)return loadPromise;
+    if(loadPromise){await loadPromise;if(!force)return;}
     const task=(async()=>{
-      const data=await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments?authorId=${encodeURIComponent(profile()?.id||"")}`);
+      const data=await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments?authorId=${encodeURIComponent(profile()?.id||"")}`,{cache:"reload"});
       const next=data.comments||[],serial=JSON.stringify(next);
       if(force||serial!==lastSerial){comments=next;lastSerial=serial;render()}
     })();
