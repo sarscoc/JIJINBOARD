@@ -199,6 +199,7 @@ html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:#35353
 
 /* Comment counts are redundant with the comments panel. */
 html.embedded .annotation-count{display:none!important}
-html.embedded .comment-card{border-left-color:var(--comment-marker,var(--mark))!important}
+html.embedded .comment-card{border-left-color:var(--line)!important}
+html.embedded .comment-card.focused{border-left-color:var(--comment-marker,var(--mark))!important}
 ::highlight(jijin-comment-selection){background:#b9d8ff;color:#171a1f}
 html.dark ::highlight(jijin-comment-selection){background:#41688c;color:#fff}

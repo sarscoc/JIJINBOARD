@@ -187,7 +187,7 @@
     const el = panel?.querySelector(`[data-message="${CSS.escape(id)}"]`); if (!el) return;
     const annotation = annotationId && state.annotations.find(item => item.id === annotationId), color = markerColor(annotation?.color || "#ffe66b");
     el.style.setProperty("--flash-color", color); el.querySelector(".annotation-count")?.style.setProperty("--flash-color", color); el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.remove("flash"); requestAnimationFrame(() => el.classList.add("flash"));
-    if (annotationId) setTimeout(() => { const mark = el.querySelector(`[data-ann="${CSS.escape(annotationId)}"]`); mark?.style.setProperty("--flash-color", color); mark?.classList.add("flash"); }, 400);
+    pulseLogMarker(el,annotationId);
   };
 
   queueMicrotask(mountAllPanels);
