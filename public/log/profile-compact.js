@@ -135,7 +135,16 @@
   };
 
   function updatePreview(input) {
-    input?.closest(".marker-choice")?.querySelector("b")?.style.setProperty("background", input.value);
+    if(!input)return;
+    const value=input.value;
+    input.closest(".marker-choice")?.querySelector("b")?.style.setProperty("background",value,"important");
+    // Keep a subsequent asynchronous row render consistent with the picker.
+    if(input.matches("[data-persona-color]")){
+      const persona=state.profile.personas[Number(input.dataset.personaColor)];if(persona)persona.color=value;
+    }else if(input.matches("[data-persona-color-dark]")){
+      const persona=state.profile.personas[Number(input.dataset.personaColorDark)];if(persona)persona.colorDark=value;
+    }else if(input.id==="plMarkerColor")state.profile.plColor=value;
+    else if(input.id==="plMarkerColorDark")state.profile.plColorDark=value;
   }
 
   function syncStaticControls() {
@@ -261,6 +270,11 @@
     const input = event.target.closest("#plMarkerColor,#plMarkerColorDark,[data-persona-color],[data-persona-color-dark]");
     if (input) updatePreview(input);
   });
+
+  document.addEventListener("change",event=>{
+    const input=event.target.closest("#plMarkerColor,#plMarkerColorDark,[data-persona-color],[data-persona-color-dark]");
+    if(input)updatePreview(input);
+  },true);
 
   document.addEventListener("change", async event => {
     const nameInput = event.target.closest("[data-persona-name]");
