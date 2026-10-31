@@ -23,7 +23,7 @@ html.embedded .library{background:rgba(255,255,255,.78)!important;backdrop-filte
 /* LOGCOMMENTS baseline: 12px outer inset, 8px column gap, 320px COMMENTS. */
 html.embedded .stage-shell{
   display:grid!important;
-  grid-template-columns:minmax(0,1fr) var(--matrix-comments-width)!important;
+  grid-template-columns:var(--matrix-comments-width) minmax(0,1fr)!important;
   grid-template-rows:var(--matrix-toolbar-height) minmax(0,1fr)!important;
   column-gap:var(--matrix-column-gap)!important;
   row-gap:8px!important;
@@ -54,7 +54,7 @@ html.embedded .stage-area-toolbar{
 html.embedded .stage-toolbar-primary,html.embedded .stage-toolbar-actions{min-width:0!important;height:30px!important;align-items:center!important}
 html.embedded .stage-toolbar-actions{margin-left:auto!important}
 html.embedded .stage{
-  grid-column:1!important;
+  grid-column:2!important;
   grid-row:2!important;
   width:100%!important;
   height:100%!important;
@@ -76,7 +76,7 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 
 /* Start compact, grow with comments, stop at the MATRIX viewport, then scroll inside only. */
 #matrixIconComments{
-  grid-column:2;
+  grid-column:1;
   grid-row:2;
   position:relative;
   inset:auto;
