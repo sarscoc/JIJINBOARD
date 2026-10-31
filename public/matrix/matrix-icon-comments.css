@@ -236,7 +236,7 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 .matrix-comment-flash .placed-avatar img{animation:none!important}
 @keyframes matrixCommentFlash{
   0%,100%{transform:scale(1);filter:none}
-  50%{transform:scale(1.08);filter:none}
+  50%{transform:scale(1.04);filter:none}
 }
 
 /* Input box = LOGCOMMENTS commentDialog exactly. */
@@ -313,3 +313,6 @@ html .matrix-comment-card:focus-visible{
   border-color:var(--comment-marker,var(--matrix-line))!important;
   outline:none!important;
 }
+
+.matrix-comment-card.matrix-comment-pop{animation:matrixCardPop .24s ease-in-out;transform-origin:center}
+@keyframes matrixCardPop{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
