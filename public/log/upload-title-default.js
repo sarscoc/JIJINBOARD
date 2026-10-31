@@ -51,6 +51,8 @@
     mode=mode==="dark"?"dark":"light";
     if(typeof applyTheme==="function")applyTheme(mode);
     else document.documentElement.classList.toggle("dark",mode==="dark");
+    window.__jijinLogThemeReady=true;
+    window.dispatchEvent(new Event("jijinboard-log-theme-ready"));
   }
 
   addEventListener("message",event=>{

@@ -105,7 +105,8 @@ async function openRoom(id) {
     $("#roomTitle").textContent = state.room.title; document.title = `${state.room.title} | TRPG LOG MARKER`;
     state.room.tabs.forEach(tab => $("#tabFilter").insertAdjacentHTML("beforeend", `<option>${esc(tab)}</option>`));
     const savedMain=localStorage.getItem(`mainTab:${id}`);state.mainTab=state.room.tabs.includes(savedMain)?savedMain:(state.room.tabs.find(tab=>/^メイン$/i.test(tab))||state.room.tabs[0]||"");$("#tabFilter").value=state.mainTab;
-    await refreshAnnotations(); renderLog(); $("#roomStatus").textContent = "";
+    renderLog(); $("#roomStatus").textContent = "";
+    refreshAnnotations().catch(error=>{console.warn("Comment loading failed",error)});
     connectRealtime();
     if (!state.profile.plName) openProfile();
   } catch (e) { $("#roomStatus").textContent = e.message; }

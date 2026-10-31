@@ -2,7 +2,7 @@
   const params=new URL(location.href).searchParams;
   if(params.get('embedded')!=='1'||parent===window)return;
   const roomId=params.get('room')||'';
-  let sent=false,queued=false,domReady=document.readyState!=='loading',themeReady=!roomId;
+  let sent=false,queued=false,domReady=document.readyState!=='loading',themeReady=!roomId||!!window.__jijinLogThemeReady;
   let observer=null;
   function contentReady(){
     if(!roomId)return !!document.querySelector('#homeView');
@@ -24,6 +24,7 @@
       parent.postMessage({type:'jijinboard-log-ready',roomId},location.origin);
     }));
   }
+  addEventListener("jijinboard-log-theme-ready",()=>{themeReady=true;send()});
   function watch(){
     domReady=true;
     observer=new MutationObserver(send);
