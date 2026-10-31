@@ -62,3 +62,7 @@ body{background-color:var(--bg);background-image:radial-gradient(circle at 12% 8
 .comment-like:not(.liked){color:#fff;text-shadow:0 0 1px rgba(0,0,0,.8)}
 .archive-open{display:flex!important;justify-content:center;margin:10px auto 0;color:var(--muted);font-size:10px!important;font-weight:600!important;cursor:pointer}.archive-open input{display:none}.archive-open:hover{color:var(--ink)}.delete-room-note{margin:0;color:var(--muted);font-size:11px}.delete-room-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.delete-room-actions button:last-child{grid-column:1/-1}.danger-quiet{border:1px solid color-mix(in srgb,#e05d67 45%,var(--line));border-radius:9px;background:transparent;color:#df5b67;padding:9px;cursor:pointer}
 .home-title-link{color:inherit;text-decoration:none}.home-title-link:hover{opacity:.72}
+
+/* Replies share one indentation level, including replies to replies. */
+.comment-thread.is-reply{margin-left:24px}
+.comment-thread.is-reply .comment-thread.is-reply{margin-left:0}
