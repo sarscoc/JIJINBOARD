@@ -26,16 +26,19 @@
     const isLog=/\/log(?:\/|$)/.test(doc.location?.pathname||"");
     const dark=doc.documentElement.classList.contains("dark");
     const value=currentTheme();
-    const image=`radial-gradient(circle at 12% 8%,${rgba(value.gradientColor1,.24)},transparent 28%),radial-gradient(circle at 86% 82%,${rgba(value.gradientColor2,.12)},transparent 30%)`;
+    const one=rgba(value.gradientColor1,.24),two=rgba(value.gradientColor2,.12);
+    doc.documentElement.style.setProperty('--jijin-background-one',one);
+    doc.documentElement.style.setProperty('--jijin-background-two',two);
+    const image=`radial-gradient(circle at 12% 8%,${one},transparent 28%),radial-gradient(circle at 86% 82%,${two},transparent 30%)`;
     for(const node of [doc.documentElement,doc.body]){
       const style=node.style;
-      style.setProperty("background-color",isLog?(dark?"#424242":"#fff"):"#f5f7fa","important");
-      style.setProperty("background-image",isLog?"none":image,"important");
-      if(isLog)style.setProperty("transition","none","important");
+      style.setProperty("background-color",dark?"#424242":"#f5f7fa","important");
+      style.setProperty("background-image",dark?"none":image,"important");
+      style.setProperty("transition","none","important");
       style.setProperty("background-repeat","no-repeat","important");
       style.setProperty("background-position","0 0","important");
-      style.setProperty("background-size","auto","important");
-      style.setProperty("background-attachment","scroll","important");
+      style.setProperty("background-size","100% 100%","important");
+      style.setProperty("background-attachment","fixed","important");
       style.setProperty("background-origin","padding-box","important");
       style.setProperty("background-clip","border-box","important");
     }
@@ -53,7 +56,7 @@
     try{
       const doc=frame?.contentDocument;
       applyBackground(doc);attachThemeObserver(frame);
-      if(frame?.id==="logFrame"&&doc?.documentElement&&!doc.documentElement.__plainLogObserved){
+      if(doc?.documentElement&&!doc.documentElement.__plainLogObserved){
         doc.documentElement.__plainLogObserved=true;
         new MutationObserver(()=>applyBackground(doc)).observe(doc.documentElement,{attributes:true,attributeFilter:["class"]});
       }
