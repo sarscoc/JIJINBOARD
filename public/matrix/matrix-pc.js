@@ -47,7 +47,7 @@
   const clone=value=>{if(value===undefined)return undefined;try{return structuredClone(value)}catch{try{return JSON.parse(JSON.stringify(value))}catch{return value}}};
   const placementOnlyKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth","mobileSelected"]);
   const participantKey=list=>(list||[]).map(person=>[
-    person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person),fallbackImage(person)
+    person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person),fallbackImage(person),person?.color||""
   ].join("\u001f")).sort().join("\u001e");
 
   function setupBoardUi(){
@@ -143,7 +143,7 @@
       if(!state.items[id]){state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);stateChanged=true}
       const placedImage=String(state.items[id]?.placedImage||"");
       const displayImage=placedImage||image;
-      return{id,name:person.name,url:"",baseImage:displayImage,imageFallback:fallback||displayImage,placementImage:person.serverIcon||image||fallback,imageSignature:`participant:${person.personaId}:${displayImage}:${fallback}`,color:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
+      return{id,name:person.name,url:"",baseImage:displayImage,imageFallback:fallback||displayImage,placementImage:person.serverIcon||image||fallback,imageSignature:`participant:${person.personaId}:${displayImage}:${fallback}`,color:String(person.color||"").split("|")[0]||null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     if(stateChanged)saveState(state);
     paintParticipants();
@@ -152,7 +152,7 @@
 
   function localParticipantRows(room=activeRoom){
     const profile=me();if(!profile?.id)return[];
-    return localPcs(room).map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:person.matrixIcon||""}));
+    return localPcs(room).map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:person.matrixIcon||"",color:String(person.color||"").split("|")[0]}));
   }
 
   function mergeOwnLocalImages(list,room){
