@@ -429,6 +429,14 @@ function saveProfileForm(e) { e.preventDefault(); const name=$("#plName").value.
 async function issueProfileTransfer(){if(!state.profile.plName)return alert("先にPL名を保存してください。");try{const data=await api("/api/profile-transfers",{method:"POST",body:JSON.stringify({profile:{id:state.profile.id,plName:state.profile.plName,plIcon:state.profile.plIcon||"",plColor:state.profile.plColor||"#ffe66b",personas:state.profile.personas||[]}})});await navigator.clipboard?.writeText(data.code).catch(()=>{});alert(`引き継ぎコード：${data.code}\n30分以内に、新しい端末の「発言者の設定」で入力してください。\nコードは一度使うと無効になります。`)}catch(error){alert(error.message)}}
 async function redeemProfileTransfer(){const code=$("#transferCodeInput").value.trim();if(!code)return;try{const data=await api(`/api/profile-transfers/${encodeURIComponent(code)}`,{method:"POST"}),profile=data.profile;state.profile={id:profile.id,plName:profile.plName,plIcon:profile.plIcon||"",plColor:profile.plColor||"#ffe66b",personas:Array.isArray(profile.personas)?profile.personas:[]};saveProfile();$("#transferCodeInput").value="";emitIntegratedProfile();fillPersonaSelect();renderPlIcon();renderPersonas();alert("このPLとPCを引き継ぎました。") }catch(error){alert(error.message)}}
 async function syncPersonaColor(persona){if(!state.roomId||!persona?.name)return;await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/color`,{method:"PATCH",body:JSON.stringify({authorId:state.profile.id,personaName:persona.name,personaType:persona.type,color:persona.color})});await refreshAnnotations()}
+function focusCommentChain(id){
+  document.querySelectorAll(".comment-card.focused").forEach(card=>card.classList.remove("focused"));
+  const seen=new Set();
+  while(id&&!seen.has(id)){
+    seen.add(id);document.getElementById("comment-"+id)?.classList.add("focused");
+    id=state.annotations.find(annotation=>annotation.id===id)?.parent_id;
+  }
+}
 let markerNavigation=0;
 function pulseLogMarker(element,id){
   if(!id){element.scrollIntoView({behavior:"smooth",block:"center"});return}
@@ -439,8 +447,7 @@ function pulseLogMarker(element,id){
     const message=state.room?.messages.find(m=>m.id===row.dataset.message),text=row.querySelector(".message-text");
     if(message&&text)text.innerHTML=markedText(message,grouped[message.id]||[]);
   }
-  document.querySelectorAll(".comment-card.focused").forEach(card=>card.classList.remove("focused"));
-  document.getElementById("comment-"+id)?.classList.add("focused");
+  focusCommentChain(id);
   let hiding=document.getElementById("jijin-marker-navigation-hide");
   if(!hiding){hiding=document.createElement("style");hiding.id="jijin-marker-navigation-hide";document.head.append(hiding)}
   const selector=`mark[data-ann="${CSS.escape(id)}"]`;
@@ -479,7 +486,7 @@ async function resizeIcon(file) {
 }
 async function resizeCommentImage(file){if(!file)return"";const bitmap=await createImageBitmap(file),max=1000,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext("2d").drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();let quality=.78,data="";do{data=canvas.toDataURL("image/webp",quality);quality-=.1}while(data.length>600000&&quality>=.38);if(data.length>600000){const small=document.createElement("canvas");small.width=Math.round(canvas.width*.72);small.height=Math.round(canvas.height*.72);small.getContext("2d").drawImage(canvas,0,0,small.width,small.height);data=small.toDataURL("image/webp",.55)}return data}
 function clearCommentImage(){state.commentImage=""}
-function jumpToComment(id) { const el=$("#comment-"+CSS.escape(id)); if(!el)return; if(innerWidth<=800)$("#commentsPane").classList.add("open"); el.scrollIntoView({behavior:"smooth",block:"center"}); document.querySelectorAll(".comment-card.focused").forEach(card=>card.classList.remove("focused")); el.classList.add("focused"); }
+function jumpToComment(id) { const el=$("#comment-"+CSS.escape(id)); if(!el)return; if(innerWidth<=800)$("#commentsPane").classList.add("open"); el.scrollIntoView({behavior:"smooth",block:"center"}); focusCommentChain(id); }
 
 loadProfile();
 function applyTheme(theme){document.documentElement.classList.toggle("dark",theme==="dark")}applyTheme(localStorage.getItem("theme")||"light");
