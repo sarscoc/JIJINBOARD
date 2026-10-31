@@ -30,6 +30,10 @@
       if(!persona?.id)return;id=persona.id;light=persona.color;dark=persona.colorDark||light;
     }else{light=state.profile.plColor;dark=state.profile.plColorDark||light}
     saved[id]={light,dark};
+    if(id!=="PL"){
+      const persona=state.profile.personas.find(p=>p.id===id);
+      if(persona)saved[`name:${persona.type}:${persona.name}`]={light,dark};
+    }
     try{localStorage.setItem(swatchKey(),JSON.stringify(saved))}catch{}
     saveProfile();
     const name=id==="PL"?state.profile.plName:state.profile.personas.find(p=>p.id===id)?.name;

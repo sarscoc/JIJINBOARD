@@ -330,6 +330,17 @@ async function refreshAnnotations(forceFresh=false) {
   if (!state.roomId) return;
   try {
     const data = await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations?authorId=${encodeURIComponent(state.profile.id)}`,forceFresh?{cache:"reload"}:{});
+    // In-flight refreshes must not repaint locally selected colors with old data.
+    try{
+      const board=new URL(location.href).searchParams.get("board")||"";
+      const colors=JSON.parse(localStorage.getItem(`jijinboardSelectedColors:${board}:${state.profile.id}`)||"{}");
+      for(const a of data.annotations||[]){
+        if(a.author_id!==state.profile.id)continue;
+        const persona=state.profile.personas.find(p=>p.name===a.persona_name&&p.type===a.persona_type);
+        const pair=a.persona_type==="PL"?colors.PL:colors[persona?.id]||colors[`name:${a.persona_type}:${a.persona_name}`];
+        if(pair)a.color=`${pair.light}|${pair.dark}`;
+      }
+    }catch{}
     const changed = Number(data.version)!==state.annotationVersion;
     const markerFields=list=>list.map(a=>[a.id,a.message_id,a.end_message_id,a.start_offset,a.end_offset,a.color]);
     const markersChanged=JSON.stringify(markerFields(data.annotations))!==JSON.stringify(markerFields(state.annotations));
@@ -509,7 +520,7 @@ addEventListener("storage",event=>{
   for(const annotation of state.annotations||[]){
     if(annotation.author_id!==state.profile.id)continue;
     const persona=state.profile.personas.find(p=>p.name===annotation.persona_name&&p.type===annotation.persona_type);
-    const pair=colors[annotation.persona_type==="PL"?"PL":persona?.id];
+    const pair=annotation.persona_type==="PL"?colors.PL:colors[persona?.id]||colors[`name:${annotation.persona_type}:${annotation.persona_name}`];
     if(pair){annotation.color=`${pair.light}|${pair.dark}`;changed=true}
   }
   if(!changed)return;
