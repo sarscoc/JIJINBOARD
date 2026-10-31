@@ -37,7 +37,7 @@
     if(!frame||!welcome||typeof setToolFrameLoading!=="function"||typeof setToolFrameReady!=="function"||typeof selectTool!=="function")return;
 
     const rawLoading=setToolFrameLoading,rawReady=setToolFrameReady,rawSelect=selectTool;
-    const keepTop=()=>{frame.style.visibility="hidden";frame.classList.add("hidden");welcome.classList.remove("hidden")};
+    const keepLoading=()=>{frame.style.visibility="hidden";if(state.tool==="log")welcome.classList.add("hidden")};
     const reveal=()=>{frame.style.visibility="";frame.classList.remove("hidden");welcome.classList.add("hidden")};
     const frameMatches=()=>{
       const expected=frame.dataset.room||"";
@@ -46,20 +46,17 @@
 
     setToolFrameLoading=function(target){
       rawLoading(target);
-      if(target===frame)keepTop();
+      if(target===frame)keepLoading();
     };
     setToolFrameReady=function(target){
+      if(target!==frame){rawReady(target);return}
+      if(!frameMatches())return;
       rawReady(target);
-      if(target!==frame)return;
-      keepTop();
-      requestAnimationFrame(()=>requestAnimationFrame(()=>{
-        if(target.dataset.ready!=="1"||state.tool!=="log"||!frameMatches())return;
-        reveal();
-      }));
+      if(state.tool==="log")reveal();
     };
     selectTool=function(tool){
       rawSelect(tool);
-      if(tool==="log"&&frame.getAttribute("src")&&frame.dataset.ready!=="1")keepTop();
+      if(tool==="log"&&frame.getAttribute("src")&&frame.dataset.ready!=="1")keepLoading();
     };
 
     const warm=()=>{
