@@ -11,6 +11,13 @@ html:root.dark,html:root.dark body{background:#424242!important;background-image
 html:root:not(.embedded):not(.dark) body{background:transparent!important;background-image:none!important}
 html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:transparent!important;background-image:none!important}
 .tool-stage,.tool-frame{background:transparent!important}
+
+/* A persistent parent layer also covers the initial home screen. */
+html:root:not(.embedded){background-color:#f5f7fa!important;background-image:none!important}
+html:root:not(.embedded) body{isolation:isolate}
+html:root:not(.embedded) body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-color:#f5f7fa;background-image:radial-gradient(circle at 12% 8%,var(--jijin-background-one,rgba(103,163,255,.24)),transparent 28%),radial-gradient(circle at 86% 82%,var(--jijin-background-two,rgba(159,113,255,.12)),transparent 30%);background-repeat:no-repeat;background-size:100% 100%}
+html:root.dark body::before{background:#424242;background-image:none}
+#matrixFrame,#logFrame,#spreadsheetFrame,#welcome,.board-home-shell,.board-layout{background:transparent!important;background-image:none!important}
 </style>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">

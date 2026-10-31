@@ -33,7 +33,7 @@
     for(const node of [doc.documentElement,doc.body]){
       const style=node.style;
       style.setProperty("background-color",dark?"#424242":embedded||node===doc.body?"transparent":"#f5f7fa","important");
-      style.setProperty("background-image",dark||embedded||node===doc.body?"none":image,"important");
+      style.setProperty("background-image","none","important");
       style.setProperty("transition","none","important");
       style.setProperty("background-repeat","no-repeat","important");
       style.setProperty("background-position","0 0","important");
