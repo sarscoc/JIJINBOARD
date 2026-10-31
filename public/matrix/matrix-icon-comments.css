@@ -235,9 +235,8 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 .matrix-comment-flash .placed-avatar{box-shadow:none!important;outline:0!important}
 .matrix-comment-flash .placed-avatar img{animation:matrixCommentFlash 1.05s ease both}
 @keyframes matrixCommentFlash{
-  0%{filter:none}
-  45%{filter:drop-shadow(0 0 2px rgba(255,255,255,.92)) drop-shadow(0 0 6px rgba(255,255,255,.38))}
-  100%{filter:none}
+  0%,100%{transform:scale(1);filter:none}
+  45%{transform:scale(1.12);filter:none}
 }
 
 /* Input box = LOGCOMMENTS commentDialog exactly. */
@@ -297,3 +296,12 @@ html.embedded .library{
 
 #matrixIconCommentDialog #matrixCommentStatus{margin:0;font-size:11px;line-height:1.4;color:#c44}
 #matrixIconCommentDialog #matrixCommentStatus:empty{display:none}
+
+/* Match LOGCOMMENTS density, keeping recipient in the author row. */
+.matrix-comment-card{border-left:3px solid var(--matrix-line)}
+.matrix-comment-card.focused{border-left-color:var(--comment-marker)!important}
+.matrix-comment-author .matrix-comment-target-icon{width:24px;height:24px;flex:0 0 24px}
+.matrix-comment-author .matrix-comment-target-arrow{font-size:11px;line-height:1}
+.matrix-comment-body-row{display:block}
+.matrix-comment-body-row p{font-size:13px;line-height:1.5;margin:4px 0 0}
+.matrix-comment-flash .placed-avatar img{animation:matrixCommentFlash .34s ease-out both!important;filter:none!important}

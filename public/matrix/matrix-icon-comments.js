@@ -113,12 +113,28 @@
     }catch(error){console.warn(error)}
     requestAnimationFrame(()=>requestAnimationFrame(()=>flash(itemId)));
   }
+  function commentColor(c){
+    let value=c.color||c.marker_color||"";
+    const p=profile();
+    if(c.author_id===p?.id){
+      if(c.persona_type==="PL")value=p.plColor||value;
+      else value=pcList().find(person=>person.name===c.persona_name)?.color||value;
+      try{
+        const saved=JSON.parse(localStorage.getItem(`jijinboardSelectedColors:${ctx()?.boardId}:${p.id}`)||"{}");
+        const choice=c.persona_type==="PL"?saved.PL:saved[`name:${c.persona_type}:${c.persona_name}`];
+        if(choice)value=choice.light;
+      }catch{}
+    }
+    const pair=String(value||"#ffe66b").split("|");
+    const color=document.documentElement.classList.contains("dark")?(pair[1]||pair[0]):pair[0];
+    return /^#[0-9a-f]{3,8}$/i.test(color)?color:"#ffe66b";
+  }
   function commentHtml(c,depth=0,children=new Map()){
     const mine=c.author_id===profile()?.id;
     const avatar=c.persona_icon?`<img class="matrix-comment-avatar" src="${esc(c.persona_icon)}" alt="">`:'<span class="matrix-comment-avatar"></span>';
     const target=targetImage(c.target_id),targetLabel=targetName(c.target_id),replies=children.get(c.id)||[];
     const targetIcon=target?`<img class="matrix-comment-target-icon" src="${esc(target)}" alt="" title="${esc(targetLabel)}">`:`<span class="matrix-comment-target-icon matrix-comment-target-empty" title="${esc(targetLabel)}"></span>`;
-    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" data-comment-target="${esc(c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row">${targetIcon}<span class="matrix-comment-target-arrow" aria-hidden="true">›</span><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
+    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))}" data-comment-target="${esc(c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em><span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
   function render(){
     const tid=typeof currentTemplateId==="function"?String(currentTemplateId()||""):"";
@@ -201,7 +217,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     if(likeButton){event.stopPropagation();like(likeButton.dataset.matrixLike);return}
     if(replyButton){event.stopPropagation();const c=comments.find(x=>x.id===replyButton.dataset.matrixReply);open(c?.target_id,c?.id,"",replyButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
     if(editButton){event.stopPropagation();const c=comments.find(x=>x.id===editButton.dataset.matrixEdit);open(c?.target_id,"",c?.id,editButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
-    if(card){revealTarget(card.dataset.commentTarget)}
+    if(card){document.querySelectorAll(".matrix-comment-card.focused").forEach(node=>node.classList.remove("focused"));card.classList.add("focused");revealTarget(card.dataset.commentTarget)}
   });
   function saveOutside(){
     const d=document.querySelector("#matrixIconCommentDialog");
