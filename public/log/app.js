@@ -228,7 +228,7 @@ function visibleTabEntries(){const entries=(state.room?.tabs||[]).map((tab,index
 function pagePanelHtml(tab, realIndex, trackIndex, grouped, search, clone = "") {
   const messages = state.room.messages.filter(m => m.tab === tab && (!search || `${m.speaker} ${m.text}`.toLowerCase().includes(search)));
   const rows = messages.map(m => `<div class="page-row" data-time="${esc(m.time)}"><time>${esc(m.time)}</time>${messageHtml(m, grouped)}</div>`).join("");
-  return `<section class="log-page" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll">${rows || '<p class="empty">このタブに表示できる発言がありません。</p>'}</div></section>`;
+  return `<section class="log-page" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll">${rows || '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>'}</div></section>`;
 }
 function lazyPagePanelHtml(tab,realIndex,trackIndex,clone=""){return `<section class="log-page lazy-page" data-tab="${esc(tab)}" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"></section>`}
 function shouldHydratePosition(position,current,count){return position===current||position===current-1||position===current+1||(current===1&&position===0)||(current===count&&position===count+1)}

@@ -74,7 +74,7 @@
       const source=messagesByTab.get(tab)||[];
       const messages=search?source.filter(message=>`${message.speaker} ${message.text}`.toLowerCase().includes(search)):source;
       const rows=messages.map(message=>`<div class="page-row" data-time="${esc(message.time)}"><time>${esc(message.time)}</time>${messageHtml(message,grouped)}</div>`).join("");
-      return `<section class="log-page" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll">${rows||'<p class="empty">このタブに表示できる発言がありません。</p>'}</div></section>`;
+      return `<section class="log-page" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll">${rows||'<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>'}</div></section>`;
     };
   }
 

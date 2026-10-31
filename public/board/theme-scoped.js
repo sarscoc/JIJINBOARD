@@ -35,6 +35,7 @@
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function logCss(value){return `
+    html.embedded{--log-loader-color:${value.color1}}
     html.embedded,html.embedded body{background:transparent!important;background-image:none!important;transition:none!important}
     html.embedded.dark,html.embedded.dark body{background:#424242!important;background-image:none!important}
     html.embedded #roomTitle{color:${uiInk}!important}
