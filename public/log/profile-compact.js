@@ -168,8 +168,13 @@
   syncPersonaColor = async function syncCompactPersonaColor(persona) {
     if (!state.roomId || !persona?.name) return;
     const color = persona.type === "PL" ? encodePair(state.profile.plColor, state.profile.plColorDark || state.profile.plColor) : personaPair(persona);
+    // Reflect the selected pair immediately, before the server round trip.
+    for(const annotation of state.annotations||[]){
+      if(annotation.author_id===state.profile.id&&annotation.persona_name===persona.name&&annotation.persona_type===persona.type)annotation.color=color;
+    }
+    recolorVisibleAnnotations();
     await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/color`, { method:"PATCH", body:JSON.stringify({ authorId:state.profile.id, personaName:persona.name, personaType:persona.type, color }) });
-    await refreshAnnotations();
+    await refreshAnnotations(true);
   };
 
   function addDraftPersona() {

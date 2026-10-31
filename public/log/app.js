@@ -311,15 +311,15 @@ function renderComments() {
 async function deleteComment(id,confirmed=false){if(!confirmed&&!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;try{await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(id)}`,{method:"DELETE",body:JSON.stringify({authorId:state.profile.id}),headers:{"x-admin-token":localStorage.getItem(`admin:${state.roomId}`)||""}});await refreshAnnotations()}catch(error){alert(error.message)}}
 async function toggleLike(id,button){const annotation=state.annotations.find(item=>item.id===id);if(!annotation)return;const before=!!annotation.liked_by_me,count=Number(annotation.like_count)||0;annotation.liked_by_me=!before;annotation.like_count=Math.max(0,count+(before?-1:1));button?.classList.toggle("liked",!before);if(button){button.textContent=`${before?"♡":"♥"}${annotation.like_count||""}`;button.classList.remove("heart-pop");void button.offsetWidth;button.classList.add("heart-pop")}try{const result=await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:state.profile.id})});annotation.liked_by_me=!!result.liked}catch(error){annotation.liked_by_me=before;annotation.like_count=count;if(button){button.classList.toggle("liked",before);button.textContent=`${before?"♥":"♡"}${count||""}`}alert(error.message)}}
 function formatCommentDate(value){if(!value)return "";const normalized=/Z|[+-]\d\d:?\d\d$/.test(value)?value:value.replace(" ","T")+"Z";const date=new Date(normalized);return Number.isNaN(date.getTime())?String(value):new Intl.DateTimeFormat("ja-JP",{month:"numeric",day:"numeric",hour:"2-digit",minute:"2-digit"}).format(date)}
-async function refreshAnnotations() {
+async function refreshAnnotations(forceFresh=false) {
   if (!state.roomId) return;
   try {
-    const data = await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations?authorId=${encodeURIComponent(state.profile.id)}`);
+    const data = await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations?authorId=${encodeURIComponent(state.profile.id)}`,forceFresh?{cache:"reload"}:{});
     const changed = Number(data.version)!==state.annotationVersion;
     const markerFields=list=>list.map(a=>[a.id,a.message_id,a.end_message_id,a.start_offset,a.end_offset,a.color]);
     const markersChanged=JSON.stringify(markerFields(data.annotations))!==JSON.stringify(markerFields(state.annotations));
     state.annotations = data.annotations;state.annotationVersion=Number(data.version)||0;
-    if (changed) { const time=currentReadingTime(); renderComments(); if(markersChanged)renderLog(time); }
+    if (changed||markersChanged) { const time=currentReadingTime(); renderComments(); if(markersChanged)renderLog(time); }
   } catch (e) { $("#roomStatus").textContent = e.message; }
 }
 async function pollAnnotationVersion(){if(!state.roomId||state.archiveMode||document.hidden)return;try{const data=await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/version`);if(Number(data.version)!==state.annotationVersion)await refreshAnnotations()}catch(e){$("#roomStatus").textContent=e.message}}

@@ -31,7 +31,7 @@
       }catch{}
       return response;
     };
-    if(cached){refresh().catch(()=>{});return cached}
+    if(cached&&!["reload","no-store","no-cache"].includes(request.cache)){refresh().catch(()=>{});return cached}
     return refresh();
   };
 })();
