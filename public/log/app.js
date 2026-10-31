@@ -332,8 +332,19 @@ function selectionInfo() {
   const textOffset=(textEl,node,offset,edge)=>{if(textEl.contains(node)){const partial=document.createRange();partial.selectNodeContents(textEl);partial.setEnd(node,offset);return partial.toString().length}if(parent(node)?.closest?.(".speaker"))return 0;return edge==="start"?0:textEl.textContent.length};
   const rects=[...range.getClientRects()].filter(r=>r.width||r.height),focusAtEnd=selection.focusNode===range.endContainer&&selection.focusOffset===range.endOffset,rect=(focusAtEnd?rects[rects.length-1]:rects[0])||range.getBoundingClientRect();return {messageId:startMessage.dataset.message,endMessageId:endMessage.dataset.message,startOffset:textOffset(startText,range.startContainer,range.startOffset,"start"),endOffset:textOffset(endText,range.endContainer,range.endOffset,"end"),quote:range.toString(),anchorLeft:rect.left,anchorRight:rect.right,anchorTop:rect.top,anchorBottom:rect.bottom};
 }
+let logDragStart=null,logWasDragged=false;
+document.addEventListener("pointerdown",event=>{
+  if(!event.target.closest?.("#logPane")||event.button!==0)return;
+  logDragStart={x:event.clientX,y:event.clientY};logWasDragged=false;
+  if(!$("#commentDialog").open){state.selection=null;CSS.highlights?.delete("jijin-comment-selection")}
+});
+document.addEventListener("pointermove",event=>{
+  if(logDragStart&&Math.hypot(event.clientX-logDragStart.x,event.clientY-logDragStart.y)>3)logWasDragged=true;
+});
+document.addEventListener("pointerup",()=>{logDragStart=null});
 function showSelection() {
   if(state.archiveMode)return;
+  if(!logWasDragged)return;
   const nextSelection = selectionInfo();
   if (nextSelection?.quote.trim()) { state.selection = nextSelection; $("#selectedQuote").textContent = `「${state.selection.quote.trim()}」`; $("#selectionBar").classList.add("hidden"); if(!$("#commentDialog").open&&!$("#profileDialog").open)openCommentDialog(); }
   else if (!$("#commentDialog").open) $("#selectionBar").classList.add("hidden");
@@ -347,7 +358,11 @@ function updateCommentPersonaAvatar(){const persona=currentPersona(),target=$("#
 function openCommentDialog() {
   state.replyTo=null;state.editingCommentId=null;state.editingOriginalPersona=null;$("#commentDeleteBtn").classList.add("hidden");
   state.pendingSelection = state.selection ? { ...state.selection } : null;
-  if (!state.pendingSelection) return;
+  if (!state.pendingSelection?.quote?.trim()) return;
+  const selected=getSelection();
+  if(selected?.rangeCount&&window.Highlight&&CSS.highlights){
+    CSS.highlights.set("jijin-comment-selection",new Highlight(selected.getRangeAt(0).cloneRange()));
+  }
   if (!state.profile.plName) { openProfile(); return; }
   clearCommentImage();fillPersonaSelect(); $("#commentBody").value = ""; $("#commentDialog").show(); positionCommentDialog(); setTimeout(()=>$("#commentBody").focus(),0);
 }
@@ -425,4 +440,9 @@ const startupUrl=new URL(location.href),siteOwnerKey=startupUrl.searchParams.get
 addEventListener("jijinboard-cache-updated",event=>{
   const url=new URL(event.detail.url);
   if(url.pathname===`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`)refreshAnnotations().catch(()=>{});
+});
+
+document.getElementById("commentDialog").addEventListener("close",()=>{
+  CSS.highlights?.delete("jijin-comment-selection");
+  state.selection=null;logWasDragged=false;
 });

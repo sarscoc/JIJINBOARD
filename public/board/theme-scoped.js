@@ -30,6 +30,7 @@
   function parentCss(value){return `
     .topbar .brand,.board-brand-kicker,.topbar .presence-person b,.topbar .app-tabs button,.log-list-head>span{color:${value.color1}!important}
     .log-sidebar{background:#fff!important}
+    .log-item.active{border-left-color:${value.color1}!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}

@@ -196,3 +196,9 @@ html.embedded{--shadow:none!important}
 html.embedded body,html.embedded body *{box-shadow:none!important}
 html.embedded .log-pane,html.embedded .comments-pane{background:#fff!important;border-color:#e2e7ed!important;transition:none!important;animation:none!important;backdrop-filter:none!important}
 html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:#353535!important;border-color:#5b5b5b!important}
+
+/* Comment counts are redundant with the comments panel. */
+html.embedded .annotation-count{display:none!important}
+html.embedded .comment-card{border-left-color:var(--comment-marker,var(--mark))!important}
+::highlight(jijin-comment-selection){background:#b9d8ff;color:#171a1f}
+html.dark ::highlight(jijin-comment-selection){background:#41688c;color:#fff}
