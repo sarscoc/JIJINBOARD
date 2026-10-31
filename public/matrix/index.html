@@ -3139,68 +3139,6 @@ button{cursor:pointer}
 <body>
 <div class="project-matrix-bar"><a href="/">‹ TRPG PROJECT</a><strong>MAGIA MATRIX</strong><span class="matrix-spacer"></span><label>＋ MATRIX専用素材<input id="matrixAssetInput" type="file" accept="image/*" multiple></label></div>
 <div class="app">
-  <div class="header-wrap" id="headerWrap">
-  <div class="header-mini">
-    <div class="header-mini-left">
-      <div class="brand">
-        <strong>MAGIA MATRIX</strong>
-        <span class="brand-sub">参加PC</span>
-        <span class="brand-sub" id="lastDataStatus"></span>
-      </div>
-      <span class="status" id="connectionStatus"></span>
-    </div>
-    <button class="header-toggle" id="headerToggle">接続設定を閉じる ▲</button>
-  </div>
-  <header class="header">
-    <div class="connect-grid">
-      <div class="field api">
-        <label>Notion APIキー</label>
-        <div class="api-input-row">
-          <input id="apiToken" type="password" autocomplete="off" placeholder="secret_...">
-          <button class="btn icon" id="saveApiBtn" type="button" title="APIキーを保存">💾</button>
-          <button class="btn icon" id="apiHelpBtn" type="button" title="使い方">?</button>
-        </div>
-      </div>
-
-      <div class="field db">
-        <label>データベースURL / ID</label>
-        <input id="notionSource" placeholder="データベースURL または ID">
-      </div>
-
-      <div class="field prop">
-        <label>名前（該当プロパティ）</label>
-        <input id="propName" value="名前">
-      </div>
-
-      <div class="field prop" id="propImageField">
-        <label>画像（該当プロパティ）</label>
-        <input id="propImage" value="画像">
-      </div>
-
-      <div class="field favicon-toggle">
-        <label class="favicon-check">
-          <input id="useFavicon" type="checkbox">
-          faviconでアイコンを作る
-        </label>
-      </div>
-
-      <div class="field prop-wide">
-        <label>文字色（該当プロパティ・任意）</label>
-        <input id="propColor" placeholder="文字色">
-      </div>
-
-      <div class="field prop">
-        <label>整列（数字のみ・任意）</label>
-        <input id="propOrder" inputmode="numeric" placeholder="並び順">
-      </div>
-
-      <div class="header-actions">
-        <button class="btn primary" id="loadBtn">読込 / 更新</button>
-      </div>
-    </div>
-  </header>
-</div>
-
   <div class="workspace" id="workspace">
     <aside class="library" id="libraryPane">
       <div class="library-page-tabs">
@@ -3314,7 +3252,7 @@ button{cursor:pointer}
               </div>
 
               <div id="iconCropOptions">
-                <label class="settings-check-row" id="iconBorderColorRow"><input id="iconBorderUseTextColor" type="checkbox"><span>枠色にNotionプロパティの文字色を使う</span></label>
+                <label class="settings-check-row" id="iconBorderColorRow"><input id="iconBorderUseTextColor" type="checkbox"><span>枠色にキャラクターの文字色を使う</span></label>
                 <div class="settings-row">
                   <div class="settings-label-line"><label>枠の太さ</label><span class="settings-value"><span id="iconBorderWidthValue">2</span> px</span></div>
                   <input id="iconBorderWidth" type="range" min="0" max="10" step="0.5" value="2">
@@ -3324,7 +3262,7 @@ button{cursor:pointer}
                   <select id="iconBackgroundMode">
                     <option value="transparent">透明</option>
                     <option value="custom">色を選択</option>
-                    <option value="notion">Notionプロパティの文字色</option>
+                    <option value="character">キャラクターの文字色</option>
                   </select>
                 </div>
                 <div class="settings-row" id="iconBackgroundColorRow" hidden>
@@ -3357,7 +3295,7 @@ button{cursor:pointer}
                   </select>
                 </div>
 
-                <label class="settings-check-row"><input id="useIndividualTextColor" type="checkbox" checked><span>Notionプロパティの文字色を使う</span></label>
+                <label class="settings-check-row"><input id="useIndividualTextColor" type="checkbox" checked><span>キャラクターの文字色を使う</span></label>
 
                 <div class="settings-row settings-color-row">
                   <label>名前の文字色</label>
@@ -3399,7 +3337,7 @@ button{cursor:pointer}
                   </select>
                 </div>
 
-                <label class="settings-check-row"><input id="commentUseCharacterColor" type="checkbox" checked><span>Notionプロパティの文字色を使う</span></label>
+                <label class="settings-check-row"><input id="commentUseCharacterColor" type="checkbox" checked><span>キャラクターの文字色を使う</span></label>
 
                 <div class="settings-row settings-color-row">
                   <label>コメント文字色</label>
@@ -3493,116 +3431,18 @@ button{cursor:pointer}
   </div>
 </div>
 
-<div class="modal" id="helpModal">
-  <div class="modalbox">
-    <div class="drawer-head draggable-panel-head" id="displayPanelDragHandle">
-      <strong>MAGIA MATRIX の使い方</strong>
-      <button class="iconbtn" id="helpClose" type="button">×</button>
-    </div>
-
-    <p class="help">このツールは Notion API を使ってデータを読み込みます。Notion APIキーと、対象の<strong>データベースURL / ID</strong>を入力し、「読込 / 更新」を押してください。</p>
-
-    <h3>データベースURL / ID</h3>
-    <p class="help">読み込みたいNotionデータベースのURLを入力します。<strong>公開用の共有URLでも利用できます。</strong> URLの代わりにデータベースIDを入力することもできます。</p>
-
-    <h3>読み込み項目について</h3>
-    <p class="help"><strong>名前（該当プロパティ）</strong><br>キャラクター名など、一覧に表示したい名前が入っているNotionのプロパティ名を指定します。通常は <code>名前</code> などを指定します。</p>
-    <p class="help"><strong>画像（該当プロパティ）</strong><br>アイコンとして使う画像が入っているNotionのプロパティ名を指定します。</p>
-    <p class="help"><strong>文字色（該当プロパティ・任意）</strong><br>名前やコメントに使いたい色を指定するプロパティです。使わない場合は空欄でも構いません。</p>
-    <p class="help"><strong>整列（数字のみ・任意）</strong><br>アイコン一覧を数字の小さい順に並べたい場合に使います。Notion側に <code>1</code>、<code>2</code>、<code>3</code>…のような数字プロパティを用意し、そのプロパティ名を指定してください。使わない場合は空欄で構いません。</p>
-
-    <h3>faviconでアイコンを作る</h3>
-    <p class="help">チェックすると画像プロパティを使わず、Notionページ側に設定したページアイコンを読み込みます。チェックを外すと「画像（該当プロパティ）」の画像を使用します。</p>
-
-    <h3>文字色プロパティについて</h3>
-    <p class="help">文字色は <code>#E95464</code> のようなカラーコードだけでなく、文章や装飾コードの中に含まれていても読み取ります。例：<code>\\colorbox{#e95464}{...}</code>。複数のカラーコードが含まれる場合は、最後に見つかった色を使用します。</p>
-
-    <h3>アイコンの配置・配置解除</h3>
-    <p class="help">左のアイコン一覧からテンプレへドラッグすると配置できます。配置済みアイコンを左のアイコン一覧側までドラッグして離すと、テンプレ上から配置解除できます。コメントや切り抜き設定は残るので、あとで再配置できます。</p>
-
-    <h3>アイコンの切り抜き</h3>
-    <p class="help"><strong>アイコン切らずに表示</strong>では画像を切り抜かず、元画像全体を表示します。</p>
-    <p class="help"><strong>丸に切り抜き / 角丸四角に切り抜き</strong>では、アイコン一覧の画像をクリックすると切り抜き位置を調整できます。ドラッグで位置、マウスホイールやスライダーで拡大・縮小し、「保存」で位置を確定します。</p>
-
-    <h3>コメント</h3>
-    <p class="help">テンプレ上のアイコンをダブルクリックするとコメントを編集できます。コメントの上下左右の位置もアイコンごとに変更できます。</p>
-
-    <h3>画像保存</h3>
-    <p class="help"><strong>「完成画面保存」</strong>を押すと、現在のテンプレ・アイコン・名前・コメントをPNG画像として保存します。</p>
-    <p class="help">画像や表示がいつもと違う、保存結果の挙動が怪しい場合は、いったん <strong>「読込 / 更新」</strong> を押して最新データと画像を読み込んでから、もう一度保存してみてください。</p>
-
-    <h3>このブラウザへの保存について</h3>
-    <p class="help">読み込んだデータ、配置、コメント、切り抜き、表示設定、テンプレ画像、取得したアイコン画像などは、このブラウザ内の Local Storage / IndexedDB に保存されます。</p>
-    <p class="help"><strong>永久保存ではありません。</strong> ブラウザのサイトデータ削除、閲覧データ削除、端末変更、ブラウザ変更、プライベートブラウズなどで消える場合があります。大切な完成画像はPNGとして別途保存してください。</p>
-    <p class="help">作者のサーバーへ、コメントやテンプレを保存する処理はありません。</p>
-
-    <h3>Chromeで保存内容を確認する場合</h3>
-    <p class="help"><code>開発者ツール → Application → Local Storage → このサイトのURL</code></p>
-    <p class="help">テンプレ画像や取得したアイコン画像は <code>Application → IndexedDB → magiaMatrixDB</code> で確認できます。</p>
-
-    <button class="btn" id="clearLoadedCacheBtn" type="button">保存した読み込みデータを削除</button>
-  </div>
-</div>
-
-<div class="modal" id="apiSaveModal">
-  <div class="modalbox">
-    <div class="drawer-head">
-      <strong>APIキーを保存</strong>
-      <button class="iconbtn" id="apiSaveClose" type="button">×</button>
-    </div>
-
-    <p class="help">MAGIA MATRIXはNotionのデータを読み込むために Notion API を使用します。</p>
-
-    <div class="notice" style="margin-top:10px">
-      <strong>APIキーをこの端末に保存しますか？</strong>
-      <p class="help" style="margin-bottom:0">保存先は、この端末・このブラウザ・このサイト専用の Local Storage です。作者のサーバーには保存しません。ただし、同じサイト上で悪意あるJavaScriptが実行された場合などには読み取られる可能性があります。</p>
-    </div>
-
-    <h3>APIキーについて</h3>
-    <ul class="help">
-      <li>APIキーが流出すると、そのキーに許可された範囲で第三者にデータを閲覧される可能性があります。</li>
-      <li>書き込み権限のあるキーは、別のツールから変更・削除に悪用される可能性があります。</li>
-      <li>可能なら読み取り専用のIntegrationを使用してください。</li>
-      <li>漏れた疑いがある場合は、すぐに無効化・再発行してください。</li>
-    </ul>
-
-    <p class="help">APIキーの発行・権限設定についてはNotionの公式案内をご確認ください。</p>
-
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button class="btn" id="cancelSaveApiBtn" type="button" style="flex:1">保存しない</button>
-      <button class="btn primary" id="confirmSaveApiBtn" type="button" style="flex:1">理解して保存する</button>
-    </div>
-    <button class="btn" id="clearTokenBtn" type="button">保存したAPIキーを削除</button>
-  </div>
-</div>
-
-
-
 <script src="../shared/project-data.js"></script>
 <script>
 
-function updateLastDataStatus(count){
-  const el=$('#lastDataStatus');
-  if(!el)return;
-  const n=Number(count||0);
-  el.textContent=n>0?`前回データ ${n}件`:'';
-}
-
-// 公開者が一度だけ設定する中継Worker URL。
-const WORKER_URL = "";
-
 const $=s=>document.querySelector(s);
-const API_TOKEN_STORE='magiaMatrix.notion.apiToken.v1';
-const SETTINGS='magiaMatrix.redesign.settings.v1';
 const STATE='magiaMatrix.redesign.state.v1';
-const CACHE='magiaMatrix.notion.cache.v1';
 const CHARACTER_IMAGE_STORE='characterImages';
 let items=[],selectedId=null,drag=null,cropWork=null;
 let imageBlobUrls=new Map(), imageCacheMeta=new Map(), imageCachePromises=new Map();
 
 function loadJSON(k,fb){try{return JSON.parse(localStorage.getItem(k))||fb}catch{return fb}}
 function saveJSON(k,v){localStorage.setItem(k,JSON.stringify(v))}
-function appState(){return loadJSON(STATE,{items:{},display:{iconSize:72,nameFontSize:13,scaleWithTemplate:true,showName:true,showComment:true,globalTextColor:'#202327',useIndividualTextColor:true,commentUseCharacterColor:true,commentTextColor:'#202327',useFavicon:false,iconShape:'circle',iconBorderWidth:2,iconBackgroundMode:'transparent',iconBackgroundColor:'#FFFFFF',iconBackgroundUseTextColor:false,commentFontSize:10,commentPosition:'top',commentBox:'on',textOutline:'off',nameOutlineColor:'#FFFFFF',nameOutlineWidth:0,commentOutlineColor:'#FFFFFF',commentOutlineWidth:0,iconBorderUseTextColor:false,nameFontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",commentFontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",fontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}})}
+function appState(){return loadJSON(STATE,{items:{},display:{iconSize:72,nameFontSize:13,scaleWithTemplate:true,showName:true,showComment:true,globalTextColor:'#202327',useIndividualTextColor:true,commentUseCharacterColor:true,commentTextColor:'#202327',iconShape:'circle',iconBorderWidth:2,iconBackgroundMode:'transparent',iconBackgroundColor:'#FFFFFF',iconBackgroundUseTextColor:false,commentFontSize:10,commentPosition:'top',commentBox:'on',textOutline:'off',nameOutlineColor:'#FFFFFF',nameOutlineWidth:0,commentOutlineColor:'#FFFFFF',commentOutlineWidth:0,iconBorderUseTextColor:false,nameFontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",commentFontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",fontFamily:"system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"}})}
 function saveState(s){saveJSON(STATE,s)}
 function mutate(fn){const s=appState();fn(s);saveState(s);saveCurrentTemplateState(s)}
 const ICON_CROPS='magiaMatrix.iconCrops.v1';
@@ -3640,25 +3480,6 @@ function safeColor(v){
 }
 
 
-function propText(p){
-  if(!p)return '';
-  if(p.type==='title')return (p.title||[]).map(x=>x.plain_text||'').join('');
-  if(p.type==='rich_text')return (p.rich_text||[]).map(x=>x.plain_text||'').join('');
-  if(p.type==='select')return p.select?.name||'';
-  if(p.type==='status')return p.status?.name||'';
-  if(p.type==='url')return p.url||'';
-  if(p.type==='number')return p.number==null?'':String(p.number);
-  if(p.type==='formula')return p.formula?.string??p.formula?.number??'';
-  return '';
-}
-function propNumber(p){
-  if(!p)return null;
-  if(p.type==='number')return typeof p.number==='number'?p.number:null;
-  const t=propText(p).trim();
-  if(!t)return null;
-  const n=Number(t);
-  return Number.isFinite(n)?n:null;
-}
 function stableRemoteImageKey(url){
   const raw=String(url||'').trim();
   if(!raw)return '';
@@ -3671,60 +3492,8 @@ function stableRemoteImageKey(url){
     return raw;
   }
 }
-function propImageInfo(p){
-  if(!p)return {url:'',signature:'',kind:''};
-  if(p.type==='files'){
-    const f=p.files?.[0];
-    const url=f?.file?.url||f?.external?.url||'';
-    const name=f?.name||'';
-    const kind=f?.file?'file':(f?.external?'external':'files');
-    return {url,signature:url?`${kind}:${stableRemoteImageKey(url)}:${name}`:'',kind};
-  }
-  if(p.type==='url'){
-    const url=p.url||'';
-    return {url,signature:url?`url:${stableRemoteImageKey(url)}`:'',kind:'url'};
-  }
-  if(p.type==='rich_text'){
-    const url=propText(p);
-    return {url,signature:url?`rich:${stableRemoteImageKey(url)}`:'',kind:'rich_text'};
-  }
-  return {url:'',signature:'',kind:''};
-}
-function pageIconInfo(page){
-  const i=page.icon;if(!i)return {url:'',signature:'',kind:''};
-  if(i.type==='file'){
-    const url=i.file?.url||'';
-    return {url,signature:url?`pageicon-file:${stableRemoteImageKey(url)}`:'',kind:'file'};
-  }
-  if(i.type==='external'){
-    const url=i.external?.url||'';
-    return {url,signature:url?`pageicon-external:${stableRemoteImageKey(url)}`:'',kind:'external'};
-  }
-  if(i.type==='emoji'){
-    const c=document.createElement('canvas');c.width=c.height=128;
-    const x=c.getContext('2d');x.font='88px serif';x.textAlign='center';x.textBaseline='middle';x.fillText(i.emoji,64,66);
-    const url=c.toDataURL('image/png');
-    return {url,signature:`emoji:${i.emoji}`,kind:'emoji'};
-  }
-  return {url:'',signature:'',kind:''};
-}
-function normalize(page,cfg){
-  const P=page.properties||{};
-  const name=propText(P[cfg.propName])||'名称未設定';
-  const url=page.url||'';
-  const notionIcon=pageIconInfo(page);
-  const propImage=cfg.useFavicon ? {url:'',signature:'',kind:''} : propImageInfo(P[cfg.propImage]);
-  const chosen=(propImage.url ? propImage : notionIcon);
-  const baseImage=chosen.url||'';
-  const imageSignature=chosen.signature||'';
-  const color=safeColor(propText(P[cfg.propColor]));
-  const order=cfg.propOrder ? propNumber(P[cfg.propOrder]) : null;
-  return {id:page.id,name,url,baseImage,imageSignature,color,order};
-}
-
-async function fetchImageBlobViaWorker(sourceUrl){
-  const endpoint=WORKER_URL.replace(/\/$/,'')+'/image/proxy?url='+encodeURIComponent(sourceUrl);
-  const res=await fetch(endpoint,{method:'GET'});
+async function fetchCharacterImageBlob(sourceUrl){
+  const res=await fetch(sourceUrl,{method:'GET'});
   if(!res.ok)throw new Error(`画像取得失敗 (${res.status})`);
   return await res.blob();
 }
@@ -3806,7 +3575,7 @@ async function ensureItemImageCached(it,{force=false}={}){
     }
 
     try{
-      const blob=await fetchImageBlobViaWorker(direct);
+      const blob=await fetchCharacterImageBlob(direct);
       await charImgSetRecord(it.id,{blob,signature:sig,savedAt:Date.now(),name:it.name||'',sourceKey:stableRemoteImageKey(direct)});
       setItemImageUrl(it.id,blob);
       imageCacheMeta.set(it.id,{signature:sig,cached:true});
@@ -3872,22 +3641,6 @@ function displayImage(it){
   return imageBlobUrls.get(it.id) || it.baseImage || '';
 }
 
-function saveLoadedCache(){
-  const payload={
-    savedAt:Date.now(),
-    items:items.map(it=>({
-      id:it.id,
-      name:it.name,
-      url:it.url||'',
-      baseImage:it.baseImage||it.image||'',
-      imageSignature:it.imageSignature||'',
-      color:it.color||null,
-      order:it.order??null
-    }))
-  };
-  saveJSON(CACHE,payload);
-}
-
 function showLibraryPage(which){
   const page = which === 'templates' ? 'templates' : 'icons';
   const iconsPage=$('#iconsPage');
@@ -3912,133 +3665,6 @@ function showLibraryPage(which){
 function restoreLibraryPage(){
   const page=localStorage.getItem('magiaMatrix.libraryPage')||'icons';
   showLibraryPage(page);
-}
-
-function restoreLoadedCache(){
-  const c=loadJSON(CACHE,null);
-  if(!c?.items?.length)return false;
-
-  const s=appState();
-  s.items||={};
-
-  items=c.items.map(it=>{
-    if(!s.items[it.id]){
-      s.items[it.id]=makeLocalItemState(it.id);
-    }
-    return {...it,local:s.items[it.id]};
-  });
-
-  saveState(s);
-
-  if($('#connectionStatus')){
-    const d=new Date(c.savedAt);
-    $('#connectionStatus').textContent='';
-    $('#connectionStatus').title=`保存日時: ${d.toLocaleString()}`;
-  }
-  updateLastDataStatus(items.length);
-
-  // Rendering is intentionally deferred to restoreTemplate(), once.
-  return true;
-}
-function clearLoadedCache(){
-  localStorage.removeItem(CACHE);
-  items=[];
-  imageBlobUrls.forEach((url,id)=>revokeItemImageUrl(id));
-  imageBlobUrls.clear();
-  imageCacheMeta.clear();
-  renderLibrary();
-  renderPlaced();
-  if($('#connectionStatus'))$('#connectionStatus').textContent='保存データなし';
-}
-
-function saveSettings(saveToken=false){
-  const useFavicon=$('#useFavicon').checked;
-  const s={
-    notionSource:$('#notionSource').value.trim(),
-    propName:$('#propName').value.trim(),
-    propImage:useFavicon ? '' : $('#propImage').value.trim(),
-    useFavicon,
-    propColor:$('#propColor').value.trim(),
-    propOrder:$('#propOrder').value.trim()
-  };
-  saveJSON(SETTINGS,s);
-
-  if(saveToken){
-    const token=$('#apiToken').value.trim();
-    if(token)localStorage.setItem(API_TOKEN_STORE,token);
-  }
-}
-function restoreSettings(){
-  const s=loadJSON(SETTINGS,{});
-  for(const k of ['notionSource','propName','propImage','propColor','propOrder']){
-    if(s[k]!=null&&$('#'+k))$('#'+k).value=s[k];
-  }
-  if(typeof s.useFavicon==='boolean')$('#useFavicon').checked=s.useFavicon;
-
-  const savedToken=localStorage.getItem(API_TOKEN_STORE)||'';
-  if(savedToken)$('#apiToken').value=savedToken;
-}
-function clearToken(){
-  localStorage.removeItem(API_TOKEN_STORE);
-  $('#apiToken').value='';
-  $('#connectionStatus').textContent='保存したAPIキーを削除しました';
-}
-
-
-function setLibraryLoading(on){
-  const loading=$('#libraryLoading'), list=$('#iconList');
-  if(!loading||!list)return;
-  loading.classList.toggle('active',!!on);
-  list.style.display=on?'none':'grid';
-}
-
-async function loadNotion(){
-  setLibraryLoading(true);
-  $('#connectionStatus').textContent='読み込み中…';
-  saveSettings(false);
-  const cfg=loadJSON(SETTINGS,{});
-  cfg.useFavicon=!!cfg.useFavicon;
-  const token=$('#apiToken').value.trim();
-  if(!cfg.notionSource||!token){setLibraryLoading(false);alert('Notion API・データベースURL/IDを入力してください。');return}
-  if(WORKER_URL.includes('REPLACE-WITH-YOUR-WORKER')){setLibraryLoading(false);alert('公開者側でWorker URLがまだ設定されていません。');return}
-  try{
-    const r=await fetch(WORKER_URL.replace(/\/$/,'')+'/notion/read',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({notionToken:token,source:cfg.notionSource})
-    });
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok)throw new Error(j.error||`HTTP ${r.status}`);
-    const s=appState();s.items||={};
-    items=(j.results||[]).map(page=>{
-      const v=normalize(page,cfg);
-      if(!s.items[v.id])s.items[v.id]=makeLocalItemState(v.id);
-      v.local=s.items[v.id];
-      return v;
-    });
-    if(cfg.propOrder){
-      items.sort((a,b)=>{
-        const an=a.order, bn=b.order;
-        if(an==null && bn==null) return 0;
-        if(an==null) return 1;
-        if(bn==null) return -1;
-        return an-bn;
-      });
-    }
-    saveState(s);saveLoadedCache();renderLibrary();renderPlaced();updateLastDataStatus(items.length);
-    $('#connectionStatus').textContent=items.length+'件 読込済み';
-    setLibraryLoading(false);
-
-    $('#connectionStatus').textContent=`${items.length}件 読込済み / 画像更新中…`;
-    await syncCharacterImageCache(items);
-    await hydrateCharacterImages(items);
-    saveLoadedCache();
-    $('#connectionStatus').textContent=items.length+'件 読込済み';
-  }catch(e){
-    setLibraryLoading(false);
-    $('#connectionStatus').textContent='読込エラー';
-    alert('Notionの読み込みに失敗しました：'+e.message);
-  }
 }
 
 /* template + placement log */
@@ -4528,15 +4154,15 @@ function iconBorderWidth(d=appState().display||{}){
   return Number.isFinite(n)?Math.max(0,n):2;
 }
 function iconBackgroundMode(d=appState().display||{}){
-  if(['transparent','custom','notion'].includes(d?.iconBackgroundMode))return d.iconBackgroundMode;
-  return d?.iconBackgroundUseTextColor?'notion':'transparent';
+  if(['transparent','custom','character'].includes(d?.iconBackgroundMode))return d.iconBackgroundMode;
+  return d?.iconBackgroundUseTextColor?'character':'transparent';
 }
 function iconBackgroundColorValue(d=appState().display||{}){
   return safeColor(d?.iconBackgroundColor)||'#FFFFFF';
 }
 function iconBackgroundFor(it,d=appState().display||{}){
   const mode=iconBackgroundMode(d);
-  if(mode==='notion')return safeColor(it?.color)||'transparent';
+  if(mode==='character')return safeColor(it?.color)||'transparent';
   if(mode==='custom')return iconBackgroundColorValue(d);
   return 'transparent';
 }
@@ -4701,7 +4327,7 @@ function renderMobilePlacementTray(){
   if(!pending.length){
     const empty=document.createElement('div');
     empty.className='mobile-tray-empty';
-    empty.textContent=items.length?'アイコン一覧でONにした未配置アイコンがここに出ます':'Notionを読み込むとアイコンが出ます';
+    empty.textContent=items.length?'アイコン一覧でONにした未配置アイコンがここに出ます':'登録したキャラクターのアイコンがここに表示されます';
     tray.appendChild(empty);
     return;
   }
@@ -4934,7 +4560,7 @@ function renderLibrary(){
   }
 
   if(!items.length){
-    list.innerHTML='<div class="help" style="grid-column:1/-1;padding:15px 4px">Notionを読み込むと、ここにアイコンが並びます。</div>';
+    list.innerHTML='<div class="help" style="grid-column:1/-1;padding:15px 4px">キャラクターを登録すると、ここにアイコンが並びます。</div>';
     renderMobilePlacementTray();
     return;
   }
@@ -5401,16 +5027,16 @@ function commentTextColor(it,d){
 }
 
 function syncNameColorControl(){
-  const useNotion=$('#useIndividualTextColor');
+  const useCharacterColor=$('#useIndividualTextColor');
   const picker=$('#globalTextColor');
-  if(!useNotion||!picker)return;
-  picker.disabled=useNotion.checked;
+  if(!useCharacterColor||!picker)return;
+  picker.disabled=useCharacterColor.checked;
 }
 function syncCommentColorControl(){
-  const useNotion=$('#commentUseCharacterColor');
+  const useCharacterColor=$('#commentUseCharacterColor');
   const picker=$('#commentTextColor');
-  if(!useNotion||!picker)return;
-  picker.disabled=useNotion.checked;
+  if(!useCharacterColor||!picker)return;
+  picker.disabled=useCharacterColor.checked;
 }
 function syncSettingsAccordions(){
   const nameSection=$('#nameSettingsSection');
@@ -6520,10 +6146,6 @@ async function exportFinalImage(){
     const blob=await canvasToBlob(out,'image/png');
     blobDownload(blob,'MAGIA-MATRIX.png');
 
-    if($('#connectionStatus')){
-      $('#connectionStatus').textContent='画像を保存しました';
-      $('#connectionStatus').title='MAGIA-MATRIX.png';
-    }
 
   }catch(err){
     console.error('stable export failed:',err);
@@ -6584,44 +6206,6 @@ function setupSplitter(){
     window.addEventListener('pointermove',move);
     window.addEventListener('pointerup',end);
   });
-}
-
-function setupHeaderToggle(){
-  const wrap=$('#headerWrap');
-  const btn=$('#headerToggle');
-  if(!wrap||!btn)return;
-  const apply=closed=>{
-    wrap.classList.toggle('collapsed',closed);
-    btn.textContent=closed?'接続設定を開く':'接続設定を閉じる';
-    localStorage.setItem('magiaMatrix.header.collapsed.v4',closed?'1':'0');
-  };
-  apply(localStorage.getItem('magiaMatrix.header.collapsed.v4')==='1');
-  btn.onclick=()=>apply(!wrap.classList.contains('collapsed'));
-}
-
-
-function syncImageFieldWithFavicon(){
-  const on=$('#useFavicon').checked;
-  const img=$('#propImage');
-  const imgField=$('#propImageField');
-  if(!img)return;
-  img.disabled=on;
-  imgField?.classList.toggle('disabled',on);
-  if(on){
-    if(img.value)img.dataset.prevValue=img.value;
-    img.value='';
-    img.placeholder='favicon使用中';
-  }else{
-    if(!img.value&&img.dataset.prevValue)img.value=img.dataset.prevValue;
-    img.placeholder='';
-  }
-}
-
-
-function syncFaviconDisplayState(){
-  syncImageFieldWithFavicon();
-  saveSettings(false);
-  $('#connectionStatus').textContent='設定変更：読込 / 更新で反映';
 }
 
 /* display settings */
@@ -6692,7 +6276,7 @@ function bindDisplay(){
       iconBorderWidth:Number($('#iconBorderWidth').value),
       iconBackgroundMode:$('#iconBackgroundMode').value,
       iconBackgroundColor:$('#iconBackgroundColor').value,
-      iconBackgroundUseTextColor:$('#iconBackgroundMode').value==='notion',
+      iconBackgroundUseTextColor:$('#iconBackgroundMode').value==='character',
       iconShape:$('#iconShape').value,
       commentFontSize:Number($('#commentFontSize').value),
       commentBox:$('#commentBox').value,
@@ -6753,46 +6337,6 @@ function bindDisplay(){
       if(el.tagName==='SELECT')el.addEventListener('change',update);
     });
 }
-
-$('#loadBtn').onclick=()=>alert('Notion連携は廃止されました。参加PCはLOGCOMMENTSの発言者設定から追加してください。');
-
-$('#apiHelpBtn').onclick=e=>{
-  e.preventDefault();
-  e.stopPropagation();
-  $('#helpModal').classList.add('open');
-};
-
-$('#saveApiBtn').onclick=e=>{
-  e.preventDefault();
-  e.stopPropagation();
-  if(!$('#apiToken').value.trim()){
-    alert('先にNotion APIキーを入力してください。');
-    return;
-  }
-  $('#apiSaveModal').classList.add('open');
-};
-
-$('#cancelSaveApiBtn').onclick=e=>{
-  e.preventDefault();
-  $('#apiSaveModal').classList.remove('open');
-};
-
-$('#confirmSaveApiBtn').onclick=e=>{
-  e.preventDefault();
-  const token=$('#apiToken').value.trim();
-  if(!token){
-    alert('先にNotion APIキーを入力してください。');
-    return;
-  }
-  saveSettings(true);
-  $('#apiSaveModal').classList.remove('open');
-  $('#connectionStatus').textContent='APIキーをこの端末に保存しました';
-};
-
-$('#helpClose').onclick=()=>$('#helpModal').classList.remove('open');
-$('#apiSaveClose').onclick=()=>$('#apiSaveModal').classList.remove('open');
-$('#clearTokenBtn').onclick=clearToken;
-$('#clearLoadedCacheBtn').onclick=clearLoadedCache;
 
 $('#showIconsTab').onclick=()=>showLibraryPage('icons');
 $('#showTemplatesTab').onclick=()=>showLibraryPage('templates');
@@ -7063,7 +6607,7 @@ async function exportIconsZip(){
   const button=$('#iconExportSave');
   const iconPx=iconExportSelectedSize();
   const includeName=(document.querySelector('input[name="iconExportName"]:checked')?.value||'off')==='on';
-  if(!items.length){alert('先にNotionデータを読み込んでください。');return;}
+  if(!items.length){alert('先にキャラクターを登録してください。');return;}
 
   const oldText=button?.textContent||'ZIP保存';
   if(button){button.disabled=true;button.textContent='作成中…';}
@@ -7096,7 +6640,7 @@ async function exportIconsZip(){
 }
 
 function openIconExportModal(){
-  if(!items.length){alert('先にNotionデータを読み込んでください。');return;}
+  if(!items.length){alert('先にキャラクターを登録してください。');return;}
   $('#iconExportModal')?.classList.add('open');
   const selected=document.querySelector('input[name="iconExportSize"]:checked')?.value;
   if($('#iconExportCustomWrap'))$('#iconExportCustomWrap').hidden=selected!=='custom';
@@ -7114,7 +6658,6 @@ $('#iconExportModal').addEventListener('pointerdown',e=>{
 });
 $('#newTemplateBtn').onclick=createNewTemplate;
 $('#deleteCurrentTemplateBtn').onclick=()=>deleteSavedTemplate(currentTemplateId());
-$('#useFavicon').addEventListener('change',syncFaviconDisplayState);
 
 window.addEventListener('beforeunload',()=>saveCurrentTemplateState());
 
@@ -7137,14 +6680,11 @@ function setupTemplateOverlayTracking(){
   }
 }
 
-restoreSettings();
 restoreDisplay();
 restorePaneWidth();
 bindDisplay();
 setupSplitter();
 setupTemplateOverlayTracking();
-setupHeaderToggle();
-syncImageFieldWithFavicon();
 setupTemplateDrop();
 setupCrop();
 setupLeftCrop();
@@ -7152,7 +6692,6 @@ restoreDisplayPanelState();
 restoreLibraryPage();
 setupMobileUI();
 
-restoreLoadedCache();
 restoreTemplate();
 hydrateCharacterImages(items).catch(err=>console.warn('image hydration failed',err));
 
@@ -7164,7 +6703,7 @@ async function loadProjectMatrixLibrary(){
   const s=appState();s.items||={};items.forEach(item=>{if(!s.items[item.id])s.items[item.id]=makeLocalItemState(item.id);item.local=s.items[item.id]});saveState(s);
   await Promise.all(people.filter(person=>person.baseImage).map(person=>ensureItemImageCached(person).catch(()=>null)));
   await Promise.all(assets.map(async asset=>{const record=await charImgGetRecord(asset.id).catch(()=>null);if(record?.blob)setItemImageUrl(asset.id,record.blob)}));
-  renderLibrary();renderPlaced();updateLastDataStatus(items.length);
+  renderLibrary();renderPlaced();
 }
 $('#matrixAssetInput').addEventListener('change',async event=>{
   const files=[...(event.target.files||[])];if(!files.length)return;
@@ -7176,7 +6715,9 @@ $('#matrixAssetInput').addEventListener('change',async event=>{
   }
   saveJSON(PROJECT_MATRIX_ASSETS,assets);event.target.value='';await loadProjectMatrixLibrary();
 });
-loadProjectMatrixLibrary().catch(err=>console.warn('project library failed',err));
+if(!new URL(location.href).searchParams.has('board')){
+  loadProjectMatrixLibrary().catch(err=>console.warn('project library failed',err));
+}
 
 </script>
 <link rel="stylesheet" href="board-integration.css">
