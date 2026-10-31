@@ -186,7 +186,7 @@
     }
     const el = panel?.querySelector(`[data-message="${CSS.escape(id)}"]`); if (!el) return;
     const annotation = annotationId && state.annotations.find(item => item.id === annotationId), color = markerColor(annotation?.color || "#ffe66b");
-    el.style.setProperty("--flash-color", color); el.querySelector(".annotation-count")?.style.setProperty("--flash-color", color); el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.remove("flash"); requestAnimationFrame(() => el.classList.add("flash"));
+    el.style.setProperty("--flash-color", color); el.querySelector(".annotation-count")?.style.setProperty("--flash-color", color); el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.remove("flash");
     pulseLogMarker(el,annotationId);
   };
 
