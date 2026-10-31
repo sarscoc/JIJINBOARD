@@ -404,14 +404,16 @@
   }
 
   function setActive(next){
-    active=!!next;
+    next=!!next;
+    if(active===next)return;
+    active=next;
     if(active){
       window.dispatchEvent(new CustomEvent("matrix-board-active"));
       if(loadedRoom!==roomId){loadRoom(roomId).catch(console.warn)}
       else{
         connectRealtimeEvents();
         if(dirtyState)loadRoom(roomId).catch(console.warn);
-        else redrawMatrix(appState(),true);
+        else scheduleTemplateOverlaySync();
         if(dirtyParticipants){dirtyParticipants=false;window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}))}
         if(dirtyComments){dirtyComments=false;window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-change"}}))}
       }
@@ -423,6 +425,7 @@
     if(event.origin!==location.origin)return;
     if(event.data?.type==="jijinboard-active-room"){
       const nextRoom=event.data.roomId||"";
+      if(nextRoom===roomId&&(loadedRoom===roomId||loadRequested))return;
       if(active||!embedded)loadRoom(nextRoom).catch(console.warn);
       else{
         loadRequested=true;

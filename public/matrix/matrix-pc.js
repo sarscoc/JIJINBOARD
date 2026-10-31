@@ -202,9 +202,9 @@
       list=mergeOwnLocalImages(list,nextRoom);
       const profile=me();
       if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows(nextRoom)];
-      setParticipants(list,{forcePaint:true});
+      const changed=setParticipants(list);
       lastLoadedAt=Date.now();
-      paintAfterLayout();
+      if(changed)paintAfterLayout();
     })();
     loadPromise=task;
     try{return await task}finally{if(loadPromise===task)loadPromise=null}
@@ -349,8 +349,6 @@
   window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
   window.addEventListener("jijinboard-player-master-updated",()=>load(activeRoom).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>{
-    paintParticipants();
-    paintAfterLayout();
     load(activeRoom).catch(console.warn);
   });
 

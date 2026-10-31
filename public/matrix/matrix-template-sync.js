@@ -229,7 +229,7 @@
   window.addEventListener("matrix-board-active",()=>{
     const logId=currentLogId();
     if(logId&&(!hydrated||hydratedLogId!==logId))hydrate(logId).catch(()=>{});
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{rebindItemsForRender();try{renderLibrary()}catch{}try{renderPlaced()}catch{}}));
+
   });
 
   window.addEventListener("matrix-board-comments-changed",event=>{
