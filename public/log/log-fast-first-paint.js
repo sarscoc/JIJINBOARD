@@ -42,7 +42,7 @@
       if(!annotations?.length)return esc(message.text);
       ensureIndexes();
       const current=messageIndex.get(message.id);
-      const ranges=annotations.map(annotation=>{
+      const ranges=[...annotations].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(annotation=>{
         const startIndex=messageIndex.get(annotation.message_id),endIndex=messageIndex.get(annotation.end_message_id||annotation.message_id)??startIndex;
         if(current<startIndex||current>endIndex)return null;
         return {
@@ -51,15 +51,15 @@
           id:annotation.id,
           color:markerColor(annotation.color)
         };
-      }).filter(range=>range&&range.end>range.start).sort((a,b)=>a.start-b.start);
-      let out="",position=0;
-      for(const range of ranges){
-        if(range.start<position)continue;
-        out+=esc(message.text.slice(position,range.start));
-        out+=`<mark data-ann="${esc(range.id)}" style="--marker:${esc(range.color)}">${esc(message.text.slice(range.start,range.end))}</mark>`;
-        position=range.end;
+      }).filter(range=>range&&range.end>range.start);
+      const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
+      let out="";
+      for(let i=0;i<edges.length-1;i++){
+        const start=edges[i],end=edges[i+1],covering=ranges.filter(r=>r.start<=start&&r.end>=end);
+        const winner=covering.find(r=>r.id===state.activeMarkerId)||covering[0],text=esc(message.text.slice(start,end));
+        out+=winner?`<mark data-ann="${esc(winner.id)}" style="--marker:${esc(winner.color)}">${text}</mark>`:text;
       }
-      return out+esc(message.text.slice(position));
+      return out;
     };
   }
 
