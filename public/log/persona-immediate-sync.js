@@ -123,7 +123,7 @@
   // No blur, Enter, profile close, or explicit save is required.
   document.addEventListener("input", event => {
     const input = event.target.closest?.("[data-persona-name]");
-    if (!input) return;
+    if (!input || event.isComposing) return;
     const persona = state.profile?.personas?.[Number(input.dataset.personaName)];
     if (!persona) return;
     persona.name = input.value;

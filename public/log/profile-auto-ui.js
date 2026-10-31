@@ -176,6 +176,7 @@
   document.addEventListener("input", event => {
     const nameInput = event.target.closest("[data-persona-name]");
     if (nameInput) {
+      if(event.isComposing)return;
       const persona = state.profile.personas[Number(nameInput.dataset.personaName)];
       if (persona) {
         persona.name = nameInput.value;

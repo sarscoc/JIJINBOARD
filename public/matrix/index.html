@@ -3153,6 +3153,9 @@ body > #settings .display-settings-body{
 body > #settings.floating-closed{display:none!important}
 body > #settings:not(.floating-closed){display:flex!important;flex-direction:column!important}
 </style>
+<link rel="stylesheet" href="board-integration.css">
+<link rel="stylesheet" href="matrix-pc.css">
+<link rel="stylesheet" href="matrix-icon-comments.css">
 </head>
 <body>
 <div class="project-matrix-bar"><a href="/">‹ TRPG PROJECT</a><strong>MAGIA MATRIX</strong><span class="matrix-spacer"></span><label>＋ MATRIX専用素材<input id="matrixAssetInput" type="file" accept="image/*" multiple></label></div>
@@ -3243,7 +3246,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
           </div>
         </div>
 
-        <aside class="settings" id="settings"> 
+        <aside class="settings floating-closed" id="settings">
           <div class="display-head">
             <div class="display-head-title">表示設定</div>
             <button class="settings-close-btn" id="displaySettingsToggle" type="button" title="閉じる">×</button>
@@ -6751,11 +6754,8 @@ if(!new URL(location.href).searchParams.has('board')){
 }
 
 </script>
-<link rel="stylesheet" href="board-integration.css">
 <script src="board-integration.js"></script>
-<link rel="stylesheet" href="matrix-pc.css">
 <script src="matrix-pc.js"></script>
-<link rel="stylesheet" href="matrix-icon-comments.css">
 <script src="matrix-icon-comments.js"></script>
 </body>
 </html>

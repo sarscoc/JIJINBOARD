@@ -109,7 +109,15 @@
     return matrixIcons.get(String(persona.id || "")) || "";
   }
 
+  let pendingPersonaRender=false;
+  document.addEventListener("focusout",event=>{
+    if(!event.target.matches?.("[data-persona-name]"))return;
+    setTimeout(()=>{if(pendingPersonaRender&&!document.activeElement?.matches?.("[data-persona-name]")){pendingPersonaRender=false;renderPersonas()}},0);
+  });
   renderPersonas = function renderCompactPersonas() {
+    // Async hydration must never replace an input while its name/IME is being edited.
+    if(document.activeElement?.matches?.("[data-persona-name]")){pendingPersonaRender=true;return}
+    pendingPersonaRender=false;
     hydratePersonaColors();
     const list = $("#personaList");
     if (!list) return;
