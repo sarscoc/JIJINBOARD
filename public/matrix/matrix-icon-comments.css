@@ -314,5 +314,8 @@ html .matrix-comment-card:focus-visible{
   outline:none!important;
 }
 
-.matrix-comment-card.matrix-comment-pop{animation:matrixCardPop .24s ease-in-out;transform-origin:center}
-@keyframes matrixCardPop{0%,100%{transform:scale(1)}50%{transform:scale(1.04)}}
+
+
+/* Pop the on-canvas speech bubble without replacing its positioning transform. */
+.matrix-comment-flash .placed-comment{animation:matrixBubblePop .24s ease-in-out!important;transform-origin:center}
+@keyframes matrixBubblePop{0%,100%{scale:1}50%{scale:1.04}}

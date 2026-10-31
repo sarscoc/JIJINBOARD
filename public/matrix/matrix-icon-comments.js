@@ -217,7 +217,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     if(likeButton){event.stopPropagation();like(likeButton.dataset.matrixLike);return}
     if(replyButton){event.stopPropagation();const c=comments.find(x=>x.id===replyButton.dataset.matrixReply);open(c?.target_id,c?.id,"",replyButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
     if(editButton){event.stopPropagation();const c=comments.find(x=>x.id===editButton.dataset.matrixEdit);open(c?.target_id,"",c?.id,editButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
-    if(card){document.querySelectorAll(".matrix-comment-card.focused").forEach(node=>node.classList.remove("focused"));card.classList.add("focused");card.classList.remove("matrix-comment-pop");void card.offsetWidth;card.classList.add("matrix-comment-pop");card.addEventListener("animationend",()=>card.classList.remove("matrix-comment-pop"),{once:true});revealTarget(card.dataset.commentTarget)}
+    if(card){document.querySelectorAll(".matrix-comment-card.focused").forEach(node=>node.classList.remove("focused"));card.classList.add("focused");revealTarget(card.dataset.commentTarget)}
   });
   function saveOutside(){
     const d=document.querySelector("#matrixIconCommentDialog");
