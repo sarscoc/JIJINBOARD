@@ -95,7 +95,7 @@ function rememberRecentRoom(room){const recent=JSON.parse(localStorage.getItem("
 async function renderRecentRooms(){const saved=JSON.parse(localStorage.getItem("trpgMarkerRecentRooms")||"[]"),box=$("#recentRooms"),list=$("#recentRoomList");if(!saved.length){box.classList.add("hidden");return}const rooms=(await Promise.all(saved.slice(0,12).map(async item=>{try{const room=await api(`/api/rooms/${encodeURIComponent(item.id)}?summary=1`);return{...item,title:room.title,available:true}}catch{return{...item,available:false}}}))).filter(room=>room.available);if(!rooms.length){box.classList.add("hidden");return}list.innerHTML=rooms.map(room=>`<a class="recent-room" href="/log/?room=${encodeURIComponent(room.id)}"><span><b>${esc(room.title)}</b><small>${esc(formatCommentDate(room.visitedAt))}</small></span><i>開く ›</i></a>`).join("");box.classList.remove("hidden")}
 async function deleteOwnedRoom(id,title){if(!confirm(`「${title}」を完全に削除しますか？\nログと感想も元に戻せなくなります。`))return;const token=localStorage.getItem(`admin:${id}`);if(!token)return alert("この部屋の管理情報がありません");const button=document.querySelector(`[data-delete-room="${CSS.escape(id)}"]`);if(button){button.disabled=true;button.textContent="…"}try{await api(`/api/rooms/${encodeURIComponent(id)}`,{method:"DELETE",headers:{"x-admin-token":token}});localStorage.removeItem(`admin:${id}`);localStorage.removeItem(`personas:${id}`);localStorage.removeItem(`mainTab:${id}`);localStorage.removeItem(`hiddenTabs:${id}`);const owned=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}");delete owned[id];localStorage.setItem("trpgMarkerOwnedRooms",JSON.stringify(owned));document.querySelector(`[data-owned-room="${CSS.escape(id)}"]`)?.remove();if(!document.querySelector("[data-owned-room]"))$("#ownedRooms").classList.add("hidden")}catch(error){alert(error.message);if(button){button.disabled=false;button.textContent="×"}}}
 
-// Bounded browser cache for log text only; shared comments remain server-backed.
+// Persistent browser cache for every opened log; shared comments remain server-backed.
 const logTextCache=(()=>{
   let opening;
   function db(){return opening||=(new Promise((resolve,reject)=>{
@@ -109,14 +109,8 @@ const logTextCache=(()=>{
     request.onerror=()=>resolve(null);
   })}catch{return null}}
   async function write(id,data){try{const database=await db();if(!database)return;
-    const bytes=JSON.stringify(data).length*2;if(bytes>25*1024*1024)return;
-    const tx=database.transaction("logs","readwrite"),store=tx.objectStore("logs");
-    store.put({id,data,bytes,savedAt:Date.now()});
-    const request=store.getAll();request.onsuccess=()=>{
-      let total=0,count=0;for(const row of request.result.sort((a,b)=>b.savedAt-a.savedAt)){
-        total+=row.bytes;count++;if(count>10||total>25*1024*1024)store.delete(row.id);
-      }
-    };
+    const tx=database.transaction("logs","readwrite");
+    tx.objectStore("logs").put({id,data,savedAt:Date.now()});
   }catch{}}
   return {read,write};
 })();
