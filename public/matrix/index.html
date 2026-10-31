@@ -3134,6 +3134,24 @@ button{cursor:pointer}
 .project-matrix-bar a{color:#313a40;text-decoration:none;font-size:11px;font-weight:900;letter-spacing:.08em}
 .project-matrix-bar strong{margin-left:8px;font-size:11px}.project-matrix-bar .matrix-spacer{flex:1}
 .project-matrix-bar label{border:1px solid #dfe3e6;background:#fff;border-radius:7px;padding:6px 9px;font-size:10px;cursor:pointer}.project-matrix-bar input{display:none}
+
+/* Keep the display popup outside the canvas and its resize observers. */
+body > #settings{
+  position:fixed!important;inset:52px 12px auto auto!important;
+  width:min(288px,calc(100vw - 24px))!important;min-width:0!important;
+  max-width:calc(100vw - 24px)!important;
+  max-height:calc(100dvh - 64px)!important;height:auto!important;
+  margin:0!important;transform:none!important;transition:none!important;
+  z-index:1000!important;border:0!important;border-radius:14px!important;
+  box-shadow:0 12px 36px rgba(25,35,45,.18)!important;
+  overflow:hidden!important;contain:layout style;
+}
+body > #settings .display-settings-body{
+  display:block!important;overflow-y:auto!important;overscroll-behavior:contain;
+  min-height:0!important;max-height:calc(100dvh - 112px)!important;
+}
+body > #settings.floating-closed{display:none!important}
+body > #settings:not(.floating-closed){display:flex!important;flex-direction:column!important}
 </style>
 </head>
 <body>
@@ -6213,8 +6231,13 @@ function setupSplitter(){
 function restoreDisplayPanelState(){
   const panel=$('#settings');
   if(!panel)return;
-  const closed=localStorage.getItem('magiaMatrix.displayPanel.closed')!=='0';
+  document.body.append(panel);
+  panel.setAttribute('role','dialog');
+  panel.setAttribute('aria-label','表示設定');
+  const closed=true;
   panel.classList.toggle('floating-closed',closed);
+  $('#settingsMenuBtn')?.setAttribute('aria-expanded',String(!closed));
+  $('#settingsMenuBtn')?.setAttribute('aria-controls','settings');
 }
 function toggleDisplayPanel(force){
   const panel=$('#settings');
@@ -6224,6 +6247,7 @@ function toggleDisplayPanel(force){
   const next=typeof force==='boolean'?force:!isOpen;
 
   panel.classList.toggle('floating-closed',!next);
+  $('#settingsMenuBtn')?.setAttribute('aria-expanded',String(next));
   localStorage.setItem('magiaMatrix.displayPanel.closed',next?'0':'1');
 }
 
@@ -6346,6 +6370,12 @@ $('#settingsMenuBtn').onclick=e=>{
   e.stopPropagation();
   toggleDisplayPanel();
 };
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&!$('#settings').classList.contains('floating-closed')){
+    toggleDisplayPanel(false);
+    $('#settingsMenuBtn').focus({preventScroll:true});
+  }
+});
 $('#displaySettingsToggle').onclick=e=>{
   e.preventDefault();
   e.stopPropagation();
