@@ -47,7 +47,7 @@
     html.embedded.dark .log-pane,html.embedded.dark .comments-pane{background:#353535!important}
     html.embedded .comments-pane:has(.comments-list>.empty){height:160px!important;min-height:160px!important;max-height:160px!important;align-self:start!important}
     html.embedded .cylinder-nav,html.embedded .page-title,html.embedded .tab-navigation,html.embedded .comments-head,html.embedded .comments-list{background:transparent!important;${noBlur}}
-    html.embedded .comment-card{background:var(--paper)!important;color:var(--ink)!important;border-color:var(--line)!important;${noBlur}}
+    html.embedded .comment-card{background:var(--paper)!important;color:var(--ink)!important;border-color:var(--line)!important;border-left:3px solid var(--comment-marker,var(--mark))!important;${noBlur}}
     html.embedded .tab-arrow,html.embedded .slide-btn,html.embedded .cylinder-nav button{background:#fff!important;color:#596168!important}
     html.embedded.dark .tab-arrow,html.embedded.dark .slide-btn,html.embedded.dark .cylinder-nav button{background:var(--paper,#353535)!important;color:var(--ink,#f2f4f7)!important;border-color:var(--line,#5b5b5b)!important}
     html.embedded .page-scroll,html.embedded .comments-list{scrollbar-color:${value.color1} transparent!important}
