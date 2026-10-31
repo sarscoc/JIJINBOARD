@@ -1,0 +1,174 @@
+#sheetCommentModes{display:none!important}.sheet-comment-mode [data-sheet-cell]{cursor:comment}.sheet-comment-mode [data-sheet-cell] input,.sheet-comment-mode [data-sheet-cell] textarea,.sheet-comment-mode [data-sheet-cell] select{pointer-events:none}.sheet-comment-mode [data-sheet-cell]:hover{outline:2px solid #cad4ff;outline-offset:-2px}
+
+/* The edit/comment switch fills the whole top-left spreadsheet header cell. */
+.data-sheet thead tr:first-child th{height:34px!important;min-height:34px!important;vertical-align:middle!important}
+.data-sheet thead .item-col{position:sticky!important;padding:0!important;white-space:nowrap!important}
+.data-sheet thead .item-col #sheetModeToggle{display:flex!important;align-items:center!important;justify-content:center!important;width:100%!important;height:100%!important;min-height:34px!important;margin:0!important;padding:0 8px!important;border:0!important;border-radius:0!important;background:#f1f2f4!important;box-shadow:none!important;color:#59616d!important;font-size:9px!important;font-weight:800!important;line-height:1!important;cursor:pointer!important;transition:background .12s ease!important}
+.data-sheet thead .item-col #sheetModeToggle[data-mode="comment"],.data-sheet thead .item-col #sheetModeToggle[data-mode="edit"]{background:#f1f2f4!important;color:#59616d!important}
+.data-sheet thead .item-col #sheetModeToggle:hover{background:#e9ebee!important;box-shadow:none!important}
+.data-sheet thead .item-col #sheetModeToggle:active{background:#e4e7ea!important;box-shadow:none!important;transform:none!important}
+
+/* Main spreadsheet / character-sheet switch. */
+html.embedded #databaseLayout.hidden,html.embedded #fullCharacterMode.hidden{display:none!important}
+html.embedded .main-mode-switch{position:fixed!important;top:12px!important;left:12px!important;z-index:80!important;display:flex!important;align-items:center!important;width:auto!important;height:30px!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;pointer-events:auto!important}
+html.embedded .main-mode-switch .btn.on{display:none!important}
+html.embedded .main-mode-switch .btn:not(.on){display:flex!important;align-items:center!important;justify-content:flex-start!important;width:auto!important;min-width:0!important;height:30px!important;min-height:30px!important;max-height:30px!important;margin:0!important;padding:0 4px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;color:transparent!important;font-size:0!important;line-height:1!important;white-space:nowrap!important;opacity:.82!important}
+html.embedded .main-mode-switch .btn:not(.on)::after{display:block!important;color:#fff!important;font:800 8px/1 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;letter-spacing:.02em!important;white-space:nowrap!important}
+html.embedded #mainCharacterModeBtn:not(.on)::after{content:"スプレッドシート"}
+html.embedded #mainDatabaseModeBtn:not(.on)::after{content:"キャラシート表示"}
+html.embedded .main-mode-switch .btn:not(.on):hover{opacity:1!important;background:transparent!important}
+html.embedded .main-mode-switch .btn:not(.on):active{transform:none!important}
+
+html.embedded .view-switch{display:none!important}
+
+@media(min-width:801px){
+  html.embedded #sheetTocRail{position:fixed!important;left:0!important;width:18px!important;min-width:18px!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;z-index:1000!important;cursor:pointer!important}
+  html.embedded #sheetTocRail[hidden]{display:none!important}
+  html.embedded #sheetTocRail .sheet-toc-handle{position:absolute!important;left:9px!important;top:50%!important;transform:translate(-50%,-50%)!important;display:block!important;width:auto!important;height:auto!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;color:rgba(73,82,96,.60)!important;font-size:16px!important;font-weight:400!important;line-height:1!important;letter-spacing:0!important;pointer-events:none!important;user-select:none!important}
+  html.embedded #sheetTocRail:hover .sheet-toc-handle{color:rgba(40,47,58,.92)!important}
+  html.embedded #sheetTocPopover{position:absolute!important;left:14px!important;top:50%!important;transform:translate(-5px,-50%)!important;width:176px!important;max-width:176px!important;max-height:calc(100% - 18px)!important;margin:0!important;padding:8px!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior:contain!important;scrollbar-gutter:stable!important;border:1px solid #e2e7ed!important;border-radius:9px!important;background:rgba(255,255,255,.96)!important;backdrop-filter:blur(18px) saturate(130%)!important;-webkit-backdrop-filter:blur(18px) saturate(130%)!important;box-shadow:0 8px 24px rgba(42,51,67,.10)!important;opacity:0!important;visibility:hidden!important;pointer-events:none!important;transition:opacity .12s ease,transform .12s ease,visibility 0s linear .12s!important}
+  html.embedded #sheetTocRail:hover #sheetTocPopover,html.embedded #sheetTocRail:focus-within #sheetTocPopover{opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:translate(0,-50%)!important;transition-delay:0s!important}
+  html.embedded #sheetTocPopover>.database-toc-inner{position:static!important;inset:auto!important;display:block!important;width:100%!important;min-width:0!important;max-width:none!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important;opacity:1!important;visibility:visible!important;pointer-events:auto!important;transform:none!important}
+  html.embedded #sheetTocPopover .database-toc-title{display:block!important;margin:0!important;padding:1px 4px 5px!important;color:#8d949e!important;font-size:8px!important;font-weight:800!important;line-height:1.3!important;letter-spacing:.08em!important}
+  html.embedded #sheetTocPopover #databaseToc{display:grid!important;gap:2px!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important;background:transparent!important}
+  html.embedded #sheetTocPopover .database-toc-link{display:block!important;width:100%!important;min-width:0!important;margin:0!important;padding:5px 6px!important;border:0!important;border-radius:6px!important;background:transparent!important;color:#626b78!important;font-size:9px!important;font-weight:500!important;line-height:1.35!important;letter-spacing:0!important;text-align:left!important;text-decoration:none!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important}
+  html.embedded #sheetTocPopover .database-toc-link:hover{background:#f0f3f8!important;color:#303843!important}
+}
+
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-row{grid-template-columns:minmax(72px,36%) minmax(0,1fr)!important;align-items:start!important;min-height:auto!important}
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-label{min-width:0!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important;word-break:break-word!important;line-height:1.35!important}
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-value{min-width:0!important;align-self:start!important}
+html.embedded .character-sheet-group[data-layout="inline"] .character-sheet-edit{width:100%!important;height:auto!important;min-height:1.5em!important;overflow:hidden!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+
+html.embedded .full-character-page .character-sheet-group[data-layout="free"] .character-sheet-rows,html.embedded .full-character-page .character-sheet-group[data-layout="columns"] .character-sheet-rows,html.embedded .connected-character-page .character-sheet-group[data-layout="free"] .character-sheet-rows,html.embedded .connected-character-page .character-sheet-group[data-layout="columns"] .character-sheet-rows{align-items:stretch!important}
+html.embedded .full-character-page .character-sheet-group[data-layout="free"] .character-sheet-row,html.embedded .full-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row,html.embedded .connected-character-page .character-sheet-group[data-layout="free"] .character-sheet-row,html.embedded .connected-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row{align-self:stretch!important;height:auto!important}
+html.embedded .full-character-page .character-sheet-group[data-layout="free"] .character-sheet-row.long,html.embedded .full-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row.long,html.embedded .connected-character-page .character-sheet-group[data-layout="free"] .character-sheet-row.long,html.embedded .connected-character-page .character-sheet-group[data-layout="columns"] .character-sheet-row.long{grid-column:auto!important;margin-top:0!important;min-height:0!important}
+html.embedded .full-character-page .character-sheet-label,html.embedded .connected-character-page .character-sheet-label{min-width:0!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+html.embedded .full-character-page .character-sheet-value,html.embedded .connected-character-page .character-sheet-value{min-width:0!important}
+html.embedded .full-character-page .character-sheet-edit,html.embedded .connected-character-page .character-sheet-edit{width:100%!important;max-width:100%!important;height:auto!important;overflow:hidden!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+html.embedded .full-character-page .character-sheet-row.long .character-sheet-edit,html.embedded .connected-character-page .character-sheet-row.long .character-sheet-edit{min-height:2.6em!important}
+
+/* List layout: one-line base height, only wrapped content makes the row taller. */
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-rows,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-rows{gap:7px!important;padding:0!important}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-row,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-row{grid-template-columns:minmax(112px,28%) minmax(0,1fr)!important;align-items:start!important;gap:8px!important;min-height:0!important;margin:0!important;padding:0 0 3px!important}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-label,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-label{margin:0!important;padding:0!important;line-height:1.25!important}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-value,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-value{align-self:start!important;min-width:0!important}
+html.embedded .full-character-page .character-sheet-group[data-layout="list"] .character-sheet-edit,html.embedded .connected-character-page .character-sheet-group[data-layout="list"] .character-sheet-edit{field-sizing:content!important;box-sizing:border-box!important;height:auto!important;min-height:1.25em!important;max-height:none!important;margin:0!important;padding:0!important;line-height:1.25!important;overflow:hidden!important;resize:none!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;word-break:break-word!important}
+
+/* Menu modal backdrops must cover every surrounding panel, including COMMENTS
+   and the GROUP rail. The modal itself lives inside this backdrop, so raising
+   the backdrop preserves the dialog while dimming the entire workspace. */
+html.embedded .modal-backdrop.show{z-index:2000!important}
+
+/* Match the shared LOGCOMMENTS / MAGIA MATRIX chrome exactly. */
+html.embedded .sheet-comments-head{
+  padding:13px 15px!important;
+  border-bottom:1px solid #e2e7ed!important;
+  background:transparent!important;
+  font:400 11px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
+  letter-spacing:.12em!important;
+  color:#171a1f!important;
+}
+html.embedded .sheet-comments-head b{
+  display:flex!important;
+  align-items:center!important;
+  width:100%!important;
+  gap:0!important;
+  font:700 11px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
+  letter-spacing:.12em!important;
+}
+html.embedded .sheet-comments-head b span{
+  margin-left:auto!important;
+  font-weight:400!important;
+}
+html.embedded .sheet-comments-head>button{display:none!important}
+html.embedded .table-actions > :is(.btn,button){
+  height:28px!important;
+  min-height:28px!important;
+  max-height:28px!important;
+  padding:0 8px!important;
+  border:1px solid #e2e7ed!important;
+  border-radius:7px!important;
+  background:rgba(255,255,255,.82)!important;
+  color:#171a1f!important;
+  box-shadow:none!important;
+  font:400 9px/1.2 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
+  white-space:nowrap!important;
+}
+html.embedded .table-actions > :is(.btn,button):hover{
+  background:#fff!important;
+  border-color:#d9dee4!important;
+}
+
+/* Empty comments state matches LOGCOMMENTS / MATRIX. */
+html.embedded #sheetComments section>p:only-child{
+  margin:0!important;
+  padding:32px 8px!important;
+  color:#79818d!important;
+  text-align:center!important;
+  font-size:12px!important;
+  font-weight:400!important;
+  line-height:1.5!important;
+}
+
+/* v146 — compact list rows and restore continuous grid rules.
+   Saved group height must not be redistributed between otherwise short rows. */
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-rows{
+  display:grid!important;
+  grid-auto-rows:max-content!important;
+  align-content:start!important;
+  align-items:start!important;
+  gap:0!important;
+  padding:0!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-row,
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-row.long{
+  display:grid!important;
+  grid-template-columns:minmax(112px,28%) minmax(0,1fr)!important;
+  align-items:start!important;
+  align-self:start!important;
+  gap:0!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:6px 0!important;
+  border:0!important;
+  border-bottom:1px solid color-mix(in srgb,var(--character-question-text,currentColor) 14%,transparent)!important;
+  border-radius:0!important;
+  background:transparent!important;
+  box-shadow:none!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-row:last-child{
+  border-bottom:0!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-label{
+  align-self:stretch!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0 8px 0 0!important;
+  border-right:1px solid color-mix(in srgb,var(--character-question-text,currentColor) 12%,transparent)!important;
+  line-height:1.25!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-value{
+  align-self:start!important;
+  min-width:0!important;
+  margin:0!important;
+  padding:0 0 0 8px!important;
+}
+html.embedded .character-sheet-group[data-layout="list"] .character-sheet-edit{
+  field-sizing:content!important;
+  box-sizing:border-box!important;
+  width:100%!important;
+  height:auto!important;
+  min-height:1.25em!important;
+  max-height:none!important;
+  margin:0!important;
+  padding:0!important;
+  line-height:1.25!important;
+  overflow:hidden!important;
+  resize:none!important;
+  white-space:pre-wrap!important;
+  overflow-wrap:anywhere!important;
+  word-break:break-word!important;
+}

@@ -1,0 +1,122 @@
+/* Readability + compactness pass for the Item Organize modal only. */
+#organizeModal{font-size:12px}
+#organizeModal .modal-head{
+  position:sticky!important;
+  top:0!important;
+  z-index:40!important;
+  background:#fff!important;
+}
+#organizeModal .modal-head b{font-size:15px!important;line-height:1.25!important}
+#organizeModal .modal-body{
+  font-size:12px!important;
+  line-height:1.35!important;
+  padding:0 9px 7px!important;
+  /* Do not create a nested scroll container: sticky GROUP must follow the modal scroll. */
+  overflow-x:clip!important;
+  overflow-y:visible!important;
+}
+
+/* Keep creation controls/help visible below the permanently fixed title row. */
+#organizeModal .modal-subtools{
+  position:sticky!important;
+  top:49px!important;
+  z-index:30!important;
+  display:flex!important;
+  gap:4px!important;
+  margin:0 -9px!important;
+  padding:6px 9px 4px!important;
+  background:rgba(255,255,255,.98)!important;
+  backdrop-filter:blur(8px)!important;
+}
+#organizeModal .organize-visibility-note{
+  position:sticky!important;
+  top:91px!important;
+  z-index:30!important;
+  margin:0 -9px 4px!important;
+  padding:2px 9px 5px!important;
+  background:rgba(255,255,255,.98)!important;
+  backdrop-filter:blur(8px)!important;
+  border-bottom:1px solid var(--line)!important;
+  font-size:11px!important;
+  line-height:1.25!important;
+}
+
+/* Make the left rail span the entire height of the right item table.
+   The sticky inner GROUP list can then travel from the first group to the very last row. */
+#organizeModal .organize-shell{
+  gap:6px!important;
+  align-items:stretch!important;
+}
+#organizeModal .organize-toc{
+  position:relative!important;
+  top:auto!important;
+  align-self:stretch!important;
+  height:auto!important;
+  min-height:100%!important;
+  max-height:none!important;
+  z-index:8!important;
+  overflow:visible!important;
+}
+#organizeModal .organize-toc-inner{
+  position:sticky!important;
+  top:125px!important;
+  max-height:calc(88vh - 145px)!important;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  overscroll-behavior:contain!important;
+  gap:1px!important;
+  padding:2px 4px 2px 0!important;
+}
+
+#organizeModal .modal-subtools input,
+#organizeModal .modal-subtools select,
+#organizeModal .modal-subtools button,
+#organizeModal .btn,
+#organizeModal .icon-btn{font-size:12px!important;line-height:1.2!important}
+#organizeModal input,
+#organizeModal select{font-size:12px!important;min-height:30px!important;padding:4px 7px!important}
+#organizeModal .organize-toc-title{font-size:10px!important;line-height:1.2!important;padding:2px 4px 4px!important}
+#organizeModal .organize-toc-btn{font-size:12px!important;line-height:1.18!important;padding:4px 6px!important}
+#organizeModal #organizeGrid,
+#organizeModal .organize-grid,
+#organizeModal .organize-group-items{gap:3px!important}
+#organizeModal .group-box,
+#organizeModal .organize-group{padding:5px!important;margin-bottom:5px!important}
+#organizeModal .group-box-head,
+#organizeModal .organize-group-head{margin-bottom:3px!important;gap:4px!important}
+#organizeModal .group-box-title,
+#organizeModal .organize-group-head,
+#organizeModal .group-box-head{font-size:13px!important;line-height:1.2!important}
+
+/* Override the older v141 row sizing without shrinking the readable text. */
+#organizeModal #organizeGrid .item-chip:not(.legacy-part-chip),
+#organizeModal #organizeGrid .legacy-part-chip{
+  font-size:13px!important;
+  line-height:1.2!important;
+  min-height:36px!important;
+  padding:3px 6px!important;
+  column-gap:6px!important;
+  row-gap:0!important;
+  margin:2px 0!important;
+}
+#organizeModal .item-chip input,
+#organizeModal .item-chip select,
+#organizeModal .item-type-select,
+#organizeModal .item-group-select,
+#organizeModal .legacy-part-group-select{font-size:12px!important;line-height:1.2!important;min-height:30px!important;padding-top:3px!important;padding-bottom:3px!important}
+#organizeModal .item-name,
+#organizeModal .legacy-part-name,
+#organizeModal .item-chip > b,
+#organizeModal .item-chip > span:not(.drag-handle){font-size:13px!important;line-height:1.2!important;font-weight:700!important}
+#organizeModal .item-delete-btn,
+#organizeModal .item-visibility-btn{font-size:13px!important;width:20px!important;height:20px!important;min-width:20px!important;min-height:20px!important;padding:0!important}
+#organizeModal .mini,
+#organizeModal small{font-size:11px!important;line-height:1.25!important}
+@media(max-width:680px){
+  #organizeModal .modal-subtools{top:49px!important}
+  #organizeModal .organize-visibility-note{top:91px!important}
+  #organizeModal .organize-toc-inner{top:125px!important;max-height:calc(88vh - 145px)!important}
+  #organizeModal .organize-toc-btn{font-size:11px!important}
+  #organizeModal input,#organizeModal select{font-size:12px!important}
+  #organizeModal .item-name,#organizeModal .legacy-part-name{font-size:12px!important}
+}
