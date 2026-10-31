@@ -268,12 +268,12 @@
     const darkInput = event.target.closest("[data-persona-color-dark]");
     if (darkInput) {
       const persona = state.profile.personas[Number(darkInput.dataset.personaColorDark)];
-      if (persona) { persona.colorDark = darkInput.value; saveProfile(); syncPersonaColor(persona).catch(() => {}); }
+      if (persona) { persona.colorDark = darkInput.value; saveProfile(); emitIntegratedProfile(); window.JIJINPlayerMaster?.pushCurrent?.(); ensureBoardParticipants().catch(()=>{}); syncPersonaColor(persona).catch(() => {}); }
     }
     const lightInput = event.target.closest("[data-persona-color]");
     if (lightInput) {
       const persona = state.profile.personas[Number(lightInput.dataset.personaColor)];
-      if (persona) { persona.color = lightInput.value; saveProfile(); syncPersonaColor(persona).catch(() => {}); }
+      if (persona) { persona.color = lightInput.value; saveProfile(); emitIntegratedProfile(); window.JIJINPlayerMaster?.pushCurrent?.(); ensureBoardParticipants().catch(()=>{}); syncPersonaColor(persona).catch(() => {}); }
     }
     const matrixInput = event.target.closest("[data-matrix-icon]");
     if (matrixInput) uploadMatrixIcon(matrixInput);

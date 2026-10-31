@@ -3759,6 +3759,7 @@ function saveCurrentTemplateState(stateOverride=null){
   const all=templateStates();
   all[tid]={
     savedAt:Date.now(),
+    display:JSON.parse(JSON.stringify(s.display||{})),
     items:cloneItemState(s.items||{})
   };
   setTemplateStates(all);
@@ -3768,6 +3769,7 @@ function restoreTemplatePlacementState(tid){
   const saved=all[tid];
   const s=appState();
   s.items=cloneItemState(saved?.items||{});
+  if(saved?.display)s.display={...(s.display||{}),...saved.display};
   // ensure every loaded item has a local record
   items.forEach(it=>{
     if(!s.items[it.id]){
@@ -3776,6 +3778,7 @@ function restoreTemplatePlacementState(tid){
     it.local=s.items[it.id];
   });
   saveState(s);
+  restoreDisplay();
   renderLibrary();
   renderPlaced();
   resetIconEditor();
@@ -4003,7 +4006,7 @@ async function switchTemplate(id){
 
 function showTemplateRecord(rec){
   const c=$('#canvas'),im=$('#templateImg');
-  if(rec?.dataUrl){im.src=rec.dataUrl;c.classList.add('has-template')}
+  if(rec?.dataUrl){if(im.getAttribute('src')!==rec.dataUrl)im.src=rec.dataUrl;c.classList.add('has-template')}
   else{im.removeAttribute('src');c.classList.remove('has-template')}
 }
 async function restoreTemplate(){

@@ -169,7 +169,7 @@
       const localBase=String(localPerson.icon||"");
       const localMatrix=String(localPerson.matrixIcon||"");
       const serverIcon=preferredImage(person);
-      return {...person,color:String(localPerson.color||person.color||"").split("|")[0],serverIcon,icon:localBase||person.icon||"",baseIcon:localBase||person.baseIcon||person.icon||"",matrixIcon:localMatrix||person.matrixIcon||""};
+      return {...person,color:String(person.color||localPerson.color||"").split("|")[0],serverIcon,icon:localBase||person.icon||"",baseIcon:localBase||person.baseIcon||person.icon||"",matrixIcon:localMatrix||person.matrixIcon||""};
     });
   }
 
