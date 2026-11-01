@@ -100,3 +100,14 @@ test('metadata saves keep the same cacheable image URL',async()=>{
  await f.save(second.record.revision,'new image','black','data:image/webp;base64,Qg==');
  assert.notEqual((await f.list())[0].record.dataUrl,first.record.dataUrl);
 });
+
+test('token comments save independently and do not revert newer coordinates',async()=>{
+ const {handleMatrixPoint}=await import('../src/matrix-point.js');
+ const f=fixture();await f.save(null,'original');
+ const env={DB:{prepare(sql){let args=[];return {bind(...values){args=values;return this},async first(){return f.sqlite.prepare(sql).get(...args)||null},async all(){return {results:f.sqlite.prepare(sql).all(...args)}},async run(){return {meta:f.sqlite.prepare(sql).run(...args)}}}}}};
+ const call=body=>handleMatrixPoint(new Request('https://test/api',{method:'PATCH',body:JSON.stringify({authorId:'pl',authorName:'PL',templateId:'tpl',...body})}),env,'board','log','pc');
+ await call({placed:true,x:88,y:77});
+ assert.equal((await call({comment:'shared bubble',commentPosition:'bottom'})).status,200);
+ let [row]=await f.list();assert.equal(row.templateState.items.pc.x,88);assert.equal(row.templateState.items.pc.comment,'shared bubble');assert.equal(row.templateState.items.pc.commentPosition,'bottom');
+ await call({comment:'',commentPosition:'top'});[row]=await f.list();assert.equal(row.templateState.items.pc.comment,'');assert.equal(row.templateState.items.pc.x,88);
+});

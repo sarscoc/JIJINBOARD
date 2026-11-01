@@ -116,17 +116,20 @@
     if(!itemId||!roomId||data?.templateId&&data.templateId!==window.currentTemplateId?.())return;
     const state=appState();state.items||={};
     const item=state.items[itemId]||(state.items[itemId]=typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{});
+    for(const key of ['comment','commentPosition'])if(data?.[key]!==undefined)item[key]=String(data[key]);
     for(const key of pointKeys){if(data?.[key]!==undefined)item[key]=key==="placed"?!!data[key]:Number(data[key])}
     applyingRemote=true;
     try{
       saveJSON(STATE,state);
       saveCurrentTemplateState(state);
       const live=items?.find?.(entry=>entry.id===itemId);if(live)live.local=item;
-      if(!updatePlacedPoint(itemId,item)&&typeof renderPlaced==="function")renderPlaced();
+      if(data?.comment!==undefined){if(typeof renderPlaced==="function")renderPlaced()}
+      else if(!updatePlacedPoint(itemId,item)&&typeof renderPlaced==="function")renderPlaced();
     }finally{applyingRemote=false}
   }
 
   function dispatchRefresh(action,data=null){
+    if(action==="matrix-typing"){window.dispatchEvent(new CustomEvent("matrix-board-typing",{detail:data}));return}
     if(action==="matrix-point"){
       if(active)applyRemotePoint(data);else dirtyState=true;
       return;
@@ -180,10 +183,10 @@
     try{socket.send(JSON.stringify({type:"change",action,data}));return true}catch{pendingActions.set(key,{action,data});return false}
   }
 
-  async function savePoint(itemId,item){
+  async function savePoint(itemId,item,commentOnly=false){
     if(!roomId||loadedRoom!==roomId||applyingRemote||!itemId)return;
     const me=profile();if(!me?.plName)return;
-    const point=pointPayload(itemId,item),key=String(itemId);
+    const point=commentOnly?{itemId,comment:String(item.comment||''),commentPosition:item.commentPosition||'top'}:pointPayload(itemId,item);point.templateId=window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId+':'+commentOnly;
     pointRequests.set(key,point);
     try{
       const result=await api(pointPath(itemId),{method:"PATCH",body:JSON.stringify({authorId:me.id,authorName:me.plName,...point})});
@@ -365,7 +368,8 @@
         saveJSON(STATE,state);
         applyingRemote=true;
         try{saveCurrentTemplateState(state)}finally{applyingRemote=false}
-        savePoint(itemId,state.items[itemId]);
+        const commentOnly=changes.every(path=>["comment","commentPosition"].includes(path[2]));
+        savePoint(itemId,state.items[itemId],commentOnly);
         return;
       }
       saveState(state);

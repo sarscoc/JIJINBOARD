@@ -100,7 +100,7 @@
     const page = loadStore()?.[tid] || {};
     Object.entries(itemsState || {}).forEach(([id, local]) => {
       if (!local) return;
-      if (Object.prototype.hasOwnProperty.call(page, id)) {
+      if (local.comment === undefined && Object.prototype.hasOwnProperty.call(page, id)) {
         const annotation = page[id] || {};
         local.comment = String(annotation.comment ?? "");
         local.commentPosition = String(annotation.commentPosition || "top");
@@ -124,6 +124,7 @@
       // Blank is saved explicitly as a tombstone so an older template snapshot
       // cannot resurrect a comment the user intentionally removed.
       page[id] = after;
+      window.matrixBoardContext?.savePoint?.(id,{...afterRaw[id],...after},true);
       changed = true;
     });
 

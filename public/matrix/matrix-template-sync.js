@@ -12,7 +12,7 @@
   let editSeq=0;
   const acknowledged=new Map();
   function editable(record,state){
-    const pointFields=new Set(['placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment']);
+    const pointFields=new Set(['placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment','commentPosition']);
     const items={};
     for(const [id,item] of Object.entries(state?.items||{}))items[id]=Object.fromEntries(Object.entries(item||{}).filter(([key])=>!pointFields.has(key)));
     return {record:{name:record?.name||'',dataUrl:record?.dataUrl||'',imageName:record?.imageName||''},state:{...state,savedAt:undefined,items}};

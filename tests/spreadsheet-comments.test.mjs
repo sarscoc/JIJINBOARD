@@ -43,4 +43,9 @@ test('matrix saves a draft before opening another target',async t=>{
  await w.openMatrixIconComment('second');
  assert.equal(writes.length,1);assert.equal(writes[0].targetId,'template@@matrix-template@@first');
  assert.equal(w.document.querySelector('#matrixIconCommentCount').textContent,'1');assert.equal(w.document.querySelector('textarea').value,'');
+ w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'other-device',templateId:'template',name:'Other PC',typing:true}}));
+ assert.match(w.document.querySelector('.matrix-typing').textContent,/Other PC.*入力中/);
+ w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'other-device',typing:false}}));
+ assert.equal(w.document.querySelector('.matrix-typing'),null);
+
 });

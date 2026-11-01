@@ -331,3 +331,13 @@ html body .matrix-comment-card:hover{border-color:var(--comment-marker,var(--mat
 /* Same header metrics as SPREADSHEET and LOGCOMMENTS. */
 html body #matrixIconComments .matrix-comment-head{box-sizing:border-box!important;height:46px!important;min-height:46px!important;max-height:46px!important;flex:0 0 46px!important;padding:13px 15px!important;font:400 11px/19px system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;letter-spacing:.12em!important}
 html body #matrixIconComments .matrix-comment-head b{font:inherit!important;font-weight:700!important;letter-spacing:inherit!important}
+
+/* Replies stay on one reply rail, as in LOGCOMMENTS. */
+#matrixIconComments .matrix-comment-thread.matrix-reply{margin-left:24px!important}
+#matrixIconComments .matrix-reply .matrix-reply{margin-left:0!important}
+.matrix-typing{display:flex;align-items:center;gap:7px;padding:8px;color:var(--matrix-muted);font-size:11px}
+.matrix-typing img{width:24px;height:24px;object-fit:contain;border-radius:50%}
+.matrix-typing em{font-style:normal;font-size:10px}
+.matrix-typing i{width:3px;height:3px;border-radius:50%;background:currentColor;animation:matrixTypingPulse 1s infinite alternate}
+.matrix-typing i:nth-last-child(2){animation-delay:.2s}.matrix-typing i:last-child{animation-delay:.4s}
+@keyframes matrixTypingPulse{to{opacity:.2}}

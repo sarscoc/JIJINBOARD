@@ -34,6 +34,30 @@
     return p;
   }
 
+  const typingPeers=new Map(),typingClient=crypto.randomUUID();let typingSent=0;
+  function sendTyping(on,inlineTarget=""){
+    const person=composerPeople[Number(document.querySelector('#matrixCommentPersona')?.value)||0];
+    if(on&&Date.now()-typingSent<500)return;typingSent=Date.now();
+    ctx()?.notifyChange?.('matrix-typing',{clientId:typingClient,authorId:profile()?.id,templateId:typeof currentTemplateId==='function'?currentTemplateId():'',targetId:inlineTarget||targetId,name:person?.name||profile()?.plName||'PL',icon:String(person?.icon||'').length<3000?person?.icon||'':'',typing:!!on});
+  }
+  function renderTyping(){
+    const list=document.querySelector('#matrixIconCommentList');if(!list)return;
+    list.querySelectorAll('.matrix-typing').forEach(node=>node.remove());
+    const tid=typeof currentTemplateId==='function'?currentTemplateId():'';
+    for(const peer of typingPeers.values())if(peer.templateId===tid){
+      const node=document.createElement('div');node.className='matrix-typing';
+      node.innerHTML=`${peer.icon?`<img src="${esc(peer.icon)}" alt="">`:''}<b>${esc(peer.name)}</b><em>入力中</em><i></i><i></i><i></i>`;list.append(node);
+    }
+  }
+  window.addEventListener('matrix-board-typing',event=>{
+    const peer=event.detail;if(!peer?.clientId||peer.clientId===typingClient)return;
+    const previous=typingPeers.get(peer.clientId);clearTimeout(previous?.timer);
+    if(peer.typing){peer.timer=setTimeout(()=>{typingPeers.delete(peer.clientId);renderTyping()},6000);typingPeers.set(peer.clientId,peer)}else typingPeers.delete(peer.clientId);
+    renderTyping();
+  });
+  document.addEventListener('input',event=>{if(event.target.id==='matrixCommentBody')sendTyping(!!event.target.value.trim());else if(event.target.matches?.('.inline-comment-editor textarea'))sendTyping(!!event.target.value.trim(),event.target.closest('.placed')?.dataset.id||'')});
+  document.addEventListener('focusout',event=>{if(event.target.matches?.('.inline-comment-editor textarea'))sendTyping(false)});
+  window.addEventListener('pagehide',()=>sendTyping(false));
   function syncDialogAvatar(d){
     const select=d.querySelector("#matrixCommentPersona"),avatar=d.querySelector(".matrix-comment-input-avatar");
     if(!select||!avatar)return;
@@ -51,6 +75,7 @@
     d.dataset.logcommentsInput="1";
     d.innerHTML='<form class="matrix-comment-log-form"><div class="comment-persona-picker"><span class="matrix-comment-input-avatar comment-input-avatar"></span><select id="matrixCommentPersona" aria-label="発言者"></select></div><textarea id="matrixCommentBody" rows="3" maxlength="4000" aria-label="感想"></textarea><p id="matrixCommentStatus" role="status" aria-live="polite"></p><button id="matrixCommentDelete" class="comment-edit-delete" type="button" hidden>このコメントを削除</button></form>';
     document.body.append(d);
+    d.addEventListener("close",()=>sendTyping(false));
     d.querySelector("form").addEventListener("submit",post);
     d.querySelector("#matrixCommentDelete").addEventListener("click",remove);
     d.querySelector("#matrixCommentPersona").addEventListener("change",()=>syncDialogAvatar(d));
@@ -145,7 +170,7 @@
       if(target.templateId)return target.templateId===tid;
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
-const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>'}
+const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
   async function load(force=false){
     const c=ctx();if(!c||!commentRoom())return;
     if(loadPromise){await loadPromise;if(!force)return;}
@@ -207,7 +232,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     const c=ctx(),p=profile(),d=dialog(),body=d.querySelector("#matrixCommentBody").value.trim(),person=composerPeople[Number(d.querySelector("#matrixCommentPersona").value)||0];
     if(!body)return;
     if(!c||!commentRoom()||!p?.id||!person){alert("発言者情報を確認してください。");return;}
-    posting=true;d.dataset.submitting="1";
+    posting=true;sendTyping(false);d.dataset.submitting="1";
     const status=d.querySelector("#matrixCommentStatus");status.textContent="";
     try{
       if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});

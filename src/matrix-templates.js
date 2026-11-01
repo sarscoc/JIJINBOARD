@@ -8,7 +8,7 @@ const isPlaceholder=row=>row?.template_definition==='{}'&&row?.template_image_ke
 const revisionOf=async row=>row&&!isPlaceholder(row)?String(parseDefinition(row.template_definition).revision||await hashText(row.template_definition||'{}')):null;
 const conflict=()=>json({error:'テンプレートが別の画面で更新されています。最新の情報を読み直してから編集してください。',code:'MATRIX_TEMPLATE_CONFLICT'},409);
 const imageUrl=(roomId,templateId)=>`/api/boards/${encodeURIComponent(roomId)}/matrix/templates/${encodeURIComponent(templateId)}/image`;
-const POINT_FIELDS=new Set(['placed','x','y','templateX','templateY','scaleBaseWidth','coordVersion','comment']);
+const POINT_FIELDS=new Set(['placed','x','y','templateX','templateY','scaleBaseWidth','coordVersion','comment','commentPosition']);
 
 async function validateLog(db,roomId,logId){
   const log=await parentRoomForLog(db,logId);
