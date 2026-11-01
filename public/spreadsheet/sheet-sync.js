@@ -33,6 +33,7 @@
     return out;
   }
 
+  let saving=false,resave=false,localDirty=false;
   let timer=0,loading=true,readySent=false,itemCache=null,applyingRemote=false,refreshPromise=null,lastRemoteSerial='',remoteDirty=false;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
   const invalidateItemCache=()=>{itemCache=null};
@@ -62,16 +63,18 @@
 
   const pushNow=async()=>{
     if(loading||applyingRemote)return;
+    if(saving){resave=true;return}
     clearTimeout(timer);timer=0;
     const snapshot=currentSnapshot(),serial=JSON.stringify(snapshot);
     if(serial===lastRemoteSerial)return;
+    saving=true;
     try{
       await api(endpoint,{method:'POST',body:JSON.stringify({state:snapshot})});
-      lastRemoteSerial=serial;
+      lastRemoteSerial=serial;localDirty=currentSerial()!==serial;
       window.jijinSpreadsheetNotifyChange?.('spreadsheet-state');
-    }catch(error){console.warn('Spreadsheet sync save failed',error)}
+    }catch(error){localDirty=true;console.warn('Spreadsheet sync save failed',error);if(typeof showToast==='function')showToast('配置の保存に失敗しました。通信を確認してください')}finally{saving=false;if(resave){resave=false;pushNow()}}
   };
-  const push=()=>{if(loading||applyingRemote)return;clearTimeout(timer);timer=setTimeout(pushNow,1100)};
+  const push=()=>{if(loading||applyingRemote)return;localDirty=true;clearTimeout(timer);timer=setTimeout(pushNow,150)};
   const rawSetItem=Storage.prototype.setItem;
   Storage.prototype.setItem=function(key,value){
     const name=String(key),tracked=this===localStorage&&keys.includes(name);
@@ -111,11 +114,11 @@
   }
 
   async function refreshRemote(){
-    if(loading||!boardActive)return;
+    if(loading||!boardActive||localDirty||saving||timer)return;
     if(refreshPromise)return refreshPromise;
     const task=(async()=>{
       try{
-        const remote=(await api(endpoint)).state;
+        const remote=(await api(endpoint,{cache:"reload"})).state;
         if(!remote){remoteDirty=false;return}
         const clean=sanitizeSnapshot(remote),serial=JSON.stringify(clean);
         if(serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
@@ -156,7 +159,7 @@
   async function initialRemoteSync(){
     let remote=null,cleanRemote=null,remoteString='';
     try{
-      remote=(await api(endpoint)).state;
+      remote=(await api(endpoint,{cache:"reload"})).state;
       cleanRemote=sanitizeSnapshot(remote||{});remoteString=JSON.stringify(cleanRemote);
       const local=currentSnapshot(),localString=JSON.stringify(local),hasLocal=!!meaningful(local);
       if(remote&&meaningful(cleanRemote)){
@@ -172,17 +175,7 @@
     if(remote&&remoteString&&JSON.stringify(remote)!==remoteString)pushNow();
   }
 
-  const localAtStart=currentSnapshot(),hasLocalAtStart=!!meaningful(localAtStart);
-  if(embedded&&hasLocalAtStart){
-    finishLocalReady();
-    const run=()=>initialRemoteSync();
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      if(typeof requestIdleCallback==='function')requestIdleCallback(run,{timeout:900});
-      else setTimeout(run,250);
-    }));
-  }else{
-    initialRemoteSync();
-  }
+  initialRemoteSync();
 })();
 
 // Presentation-only busy indicator: keep the existing import and save handlers.

@@ -61,7 +61,7 @@ async function serveAsset(request,env,url){
     if(type.includes('text/html')){
       const html=(await response.text())
         .replace('src="sheet-sync.js"','src="sheet-sync.js?v=20260901-localfirst1"')
-        .replace('</body>','<script src="/spreadsheet/sheet-image-sync.js?v=20260831-2"></script></body>');
+        .replace('</body>','<link rel="stylesheet" href="/spreadsheet/sheet-layout-six-grid.css"><script src="/spreadsheet/sheet-blank-layout.js"></script><script src="/spreadsheet/sheet-layout-six-grid.js"></script><script src="/spreadsheet/sheet-image-sync.js?v=20260831-2"></script></body>');
       const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
