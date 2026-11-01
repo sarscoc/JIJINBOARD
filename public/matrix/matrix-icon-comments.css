@@ -304,7 +304,7 @@ html.embedded .library{
 .matrix-comment-author .matrix-comment-target-arrow{font-size:11px;line-height:1}
 .matrix-comment-body-row{display:block}
 .matrix-comment-body-row p{font-size:13px;line-height:1.5;margin:4px 0 0}
-.matrix-comment-flash .placed-avatar{animation:matrixCommentFlash .24s ease-in-out!important;transform-origin:center}
+.matrix-comment-flash .placed-avatar{animation:none!important}
 .matrix-comment-flash .placed-avatar img{animation:none!important;filter:none!important}
 .matrix-comment-card.focused:hover{border-left-color:var(--comment-marker)!important}
 
@@ -317,5 +317,9 @@ html .matrix-comment-card:focus-visible{
 
 
 /* Pop the on-canvas speech bubble without replacing its positioning transform. */
-.matrix-comment-flash .placed-comment{animation:matrixBubblePop .24s ease-in-out!important;transform-origin:center}
+.matrix-comment-flash .placed-comment{animation:none!important}
 @keyframes matrixBubblePop{0%,100%{scale:1}50%{scale:1.04}}
+
+/* Scale the positioned group as one block, preserving its translate transform. */
+.placed.matrix-comment-flash{animation:matrixGroupPop .24s ease-in-out!important;transform-origin:center}
+@keyframes matrixGroupPop{0%,100%{scale:1}50%{scale:1.04}}

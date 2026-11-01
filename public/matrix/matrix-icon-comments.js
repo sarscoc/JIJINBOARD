@@ -84,7 +84,7 @@
       el.classList.remove("matrix-comment-flash");
       delete el.dataset.matrixFlashToken;
     };
-    if(img)img.addEventListener("animationend",clear,{once:true});
+    el.addEventListener("animationend",clear,{once:true});
     el.classList.add("matrix-comment-flash");
     setTimeout(clear,1150);
     el.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
