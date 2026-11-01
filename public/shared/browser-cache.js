@@ -1,5 +1,6 @@
 "use strict";
 (()=>{
+  if(location.pathname.startsWith("/matrix"))return;
   if(!window.caches||!window.crypto?.subtle)return;
   const network=window.fetch.bind(window),cacheName="jijinboard-api-data-v1";
   async function keyFor(request){

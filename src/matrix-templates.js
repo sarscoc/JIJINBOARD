@@ -91,7 +91,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const definition=JSON.stringify({imageName:String(record.imageName||'').slice(0,180),createdAt,updatedAt,templateState:definitionState});
     if(definition.length>300_000)return json({error:'テンプレート設定が大きすぎます'},413);
     await env.DB.prepare(`INSERT INTO matrix_template(room_id,template_id,template_name,template_image_key,template_definition,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(room_id,template_id) DO UPDATE SET template_name=excluded.template_name,template_image_key=CASE WHEN excluded.template_image_key<>'' THEN excluded.template_image_key ELSE matrix_template.template_image_key END,template_definition=excluded.template_definition,updated_at=CURRENT_TIMESTAMP`).bind(roomId,templateId,name,key,definition).run();
-    try{await saveTemplatePoints(env.DB,roomId,templateId,templateState)}catch(error){return json({error:error.message},error.status||500)}
+    try{if(!old)await saveTemplatePoints(env.DB,roomId,templateId,templateState)}catch(error){return json({error:error.message},error.status||500)}
     return json({ok:true,record:{id:templateId,name,dataUrl:key?imageUrl(roomId,templateId)+'?v='+updatedAt:'',imageName:String(record.imageName||''),createdAt,updatedAt},templateState});
   }
 
