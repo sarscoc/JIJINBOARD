@@ -21,6 +21,12 @@ test('posting a sheet comment refreshes after an older pending read and only pos
  assert.equal(writes,1);finishRead();await tick();await tick();
  assert.equal(reads,2);assert.equal(w.document.querySelector('.sheet-comment-count').textContent,'1');
  assert.equal(w.document.querySelector('.comment-body').textContent,'saved');assert.equal(dialog.open,false);
+ const hidden=w.document.createElement('div');hidden.className='hidden';const original=w.document.querySelector('[data-sheet-cell]');original.before(hidden);hidden.append(original);
+ const visible=w.document.createElement('div');visible.dataset.sheetCell='c1';w.document.body.append(visible);
+ let jumped=null;w.HTMLElement.prototype.scrollIntoView=function(options){jumped=this;assert.equal(options.inline,'center')};
+ w.document.querySelector('.comment-card').click();assert.equal(jumped,visible);assert.ok(visible.classList.contains('sheet-comment-flash'));
+ assert.ok(original.classList.contains('sheet-has-comment'));
+
 });
 test('matrix saves a draft before opening another target',async t=>{
  const dom=new JSDOM('<div class="stage-shell"></div>',{url:'https://example.test/matrix/',runScripts:'outside-only',pretendToBeVisual:true});

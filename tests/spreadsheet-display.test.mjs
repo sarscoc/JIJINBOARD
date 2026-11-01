@@ -41,6 +41,7 @@ test('spreadsheet display saves and group controls persist across reloads',async
  Object.defineProperty(longField,'scrollHeight',{value:250});longField.dispatchEvent(new w.Event('input',{bubbles:true}));await sleep(40);
  assert.equal(longField.style.height,'252px');
  assert.ok(w.document.querySelector('[data-sheet-group-id="g1"]').classList.contains('sheet-small-group'));
+ assert.equal(w.document.querySelector('[data-full-character-item="local::one"]').closest('.character-sheet-row').dataset.sheetCell,'local::one:c1');
  assert.equal(w.sheetGroupSpan('g1'),1);assert.equal(w.sheetGroupHeight('g1'),5);
  w.document.getElementById('sheetLayoutBtn').click();
  const columnsControl=w.document.querySelector('[data-command-id="g1"] .sheet-content-columns');

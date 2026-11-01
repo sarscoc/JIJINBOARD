@@ -148,6 +148,7 @@
 
   const fitCharacterField=el=>{
     if(!el||!boardActive||loading)return;
+    if(window.jijinFitCharacterFields){window.jijinFitCharacterFields();return;}
     el.setAttribute('wrap','soft');
     el.style.setProperty('white-space','pre-wrap','important');el.style.setProperty('overflow-wrap','anywhere','important');el.style.setProperty('word-break','break-word','important');el.style.setProperty('overflow-x','hidden','important');el.style.setProperty('overflow-y','hidden','important');el.style.setProperty('min-height','0','important');
     const row=el.closest('.character-sheet-row');if(row){row.style.setProperty('min-height','0','important');row.style.setProperty('height','auto','important');if(row.classList.contains('long'))row.style.setProperty('margin-top','0','important')}

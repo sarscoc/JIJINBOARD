@@ -27,7 +27,8 @@
         row.style.setProperty('flex-basis',span<=3?'100%':'auto','important');
       }
     }
-    for(const field of document.querySelectorAll('.character-sheet-edit,.character-answer')){
+    const fields=[...document.querySelectorAll('.character-sheet-edit,.character-answer')].filter(field=>field.getClientRects().length||field.scrollHeight);
+    for(const field of fields){
       field.style.setProperty('overflow','hidden','important');
       field.style.setProperty('max-height','none','important');
       field.style.setProperty('font-size','11px','important');
@@ -35,15 +36,36 @@
       if(field.parentElement.querySelector('.auto-video-preview:not(:empty)'))field.style.setProperty('display','none','important');
       else field.style.removeProperty('display');
       field.style.setProperty('height','0px','important');
-      field.style.setProperty('height',Math.max(24,field.scrollHeight+2)+'px','important');
     }
+    const heights=fields.map(field=>Math.max(24,field.scrollHeight+2));
+    fields.forEach((field,i)=>{
+      field.style.setProperty('height',heights[i]+'px','important');
+    });
   }
   let queued=false;
   function schedule(){if(queued)return;queued=true;requestAnimationFrame(()=>{queued=false;fit()})}
+  window.jijinFitCharacterFields=schedule;
+  window.autoGrowCharacterField=schedule;
   for(const name of ['renderFullCharacterMode','openCharacterPopup','renderCharacterView','syncAutoVideoPreview']){
     const raw=window[name];if(typeof raw!=='function')continue;
     window[name]=function(...args){const result=raw.apply(this,args);schedule();return result};
   }
+  // The character layout uses the same cell identity as its table counterpart.
+  const rawGroups=window.renderCharacterSheetGroups;
+  window.renderCharacterSheetGroups=function(ch){
+    const result=rawGroups.call(this,ch);
+    const items=visibleItems(collectUnifiedItems());
+    const {buckets}=normalizedGroups(items);
+    result.rendered=result.rendered.map(html=>{
+      const template=document.createElement('template');template.innerHTML=html;
+      const group=template.content.querySelector('[data-sheet-group-id]');if(!group)return html;
+      const ids=[...(buckets.get(group.dataset.sheetGroupId)||[]).map(item=>`${item.key}:${ch.id}`),
+        ...(state.layout.parts||[]).filter(part=>part.groupId===group.dataset.sheetGroupId&&part.type!=='bar').map(part=>`part:${part.id}:${ch.id}`)];
+      group.querySelectorAll('.character-sheet-rows > .character-sheet-row').forEach((row,i)=>{if(ids[i])row.dataset.sheetCell=ids[i]});
+      return template.innerHTML;
+    });
+    return result;
+  };
   const style=document.createElement('style');style.textContent=`
     .character-sheet-edit,.character-answer{overflow:hidden!important;resize:none!important;max-height:none!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;box-sizing:border-box!important}
     .character-sheet-value,.character-row-value{min-width:0!important;max-width:100%!important;overflow:visible!important}

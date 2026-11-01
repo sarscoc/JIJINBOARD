@@ -11,11 +11,27 @@ html.embedded #sheetComments{
   content:""!important;
   position:absolute!important;
   right:1px!important;
-  bottom:1px!important;
-  width:6px!important;
+  top:2px!important;
+  width:8px!important;
   height:6px!important;
   background:var(--jijin-sheet-comment-color,#171a20)!important;
-  clip-path:polygon(100% 0,100% 100%,0 100%)!important;
+  clip-path:polygon(0 0,100% 0,50% 100%)!important;
   pointer-events:none!important;
-  z-index:0!important;
+  z-index:2!important;
 }
+
+[data-sheet-cell].sheet-comment-flash{
+  outline:2px solid var(--jijin-sheet-comment-color,#e271c4)!important;
+  outline-offset:-2px!important;
+  box-shadow:inset 0 0 0 9999px color-mix(in srgb,var(--jijin-sheet-comment-color,#e271c4) 14%,transparent)!important;
+}
+/* One two-axis scroll surface, matching the spreadsheet and its theme. */
+html.embedded #fullCharacterMode{overflow:hidden!important;min-height:0!important}
+html.embedded #fullCharacterPages{
+  height:100%!important;min-height:0!important;overflow:auto!important;
+  scroll-snap-type:none!important;overflow-anchor:none!important;overscroll-behavior:contain!important;
+  scrollbar-gutter:stable!important;scrollbar-color:var(--user-accent,#e271c4) transparent!important;
+}
+html.embedded #fullCharacterPages::-webkit-scrollbar{width:12px;height:12px}
+html.embedded #fullCharacterPages::-webkit-scrollbar-thumb{background:var(--user-accent,#e271c4)!important;border-radius:999px}
+html.embedded #fullCharacterPages .full-character-page{scroll-snap-align:none!important}
