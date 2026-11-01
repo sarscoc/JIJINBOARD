@@ -11,13 +11,21 @@
     const url=URL.createObjectURL(blob);urls.set(id,url);return url;
   }
   const popup=document.getElementById('questionPopup');
-  const select=document.createElement('select');select.id='questionPresentation';select.setAttribute('aria-label','回答の表示方法');
-  select.innerHTML='<option value="list">リスト</option><option value="bubble">吹き出し</option><option value="compare">コンパクト比較</option>';
+  const select=document.createElement('div');select.id='questionPresentation';select.setAttribute('role','group');select.setAttribute('aria-label','回答の表示方法');
+  for(const [mode,label] of [['bubble','吹き出し'],['list','リスト'],['compare','コンパクト比較']]){
+    const button=document.createElement('button');button.type='button';button.dataset.presentation=mode;button.textContent=label;
+    button.onclick=()=>{if(!current)return;state.layout.questionPresentations||={};state.layout.questionPresentations[current.key]=mode;saveLayoutState();decorate()};select.appendChild(button);
+  }
   popup.querySelector('.modal-head').insertBefore(select,popup.querySelector('.modal-head').lastElementChild);
   async function decorate(){
     if(!current)return;const seq=++sequence;popup.querySelectorAll('.question-portrait').forEach(img=>img.remove());
-    const mode=state.layout.questionPresentations?.[current.key]||'list';select.value=mode;popup.dataset.answerPresentation=mode;
+    const mode=state.layout.questionPresentations?.[current.key]||'bubble';popup.dataset.answerPresentation=mode;select.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.presentation===mode)));
+    document.getElementById('questionPopupMeta').hidden=true;
     for(const row of popup.querySelectorAll('.question-popup-row')){
+      const text=row.querySelector('textarea')?.value||row.querySelector('.question-popup-answer')?.textContent||'';
+      const units=Math.max(0,...text.split('\n').map(line=>Array.from(line).reduce((n,ch)=>n+(/[ -~]/.test(ch)?.55:1),0)));
+      row.style.setProperty('--answer-width',units>75?'100%':Math.max(180,Math.min(900,units*12+90))+'px');
+
       const id=row.querySelector('[data-popup-char]')?.dataset.popupChar||state.characters[[...row.parentNode.children].indexOf(row)]?.id;
       if(!id||row.querySelector('.question-portrait'))continue;
       const image=await portrait(id).catch(()=> '');if(seq!==sequence)return;
@@ -27,7 +35,7 @@
   }
   const raw=window.openQuestionPopup;
   window.openQuestionPopup=function(item,...args){current=item;const result=raw.call(this,item,...args);decorate();return result};
-  select.onchange=()=>{if(!current)return;state.layout.questionPresentations||={};state.layout.questionPresentations[current.key]=select.value;saveLayoutState();decorate()};
+
 
   const settings=document.getElementById('characterDesignModal');
   const section=document.createElement('section');section.className='question-portrait-settings';
@@ -45,12 +53,19 @@
   };
   section.querySelector('button').onclick=async()=>{try{await deleteImageBlob('question-portrait',characterDesignEditingId);await preview();if(current)decorate();section.querySelector('[role="status"]').textContent='削除しました'}catch{section.querySelector('[role="status"]').textContent='削除できませんでした'}};
   const style=document.createElement('style');style.textContent=`
-    #questionPresentation{margin-left:auto;margin-right:12px;max-width:170px;font-size:12px;border:1px solid #e2e5eb;border-radius:8px;padding:6px;background:#fff}
+    #questionPopupMeta{display:none!important}
+    #questionPresentation{display:flex;flex-wrap:wrap;gap:4px;margin-left:auto;margin-right:12px}
+    #questionPresentation button{font-size:11px;padding:6px 9px;border:0;border-radius:7px;background:transparent;color:#89909c;cursor:pointer}
+    #questionPresentation button[aria-pressed="true"]{background:color-mix(in srgb,var(--question-accent) 12%,white);color:var(--question-accent);font-weight:700}
     .question-portrait{width:48px;height:48px;object-fit:cover;border-radius:50%;flex-shrink:0;margin-right:10px}
     .question-popup-name:has(.question-portrait){display:flex!important;align-items:center}
-    #questionPopup[data-answer-presentation="bubble"] .question-popup-row{display:grid!important;grid-template-columns:minmax(100px,170px) minmax(0,1fr)!important;gap:12px;padding:12px!important;border:0!important}
-    #questionPopup[data-answer-presentation="bubble"] .question-popup-answer{background:color-mix(in srgb,var(--question-accent) 8%,white);border-radius:16px;padding:9px 12px;min-width:0}
-    #questionPopup[data-answer-presentation="compare"] #questionPopupAnswers{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:8px;padding:10px}
+    #questionPopup[data-answer-presentation="bubble"] #questionPopupAnswers{display:flex!important;flex-wrap:wrap!important;align-items:flex-start;gap:10px 12px;padding:12px!important}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-row{display:flex!important;align-items:flex-start!important;flex:1 1 var(--answer-width,220px)!important;max-width:100%!important;min-width:0!important;gap:7px;padding:0!important;border:0!important;box-sizing:border-box}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-name{display:flex!important;flex-direction:column!important;align-items:center!important;flex:0 0 48px!important;width:48px!important;min-width:0!important;max-width:48px!important;font-size:8px!important;line-height:1.3!important;overflow-wrap:anywhere;border:0!important;padding:0!important}
+    #questionPopup[data-answer-presentation="bubble"] .question-portrait{width:36px;height:36px;margin:0 0 3px}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-answer{flex:1;min-width:0!important;max-width:100%;background:color-mix(in srgb,var(--question-accent) 8%,white);border-radius:13px;padding:5px 9px!important;box-sizing:border-box}
+    #questionPopup[data-answer-presentation="bubble"] textarea{font-size:12px!important;line-height:1.5!important;min-height:20px!important;overflow:hidden!important;padding:0!important;max-height:none!important;box-sizing:border-box}
+    #questionPopup[data-answer-presentation="compare"] #questionPopupAnswers{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:8px;padding:10px}
     #questionPopup[data-answer-presentation="compare"] .question-popup-row{display:flex!important;flex-direction:column!important;border:1px solid #e6e8ed!important;border-radius:8px;min-width:0;padding:8px!important}
     #questionPopup[data-answer-presentation="compare"] .question-popup-name{border:0!important;padding:4px!important;font-size:11px!important}
     #questionPopup[data-answer-presentation="compare"] .question-portrait{width:32px;height:32px}
