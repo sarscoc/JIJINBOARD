@@ -86,3 +86,33 @@ try {
 
   dialog.addEventListener("close", () => setSubmitting(false));
 })();
+
+// Place the composer outside the reader, instead of over the selected passage.
+(()=>{
+  if(typeof positionCommentDialog!=="function")return;
+  positionCommentDialog=function(){
+    const dialog=document.querySelector('#commentDialog'),anchor=state.pendingSelection;
+    if(!dialog||!anchor)return;
+    const gap=12,reader=document.querySelector('#logPane')?.getBoundingClientRect();
+    const right=Math.max(anchor.anchorRight||0,reader?.right||0)+gap;
+    const available=innerWidth-gap-right;
+    const width=Math.min(390,available>=240?available:innerWidth-gap*2);
+    dialog.style.setProperty('width',width+'px','important');
+    dialog.style.setProperty('right','auto','important');
+    dialog.style.setProperty('bottom','auto','important');
+    const height=Math.min(dialog.offsetHeight||430,innerHeight-gap*2);
+    let left,top;
+    if(available>=240){left=right;top=Math.max(gap,Math.min(anchor.anchorTop-24,innerHeight-height-gap))}
+    else{
+      left=Math.max(gap,innerWidth-width-gap);
+      // When the reader fills the viewport, keep the selection visible vertically.
+      if(anchor.anchorBottom+gap+height<=innerHeight-gap)top=anchor.anchorBottom+gap;
+      else if(anchor.anchorTop-gap-height>=gap)top=anchor.anchorTop-gap-height;
+      else top=Math.max(gap,innerHeight-height-gap);
+    }
+    dialog.style.setProperty('left',left+'px','important');
+    dialog.style.setProperty('top',top+'px','important');
+  };
+  window.positionCommentDialog=positionCommentDialog;
+  window.addEventListener('resize',()=>{if(document.querySelector('#commentDialog')?.open)positionCommentDialog()});
+})();
