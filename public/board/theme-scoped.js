@@ -98,7 +98,11 @@
     styleIn(doc,"jijinboardScopedThemeStyle",scope==="log"?logCss(theme):scope==="matrix"?matrixCss(theme):sheetCss(theme));
   };
   function applyToFrame(frame,scope){try{const doc=frame?.contentDocument;if(!doc?.head)return;styleIn(doc,"jijinboardScopedThemeStyle",scope==="log"?logCss(theme):scope==="matrix"?matrixCss(theme):sheetCss(theme))}catch{}}
-  function applyAll(){styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));applyToFrame(document.getElementById("logFrame"),"log");applyToFrame(document.getElementById("matrixFrame"),"matrix");applyToFrame(document.getElementById("spreadsheetFrame"),"sheet")}
+  function applyAll(){
+    let icon=document.querySelector('link[data-board-favicon]');
+    if(!icon){icon=document.createElement('link');icon.rel='icon';icon.type='image/svg+xml';icon.dataset.boardFavicon='1';document.head.append(icon)}
+    icon.href='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="5" y="5" width="54" height="54" rx="5" fill="white" stroke="${theme.color1}" stroke-width="5"/><text x="32" y="46" text-anchor="middle" font-family="sans-serif" font-size="42" font-weight="bold" fill="${theme.color1}">J</text></svg>`);
+styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));applyToFrame(document.getElementById("logFrame"),"log");applyToFrame(document.getElementById("matrixFrame"),"matrix");applyToFrame(document.getElementById("spreadsheetFrame"),"sheet")}
   for(const [id,scope] of [["logFrame","log"],["matrixFrame","matrix"],["spreadsheetFrame","sheet"]])document.getElementById(id)?.addEventListener("load",()=>applyToFrame(document.getElementById(id),scope));
 
   function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveRemote,500)}
