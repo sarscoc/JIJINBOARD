@@ -322,4 +322,4 @@ html .matrix-comment-card:focus-visible{
 
 /* Scale the positioned group as one block, preserving its translate transform. */
 .placed.matrix-comment-flash{animation:matrixGroupPop .24s ease-in-out!important;transform-origin:center}
-@keyframes matrixGroupPop{0%,100%{scale:1}50%{scale:1.1}}
+@keyframes matrixGroupPop{0%,100%{scale:1}50%{scale:1.02}}
