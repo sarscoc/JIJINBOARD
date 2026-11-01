@@ -24,3 +24,12 @@
 .sheet-layout-resize::after{content:"";position:absolute;right:5px;bottom:5px;width:9px;height:9px;border-right:2px solid #9099a8;border-bottom:2px solid #9099a8}
 .sheet-layout-command-card.is-preview{pointer-events:none}
 @media(max-width:760px){.sheet-layout-workspace{grid-template-columns:1fr}.sheet-layout-unplaced{position:static;border-right:0;border-bottom:1px solid var(--line);padding:0 0 9px}.sheet-layout-unplaced-list{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet-layout-modal .sheet-layout-canvas{grid-template-columns:repeat(6,minmax(42px,1fr))!important;overflow-x:auto!important}.sheet-layout-row-tools{justify-content:flex-start}}
+
+/* Keep empty background rows real grid tracks instead of relying on min-height. */
+.sheet-layout-modal .sheet-layout-canvas{
+  grid-template-rows:repeat(var(--sheet-rows,8),72px)!important;
+  max-height:none!important;
+  flex-shrink:0!important;
+}
+.sheet-layout-canvas-wrap{max-height:none;overflow:visible}
+.sheet-layout-command-area{min-height:0;overflow:visible}
