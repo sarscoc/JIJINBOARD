@@ -7,6 +7,9 @@
   let lastLogId=params.get("room")||"";
   let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
   const saveTimers=new Map();
+  const deletedKey=`jijinboardDeletedTemplates:${boardId}`;
+  const deleted=()=>{try{return new Set(JSON.parse(localStorage.getItem(deletedKey)||"[]"))}catch{return new Set()}};
+  const isDeleted=id=>deleted().has(String(id));
 
   const waitForGlobals=async()=>{
     for(let i=0;i<80;i++){
@@ -80,7 +83,7 @@
   const rawSet=window.tplSetRecord;
 
   async function putRemote(logId,id,record,templateState){
-    if(applying||!logId||!id||!record)return;
+    if(applying||!logId||!id||!record||isDeleted(id))return;
     const me=profile();if(!me?.id||!me?.plName)return;
     if(!hydrated||hydratedLogId!==logId){
       await hydrate(logId);
@@ -91,6 +94,7 @@
         method:"PUT",
         body:JSON.stringify({authorId:me.id,authorName:me.plName,record,templateState:templateState&&typeof templateState==="object"?templateState:{}})
       });
+      if(isDeleted(id)){await api(endpoint(logId,id),{method:"DELETE",body:JSON.stringify({authorId:me.id})});return}
       if(result?.record){
         applying=true;
         try{await rawSet(id,{...record,...result.record})}
@@ -162,9 +166,9 @@
     const syncStartedAt=Date.now();
     const task=(async()=>{
       try{
-        const result=await api(endpoint(target,""));
+        const result=await api(endpoint(target,""),{cache:"reload"});
         if(seq!==hydrateSeq||target!==currentLogId())return false;
-        const remote=Array.isArray(result?.templates)?result.templates:[];
+        const remote=Array.isArray(result?.templates)?result.templates.filter(t=>!isDeleted(t.id||t.record?.id)):[];
         const unsynced=await pruneLocalTemplates(remote,syncStartedAt);
         if(seq!==hydrateSeq||target!==currentLogId())return false;
         try{
@@ -195,8 +199,9 @@
       clearTimeout(saveTimers.get(`${logId}:${key}`));saveTimers.delete(`${logId}:${key}`);
       let remains=false;try{remains=!!(await window.tplGetRecord?.(key))}catch{}
       if(!remains){
+        const removed=deleted();removed.add(key);localStorage.setItem(deletedKey,JSON.stringify([...removed]));
         const me=profile();
-        if(me?.id){api(endpoint(logId,key),{method:"DELETE",body:JSON.stringify({authorId:me.id})}).then(()=>window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:key})).catch(error=>console.warn("MATRIX template delete sync failed",error))}
+        if(me?.id){await api(endpoint(logId,key),{method:"DELETE",body:JSON.stringify({authorId:me.id})}).then(()=>window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:key})).catch(error=>console.warn("MATRIX template delete sync failed",error))}
       }
       return result;
     };

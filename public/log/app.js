@@ -573,6 +573,9 @@ $("#searchInput").onkeydown=event=>{
  let start=state.lastSearchMessage?rows.findIndex(m=>m.id===state.lastSearchMessage):rows.findIndex(m=>m.id===visible?.dataset.message);
  for(let n=1;n<=rows.length;n++){
   const index=(start+(event.shiftKey?-n:n)+rows.length*2)%rows.length,m=rows[index];
-  if(`${m.speaker} ${m.text}`.toLowerCase().includes(query)){state.lastSearchMessage=m.id;jumpToMessage(m.id);break}
+  if(`${m.speaker} ${m.text}`.toLowerCase().includes(query)){state.lastSearchMessage=m.id;jumpToMessage(m.id);
+  document.querySelectorAll(".log-search-hit").forEach(el=>el.classList.remove("log-search-hit"));
+  const highlight=()=>document.querySelectorAll(`.log-message[data-message="${CSS.escape(m.id)}"]`).forEach(el=>el.classList.add("log-search-hit"));
+  highlight();setTimeout(highlight,400);break}
  }
 };
