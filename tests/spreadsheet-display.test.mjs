@@ -100,5 +100,12 @@ test('spreadsheet display saves and group controls persist across reloads',async
  assert.equal(reloaded.eval('state.layout.sheetLayout.positions.ungrouped'),undefined);
  assert.equal(reloaded.eval('state.layout.sheetLayout.baseRows'),12);
  assert.deepEqual(JSON.parse(reloaded.eval('JSON.stringify(state.layout.groupOrder)')),['ungrouped','g2','g1']);
+ assert.equal(w.document.querySelector('[data-settings-tab="question"]'),null);
+ w.openQuestionPopup(w.collectUnifiedItems()[0]);
+ const presentation=w.document.getElementById('questionPresentation');presentation.value='bubble';presentation.dispatchEvent(new w.Event('change'));
+ assert.equal(w.document.getElementById('questionPopup').dataset.answerPresentation,'bubble');
+ presentation.value='compare';presentation.dispatchEvent(new w.Event('change'));await sleep(200);
+ w.openQuestionPopup(w.collectUnifiedItems()[0]);assert.equal(presentation.value,'compare');
+ assert.ok(w.document.querySelector('.question-portrait-settings input[type="file"]'));
  assert.deepEqual(errors,[]);
 });

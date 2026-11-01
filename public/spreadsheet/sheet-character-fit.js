@@ -19,6 +19,11 @@
     for(const field of document.querySelectorAll('.character-sheet-edit,.character-answer')){
       field.style.setProperty('overflow','hidden','important');
       field.style.setProperty('max-height','none','important');
+      if(field.parentElement.querySelector('.auto-video-preview:not(:empty)')){
+        field.style.setProperty('font-size','9px','important');field.style.setProperty('font-weight','400','important');
+        const charId=field.dataset.characterPopupChar||field.dataset.fullCharacterChar;
+        field.style.setProperty('color',charId?getCharacterDesign(charId).accent:getGlobalThemeColor(),'important');
+      }
       field.style.setProperty('height','0px','important');
       field.style.setProperty('height',Math.max(24,field.scrollHeight+2)+'px','important');
     }
