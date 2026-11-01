@@ -12,7 +12,7 @@
   }
   const popup=document.getElementById('questionPopup');
   const select=document.createElement('div');select.id='questionPresentation';select.setAttribute('role','group');select.setAttribute('aria-label','回答の表示方法');
-  for(const [mode,label] of [['bubble','吹き出し'],['list','リスト'],['compare','コンパクト比較']]){
+  for(const [mode,label] of [['bubble','吹き出し'],['list','リスト'],['compare','カード']]){
     const button=document.createElement('button');button.type='button';button.dataset.presentation=mode;button.textContent=label;
     button.onclick=()=>{if(!current)return;state.layout.questionPresentations||={};state.layout.questionPresentations[current.key]=mode;saveLayoutState();decorate()};select.appendChild(button);
   }
@@ -24,14 +24,21 @@
     for(const row of popup.querySelectorAll('.question-popup-row')){
       const text=row.querySelector('textarea')?.value||row.querySelector('.question-popup-answer')?.textContent||'';
       const units=Math.max(0,...text.split('\n').map(line=>Array.from(line).reduce((n,ch)=>n+(/[ -~]/.test(ch)?.55:1),0)));
-      row.style.setProperty('--answer-width',units>75?'100%':Math.max(180,Math.min(900,units*12+90))+'px');
+      row.style.setProperty('--answer-width',units>75?'100%':Math.max(100,Math.min(900,units*12+80))+'px');
 
       const id=row.querySelector('[data-popup-char]')?.dataset.popupChar||state.characters[[...row.parentNode.children].indexOf(row)]?.id;
       if(!id||row.querySelector('.question-portrait'))continue;
+      if(mode!=='bubble')continue;
       const image=await portrait(id).catch(()=> '');if(seq!==sequence)return;
       if(image){const img=document.createElement('img');img.className='question-portrait';img.src=image;img.alt='';row.querySelector('.question-popup-name')?.prepend(img)}
     }
-    requestAnimationFrame(()=>autoGrowQuestionTextareas());
+    requestAnimationFrame(()=>{
+      autoGrowQuestionTextareas();
+      if(mode==='bubble')for(const field of popup.querySelectorAll('textarea')){
+        field.style.setProperty('min-height','0','important');field.style.setProperty('height','0px','important');
+        field.style.setProperty('height',Math.max(18,field.scrollHeight)+'px','important');
+      }
+    });
   }
   const raw=window.openQuestionPopup;
   window.openQuestionPopup=function(item,...args){current=item;const result=raw.call(this,item,...args);decorate();return result};
@@ -53,6 +60,7 @@
   };
   section.querySelector('button').onclick=async()=>{try{await deleteImageBlob('question-portrait',characterDesignEditingId);await preview();if(current)decorate();section.querySelector('[role="status"]').textContent='削除しました'}catch{section.querySelector('[role="status"]').textContent='削除できませんでした'}};
   const style=document.createElement('style');style.textContent=`
+    #questionPopup:not([data-answer-presentation="bubble"]) .question-portrait{display:none!important}
     #questionPopupMeta{display:none!important}
     #questionPresentation{display:flex;flex-wrap:wrap;gap:4px;margin-left:auto;margin-right:12px}
     #questionPresentation button{font-size:11px;padding:6px 9px;border:0;border-radius:7px;background:transparent;color:#89909c;cursor:pointer}
@@ -69,6 +77,13 @@
     #questionPopup[data-answer-presentation="compare"] .question-popup-row{display:flex!important;flex-direction:column!important;border:1px solid #e6e8ed!important;border-radius:8px;min-width:0;padding:8px!important}
     #questionPopup[data-answer-presentation="compare"] .question-popup-name{border:0!important;padding:4px!important;font-size:11px!important}
     #questionPopup[data-answer-presentation="compare"] .question-portrait{width:32px;height:32px}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-row{flex:0 1 var(--answer-width,180px)!important;background:transparent!important;box-shadow:none!important;min-height:0!important;height:auto!important;margin:0!important;align-self:flex-start!important}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-name{font-size:0!important;line-height:0!important;height:auto!important;min-height:0!important;background:transparent!important;box-shadow:none!important}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-name:not(:has(img)){display:none!important}
+    #questionPopup[data-answer-presentation="bubble"] .question-portrait{margin:0!important;width:36px;height:36px}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-answer{background:transparent!important;border:1px solid color-mix(in srgb,var(--question-accent) 45%,#e5e7eb)!important;border-radius:999px!important;padding:7px 14px!important;min-height:0!important;height:auto!important;box-shadow:none!important;align-self:flex-start!important}
+    #questionPopup[data-answer-presentation="bubble"] .question-popup-answer textarea{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;padding:0!important;margin:0!important;min-height:0!important;resize:none!important;overflow:hidden!important}
+    #questionPopup[data-answer-presentation="compare"] .question-popup-row{background:#fff!important;box-shadow:0 1px 3px #00000008;padding:12px!important;border-radius:12px!important}
     .question-portrait-settings{display:grid;gap:10px;margin-top:16px;padding:12px;border-top:1px solid #e6e8ed}.question-portrait-settings img{width:80px;height:80px;object-fit:cover;border-radius:50%}
     @media(max-width:600px){#questionPopup[data-answer-presentation="bubble"] .question-popup-row{grid-template-columns:1fr!important}}
   `;document.head.appendChild(style);
