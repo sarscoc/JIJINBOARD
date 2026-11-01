@@ -9,7 +9,7 @@ function fixture(){
   const records=new Map(),timers=new Map(),listeners=new Map(),storage=new Map(),calls=[],alerts=[];
   const remote={record:{id:'tpl',name:'server',revision:'r1',dataUrl:''},templateState:{display:{color:'blue'},items:{pc:{placed:true,x:12}}}};
   let serial=1,putHandler=async body=>({record:{...body.record,revision:`r${++serial}`}});
-  const context={URL,TextEncoder,structuredClone,console:{...console,warn(){}},queueMicrotask,location:{href:'https://test/matrix/?board=board&room=log'},
+  const context={document:{addEventListener(){}},URL,TextEncoder,structuredClone,console:{...console,warn(){}},queueMicrotask,location:{href:'https://test/matrix/?board=board&room=log'},
     localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
     setTimeout(fn,delay){const id=Symbol();timers.set(id,{fn,delay});return id},clearTimeout:id=>timers.delete(id),
     alert:message=>alerts.push(message),fetch:async()=>{},
@@ -49,4 +49,21 @@ test('conflicts stop queued stale writes, back up the edit, and reload',async()=
   assert.equal(f.puts().length,1);assert.equal(f.alerts.length,1);
   assert.equal(JSON.parse(f.storage.get('jijinboardTemplateSaveRecovery:board:tpl')).templateState.display.color,'green');
   assert.equal(f.calls.filter(c=>!c.method).length,2);
+});
+
+
+test('template order is stable when updated timestamps change',async()=>{
+ const f=fixture();await tick();
+ await f.context.tplSetRecord('new',{id:'new',createdAt:200,updatedAt:1});
+ await f.context.tplSetRecord('old',{id:'old',createdAt:100,updatedAt:999});
+ const first=(await f.context.tplAllRecords()).map(r=>r.id);
+ await f.context.tplSetRecord('new',{id:'new',createdAt:200,updatedAt:99999});
+ assert.deepEqual((await f.context.tplAllRecords()).map(r=>r.id),first);
+ assert.ok(first.indexOf('old')<first.indexOf('new'));
+});
+
+test('loading the template sync script twice installs only one save controller',async()=>{
+ const f=fixture();await tick();const setter=f.context.tplSetRecord;
+ vm.runInNewContext(source,f.context);await tick();assert.equal(f.context.tplSetRecord,setter);
+ await f.edit('red');await f.flush();assert.equal(f.puts().length,1);
 });

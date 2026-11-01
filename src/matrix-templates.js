@@ -72,7 +72,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const row=await env.DB.prepare('SELECT template_image_key FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
     if(!row?.template_image_key)return new Response('Not found',{status:404});
     const object=await env.LOGS.get(row.template_image_key);if(!object)return new Response('Not found',{status:404});
-    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, max-age=3600'}});
+    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, no-store'}});
   }
   if(!logId||!await validateLog(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
@@ -92,7 +92,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const body=await safeBody(request),record=body?.record&&typeof body.record==='object'?body.record:{},templateState=cleanState(body?.templateState),authorId=String(body?.authorId||'').slice(0,120),authorName=String(body?.authorName||'').trim().slice(0,80);
     if(!authorId||!authorName)return json({error:'先に発言者を登録してください'},400);
     await ensurePlIdentity(env.DB,authorId,authorName);
-    const old=await env.DB.prepare('SELECT template_name,template_image_key,template_definition FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
+    const old=await env.DB.prepare('SELECT template_name,template_image_key,template_definition,created_at FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
     if(old?.template_image_key==='__deleted__')return json({error:'削除済みテンプレートは再登録できません'},409);
     // Require the revision actually read by the editor, including for older clients.
     if((body?.baseRevision??null)!==await revisionOf(old))return conflict();
@@ -100,6 +100,8 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     let uploadedKey='';
     let key=String(old?.template_image_key||'');
     const raw=String(record.dataUrl||'');
+    if(raw&&!raw.startsWith('data:image/')&&!key)return json({error:'このテンプレート画像は未保存です。画像ファイルを選び直してください。'},400);
+
     if(raw.startsWith('data:image/')){
       const image=dataImage(raw);if(!image)return json({error:'テンプレ画像を読み込めません'},400);
       if(image.bytes.byteLength>4_500_000)return json({error:'圧縮後のテンプレ画像が大きすぎます'},413);
@@ -108,7 +110,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
       uploadedKey=key;
     }
     const name=String(record.name||'MATRIX').trim().slice(0,120)||'MATRIX';
-    const createdAt=Number(record.createdAt)||Date.now(),updatedAt=Date.now();
+    const createdAt=Number(parseDefinition(old?.template_definition).createdAt)||(old?Date.parse(old.created_at+'Z'):0)||Number(record.createdAt)||Date.now(),updatedAt=Date.now();
     const definitionState={...templateState,items:{}};
     const definition=JSON.stringify({revision,imageName:String(record.imageName||'').slice(0,180),createdAt,updatedAt,templateState:definitionState});
     if(definition.length>300_000)return json({error:'テンプレート設定が大きすぎます'},413);

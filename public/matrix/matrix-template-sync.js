@@ -3,6 +3,8 @@
 (async()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board")||"";
   if(!boardId)return;
+  if(window.__jijinMatrixTemplateSyncStarted)return;
+  window.__jijinMatrixTemplateSyncStarted=true;
 
   let lastLogId=params.get("room")||"";
   let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
@@ -81,6 +83,21 @@
     window.fetch=scopedFetch;
   }
 
+  // Editing a template must never move its tab. Use the same order on every device.
+  const rawAll=window.tplAllRecords;
+  window.tplAllRecords=async function(...args){
+    const records=await rawAll.apply(this,args);
+    return records.slice().sort((a,b)=>(Number(a.createdAt)||0)-(Number(b.createdAt)||0)||String(a.id).localeCompare(String(b.id)));
+  };
+  // A transient/cached image failure gets one fresh request, without an infinite retry loop.
+  document.addEventListener('error',event=>{
+    const img=event.target;
+    if(img?.tagName!=='IMG')return;
+    const source=img.getAttribute('src')||'';
+    if(!source.startsWith('/api/boards/')||!source.includes('/matrix/templates/')||source.includes('imageRetry='))return;
+    const url=new URL(source,location.origin);url.searchParams.set('imageRetry',String(Date.now()));
+    img.src=url.pathname+url.search;
+  },true);
   const rawSet=window.tplSetRecord;
   window.matrixTemplateSync={isHydrated:()=>hydrated&&hydratedLogId===currentLogId(),isApplyingRemote:()=>applying};
 

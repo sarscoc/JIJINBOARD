@@ -81,3 +81,13 @@ test('existing PC appearance is saved without reverting newer point coordinates'
   assert.equal((await f.call('PUT',body)).status,409);
   assert.equal((await f.list())[0].templateState.items.pc.size,96);
 });
+
+
+test('a device-local image URL cannot create a broken shared template',async()=>{
+ const f=fixture();assert.equal((await f.save(null,'broken','white','blob:https://old-device/image')).status,400);assert.deepEqual(await f.list(),[]);
+});
+test('saving metadata cannot change a template creation time',async()=>{
+ const f=fixture();await f.save(null,'original');const [row]=await f.list();
+ await f.call('PUT',{baseRevision:row.record.revision,record:{...row.record,createdAt:1},templateState:row.templateState});
+ assert.equal((await f.list())[0].record.createdAt,row.record.createdAt);
+});
