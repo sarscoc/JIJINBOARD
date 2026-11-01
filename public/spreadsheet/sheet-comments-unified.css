@@ -60,3 +60,23 @@ html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!importan
   #sheetComments .comment-date{display:none!important}
   #sheetCommentDialog{left:12px!important;right:12px!important;top:auto!important;bottom:12px!important;width:auto!important;max-height:72vh!important}
 }
+
+/* Final embedded LOGCOMMENTS presentation, independent of sheet table fonts. */
+html body #sheetComments{
+  --sheet-line:#e2e7ed;--sheet-ink:#171a1f;--sheet-muted:#79818d;--sheet-soft:#f0f3f6;
+  font:15px/1.75 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;
+  background:#fff!important;color:var(--sheet-ink)!important;border:1px solid var(--sheet-line)!important;border-radius:12px!important;box-shadow:none!important;min-height:0!important;
+}
+html body #sheetComments>section{padding:10px!important}
+html body #sheetComments .comment-thread{margin:0!important}
+html body #sheetComments .comment-thread.is-reply{margin-left:24px!important}
+html body #sheetComments .comment-thread.is-reply .comment-thread.is-reply{margin-left:0!important}
+html body #sheetComments .comment-card{margin:0 0 6px!important;padding:8px!important;border:1px solid var(--sheet-line)!important;border-left:3px solid var(--sheet-line)!important;border-radius:9px!important;background:#fff!important}
+html body #sheetComments .comment-card.focused{border-left-color:var(--comment-marker)!important}
+html body #sheetComments .comment-card:hover,html body #sheetComments .comment-card:focus-visible{border-color:var(--comment-marker)!important;border-left-color:var(--comment-marker)!important;outline:none!important}
+html body #sheetComments .comment-author{gap:4px!important;line-height:1.75!important;font-size:12px!important;font-weight:750!important}
+html body #sheetComments .comment-body{font-size:15px!important;line-height:1.75!important;margin:4px 0 0!important;font-weight:400!important}
+html body #sheetComments .persona-type{padding:0 3px!important;font-size:9px!important;line-height:normal!important}
+html body #sheetComments .comment-date{display:block!important;font-size:8px!important;opacity:.58!important}
+html.dark body #sheetComments{--sheet-line:#5b5b5b;--sheet-ink:#f2f4f7;--sheet-muted:#adb4be;--sheet-soft:#424242;background:#353535!important}
+html.dark body #sheetComments .comment-card{background:#353535!important}
