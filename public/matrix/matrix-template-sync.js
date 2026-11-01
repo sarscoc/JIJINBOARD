@@ -114,7 +114,7 @@
 
   const wrappedSet=async function(id,record,...rest){
     const result=await rawSet.call(this,id,record,...rest);
-    if(!applying)scheduleRemote(String(id||""),record,0);
+    if(!applying&&hydrated)scheduleRemote(String(id||""),record,0);
     return result;
   };
   wrappedSet.__jijinTemplateRemoteSync=true;
@@ -180,7 +180,7 @@
           window.renderPlaced?.();
         }catch(error){console.warn("MATRIX template redraw failed",error)}
         hydrated=true;hydratedLogId=target;
-        for(const item of unsynced){const id=String(item.record?.id||"");if(id)putRemote(target,id,item.record,item.templateState||{})}
+        // Never upload historical local records merely because hydration found them.
         return true;
       }catch(error){console.warn("MATRIX template hydrate failed",error);return false}
     })();
