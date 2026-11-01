@@ -11,8 +11,14 @@
     for(const group of document.querySelectorAll('[data-sheet-group-id]')){
       const span=window.sheetGroupSpan?.(group.dataset.sheetGroupId)||6;
       group.classList.toggle('sheet-small-group',span<=3);
+      for(const row of group.querySelectorAll('.character-sheet-row:has(.auto-video-preview:not(:empty))')){
+        row.style.setProperty('grid-column',span<=3?'1 / -1':'auto','important');
+        row.style.setProperty('flex-basis',span<=3?'100%':'auto','important');
+      }
     }
     for(const field of document.querySelectorAll('.character-sheet-edit,.character-answer')){
+      field.style.setProperty('overflow','hidden','important');
+      field.style.setProperty('max-height','none','important');
       field.style.setProperty('height','0px','important');
       field.style.setProperty('height',Math.max(24,field.scrollHeight+2)+'px','important');
     }
