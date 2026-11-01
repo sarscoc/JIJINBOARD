@@ -9,7 +9,7 @@ function fixture(){
   sqlite.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));
   sqlite.exec("INSERT INTO pl(pl_id,access_token_hash,pl_name) VALUES('pl','token','PL'); INSERT INTO room(room_id,owner_pl_id,room_name,room_admin_token_hash) VALUES('board','pl','test','token'); INSERT INTO log(log_id,room_id,log_name) VALUES('log','board','test');");
   const objects=new Map();
-  const env={DB:{prepare(sql){let values=[];return {bind(...args){values=args;return this},async first(){return sqlite.prepare(sql).get(...values)||null},async all(){return {results:sqlite.prepare(sql).all(...values)}},async run(){return {meta:sqlite.prepare(sql).run(...values)}}}}},LOGS:{async put(key,bytes){objects.set(key,bytes)},async delete(key){objects.delete(key)}}};
+  const env={DB:{async batch(statements){sqlite.exec('BEGIN');try{const result=[];for(const statement of statements)result.push(statement.run());sqlite.exec('COMMIT');return result}catch(error){sqlite.exec('ROLLBACK');throw error}},prepare(sql){let values=[];return {bind(...args){values=args;return this},async first(){return sqlite.prepare(sql).get(...values)||null},async all(){return {results:sqlite.prepare(sql).all(...values)}},run(){return {meta:sqlite.prepare(sql).run(...values)}}}}},LOGS:{async put(key,bytes){objects.set(key,bytes)},async delete(key){objects.delete(key)}}};
   const call=(method,body,id='tpl')=>handleMatrixTemplates(new Request('https://test/api',{method,...(body?{body:JSON.stringify({authorId:'pl',authorName:'PL',...body})}:{})}),env,'board','log',id);
   const list=async()=> (await (await call('GET',null,'')).json()).templates;
   const save=(baseRevision,name,color='white',dataUrl='')=>call('PUT',{baseRevision,record:{name,dataUrl,updatedAt:1},templateState:{display:{color},items:{pc:{placed:true,x:20,y:30}}}});
@@ -67,4 +67,17 @@ test('a point-created empty parent does not block the first template save',async
   const f=fixture();f.sqlite.exec("INSERT INTO matrix_template(room_id,template_id,template_name) VALUES('board','tpl','MATRIX'); INSERT INTO matrix_point(room_id,template_id,point_id,is_placed,point_x) VALUES('board','tpl','pc',1,91)");
   assert.equal((await f.save(null,'new template')).status,200);
   const [row]=await f.list();assert.equal(row.record.name,'new template');assert.equal(row.templateState.items.pc.x,91);
+});
+
+
+test('existing PC appearance is saved without reverting newer point coordinates',async()=>{
+  const f=fixture();await f.save(null,'initial');
+  f.sqlite.exec("UPDATE matrix_point SET point_x=88,supplement_body='keep',point_settings='{\"size\":64}'");
+  const [row]=await f.list();
+  const body={baseRevision:row.record.revision,record:row.record,templateState:{...row.templateState,items:{pc:{...row.templateState.items.pc,size:96,x:10}}}};
+  assert.equal((await f.call('PUT',body)).status,200);
+  const [saved]=await f.list();assert.equal(saved.templateState.items.pc.size,96);assert.equal(saved.templateState.items.pc.x,88);assert.equal(saved.templateState.items.pc.comment,'keep');
+  body.templateState.items.pc.size=32;
+  assert.equal((await f.call('PUT',body)).status,409);
+  assert.equal((await f.list())[0].templateState.items.pc.size,96);
 });

@@ -52,6 +52,19 @@ async function saveTemplatePoints(db,roomId,templateId,templateState){
   }
 }
 
+// Settings share the template revision; point coordinates/comments have independent APIs.
+// Merge settings only, so a metadata save never replays stale drag coordinates.
+function pointSettingsStatements(db,roomId,templateId,definition,templateState){
+  return Object.entries(cleanState(templateState.items)).map(([pointId,item])=>{
+    const settings=JSON.stringify(itemSettings(item));
+    if(settings.length>100_000)throw Object.assign(new Error('MATRIXのPC個別設定が大きすぎます'),{status:413});
+    return db.prepare(`INSERT INTO matrix_point(room_id,template_id,point_id,point_settings)
+      SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM matrix_template WHERE room_id=? AND template_id=? AND template_definition=?)
+      ON CONFLICT(room_id,template_id,point_id) DO UPDATE SET point_settings=json_patch(matrix_point.point_settings,excluded.point_settings),updated_at=CURRENT_TIMESTAMP`)
+      .bind(roomId,templateId,pointId,settings,roomId,templateId,definition);
+  });
+}
+
 export async function handleMatrixTemplates(request,env,roomId,logId,templateId='',imageOnly=false){
   if(!roomId)return json({error:'自陣が見つかりません'},404);
   if(imageOnly){
@@ -99,11 +112,16 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const definitionState={...templateState,items:{}};
     const definition=JSON.stringify({revision,imageName:String(record.imageName||'').slice(0,180),createdAt,updatedAt,templateState:definitionState});
     if(definition.length>300_000)return json({error:'テンプレート設定が大きすぎます'},413);
+    let settingsWrites;
+    try{settingsWrites=old?pointSettingsStatements(env.DB,roomId,templateId,definition,templateState):[]}
+    catch(error){return json({error:error.message},error.status||500)}
     if(uploadedKey){const image=dataImage(raw);await env.LOGS.put(uploadedKey,image.bytes,{httpMetadata:{contentType:image.contentType||'image/webp',cacheControl:'private, no-cache'}})}
-    // Compare and write in one SQL statement: two simultaneous PUTs cannot both win.
-    const saved=old
-      ?await env.DB.prepare(`UPDATE matrix_template SET template_name=?,template_image_key=?,template_definition=?,updated_at=CURRENT_TIMESTAMP WHERE room_id=? AND template_id=? AND template_definition=? AND template_image_key<>'__deleted__'`).bind(name,key,definition,roomId,templateId,old.template_definition).run()
-      :await env.DB.prepare(`INSERT INTO matrix_template(room_id,template_id,template_name,template_image_key,template_definition,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(room_id,template_id) DO NOTHING`).bind(roomId,templateId,name,key,definition).run();
+    // D1 batch is atomic: publish the definition and its item settings together.
+    // Conditional writes prevent a stale request from modifying either table.
+    const write=old
+      ?env.DB.prepare(`UPDATE matrix_template SET template_name=?,template_image_key=?,template_definition=?,updated_at=CURRENT_TIMESTAMP WHERE room_id=? AND template_id=? AND template_definition=? AND template_image_key<>'__deleted__'`).bind(name,key,definition,roomId,templateId,old.template_definition)
+      :env.DB.prepare(`INSERT INTO matrix_template(room_id,template_id,template_name,template_image_key,template_definition,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(room_id,template_id) DO NOTHING`).bind(roomId,templateId,name,key,definition);
+    const [saved]=await env.DB.batch([write,...settingsWrites]);
     if(!saved.meta?.changes){
       if(uploadedKey)await env.LOGS.delete(uploadedKey).catch(()=>{});
       return conflict();
