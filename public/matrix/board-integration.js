@@ -131,7 +131,10 @@
   function dispatchRefresh(action,data=null){
     if(action==="matrix-typing"){window.dispatchEvent(new CustomEvent("matrix-board-typing",{detail:data}));return}
     if(action==="matrix-point"){
-      if(active)applyRemotePoint(data);else dirtyState=true;
+      if(active){
+        if(data?.templateId&&data.templateId!==window.currentTemplateId?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
+        else applyRemotePoint(data);
+      }else dirtyComments=true;
       return;
     }
     if(action==="matrix-state"){
@@ -166,13 +169,14 @@
       if(realtime!==socket)return;
       try{socket.send(JSON.stringify({type:"join",clientId:realtimeClientId}))}catch{}
       flushPendingActions(socket);
+      if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
     });
     socket.addEventListener("message",event=>{
       if(realtime!==socket)return;
       let data;try{data=JSON.parse(event.data)}catch{return}
       if(data?.type==="refresh")dispatchRefresh(String(data.action||""),data.data??null);
     });
-    socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom=""}});
+    socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom="";if(active)setTimeout(()=>{if(active&&!realtime)connectRealtimeEvents()},1000)}});
     socket.addEventListener("error",()=>{try{socket.close()}catch{}});
   }
 
@@ -184,7 +188,7 @@
   }
 
   async function savePoint(itemId,item,commentOnly=false){
-    if(!roomId||loadedRoom!==roomId||applyingRemote||!itemId)return;
+    if(!roomId||(!commentOnly&&(loadedRoom!==roomId||applyingRemote))||!itemId)return;
     const me=profile();if(!me?.plName)return;
     const point=commentOnly?{itemId,comment:String(item.comment||''),commentPosition:item.commentPosition||'top',recoverIfEmpty:!!item.recoverIfEmpty}:pointPayload(itemId,item);point.templateId=window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId+':'+commentOnly;
     pointRequests.set(key,point);
@@ -197,6 +201,7 @@
       return true;
     }catch(error){
       pointRequests.delete(key);
+      if(commentOnly){throw error}
       fullStateDirty=true;
       requestSave(0);
     }

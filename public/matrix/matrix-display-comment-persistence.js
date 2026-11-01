@@ -140,13 +140,12 @@
       // cannot resurrect a comment the user intentionally removed.
       page[id] = after;
       changed = true;
-      changed = true;
     });
 
     if (changed) {
       saveStore(store);
       for(const id of ids)if(!sameAnnotation(annotationOf(beforeItems?.[id]),annotationOf(afterItems?.[id]))){
-        Promise.resolve(window.matrixBoardContext?.savePoint?.(id,{...afterItems[id],...page[id]},true)).then(ok=>{if(ok)acknowledge(tid,id)}).catch(console.warn);
+        Promise.resolve(window.matrixBoardContext?.savePoint?.(id,{...afterItems[id],...page[id]},true)).then(ok=>{if(ok)acknowledge(tid,id)}).catch(error=>{console.warn(error);alert("コマのコメントを共有保存できませんでした。通信を確認して、もう一度編集してください。");});
       }
     }
   }
