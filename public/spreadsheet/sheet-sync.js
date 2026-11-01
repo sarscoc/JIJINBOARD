@@ -184,3 +184,24 @@
     initialRemoteSync();
   }
 })();
+
+// Presentation-only busy indicator: keep the existing import and save handlers.
+(()=>{
+  const style=document.createElement('style');
+  style.textContent='.sheet-import-busy{display:inline-block;width:12px;height:12px;margin-left:7px;vertical-align:middle;border:2px solid color-mix(in srgb,currentColor 20%,transparent);border-top-color:currentColor;border-radius:50%;animation:sheetImportSpin .8s linear infinite}@keyframes sheetImportSpin{to{transform:rotate(360deg)}}';
+  document.head.append(style);
+  const pending=new WeakSet();
+  function busy(button,handler){return async function(...args){
+    if(pending.has(button))return;
+    pending.add(button);button.setAttribute('aria-busy','true');
+    const icon=document.createElement('span');icon.className='sheet-import-busy';icon.setAttribute('role','status');icon.setAttribute('aria-label','読み込み中');button.append(icon);
+    try{
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      return await handler.apply(this,args);
+    }finally{icon.remove();button.removeAttribute('aria-busy');pending.delete(button)}
+  }}
+  if(typeof performRead==='function'){
+    const button=document.getElementById('readBtn');if(button)performRead=busy(button,performRead);
+  }
+  const save=document.getElementById('saveReadBtn');if(save?.onclick)save.onclick=busy(save,save.onclick);
+})();
