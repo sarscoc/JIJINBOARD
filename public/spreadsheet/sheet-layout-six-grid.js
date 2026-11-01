@@ -8,6 +8,7 @@
   window.sheetGroupSpan=id=>Math.max(1,Math.min(6,Number(state.layout.sheetLayout?.sizes?.[id])||3));
   window.sheetGroupHeight=id=>Math.max(1,Number(state.layout.sheetLayout?.heights?.[id])||1);
 
+  const style=document.createElement('style');style.textContent='.sheet-content-columns{position:absolute;left:12px;bottom:10px;width:64px;min-height:26px;padding:3px 6px;border:1px solid #e2e6ec;border-radius:7px;background:#fff;color:#626b78;font:11px system-ui;cursor:pointer}';document.head.appendChild(style);
   const COLS=6;
   const CELL=72;
   const GAP=6;
@@ -77,6 +78,10 @@
     card.className='sheet-layout-command-card';
     card.dataset.commandId=id;
     card.innerHTML=`<div class="sheet-layout-command-name">${esc(groupNameForLayout(id))}</div><div class="sheet-layout-command-size">${spanOf(id)}×${heightOf(id)}</div><button type="button" class="sheet-layout-remove" title="未配置へ戻す">×</button><button type="button" class="sheet-layout-resize" title="ドラッグして大きさを変更" aria-label="サイズ変更"></button>`;
+    const columns=Math.max(1,Math.min(3,Number(state.layout.sheetLayout.contentColumns?.[id])||(spanOf(id)>=4?3:spanOf(id)>=2?2:1)));
+    const choice=document.createElement('select');choice.className='sheet-content-columns';choice.setAttribute('aria-label',groupNameForLayout(id)+'の列数');
+    choice.innerHTML=[1,2,3].map(n=>`<option value="${n}" ${n===columns?'selected':''}>${n}列</option>`).join('');
+    card.appendChild(choice);
     const p=previewPos||posOf(id);
     if(p)styleBox(card,p.row,p.col,spanOf(id),heightOf(id));
     return card;
@@ -191,11 +196,13 @@
   function wire(canvas,workspace){
     canvas.querySelectorAll('[data-command-id]').forEach(card=>{
       const id=card.dataset.commandId;
+      const choice=card.querySelector('.sheet-content-columns');
+      if(choice){choice.onpointerdown=event=>event.stopPropagation();choice.onchange=()=>{state.layout.sheetLayout.contentColumns||={};state.layout.sheetLayout.contentColumns[id]=Number(choice.value);save()}}
       const remove=card.querySelector('.sheet-layout-remove');
       const resize=card.querySelector('.sheet-layout-resize');
       if(remove)remove.onclick=e=>{e.stopPropagation();delete state.layout.sheetLayout.positions[id];save();paintCanvas(canvas);renderUnplaced(workspace);wire(canvas,workspace);refreshRowTools(workspace,canvas)};
       if(resize)resize.addEventListener('pointerdown',e=>startResize(id,card,e));
-      card.addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;startMove(id,card,e,false)});
+      card.addEventListener('pointerdown',e=>{if(e.target.closest('button,select'))return;startMove(id,card,e,false)});
     });
     workspace.querySelectorAll('[data-unplaced-id]').forEach(btn=>btn.addEventListener('pointerdown',e=>startMove(btn.dataset.unplacedId,btn,e,true)));
   }

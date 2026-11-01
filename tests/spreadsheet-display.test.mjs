@@ -43,6 +43,8 @@ test('spreadsheet display saves and group controls persist across reloads',async
  assert.ok(w.document.querySelector('[data-sheet-group-id="g1"]').classList.contains('sheet-small-group'));
  assert.equal(w.sheetGroupSpan('g1'),1);assert.equal(w.sheetGroupHeight('g1'),5);
  w.document.getElementById('sheetLayoutBtn').click();
+ const columnsControl=w.document.querySelector('[data-command-id="g1"] .sheet-content-columns');
+ columnsControl.value='2';columnsControl.dispatchEvent(new w.Event('change'));
  w.eval("state.layout.sheetLayout.positions.g1={row:4,col:2};delete state.layout.sheetLayout.positions.g2;state.layout.sheetLayout.baseRows=12;saveLayoutState()");
  await sleep(250);
  assert.equal(server['charaHub.layoutV1'].sheetLayout.positions.g1.row,1,'draft should not autosave layout');
@@ -99,6 +101,7 @@ test('spreadsheet display saves and group controls persist across reloads',async
  assert.equal(reloaded.eval('state.layout.sheetLayout.positions.g2'),undefined);
  assert.equal(reloaded.eval('state.layout.sheetLayout.positions.ungrouped'),undefined);
  assert.equal(reloaded.eval('state.layout.sheetLayout.baseRows'),12);
+ assert.equal(reloaded.eval('state.layout.sheetLayout.contentColumns.g1'),2);
  assert.deepEqual(JSON.parse(reloaded.eval('JSON.stringify(state.layout.groupOrder)')),['ungrouped','g2','g1']);
  assert.equal(w.document.querySelector('[data-settings-tab="question"]'),null);
  w.openQuestionPopup(w.collectUnifiedItems()[0]);

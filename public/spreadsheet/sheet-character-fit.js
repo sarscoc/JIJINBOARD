@@ -11,6 +11,17 @@
     for(const group of document.querySelectorAll('[data-sheet-group-id]')){
       const span=window.sheetGroupSpan?.(group.dataset.sheetGroupId)||6;
       group.classList.toggle('sheet-small-group',span<=3);
+      const columns=Number(state.layout.sheetLayout?.contentColumns?.[group.dataset.sheetGroupId]);
+      if(columns>=1&&columns<=3){
+        group.style.setProperty('display','block','important');group.style.setProperty('height','auto','important');group.style.setProperty('align-self','start','important');
+        const rows=group.querySelector('.character-sheet-rows');
+        if(rows){
+          rows.style.setProperty('display','block','important');rows.style.setProperty('column-count',String(columns),'important');rows.style.setProperty('column-width','auto','important');
+          rows.style.setProperty('height','auto','important');rows.style.setProperty('min-height','0','important');
+          for(const row of rows.children){row.style.setProperty('display','inline-block','important');row.style.setProperty('width','100%','important');row.style.setProperty('break-inside','avoid-column','important');row.style.setProperty('height','auto','important');row.style.setProperty('min-height','0','important');row.style.setProperty('margin','0 0 6px','important')}
+        }
+      }
+
       for(const row of group.querySelectorAll('.character-sheet-row:has(.auto-video-preview:not(:empty))')){
         row.style.setProperty('grid-column',span<=3?'1 / -1':'auto','important');
         row.style.setProperty('flex-basis',span<=3?'100%':'auto','important');
@@ -51,13 +62,14 @@
     :is(#characterPopup,#fullCharacterPages,#characterViewRoot,#questionPopup) .image-part-actions,
     :is(#characterPopup,#fullCharacterPages,#characterViewRoot,#questionPopup) .image-part-caption{display:none!important}
     :is(#characterPopup,#fullCharacterPages) .character-sheet-group:is([data-layout="columns"],[data-layout="free"]):not(:has(.image-part)) .character-sheet-rows{
-      display:block!important;column-count:2;column-gap:24px!important;column-fill:balance;align-content:start!important;height:auto!important;min-height:0!important;
+      display:block!important;column-width:180px;column-count:3;column-gap:18px!important;column-fill:balance;align-content:start!important;align-self:start!important;flex:none!important;height:auto!important;min-height:0!important;
     }
     :is(#characterPopup,#fullCharacterPages) .character-sheet-group:is([data-layout="columns"],[data-layout="free"]):not(:has(.image-part)) .character-sheet-row{
-      display:inline-block!important;vertical-align:top;width:100%!important;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;margin:0 0 12px!important;min-height:0!important;height:auto!important;grid-column:auto!important;
+      display:inline-block!important;vertical-align:top;width:100%!important;box-sizing:border-box;break-inside:avoid-column;page-break-inside:avoid;margin:0 0 6px!important;padding:0!important;min-height:0!important;height:auto!important;grid-column:auto!important;
     }
-    :is(#characterPopup,#fullCharacterPages) .character-sheet-group.sheet-small-group .character-sheet-rows{column-count:1!important}
-    @media(max-width:600px){:is(#characterPopup,#fullCharacterPages) .character-sheet-group .character-sheet-rows{column-count:1!important}}
+    :is(#characterPopup,#fullCharacterPages) .character-sheet-group:is([data-layout="columns"],[data-layout="free"]):not(:has(.image-part)){display:block!important;align-self:start!important;height:auto!important;min-height:0!important}
+    :is(#characterPopup,#fullCharacterPages) .character-sheet-group.sheet-small-group .character-sheet-rows{column-width:160px!important;column-count:2!important}
+    @media(max-width:420px){:is(#characterPopup,#fullCharacterPages) .character-sheet-group .character-sheet-rows{column-count:1!important}}
     .character-sheet-label{color:var(--character-question-text,#8b93a2)!important}
   `;document.head.appendChild(style);
   const observer=new MutationObserver(schedule);
