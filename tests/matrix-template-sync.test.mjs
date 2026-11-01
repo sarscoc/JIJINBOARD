@@ -45,10 +45,11 @@ test('conflicts stop queued stale writes, back up the edit, and reload',async()=
   const f=fixture();await tick();let rejectFirst;
   f.setPutHandler(()=>new Promise((resolve,reject)=>{rejectFirst=()=>reject(Object.assign(new Error('conflict'),{status:409}))}));
   await f.edit('red');await f.flush();await f.edit('green');
+  f.remote.record.revision='remote-r2';f.remote.templateState.display.color='remote';
   rejectFirst();await tick();await f.flush();
   assert.equal(f.puts().length,1);assert.equal(f.alerts.length,1);
   assert.equal(JSON.parse(f.storage.get('jijinboardTemplateSaveRecovery:board:tpl')).templateState.display.color,'green');
-  assert.equal(f.calls.filter(c=>!c.method).length,2);
+  assert.equal(f.calls.filter(c=>!c.method).length,3);
 });
 
 
@@ -66,4 +67,16 @@ test('loading the template sync script twice installs only one save controller',
  const f=fixture();await tick();const setter=f.context.tplSetRecord;
  vm.runInNewContext(source,f.context);await tick();assert.equal(f.context.tplSetRecord,setter);
  await f.edit('red');await f.flush();assert.equal(f.puts().length,1);
+});
+
+test('coordinate-only saves do not rewrite template metadata or its revision',async()=>{
+ const f=fixture();await tick();f.setLive({...f.remote.templateState,savedAt:123,items:{pc:{placed:true,x:90,y:50}}});
+ f.context.saveCurrentTemplateState();await tick();await f.flush();assert.equal(f.puts().length,0);
+});
+test('disjoint concurrent display changes rebase using the new revision',async()=>{
+ const f=fixture();await tick();let attempt=0;
+ f.setPutHandler(async body=>{if(!attempt++){f.remote.record.revision='remote-r2';f.remote.templateState.display.other='remote';throw Object.assign(new Error('conflict'),{status:409})}return {record:{...body.record,revision:'r3'}}});
+ await f.edit('red');await f.flush();
+ assert.equal(f.puts().length,2);assert.equal(f.puts()[1].baseRevision,'remote-r2');
+ assert.equal(f.puts()[1].templateState.display.color,'red');assert.equal(f.puts()[1].templateState.display.other,'remote');assert.equal(f.alerts.length,0);
 });

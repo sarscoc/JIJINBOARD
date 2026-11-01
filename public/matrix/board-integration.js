@@ -363,7 +363,8 @@
       }
       if(pointOnly&&itemId&&state.items?.[itemId]){
         saveJSON(STATE,state);
-        saveCurrentTemplateState(state);
+        applyingRemote=true;
+        try{saveCurrentTemplateState(state)}finally{applyingRemote=false}
         savePoint(itemId,state.items[itemId]);
         return;
       }

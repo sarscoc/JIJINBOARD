@@ -10,6 +10,14 @@
   let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
   const saveTimers=new Map(),pendingSaves=new Map(),savingIds=new Set(),revisions=new Map();
   let editSeq=0;
+  const acknowledged=new Map();
+  function editable(record,state){
+    const pointFields=new Set(['placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment']);
+    const items={};
+    for(const [id,item] of Object.entries(state?.items||{}))items[id]=Object.fromEntries(Object.entries(item||{}).filter(([key])=>!pointFields.has(key)));
+    return {record:{name:record?.name||'',dataUrl:record?.dataUrl||'',imageName:record?.imageName||''},state:{...state,savedAt:undefined,items}};
+  }
+
   const deletedKey=`jijinboardDeletedTemplates:${boardId}`;
   const deleted=()=>{try{return new Set(JSON.parse(localStorage.getItem(deletedKey)||"[]"))}catch{return new Set()}};
   const isDeleted=id=>deleted().has(String(id));
@@ -101,10 +109,38 @@
   const rawSet=window.tplSetRecord;
   window.matrixTemplateSync={isHydrated:()=>hydrated&&hydratedLogId===currentLogId(),isApplyingRemote:()=>applying};
 
+  // Rebase only disjoint edits, then submit against the revision just read.
+  // Overlapping changes still stop; never retry a whole stale snapshot blindly.
+  function mergeChanges(base,ours,theirs){
+    const equal=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+    if(equal(ours,base))return clone(theirs);
+    if(equal(theirs,base)||equal(ours,theirs))return clone(ours);
+    const object=v=>v&&typeof v==='object'&&!Array.isArray(v);
+    if(!object(base)||!object(ours)||!object(theirs))throw Error('overlapping edit');
+    const out={};
+    for(const key of new Set([...Object.keys(base),...Object.keys(ours),...Object.keys(theirs)])){
+      const value=mergeChanges(base[key],ours[key],theirs[key]);if(value!==undefined)out[key]=value;
+    }
+    return out;
+  }
+  async function rebaseDraft(timerKey,draft){
+    if(!draft.base||draft.rebased)return false;
+    const latest=(await api(endpoint(draft.logId,''),{cache:'no-store'})).templates?.find(item=>item.record?.id===draft.id);
+    if(!latest||latest.record.revision===draft.baseRevision)return false;
+    const local=pendingSaves.get(timerKey)||draft;
+    const merged=mergeChanges(local.base,editable(local.record,local.templateState),editable(latest.record,latest.templateState));
+    const state=clone(latest.templateState||{});
+    Object.assign(state,merged.state);state.items={};
+    for(const [id,item] of Object.entries(merged.state.items||{}))state.items[id]={...(latest.templateState?.items?.[id]||{}),...item};
+    clearTimeout(saveTimers.get(timerKey));saveTimers.delete(timerKey);
+    pendingSaves.set(timerKey,{...local,record:{...latest.record,...merged.record},templateState:state,baseRevision:latest.record.revision,base:editable(latest.record,latest.templateState),rebased:true});
+    return true;
+  }
+
   function refreshWhenIdle(){
     if(!rehydrateQueued||saveTimers.size||pendingSaves.size||savingIds.size)return;
-    rehydrateQueued=false;hydrated=false;hydratedLogId="";
-    hydrate(currentLogId()).catch(()=>{});
+    rehydrateQueued=false;
+    hydrate(currentLogId(),true).catch(()=>{});
   }
 
   async function putRemote(timerKey){
@@ -123,10 +159,12 @@
       if(isDeleted(id)){await api(endpoint(logId,id),{method:"DELETE",body:JSON.stringify({authorId:me.id})});return}
       if(result?.record){
         revisions.set(id,result.record.revision);
+        acknowledged.set(id,editable(result.record,templateState));
         const newer=pendingSaves.get(timerKey);
         if(newer){
           // Advance only our own queued edit; never advance a stale external editor.
           newer.baseRevision=result.record.revision;
+          newer.base=clone(acknowledged.get(id));
           if(newer.record.dataUrl===record.dataUrl)newer.record.dataUrl=result.record.dataUrl;
         }
         // A response for an older save must not replace a newer local image/name.
@@ -136,8 +174,10 @@
           finally{applying=false}
         }
       }
+      if(draft.rebased)rehydrateQueued=true;
       window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:id});
     }catch(error){
+      if(error.status===409){try{if(await rebaseDraft(timerKey,draft))return}catch{}}
       console.warn("MATRIX template sync failed",error);
       // Keep the failed draft available for recovery without ever replaying it automatically.
       let backedUp=false;
@@ -158,7 +198,8 @@
     const key=String(id||""),logId=currentLogId();
     if(applying||window.matrixBoardContext?.isApplyingRemote?.()||!hydrated||hydratedLogId!==logId||!key||!record||!logId)return;
     const timerKey=`${logId}:${key}`;
-    pendingSaves.set(timerKey,{logId,id:key,record:clone(record),templateState:clone(state),baseRevision:revisions.get(key)??null,seq:++editSeq});
+    if(JSON.stringify(editable(record,state))===JSON.stringify(acknowledged.get(key)))return;
+    pendingSaves.set(timerKey,{logId,id:key,record:clone(record),templateState:clone(state),baseRevision:revisions.get(key)??null,seq:++editSeq,base:clone(acknowledged.get(key))});
     clearTimeout(saveTimers.get(timerKey));
     saveTimers.set(timerKey,setTimeout(()=>{saveTimers.delete(timerKey);putRemote(timerKey)},delay));
   }
@@ -187,6 +228,7 @@
       await Promise.all(remote.map(async item=>{
         const rec=item?.record;if(!rec?.id)return;
         revisions.set(String(rec.id),rec.revision??null);
+        acknowledged.set(String(rec.id),editable(rec,item.templateState||{}));
         const previous=local.find(entry=>entry.id===rec.id);
         if(!previous||JSON.stringify({...previous,boardId:undefined})!==JSON.stringify({...rec,boardId:undefined}))await rawSet(rec.id,rec);
         states[rec.id]=item?.templateState&&typeof item.templateState==="object"?item.templateState:{};
@@ -197,17 +239,18 @@
     }finally{applying=false}
   }
 
-  async function hydrate(logId=currentLogId()){
+  async function hydrate(logId=currentLogId(),force=false){
     const target=String(logId||"");
     if(!target)return false;
     if(saveTimers.size||pendingSaves.size||savingIds.size){rehydrateQueued=true;return false}
-    if(hydrated&&hydratedLogId===target&&!hydratePromise)return true;
+    if(!force&&hydrated&&hydratedLogId===target&&!hydratePromise)return true;
     if(hydratePromise){rehydrateQueued=true;if(target!==hydratingLogId)hydrateSeq++;return hydratePromise}
     const seq=++hydrateSeq;hydratingLogId=target;
     const task=(async()=>{
       try{
         const result=await api(endpoint(target,""),{cache:"reload"});
         if(seq!==hydrateSeq||target!==currentLogId())return false;
+        if(saveTimers.size||pendingSaves.size||savingIds.size){rehydrateQueued=true;return false}
         const remote=Array.isArray(result?.templates)?result.templates.filter(t=>!isDeleted(t.id||t.record?.id)):[];
         await pruneLocalTemplates(remote);
         if(seq!==hydrateSeq||target!==currentLogId())return false;
@@ -228,7 +271,7 @@
     hydratePromise=task;
     try{return await task}finally{
       if(hydratePromise===task){hydratePromise=null;hydratingLogId=""}
-      if(rehydrateQueued){rehydrateQueued=false;const next=currentLogId();if(next)queueMicrotask(()=>hydrate(next).catch(()=>{}))}
+      if(rehydrateQueued&&!saveTimers.size&&!pendingSaves.size&&!savingIds.size){rehydrateQueued=false;const next=currentLogId();if(next)queueMicrotask(()=>hydrate(next,true).catch(()=>{}))}
     }
   }
 

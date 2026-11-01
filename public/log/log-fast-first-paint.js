@@ -81,6 +81,7 @@
   function applyInitialAnnotations(payload){
     if(!payload?.data||payload.roomId!==state.roomId)return;
     const data=payload.data;
+    if(Number(data.version)<Number(state.annotationVersion))return;
     const previous=state.annotations||[];
     const markerFields=list=>list.map(annotation=>[annotation.id,annotation.message_id,annotation.end_message_id,annotation.start_offset,annotation.end_offset,annotation.color]);
     const markersChanged=JSON.stringify(markerFields(data.annotations||[]))!==JSON.stringify(markerFields(previous));

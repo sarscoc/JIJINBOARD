@@ -66,7 +66,7 @@
     else if(action==='comment:like')applyLike(data);
   }
 
-  function socketMessage(event){let message;try{message=JSON.parse(event.data)}catch{return}if(message?.type==='comment-change')applyRealtime(message.action,message.data)}
+  function socketMessage(event){let message;try{message=JSON.parse(event.data)}catch{return}if(message?.type==='comment-change'){if(message.data)applyRealtime(message.action,message.data);else refreshAnnotations(true)}}
   function attachSocket(socket){if(!socket||attachedSockets.has(socket))return;attachedSockets.add(socket);socket.addEventListener('message',socketMessage)}
   try{attachSocket(state.realtime);const rawConnect=connectRealtime;connectRealtime=function(...args){const result=rawConnect.apply(this,args);attachSocket(state.realtime);queueMicrotask(()=>attachSocket(state.realtime));return result};window.connectRealtime=connectRealtime}catch{}
 
