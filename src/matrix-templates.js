@@ -72,7 +72,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const row=await env.DB.prepare('SELECT template_image_key FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
     if(!row?.template_image_key)return new Response('Not found',{status:404});
     const object=await env.LOGS.get(row.template_image_key);if(!object)return new Response('Not found',{status:404});
-    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, no-store'}});
+    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, max-age=86400'}});
   }
   if(!logId||!await validateLog(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
@@ -84,7 +84,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     return json({templates:await Promise.all(rows.map(async row=>{
       const definition=parseDefinition(row.template_definition),templateState=cloneObject(definition.templateState);
       for(const point of pointsByTemplate.get(row.template_id)||[])applyPoint(templateState,point);
-      return{record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(definition.updatedAt||row.updated_at):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState};
+      return{record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(row.template_image_key):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState};
     }))});
   }
 
@@ -129,7 +129,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
       return conflict();
     }
     try{if(!old)await saveTemplatePoints(env.DB,roomId,templateId,templateState)}catch(error){return json({error:error.message},error.status||500)}
-    return json({ok:true,record:{id:templateId,revision,name,dataUrl:key?imageUrl(roomId,templateId)+'?v='+updatedAt:'',imageName:String(record.imageName||''),createdAt,updatedAt},templateState});
+    return json({ok:true,record:{id:templateId,revision,name,dataUrl:key?imageUrl(roomId,templateId)+'?v='+encodeURIComponent(key):'',imageName:String(record.imageName||''),createdAt,updatedAt},templateState});
   }
 
   if(request.method==='DELETE'&&templateId){

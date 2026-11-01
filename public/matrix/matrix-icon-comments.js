@@ -117,12 +117,13 @@
     let value=c.color||c.marker_color||"";
     const p=profile();
     if(c.author_id===p?.id){
-      if(c.persona_type==="PL")value=p.plColor||value;
-      else value=pcList().find(person=>person.name===c.persona_name)?.color||value;
+      if(c.persona_type==="PL")value=p.plColor?p.plColor+"|"+(p.plColorDark||p.plColor):value;
+      else{const person=pcList().find(person=>person.name===c.persona_name);if(person?.color)value=person.color+"|"+(person.colorDark||person.color)}
       try{
         const saved=JSON.parse(localStorage.getItem(`jijinboardSelectedColors:${ctx()?.boardId}:${p.id}`)||"{}");
-        const choice=c.persona_type==="PL"?saved.PL:saved[`name:${c.persona_type}:${c.persona_name}`];
-        if(choice)value=choice.light;
+        const person=pcList().find(person=>person.name===c.persona_name&&person.type===c.persona_type);
+        const choice=c.persona_type==="PL"?saved.PL:(saved[person?.id]||saved[`name:${c.persona_type}:${c.persona_name}`]);
+        if(choice)value=choice.light+"|"+(choice.dark||choice.light);
       }catch{}
     }
     const pair=String(value||"#ffe66b").split("|");
@@ -233,6 +234,9 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
 
 
   window.addEventListener("matrix-template-selected",()=>{render()});
+  window.addEventListener("storage",()=>render());
+  window.addEventListener("matrix-board-participants-changed",()=>load(true));
+  new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:["class"]});
   render();
   window.openMatrixIconComment=id=>open(id);
   window.addEventListener("matrix-board-room",()=>{lastSerial="";load(true).catch(console.warn)});

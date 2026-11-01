@@ -184,12 +184,13 @@
         }
       }
       const states={};
-      for(const item of remote){
-        const rec=item?.record;if(!rec?.id)continue;
+      await Promise.all(remote.map(async item=>{
+        const rec=item?.record;if(!rec?.id)return;
         revisions.set(String(rec.id),rec.revision??null);
-        await rawSet(rec.id,rec);
+        const previous=local.find(entry=>entry.id===rec.id);
+        if(!previous||JSON.stringify({...previous,boardId:undefined})!==JSON.stringify({...rec,boardId:undefined}))await rawSet(rec.id,rec);
         states[rec.id]=item?.templateState&&typeof item.templateState==="object"?item.templateState:{};
-      }
+      }));
       window.setTemplateStates(states);
       const current=String(window.currentTemplateId?.()||""),keptIds=remoteIds;
       if(current&&!keptIds.has(current)){try{localStorage.removeItem("magiaMatrix.currentTemplate.v1")}catch{}}
@@ -212,9 +213,9 @@
         if(seq!==hydrateSeq||target!==currentLogId())return false;
         applying=true;
         try{
-          await window.renderTemplateTabs?.();
           const selected=String(window.currentTemplateId?.()||"");
           if(selected)await window.restoreTemplate?.();
+          else await window.renderTemplateTabs?.();
           rebindItemsForRender();
           window.renderLibrary?.();
           window.renderPlaced?.();

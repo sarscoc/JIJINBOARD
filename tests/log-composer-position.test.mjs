@@ -8,11 +8,11 @@ function place(viewport,readerRight,anchor){
  const c={innerWidth:viewport,innerHeight:900,state:{pendingSelection:anchor},positionCommentDialog(){},document:{querySelector:s=>s==='#commentDialog'?dialog:s==='#logPane'?{getBoundingClientRect:()=>({right:readerRight})}:null},addEventListener(){},clearInterval(){}};
  c.window=c;c.parent=c;vm.runInNewContext(source,c);c.positionCommentDialog();return style;
 }
-test('comment composer is placed beyond the reader right edge',()=>{
+test('comment composer is placed just beyond the selected passage',()=>{
  const s=place(1400,1000,{anchorLeft:100,anchorRight:800,anchorTop:200,anchorBottom:230});
- assert.equal(s.left,'1012px');assert.equal(s.width,'376px');
+ assert.equal(s.left,'808px');assert.equal(s.width,'390px');
 });
 test('when no right gutter exists the composer moves below the selected passage',()=>{
  const s=place(700,690,{anchorLeft:20,anchorRight:650,anchorTop:100,anchorBottom:130});
- assert.equal(s.top,'142px');assert.equal(s.left,'298px');assert.equal(s.width,'390px');
+ assert.equal(s.top,'138px');assert.equal(s.left,'302px');assert.equal(s.width,'390px');
 });

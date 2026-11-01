@@ -91,3 +91,12 @@ test('saving metadata cannot change a template creation time',async()=>{
  await f.call('PUT',{baseRevision:row.record.revision,record:{...row.record,createdAt:1},templateState:row.templateState});
  assert.equal((await f.list())[0].record.createdAt,row.record.createdAt);
 });
+
+test('metadata saves keep the same cacheable image URL',async()=>{
+ const f=fixture();await f.save(null,'initial','white','data:image/webp;base64,QQ==');
+ const [first]=await f.list();
+ await f.call('PUT',{baseRevision:first.record.revision,record:first.record,templateState:{...first.templateState,display:{color:'black'}}});
+ const [second]=await f.list();assert.equal(second.record.dataUrl,first.record.dataUrl);
+ await f.save(second.record.revision,'new image','black','data:image/webp;base64,Qg==');
+ assert.notEqual((await f.list())[0].record.dataUrl,first.record.dataUrl);
+});

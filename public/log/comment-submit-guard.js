@@ -93,8 +93,8 @@ try {
   positionCommentDialog=function(){
     const dialog=document.querySelector('#commentDialog'),anchor=state.pendingSelection;
     if(!dialog||!anchor)return;
-    const gap=12,reader=document.querySelector('#logPane')?.getBoundingClientRect();
-    const right=Math.max(anchor.anchorRight||0,reader?.right||0)+gap;
+    const gap=8;
+    const right=(anchor.anchorRight||0)+gap;
     const available=innerWidth-gap-right;
     const width=Math.min(390,available>=240?available:innerWidth-gap*2);
     dialog.style.setProperty('width',width+'px','important');
