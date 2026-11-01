@@ -14,5 +14,5 @@ test('comment composer is placed beyond the reader right edge',()=>{
 });
 test('when no right gutter exists the composer moves below the selected passage',()=>{
  const s=place(700,690,{anchorLeft:20,anchorRight:650,anchorTop:100,anchorBottom:130});
- assert.equal(s.top,'142px');assert.equal(s.left,'12px');assert.equal(s.width,'676px');
+ assert.equal(s.top,'142px');assert.equal(s.left,'298px');assert.equal(s.width,'390px');
 });
