@@ -203,3 +203,6 @@ html.embedded .comment-card{border-left-color:var(--line)!important}
 html.embedded .comment-card.focused{border-left-color:var(--comment-marker,var(--mark))!important}
 ::highlight(jijin-comment-selection){background:#b9d8ff;color:#171a1f}
 html.dark ::highlight(jijin-comment-selection){background:#41688c;color:#fff}
+
+/* Keep hover visible above the parent board's injected theme rules. */
+html.embedded body .comment-card:hover{border-color:var(--comment-marker,var(--mark))!important;border-left-color:var(--comment-marker,var(--mark))!important}

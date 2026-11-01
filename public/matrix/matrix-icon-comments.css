@@ -323,3 +323,7 @@ html .matrix-comment-card:focus-visible{
 /* Scale the positioned group as one block, preserving its translate transform. */
 .placed.matrix-comment-flash{animation:matrixGroupPop .24s ease-in-out!important;transform-origin:center}
 @keyframes matrixGroupPop{0%,100%{scale:1}50%{scale:1.02}}
+
+/* Pointer emphasis ends when the pointer leaves, even after selecting a target. */
+html body .matrix-comment-card.focused:not(:hover){border-color:var(--matrix-line)!important;border-left-color:var(--matrix-line)!important}
+html body .matrix-comment-card:hover{border-color:var(--comment-marker,var(--matrix-line))!important}
