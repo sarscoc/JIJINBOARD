@@ -105,7 +105,7 @@
     const font=brand?getComputedStyle(brand):null;
     const xml=value=>String(value).replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[char]));
     const family=xml(font?.fontFamily||'system-ui, sans-serif'),weight=xml(font?.fontWeight||'900');
-    icon.href='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="5" y="5" width="54" height="54" rx="5" fill="white" stroke="${theme.color1}" stroke-width="5"/><text x="32" y="46" text-anchor="middle" font-family="${family}" font-size="42" font-weight="${weight}" fill="${theme.color1}">J</text></svg>`);
+    icon.href='data:image/svg+xml,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect x="5" y="5" width="54" height="54" rx="5" fill="none" stroke="${theme.color1}" stroke-width="5"/><text x="32" y="46" text-anchor="middle" font-family="${family}" font-size="42" font-weight="${weight}" fill="${theme.color1}">J</text></svg>`);
 styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));applyToFrame(document.getElementById("logFrame"),"log");applyToFrame(document.getElementById("matrixFrame"),"matrix");applyToFrame(document.getElementById("spreadsheetFrame"),"sheet")}
   for(const [id,scope] of [["logFrame","log"],["matrixFrame","matrix"],["spreadsheetFrame","sheet"]])document.getElementById(id)?.addEventListener("load",()=>applyToFrame(document.getElementById(id),scope));
 
