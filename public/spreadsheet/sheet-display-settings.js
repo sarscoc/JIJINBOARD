@@ -90,7 +90,7 @@
       row.classList.toggle('is-group-hidden',hidden(id));
       toc.appendChild(row);row.appendChild(link);
       const controls=document.createElement('span');controls.className='organize-group-controls';
-      for(const [action,label] of [['up','↑'],['down','↓'],['toggle',icon(!hidden(id))]]){
+      for(const [action,label] of [['toggle',icon(!hidden(id))]]){
         const button=document.createElement('button');button.type='button';button.dataset.groupAction=action;
         const title=action==='toggle'?(hidden(id)?'グループを表示':'グループを非表示'):action==='up'?'グループを上へ':'グループを下へ';
         button.title=title;button.setAttribute('aria-label',title);button.innerHTML=label;
@@ -98,6 +98,17 @@
         else button.disabled=action==='up'?id===orderedIds()[0]:id===orderedIds().at(-1);
         button.onclick=e=>{e.stopPropagation();changeGroup(id,action)};controls.appendChild(button);
       }
+      const handle=document.createElement('span');handle.className='group-drag-handle';handle.textContent='⋮⋮';handle.title='ドラッグして並べ替え';handle.draggable=true;row.prepend(handle);
+      handle.addEventListener('dragstart',event=>{event.stopPropagation();event.dataTransfer.setData('application/x-sheet-group',id);event.dataTransfer.effectAllowed='move';row.classList.add('is-dragging')});
+      handle.addEventListener('dragend',()=>row.classList.remove('is-dragging'));
+      row.addEventListener('dragover',event=>{if(event.dataTransfer.types.includes('application/x-sheet-group')){event.preventDefault();event.stopPropagation();event.dataTransfer.dropEffect='move'}});
+      row.addEventListener('drop',event=>{
+        const source=event.dataTransfer.getData('application/x-sheet-group');if(!source||source===id)return;
+        event.preventDefault();event.stopPropagation();
+        const order=orderedIds().filter(key=>key!==source),rect=row.getBoundingClientRect();
+        const index=order.indexOf(id)+(event.clientY>rect.top+rect.height/2?1:0);order.splice(index,0,source);
+        state.layout.groupOrder=order;saveLayoutState();renderOrganizeModal();redraw();
+      });
       row.appendChild(controls);
       const box=[...grid.querySelectorAll('[data-group-id]')].find(el=>el.dataset.groupId===id);if(box)grid.appendChild(box);
     }
@@ -161,6 +172,17 @@
     #sheetLayoutSaveBtn{font-weight:700;min-width:72px}
     #organizeModal .organize-shell{grid-template-columns:220px minmax(0,1fr)!important}
     #organizeModal .organize-toc{min-width:0!important}
+    #organizeModal .modal,#organizeModal .modal-body,#organizeModal .organize-shell,#organizeModal #organizeGrid,#organizeModal .group-box,#organizeModal .group-drop{min-width:0!important;max-width:100%;box-sizing:border-box}
+    #organizeModal .modal-subtools{flex-wrap:wrap}
+    #organizeModal .modal-subtools input{min-width:0!important;flex:1 1 140px;width:140px!important}
+    #organizeModal #organizeGrid .item-chip{width:100%;max-width:100%;min-width:0!important;box-sizing:border-box}
+    #organizeModal #organizeGrid .item-chip:not(.legacy-part-chip){grid-template-columns:16px minmax(0,1fr) 90px 32px 22px 22px minmax(70px,100px)!important;column-gap:4px!important}
+    #organizeModal #organizeGrid .item-chip select{min-width:0!important;max-width:100%!important;width:100%!important}
+    #organizeModal #organizeGrid .legacy-part-chip{display:flex!important;flex-wrap:wrap}
+    .group-drag-handle{cursor:grab;flex-shrink:0;color:#8b93a2;padding:4px;user-select:none}
+    .organize-group-row.is-dragging{opacity:.4}
+    @media(max-width:900px){#organizeModal #organizeGrid .item-chip:not(.legacy-part-chip){grid-template-columns:16px minmax(0,1fr) 80px 28px 22px 22px!important;grid-template-areas:"drag name type config visibility delete" ". group group group group group"!important;row-gap:4px!important}}
+
     .organize-group-row{display:flex;align-items:center;gap:2px}
     .organize-group-row .organize-toc-btn{flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .organize-group-controls{display:flex;align-items:center;gap:1px;flex-shrink:0}

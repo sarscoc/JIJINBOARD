@@ -69,7 +69,8 @@ test('spreadsheet display saves and group controls persist across reloads',async
  w.renderQuestionView();
  const hiddenQuestion=w.document.getElementById('qgroup-g1');assert.ok(!hiddenQuestion||hiddenQuestion.hidden);
  w.document.getElementById('mainCharacterModeBtn').click();
- w.document.querySelector('[data-group-control="g2"] [data-group-action="up"]').click();await sleep(250);
+ const target=w.document.querySelector('[data-group-control="g1"]');
+ const drop=new w.Event('drop',{bubbles:true});Object.defineProperty(drop,'dataTransfer',{value:{getData:()=> 'g2'}});Object.defineProperty(drop,'clientY',{value:-1});target.dispatchEvent(drop);await sleep(250);
  assert.deepEqual(server['charaHub.layoutV1'].groupOrder,['ungrouped','g2','g1']);
  w.document.querySelector('[data-group-control="g1"] [data-group-action="toggle"]').click();await sleep(250);
  assert.equal(server['charaHub.layoutV1'].hiddenGroups.g1,undefined);

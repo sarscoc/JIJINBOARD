@@ -47,14 +47,11 @@
     side.innerHTML='<div class="sheet-layout-unplaced-title">未配置</div><div class="sheet-layout-unplaced-list"></div>';
     const main=document.createElement('div');
     main.className='sheet-layout-command-area';
-    const toolbar=document.createElement('div');
-    toolbar.className='sheet-layout-row-tools';
-    toolbar.innerHTML='<span>縦 <b data-sheet-row-count></b>マス</span><button type="button" data-sheet-row-minus>−1行</button><button type="button" data-sheet-row-plus>＋1行</button>';
     const wrap=document.createElement('div');
     wrap.className='sheet-layout-canvas-wrap';
     canvas.parentNode.insertBefore(workspace,canvas);
     workspace.append(side,main);
-    main.append(toolbar,wrap);
+    main.append(wrap);
     wrap.appendChild(canvas);
     return workspace;
   }
@@ -101,14 +98,10 @@
   }
 
   function refreshRowTools(workspace,canvas){
-    const count=workspace.querySelector('[data-sheet-row-count]');if(count)count.textContent=baseRows();
-    const plus=workspace.querySelector('[data-sheet-row-plus]');
-    const minus=workspace.querySelector('[data-sheet-row-minus]');
-    if(plus)plus.onclick=()=>{setBaseRows(baseRows()+1);paintCanvas(canvas);wire(canvas,workspace);refreshRowTools(workspace,canvas)};
-    if(minus)minus.onclick=()=>{
-      const occupied=Math.max(4,...ids().filter(placed).map(id=>posOf(id).row+heightOf(id)-1));
-      setBaseRows(Math.max(occupied,baseRows()-1));paintCanvas(canvas);wire(canvas,workspace);refreshRowTools(workspace,canvas);
-    };
+    const count=document.getElementById('sheetRowsCount');if(count)count.textContent=baseRows();
+    const change=delta=>{const occupied=Math.max(4,...ids().filter(placed).map(id=>posOf(id).row+heightOf(id)-1));setBaseRows(Math.max(occupied,baseRows()+delta));paintCanvas(canvas);wire(canvas,workspace);refreshRowTools(workspace,canvas)};
+    document.getElementById('sheetRowsPlus').onclick=()=>change(1);
+    document.getElementById('sheetRowsMinus').onclick=()=>change(-1);
   }
 
   function startMove(id,card,e,fromUnplaced=false){
