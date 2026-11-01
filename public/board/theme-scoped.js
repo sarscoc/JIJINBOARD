@@ -73,6 +73,11 @@
     html.embedded .library::-webkit-scrollbar-thumb,html.embedded #matrixIconComments>section::-webkit-scrollbar-thumb,html.embedded .template-tabs::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function sheetCss(value){return `
+    html.embedded #sheetZoomControl input::-webkit-slider-runnable-track{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important}
+    html.embedded #sheetZoomControl input::-moz-range-track{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important}
+    html.embedded #sheetZoomControl input::-webkit-slider-thumb{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important;box-shadow:0 1px 7px ${hexRgba(value.gradientColor1,.4)}!important}
+    html.embedded #sheetZoomControl input::-moz-range-thumb{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important;box-shadow:0 1px 7px ${hexRgba(value.gradientColor1,.4)}!important}
+
     html.embedded body{background:transparent!important;background-image:none!important}
     html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
     html.embedded #databaseLayout,html.embedded #sheetComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
