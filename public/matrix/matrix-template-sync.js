@@ -133,19 +133,13 @@
           const owned=String(rec.boardId||"")===boardId;
           const foreignImage=serverMatch&&decodeURIComponent(serverMatch[1])!==boardId;
           const looksUnsynced=owned&&!foreignImage&&(dataUrl.startsWith("data:image/")||(!serverMatch&&localState&&Object.keys(localState).length>0));
-          if(looksUnsynced)unsynced.push({record:rec,templateState:clone(localState||{})});
-          else await window.tplDeleteRecord(id);
+          await window.tplDeleteRecord(id);
         }
       }
       const states={};
       for(const item of remote){
         const rec=item?.record;if(!rec?.id)continue;
         const localRecord=local.find(entry=>entry.id===rec.id);
-        if(localRecord&&Number(previousStates[rec.id]?.savedAt)>syncStartedAt){
-          states[rec.id]=previousStates[rec.id];
-          unsynced.push({record:localRecord,templateState:clone(previousStates[rec.id])});
-          continue;
-        }
         await rawSet(rec.id,rec);
         states[rec.id]=item?.templateState&&typeof item.templateState==="object"?item.templateState:{};
       }
@@ -201,7 +195,7 @@
       if(!remains){
         const removed=deleted();removed.add(key);localStorage.setItem(deletedKey,JSON.stringify([...removed]));
         const me=profile();
-        if(me?.id){await api(endpoint(logId,key),{method:"DELETE",body:JSON.stringify({authorId:me.id})}).then(()=>window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:key})).catch(error=>console.warn("MATRIX template delete sync failed",error))}
+        if(me?.id){await api(endpoint(logId,key),{method:"DELETE",body:JSON.stringify({authorId:me.id})}).then(()=>window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:key})).catch(error=>{alert("サーバーでの削除に失敗しました："+error.message);throw error})}
       }
       return result;
     };

@@ -60,7 +60,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
   if(!logId||!await validateLog(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
   if(request.method==='GET'&&!templateId){
-    const rows=(await env.DB.prepare('SELECT template_id,template_name,template_image_key,template_definition,created_at,updated_at FROM matrix_template WHERE room_id=? AND template_image_key<>'__deleted__' ORDER BY created_at,template_id').bind(roomId).all()).results||[];
+    const rows=(await env.DB.prepare("SELECT template_id,template_name,template_image_key,template_definition,created_at,updated_at FROM matrix_template WHERE room_id=? AND template_image_key<>'__deleted__' ORDER BY created_at,template_id").bind(roomId).all()).results||[];
     const points=(await env.DB.prepare('SELECT template_id,point_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,supplement_body,point_settings FROM matrix_point WHERE room_id=?').bind(roomId).all()).results||[];
     const pointsByTemplate=new Map();
     for(const point of points){const list=pointsByTemplate.get(point.template_id)||[];list.push(point);pointsByTemplate.set(point.template_id,list)}
