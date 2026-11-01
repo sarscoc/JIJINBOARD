@@ -262,7 +262,7 @@
     }
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
     try{
-      const matrix=await api(matrixPath());
+      const matrix=await api(matrixPath(),{cache:"reload"});
       if(seq!==loadSeq)return;
       applyingRemote=true;
       try{
