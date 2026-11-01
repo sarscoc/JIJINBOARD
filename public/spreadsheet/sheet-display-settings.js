@@ -119,7 +119,7 @@
   window.sheetDisplaySettings={isEditing:()=>!!draft,snapshotLayout,cancel:cancelDraft};
   const rawOpen=window.openSheetLayoutEditor;
   window.openSheetLayoutEditor=function(...args){
-    if(window.jijinSpreadsheetSync&&!window.jijinSpreadsheetSync.isReady()){showToast('読み込みが完了してから開いてください');return}
+    if(window.jijinSpreadsheetSync&&!window.jijinSpreadsheetSync.isReady()&&!window.jijinSpreadsheetSync.useExistingData()){showToast('読み込みが完了してから開いてください');return}
     if(!draft){draft={};for(const key of displayKeys)if(Object.hasOwn(state.layout,key))draft[key]=clone(state.layout[key])}
     savedStatus.textContent='';return rawOpen.apply(this,args);
   };

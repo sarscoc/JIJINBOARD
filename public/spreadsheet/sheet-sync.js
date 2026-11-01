@@ -6,7 +6,7 @@
 
   const keys=['charaHub.characters','charaHub.sources','charaHub.layoutV1'];
   const emptyFor=k=>k==='charaHub.layoutV1'?{}:[];
-  const api=async(path,options={})=>{const r=await fetch(path,{headers:{'content-type':'application/json',...(options.headers||{})},...options}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'同期に失敗しました');return d};
+  const api=async(path,options={})=>{const r=await fetch(path,{headers:{'content-type':'application/json',...(options.headers||{})},signal:AbortSignal.timeout(15000),...options}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'同期に失敗しました');return d};
   const parse=(key,value)=>{try{return JSON.parse(value??'')}catch{return emptyFor(key)}};
   const read=()=>Object.fromEntries(keys.map(k=>[k,parse(k,localStorage.getItem(k)??JSON.stringify(emptyFor(k)))]));
   const meaningful=s=>(s?.['charaHub.characters']||[]).length||(s?.['charaHub.sources']||[]).length||(s?.['charaHub.layoutV1']?.localItems||[]).length||(s?.['charaHub.layoutV1']?.parts||[]).length||(s?.['charaHub.layoutV1']?.groups||[]).length;
@@ -33,7 +33,7 @@
     return out;
   }
 
-  let saving=false,resave=false,localDirty=false,savePromise=null;
+  let saving=false,resave=false,localDirty=false,savePromise=null,localEditingStarted=false;
   let timer=0,loading=true,readySent=false,itemCache=null,applyingRemote=false,refreshPromise=null,lastRemoteSerial='',remoteDirty=false;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
   const invalidateItemCache=()=>{itemCache=null};
@@ -82,7 +82,7 @@
     })();
     return savePromise;
   };
-  window.jijinSpreadsheetSync={saveNow:pushNow,isReady:()=>!loading};
+  window.jijinSpreadsheetSync={saveNow:pushNow,isReady:()=>!loading,useExistingData:()=>{if(!meaningful(currentSnapshot()))return false;localEditingStarted=true;loading=false;return true}};
   const push=()=>{if(loading||applyingRemote)return;localDirty=true;clearTimeout(timer);timer=setTimeout(pushNow,150)};
   const rawSetItem=Storage.prototype.setItem;
   Storage.prototype.setItem=function(key,value){
@@ -174,6 +174,7 @@
     let remote=null,cleanRemote=null,remoteString='';
     try{
       remote=(await api(endpoint,{cache:"reload"})).state;
+      if(localEditingStarted)return;
       cleanRemote=sanitizeSnapshot(remote||{});remoteString=JSON.stringify(cleanRemote);
       const local=currentSnapshot(),localString=JSON.stringify(local),hasLocal=!!meaningful(local);
       if(remote&&meaningful(cleanRemote)){
