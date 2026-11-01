@@ -3,6 +3,11 @@
   const originalRenderCharacter=window.renderCharacterView;
   if(typeof originalRenderEditor!=='function')return;
 
+  // A missing position means unplaced in every renderer, not just in this editor.
+  window.ensureSheetGridPositions=()=>ensureSheetLayoutOrder();
+  window.sheetGroupSpan=id=>Math.max(1,Math.min(6,Number(state.layout.sheetLayout?.sizes?.[id])||3));
+  window.sheetGroupHeight=id=>Math.max(1,Number(state.layout.sheetLayout?.heights?.[id])||1);
+
   const COLS=6;
   const CELL=72;
   const GAP=6;
@@ -24,10 +29,10 @@
   const save=()=>saveLayoutState();
 
   function hideUnplacedCharacterGroups(){
-    const hidden=new Set(ids().filter(id=>!placed(id)).map(id=>groupNameForLayout(id).trim()));
+    const hidden=new Set(ids().filter(id=>!placed(id)));
     document.querySelectorAll('.character-sheet-group').forEach(section=>{
-      const title=section.querySelector('.character-sheet-group-title')?.textContent?.trim();
-      if(title)section.style.display=hidden.has(title)?'none':'';
+      const id=section.dataset.sheetGroupId;
+      if(id)section.style.display=hidden.has(id)?'none':'';
     });
   }
   window.renderCharacterView=function(){originalRenderCharacter();hideUnplacedCharacterGroups()};
