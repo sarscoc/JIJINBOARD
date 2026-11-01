@@ -455,4 +455,14 @@
     if(url.pathname.includes("/comments"))return;
     if(active&&roomId)loadRoom(roomId).catch(console.warn);else dirtyState=true;
   });
+  // Refresh thumbnail avatars when participant images arrive after templates.
+  if(typeof renderLibrary==="function"){
+    const originalLibrary=renderLibrary;let imageSignature="",previewTimer;
+    renderLibrary=function(...args){
+      const result=originalLibrary.apply(this,args);
+      const next=JSON.stringify(items.map(item=>[item.id,displayImage(item)]));
+      if(next!==imageSignature){imageSignature=next;clearTimeout(previewTimer);previewTimer=setTimeout(()=>window.renderTemplateTabs?.().catch?.(console.warn),0)}
+      return result;
+    };
+  }
 })();

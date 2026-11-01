@@ -579,3 +579,16 @@ $("#searchInput").onkeydown=event=>{
   highlight();setTimeout(highlight,400);break}
  }
 };
+
+const searchCount=document.createElement("span");searchCount.id="logSearchCount";searchCount.setAttribute("aria-live","polite");
+$("#searchInput").insertAdjacentElement("afterend",searchCount);
+function updateSearchCount(){
+ const query=$("#searchInput").value.trim().toLowerCase();
+ if(!query||!state.room){searchCount.textContent="";return}
+ const matches=state.room.messages.filter(m=>`${m.speaker} ${m.text}`.toLowerCase().includes(query));
+ const index=matches.findIndex(m=>m.id===state.lastSearchMessage);
+ searchCount.textContent=`${index<0?0:index+1}/${matches.length}`;
+}
+$("#searchInput").oninput=()=>{state.lastSearchMessage=null;updateSearchCount()};
+const navigateSearch=$("#searchInput").onkeydown;
+$("#searchInput").onkeydown=event=>{navigateSearch(event);updateSearchCount()};
