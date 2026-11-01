@@ -36,6 +36,11 @@ test('spreadsheet display saves and group controls persist across reloads',async
  
  assert.equal(w.eval("state.layout.sheetLayout.positions.ungrouped"),undefined);
  assert.equal(w.document.querySelectorAll('[data-full-group-id="ungrouped"]').length,0);
+ assert.equal(w.getCharacterDesign('c1').questionText,'#8b93a2');
+ const longField=w.document.querySelector('.character-sheet-edit');
+ Object.defineProperty(longField,'scrollHeight',{value:250});longField.dispatchEvent(new w.Event('input',{bubbles:true}));await sleep(40);
+ assert.equal(longField.style.height,'252px');
+ assert.ok(w.document.querySelector('[data-sheet-group-id="g1"]').classList.contains('sheet-small-group'));
  assert.equal(w.sheetGroupSpan('g1'),1);assert.equal(w.sheetGroupHeight('g1'),5);
  w.document.getElementById('sheetLayoutBtn').click();
  w.eval("state.layout.sheetLayout.positions.g1={row:4,col:2};delete state.layout.sheetLayout.positions.g2;state.layout.sheetLayout.baseRows=12;saveLayoutState()");
