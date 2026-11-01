@@ -70,6 +70,9 @@
     :is(#characterPopup,#fullCharacterPages) .character-sheet-group:is([data-layout="columns"],[data-layout="free"]):not(:has(.image-part)){display:block!important;align-self:start!important;height:auto!important;min-height:0!important}
     :is(#characterPopup,#fullCharacterPages) .character-sheet-group.sheet-small-group .character-sheet-rows{column-width:160px!important;column-count:2!important}
     @media(max-width:420px){:is(#characterPopup,#fullCharacterPages) .character-sheet-group .character-sheet-rows{column-count:1!important}}
+    :is(#characterPopup,#fullCharacterPages,#characterViewRoot) .character-sheet-row:has(.image-mode-character){display:block!important;align-items:start!important}
+    :is(#characterPopup,#fullCharacterPages,#characterViewRoot) .character-sheet-row:has(.image-mode-character)>.character-sheet-label{display:block!important;width:100%!important;align-self:start!important;text-align:left!important;margin:0 0 6px!important;padding:0!important}
+    :is(#characterPopup,#fullCharacterPages,#characterViewRoot) .character-sheet-row:has(.image-mode-character)>.character-sheet-part{width:100%!important;min-width:0!important}
     .character-sheet-label{color:var(--character-question-text,#8b93a2)!important}
   `;document.head.appendChild(style);
   const observer=new MutationObserver(schedule);

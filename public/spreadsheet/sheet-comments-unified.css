@@ -80,3 +80,9 @@ html body #sheetComments .persona-type{padding:0 3px!important;font-size:9px!imp
 html body #sheetComments .comment-date{display:block!important;font-size:8px!important;opacity:.58!important}
 html.dark body #sheetComments{--sheet-line:#5b5b5b;--sheet-ink:#f2f4f7;--sheet-muted:#adb4be;--sheet-soft:#424242;background:#353535!important}
 html.dark body #sheetComments .comment-card{background:#353535!important}
+
+/* Fixed header metrics shared with MATRIX, independent of table typography. */
+html body #sheetComments .sheet-comments-head{box-sizing:border-box!important;height:46px!important;min-height:46px!important;max-height:46px!important;flex:0 0 46px!important;padding:13px 15px!important;font:400 11px/19px system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;letter-spacing:.12em!important}
+html body #sheetComments .sheet-comments-head strong{font-weight:700!important}
+#sheetCommentDialog .sheet-comment-status{margin:0;font-size:11px;color:#c44}
+#sheetCommentDialog .sheet-comment-status:empty{display:none}

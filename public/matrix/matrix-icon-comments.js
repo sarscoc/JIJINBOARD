@@ -160,6 +160,11 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
 
   async function open(id,reply="",edit="",anchor=null){
     if(!id||posting)return;
+    const existing=document.querySelector('#matrixIconCommentDialog');
+    if(existing?.open&&existing.querySelector('textarea')?.value.trim()){
+      await post({preventDefault(){}});
+      if(existing.open)return;
+    }
     panel().hidden=false;
     const p=profile();if(!p?.plName)return alert("先に発言者を登録してください。");
     targetId=id;replyTo=reply;editingId=edit;pendingAnchor=anchor||targetAnchor(id);
@@ -207,7 +212,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     try{
       if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
       else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
-      d.close();await load(true);
+      await load(true);d.close();
     }catch(error){status.textContent="保存できませんでした："+error.message;}finally{posting=false;delete d.dataset.submitting}
   }
   async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
@@ -230,6 +235,8 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     const d=document.querySelector("#matrixIconCommentDialog");
     if(d?.open&&!d.contains(event.target))saveOutside();
   },true);
+  document.addEventListener("keydown",event=>{if((event.ctrlKey||event.metaKey)&&event.key==="Enter"&&event.target.closest?.('#matrixIconCommentDialog')){event.preventDefault();saveOutside()}});
+  try{if(parent!==window)parent.document.addEventListener("pointerdown",saveOutside,true)}catch{}
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-save-matrix-comment")saveOutside()});
 
 
