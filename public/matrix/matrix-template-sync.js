@@ -6,7 +6,8 @@
 
   let lastLogId=params.get("room")||"";
   let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
-  const saveTimers=new Map();
+  const saveTimers=new Map(),pendingSaves=new Map(),savingIds=new Set(),revisions=new Map();
+  let editSeq=0;
   const deletedKey=`jijinboardDeletedTemplates:${boardId}`;
   const deleted=()=>{try{return new Set(JSON.parse(localStorage.getItem(deletedKey)||"[]"))}catch{return new Set()}};
   const isDeleted=id=>deleted().has(String(id));
@@ -81,35 +82,68 @@
   }
 
   const rawSet=window.tplSetRecord;
+  window.matrixTemplateSync={isHydrated:()=>hydrated&&hydratedLogId===currentLogId(),isApplyingRemote:()=>applying};
 
-  async function putRemote(logId,id,record,templateState){
-    if(applying||!logId||!id||!record||isDeleted(id))return;
+  function refreshWhenIdle(){
+    if(!rehydrateQueued||saveTimers.size||pendingSaves.size||savingIds.size)return;
+    rehydrateQueued=false;hydrated=false;hydratedLogId="";
+    hydrate(currentLogId()).catch(()=>{});
+  }
+
+  async function putRemote(timerKey){
+    if(savingIds.has(timerKey))return;
+    const draft=pendingSaves.get(timerKey);
+    if(!draft)return;
+    const {logId,id,record,templateState,baseRevision,seq}=draft;
+    if(isDeleted(id)){pendingSaves.delete(timerKey);refreshWhenIdle();return}
     const me=profile();if(!me?.id||!me?.plName)return;
-    if(!hydrated||hydratedLogId!==logId){
-      await hydrate(logId);
-      if(!hydrated||hydratedLogId!==logId)return;
-    }
+    pendingSaves.delete(timerKey);savingIds.add(timerKey);
     try{
+      const body=JSON.stringify({authorId:me.id,authorName:me.plName,baseRevision,record,templateState});
       const result=await api(endpoint(logId,id),{
-        method:"PUT",
-        body:JSON.stringify({authorId:me.id,authorName:me.plName,record,templateState:templateState&&typeof templateState==="object"?templateState:{}})
+        method:"PUT",keepalive:new TextEncoder().encode(body).byteLength<60_000,body
       });
       if(isDeleted(id)){await api(endpoint(logId,id),{method:"DELETE",body:JSON.stringify({authorId:me.id})});return}
       if(result?.record){
-        applying=true;
-        try{await rawSet(id,{...record,...result.record})}
-        finally{applying=false}
+        revisions.set(id,result.record.revision);
+        const newer=pendingSaves.get(timerKey);
+        if(newer){
+          // Advance only our own queued edit; never advance a stale external editor.
+          newer.baseRevision=result.record.revision;
+          if(newer.record.dataUrl===record.dataUrl)newer.record.dataUrl=result.record.dataUrl;
+        }
+        // A response for an older save must not replace a newer local image/name.
+        if(!newer&&seq===editSeq){
+          applying=true;
+          try{await rawSet(id,{...record,...result.record})}
+          finally{applying=false}
+        }
       }
       window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:id});
-    }catch(error){console.warn("MATRIX template sync failed",error)}
+    }catch(error){
+      console.warn("MATRIX template sync failed",error);
+      // Keep the failed draft available for recovery without ever replaying it automatically.
+      let backedUp=false;
+      try{localStorage.setItem(`jijinboardTemplateSaveRecovery:${boardId}:${id}`,JSON.stringify(pendingSaves.get(timerKey)||draft));backedUp=true}catch{}
+      if(error.status===409){
+        clearTimeout(saveTimers.get(timerKey));saveTimers.delete(timerKey);pendingSaves.delete(timerKey);
+        rehydrateQueued=true;
+      }
+      alert((error.status===409?"テンプレートの更新が重なったため、古い情報での上書きを止めました。最新の保存内容を読み直します。":"テンプレートを保存できませんでした。通信状態を確認して、もう一度編集してください。")+(backedUp?"未保存の編集内容はこのブラウザに退避しました。":"ブラウザへの退避にも失敗しました。"));
+    }finally{
+      savingIds.delete(timerKey);
+      if(pendingSaves.has(timerKey)&&!saveTimers.has(timerKey))putRemote(timerKey);
+      else refreshWhenIdle();
+    }
   }
 
-  function scheduleRemote(id,record,delay=350){
+  function scheduleRemote(id,record,delay=350,state=templateStateSnapshot(id)){
     const key=String(id||""),logId=currentLogId();
-    if(!key||!record||!logId)return;
-    const timerKey=`${logId}:${key}`,state=templateStateSnapshot(key);
+    if(applying||window.matrixBoardContext?.isApplyingRemote?.()||!hydrated||hydratedLogId!==logId||!key||!record||!logId)return;
+    const timerKey=`${logId}:${key}`;
+    pendingSaves.set(timerKey,{logId,id:key,record:clone(record),templateState:clone(state),baseRevision:revisions.get(key)??null,seq:++editSeq});
     clearTimeout(saveTimers.get(timerKey));
-    saveTimers.set(timerKey,setTimeout(()=>{saveTimers.delete(timerKey);putRemote(logId,key,record,state)},delay));
+    saveTimers.set(timerKey,setTimeout(()=>{saveTimers.delete(timerKey);putRemote(timerKey)},delay));
   }
 
   const wrappedSet=async function(id,record,...rest){
@@ -120,51 +154,46 @@
   wrappedSet.__jijinTemplateRemoteSync=true;
   window.tplSetRecord=wrappedSet;
 
-  async function pruneLocalTemplates(remote,syncStartedAt=Infinity){
+  async function pruneLocalTemplates(remote){
     const remoteIds=new Set(remote.map(item=>String(item?.record?.id||"")).filter(Boolean));
-    const local=await window.tplAllRecords(),previousStates=window.templateStates()||{},unsynced=[];
+    const local=await window.tplAllRecords();
     applying=true;
     try{
       if(typeof window.tplDeleteRecord==="function"){
         for(const rec of local){
           const id=String(rec?.id||"");
           if(!id||remoteIds.has(id))continue;
-          const dataUrl=String(rec?.dataUrl||""),serverMatch=dataUrl.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\//),localState=previousStates[id]&&typeof previousStates[id]==="object"?previousStates[id]:null;
-          const owned=String(rec.boardId||"")===boardId;
-          const foreignImage=serverMatch&&decodeURIComponent(serverMatch[1])!==boardId;
-          const looksUnsynced=owned&&!foreignImage&&(dataUrl.startsWith("data:image/")||(!serverMatch&&localState&&Object.keys(localState).length>0));
           await window.tplDeleteRecord(id);
         }
       }
       const states={};
       for(const item of remote){
         const rec=item?.record;if(!rec?.id)continue;
-        const localRecord=local.find(entry=>entry.id===rec.id);
+        revisions.set(String(rec.id),rec.revision??null);
         await rawSet(rec.id,rec);
         states[rec.id]=item?.templateState&&typeof item.templateState==="object"?item.templateState:{};
       }
-      for(const item of unsynced){const id=String(item.record?.id||"");if(id&&!remoteIds.has(id))states[id]=item.templateState||{}}
       window.setTemplateStates(states);
-      const current=String(window.currentTemplateId?.()||""),keptIds=new Set([...remoteIds,...unsynced.map(item=>String(item.record?.id||"")).filter(Boolean)]);
+      const current=String(window.currentTemplateId?.()||""),keptIds=remoteIds;
       if(current&&!keptIds.has(current)){try{localStorage.removeItem("magiaMatrix.currentTemplate.v1")}catch{}}
     }finally{applying=false}
-    return unsynced;
   }
 
   async function hydrate(logId=currentLogId()){
     const target=String(logId||"");
     if(!target)return false;
+    if(saveTimers.size||pendingSaves.size||savingIds.size){rehydrateQueued=true;return false}
     if(hydrated&&hydratedLogId===target&&!hydratePromise)return true;
     if(hydratePromise){rehydrateQueued=true;if(target!==hydratingLogId)hydrateSeq++;return hydratePromise}
     const seq=++hydrateSeq;hydratingLogId=target;
-    const syncStartedAt=Date.now();
     const task=(async()=>{
       try{
         const result=await api(endpoint(target,""),{cache:"reload"});
         if(seq!==hydrateSeq||target!==currentLogId())return false;
         const remote=Array.isArray(result?.templates)?result.templates.filter(t=>!isDeleted(t.id||t.record?.id)):[];
-        const unsynced=await pruneLocalTemplates(remote,syncStartedAt);
+        await pruneLocalTemplates(remote);
         if(seq!==hydrateSeq||target!==currentLogId())return false;
+        applying=true;
         try{
           await window.renderTemplateTabs?.();
           const selected=String(window.currentTemplateId?.()||"");
@@ -172,7 +201,7 @@
           rebindItemsForRender();
           window.renderLibrary?.();
           window.renderPlaced?.();
-        }catch(error){console.warn("MATRIX template redraw failed",error)}
+        }catch(error){console.warn("MATRIX template redraw failed",error)}finally{applying=false}
         hydrated=true;hydratedLogId=target;
         // Never upload historical local records merely because hydration found them.
         return true;
@@ -190,7 +219,7 @@
     window.deleteSavedTemplate=async function(id,...rest){
       const key=String(id||""),logId=currentLogId(),result=await rawDelete.call(this,id,...rest);
       if(!key||!logId)return result;
-      clearTimeout(saveTimers.get(`${logId}:${key}`));saveTimers.delete(`${logId}:${key}`);
+      clearTimeout(saveTimers.get(`${logId}:${key}`));saveTimers.delete(`${logId}:${key}`);pendingSaves.delete(`${logId}:${key}`);
       let remains=false;try{remains=!!(await window.tplGetRecord?.(key))}catch{}
       if(!remains){
         const removed=deleted();removed.add(key);localStorage.setItem(deletedKey,JSON.stringify([...removed]));
@@ -204,8 +233,13 @@
   const rawSaveTemplateState=window.saveCurrentTemplateState;
   if(typeof rawSaveTemplateState==="function"){
     window.saveCurrentTemplateState=function(...args){
-      const result=rawSaveTemplateState.apply(this,args),id=String(window.currentTemplateId?.()||"");
-      if(id){window.tplGetRecord?.(id).then(rec=>rec&&scheduleRemote(id,rec,350)).catch(()=>{})}
+      // Hydration and remote point/display refreshes are reads, never edits.
+      if(applying||!hydrated)return;
+      const result=rawSaveTemplateState.apply(this,args);
+      if(window.matrixBoardContext?.isApplyingRemote?.())return result;
+      const id=String(window.currentTemplateId?.()||"");
+      const state=templateStateSnapshot(id),seq=hydrateSeq;
+      if(id){window.tplGetRecord?.(id).then(rec=>{if(rec&&seq===hydrateSeq)scheduleRemote(id,rec,350,state)}).catch(()=>{})}
       return result;
     };
   }
@@ -224,7 +258,11 @@
   });
 
   window.addEventListener("matrix-board-comments-changed",event=>{
-    if(event.detail?.action==="matrix-template-state"){hydrated=false;hydratedLogId="";hydrate(currentLogId()).catch(()=>{})}
+    if(["matrix-template-state","matrix-change"].includes(event.detail?.action)){rehydrateQueued=true;refreshWhenIdle()}
+  });
+
+  window.addEventListener("pagehide",()=>{
+    for(const [key,timer] of saveTimers){clearTimeout(timer);saveTimers.delete(key);putRemote(key)}
   });
 
   const initialLogId=currentLogId();

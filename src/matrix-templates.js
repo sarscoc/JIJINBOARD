@@ -1,8 +1,12 @@
-import { dataImage,ensurePlIdentity,parentRoomForLog } from './data-model.js';
+import { dataImage,ensurePlIdentity,parentRoomForLog,hashText } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const safeBody=async request=>{try{return await request.json()}catch{return null}};
-const templateKey=(roomId,templateId)=>`rooms/${roomId}/matrix/templates/${templateId}/image.webp`;
+const templateKey=(roomId,templateId,revision)=>`rooms/${roomId}/matrix/templates/${templateId}/${revision}/image.webp`;
+// The point API may create an empty parent row before a new template's first PUT.
+const isPlaceholder=row=>row?.template_definition==='{}'&&row?.template_image_key===''&&row?.template_name==='MATRIX';
+const revisionOf=async row=>row&&!isPlaceholder(row)?String(parseDefinition(row.template_definition).revision||await hashText(row.template_definition||'{}')):null;
+const conflict=()=>json({error:'テンプレートが別の画面で更新されています。最新の情報を読み直してから編集してください。',code:'MATRIX_TEMPLATE_CONFLICT'},409);
 const imageUrl=(roomId,templateId)=>`/api/boards/${encodeURIComponent(roomId)}/matrix/templates/${encodeURIComponent(templateId)}/image`;
 const POINT_FIELDS=new Set(['placed','x','y','templateX','templateY','scaleBaseWidth','coordVersion','comment']);
 
@@ -64,35 +68,48 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const points=(await env.DB.prepare('SELECT template_id,point_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,supplement_body,point_settings FROM matrix_point WHERE room_id=?').bind(roomId).all()).results||[];
     const pointsByTemplate=new Map();
     for(const point of points){const list=pointsByTemplate.get(point.template_id)||[];list.push(point);pointsByTemplate.set(point.template_id,list)}
-    return json({templates:rows.map(row=>{
+    return json({templates:await Promise.all(rows.map(async row=>{
       const definition=parseDefinition(row.template_definition),templateState=cloneObject(definition.templateState);
       for(const point of pointsByTemplate.get(row.template_id)||[])applyPoint(templateState,point);
-      return{record:{id:row.template_id,name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(definition.updatedAt||row.updated_at):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState};
-    })});
+      return{record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(definition.updatedAt||row.updated_at):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState};
+    }))});
   }
 
   if(request.method==='PUT'&&templateId){
     const body=await safeBody(request),record=body?.record&&typeof body.record==='object'?body.record:{},templateState=cleanState(body?.templateState),authorId=String(body?.authorId||'').slice(0,120),authorName=String(body?.authorName||'').trim().slice(0,80);
     if(!authorId||!authorName)return json({error:'先に発言者を登録してください'},400);
     await ensurePlIdentity(env.DB,authorId,authorName);
-    const old=await env.DB.prepare('SELECT template_image_key FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
+    const old=await env.DB.prepare('SELECT template_name,template_image_key,template_definition FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
     if(old?.template_image_key==='__deleted__')return json({error:'削除済みテンプレートは再登録できません'},409);
+    // Require the revision actually read by the editor, including for older clients.
+    if((body?.baseRevision??null)!==await revisionOf(old))return conflict();
+    const revision=crypto.randomUUID();
+    let uploadedKey='';
     let key=String(old?.template_image_key||'');
     const raw=String(record.dataUrl||'');
     if(raw.startsWith('data:image/')){
       const image=dataImage(raw);if(!image)return json({error:'テンプレ画像を読み込めません'},400);
       if(image.bytes.byteLength>4_500_000)return json({error:'圧縮後のテンプレ画像が大きすぎます'},413);
-      key=templateKey(roomId,templateId);
-      await env.LOGS.put(key,image.bytes,{httpMetadata:{contentType:image.contentType||'image/webp',cacheControl:'private, no-cache'}});
+      key=templateKey(roomId,templateId,revision);
+      // Upload only after validation, to a new key so a losing writer cannot replace the live image.
+      uploadedKey=key;
     }
     const name=String(record.name||'MATRIX').trim().slice(0,120)||'MATRIX';
-    const createdAt=Number(record.createdAt)||Date.now(),updatedAt=Number(record.updatedAt)||Date.now();
+    const createdAt=Number(record.createdAt)||Date.now(),updatedAt=Date.now();
     const definitionState={...templateState,items:{}};
-    const definition=JSON.stringify({imageName:String(record.imageName||'').slice(0,180),createdAt,updatedAt,templateState:definitionState});
+    const definition=JSON.stringify({revision,imageName:String(record.imageName||'').slice(0,180),createdAt,updatedAt,templateState:definitionState});
     if(definition.length>300_000)return json({error:'テンプレート設定が大きすぎます'},413);
-    await env.DB.prepare(`INSERT INTO matrix_template(room_id,template_id,template_name,template_image_key,template_definition,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(room_id,template_id) DO UPDATE SET template_name=excluded.template_name,template_image_key=CASE WHEN excluded.template_image_key<>'' THEN excluded.template_image_key ELSE matrix_template.template_image_key END,template_definition=excluded.template_definition,updated_at=CURRENT_TIMESTAMP`).bind(roomId,templateId,name,key,definition).run();
+    if(uploadedKey){const image=dataImage(raw);await env.LOGS.put(uploadedKey,image.bytes,{httpMetadata:{contentType:image.contentType||'image/webp',cacheControl:'private, no-cache'}})}
+    // Compare and write in one SQL statement: two simultaneous PUTs cannot both win.
+    const saved=old
+      ?await env.DB.prepare(`UPDATE matrix_template SET template_name=?,template_image_key=?,template_definition=?,updated_at=CURRENT_TIMESTAMP WHERE room_id=? AND template_id=? AND template_definition=? AND template_image_key<>'__deleted__'`).bind(name,key,definition,roomId,templateId,old.template_definition).run()
+      :await env.DB.prepare(`INSERT INTO matrix_template(room_id,template_id,template_name,template_image_key,template_definition,updated_at) VALUES(?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(room_id,template_id) DO NOTHING`).bind(roomId,templateId,name,key,definition).run();
+    if(!saved.meta?.changes){
+      if(uploadedKey)await env.LOGS.delete(uploadedKey).catch(()=>{});
+      return conflict();
+    }
     try{if(!old)await saveTemplatePoints(env.DB,roomId,templateId,templateState)}catch(error){return json({error:error.message},error.status||500)}
-    return json({ok:true,record:{id:templateId,name,dataUrl:key?imageUrl(roomId,templateId)+'?v='+updatedAt:'',imageName:String(record.imageName||''),createdAt,updatedAt},templateState});
+    return json({ok:true,record:{id:templateId,revision,name,dataUrl:key?imageUrl(roomId,templateId)+'?v='+updatedAt:'',imageName:String(record.imageName||''),createdAt,updatedAt},templateState});
   }
 
   if(request.method==='DELETE'&&templateId){

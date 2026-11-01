@@ -60,7 +60,7 @@
   const api=async(path,options={})=>{
     const response=await fetch(path,{headers:{"content-type":"application/json","x-realtime-client":realtimeClientId,...(options.headers||{})},...options});
     const body=await response.json().catch(()=>({}));
-    if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);
+    if(!response.ok)throw Object.assign(new Error(body.error||`通信エラー (${response.status})`),{status:response.status,code:body.code});
     return body;
   };
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
@@ -113,7 +113,7 @@
 
   function applyRemotePoint(data){
     const itemId=String(data?.itemId||"");
-    if(!itemId||!roomId)return;
+    if(!itemId||!roomId||data?.templateId&&data.templateId!==window.currentTemplateId?.())return;
     const state=appState();state.items||={};
     const item=state.items[itemId]||(state.items[itemId]=typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{});
     for(const key of pointKeys){if(data?.[key]!==undefined)item[key]=key==="placed"?!!data[key]:Number(data[key])}
@@ -197,7 +197,7 @@
     }
   }
 
-  window.matrixBoardContext={boardId,get roomId(){return roomId},api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange,savePoint};
+  window.matrixBoardContext={boardId,get roomId(){return roomId},isApplyingRemote:()=>applyingRemote,api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange,savePoint};
 
   function notifyReady(){
     if(readySent)return;
@@ -267,6 +267,9 @@
       applyingRemote=true;
       try{
         const roomState=normalizedRoomState(matrix.state);
+        // Room-level refreshes must not blank the selected template's saved layout.
+        const selected=window.currentTemplateId?.(),saved=window.matrixTemplateSync?.isHydrated?.()?window.templateStates?.()?.[selected]:null;
+        if(saved){roomState.items=JSON.parse(JSON.stringify(saved.items||{}));roomState.display={...roomState.display,...saved.display}}
         saveState(roomState);
         redrawMatrix(roomState,active);
         lastState=JSON.stringify(matrix.state||{});
@@ -329,7 +332,7 @@
     const rawSaveState=window.saveState;
     const syncedSaveState=function(state){
       const result=rawSaveState(state);
-      if(!applyingRemote){fullStateDirty=true;requestSave(0)}
+      if(!applyingRemote&&!window.matrixTemplateSync?.isApplyingRemote?.()){fullStateDirty=true;requestSave(0)}
       return result;
     };
     syncedSaveState.__jijinboardImmediateSync=true;

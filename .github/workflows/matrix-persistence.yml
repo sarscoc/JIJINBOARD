@@ -1,0 +1,22 @@
+name: MATRIX persistence regression tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  matrix-persistence:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm test
+      - name: Check MATRIX script syntax
+        run: |
+          node --check src/matrix-templates.js
+          node --check public/matrix/matrix-template-sync.js
+          node --check public/matrix/board-integration.js
