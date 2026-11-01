@@ -24,7 +24,7 @@
     for(const row of popup.querySelectorAll('.question-popup-row')){
       const text=row.querySelector('textarea')?.value||row.querySelector('.question-popup-answer')?.textContent||'';
       const units=Math.max(0,...text.split('\n').map(line=>Array.from(line).reduce((n,ch)=>n+(/[ -~]/.test(ch)?.55:1),0)));
-      row.style.setProperty('--answer-width',units>75?'100%':Math.max(100,Math.min(900,units*12+80))+'px');
+      row.style.setProperty('--answer-width',units>75?'100%':Math.max(100,Math.min(900,units*16+80))+'px');
 
       const id=row.querySelector('[data-popup-char]')?.dataset.popupChar||state.characters[[...row.parentNode.children].indexOf(row)]?.id;
       if(!id||row.querySelector('.question-portrait'))continue;
@@ -72,7 +72,7 @@
     #questionPopup[data-answer-presentation="bubble"] .question-popup-name{display:flex!important;flex-direction:column!important;align-items:center!important;flex:0 0 48px!important;width:48px!important;min-width:0!important;max-width:48px!important;font-size:8px!important;line-height:1.3!important;overflow-wrap:anywhere;border:0!important;padding:0!important}
     #questionPopup[data-answer-presentation="bubble"] .question-portrait{width:36px;height:36px;margin:0 0 3px}
     #questionPopup[data-answer-presentation="bubble"] .question-popup-answer{flex:1;min-width:0!important;max-width:100%;background:color-mix(in srgb,var(--question-accent) 8%,white);border-radius:13px;padding:5px 9px!important;box-sizing:border-box}
-    #questionPopup[data-answer-presentation="bubble"] textarea{font-size:12px!important;line-height:1.5!important;min-height:20px!important;overflow:hidden!important;padding:0!important;max-height:none!important;box-sizing:border-box}
+    #questionPopup[data-answer-presentation="bubble"] textarea{font-size:16px!important;line-height:1.65!important;min-height:20px!important;overflow:hidden!important;padding:0!important;max-height:none!important;box-sizing:border-box}
     #questionPopup[data-answer-presentation="compare"] #questionPopupAnswers{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(180px,100%),1fr));gap:8px;padding:10px}
     #questionPopup[data-answer-presentation="compare"] .question-popup-row{display:flex!important;flex-direction:column!important;border:1px solid #e6e8ed!important;border-radius:8px;min-width:0;padding:8px!important}
     #questionPopup[data-answer-presentation="compare"] .question-popup-name{border:0!important;padding:4px!important;font-size:11px!important}
@@ -84,6 +84,9 @@
     #questionPopup[data-answer-presentation="bubble"] .question-popup-answer{background:transparent!important;border:1px solid color-mix(in srgb,var(--question-accent) 45%,#e5e7eb)!important;border-radius:999px!important;padding:7px 14px!important;min-height:0!important;height:auto!important;box-shadow:none!important;align-self:flex-start!important}
     #questionPopup[data-answer-presentation="bubble"] .question-popup-answer textarea{background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;padding:0!important;margin:0!important;min-height:0!important;resize:none!important;overflow:hidden!important}
     #questionPopup[data-answer-presentation="compare"] .question-popup-row{background:#fff!important;box-shadow:0 1px 3px #00000008;padding:12px!important;border-radius:12px!important}
+    #questionPopup[data-answer-presentation] .question-popup-answer textarea{font-size:16px!important;line-height:1.65!important}
+    #questionPopup:not([data-answer-presentation="bubble"]) .question-popup-name{font-size:13px!important;line-height:1.5!important}
+    #questionPopup .question-popup-answer:has(.auto-video-preview:not(:empty)) textarea{display:none!important}
     .question-portrait-settings{display:grid;gap:10px;margin-top:16px;padding:12px;border-top:1px solid #e6e8ed}.question-portrait-settings img{width:80px;height:80px;object-fit:cover;border-radius:50%}
     @media(max-width:600px){#questionPopup[data-answer-presentation="bubble"] .question-popup-row{grid-template-columns:1fr!important}}
   `;document.head.appendChild(style);

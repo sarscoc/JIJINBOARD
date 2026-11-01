@@ -19,11 +19,10 @@
     for(const field of document.querySelectorAll('.character-sheet-edit,.character-answer')){
       field.style.setProperty('overflow','hidden','important');
       field.style.setProperty('max-height','none','important');
-      if(field.parentElement.querySelector('.auto-video-preview:not(:empty)')){
-        field.style.setProperty('font-size','9px','important');field.style.setProperty('font-weight','400','important');
-        const charId=field.dataset.characterPopupChar||field.dataset.fullCharacterChar;
-        field.style.setProperty('color',charId?getCharacterDesign(charId).accent:getGlobalThemeColor(),'important');
-      }
+      field.style.setProperty('font-size','16px','important');
+      field.style.setProperty('line-height','1.65','important');
+      if(field.parentElement.querySelector('.auto-video-preview:not(:empty)'))field.style.setProperty('display','none','important');
+      else field.style.removeProperty('display');
       field.style.setProperty('height','0px','important');
       field.style.setProperty('height',Math.max(24,field.scrollHeight+2)+'px','important');
     }
@@ -44,6 +43,11 @@
     .character-sheet-value:has(.auto-video-preview:not(:empty)),.character-row-value:has(.auto-video-preview:not(:empty)){display:flex!important;flex-direction:column!important}
     .character-sheet-value:has(.auto-video-preview:not(:empty)) .auto-video-preview,.character-row-value:has(.auto-video-preview:not(:empty)) .auto-video-preview{order:1;margin:0!important;padding:0!important}
     .character-sheet-value:has(.auto-video-preview:not(:empty)) textarea,.character-row-value:has(.auto-video-preview:not(:empty)) textarea{order:2;font-size:10px!important;text-align:right!important;color:var(--sheet-accent,var(--user-accent,#8b93a2))!important;line-height:1.4!important;padding:3px 0!important;width:100%!important}
+    :is(#characterPopup,#fullCharacterPages,#characterViewRoot) .character-sheet-edit,:is(#characterPopup,#fullCharacterPages,#characterViewRoot) .character-answer{font-size:16px!important;line-height:1.65!important}
+    :is(#characterPopup,#fullCharacterPages,#characterViewRoot) .character-sheet-label,:is(#characterPopup,#fullCharacterPages,#characterViewRoot) .character-row-label{font-size:13px!important;line-height:1.5!important}
+    #questionPopup .question-popup-answer textarea{font-size:16px!important;line-height:1.65!important}
+    #questionPopup .question-popup-answer:has(.auto-video-preview:not(:empty)) textarea{display:none!important}
+    :is(#characterPopup,#fullCharacterPages,#characterViewRoot) :is(.character-sheet-value,.character-row-value):has(.auto-video-preview:not(:empty)) textarea{display:none!important}
     .character-sheet-label{color:var(--character-question-text,#8b93a2)!important}
   `;document.head.appendChild(style);
   const observer=new MutationObserver(schedule);
