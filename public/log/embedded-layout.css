@@ -60,7 +60,7 @@ html.embedded #themeBtn{display:none!important}
   }
 
   html.embedded .room-tools h1{
-    flex:1 1 auto!important;
+    flex:1 1 0!important;
     min-width:80px!important;
     max-width:none!important;
     margin:0!important;
@@ -74,7 +74,7 @@ html.embedded #themeBtn{display:none!important}
   }
 
   html.embedded .filters{
-    flex:0 1 auto!important;
+    flex:0 0 auto!important;
     min-width:0!important;
     max-width:calc(100% - 96px)!important;
     display:flex!important;
@@ -83,8 +83,11 @@ html.embedded #themeBtn{display:none!important}
     gap:5px!important;
     height:var(--embed-control-height)!important;
     min-height:var(--embed-control-height)!important;
-    overflow:visible!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    scrollbar-width:none;
   }
+  html.embedded .filters::-webkit-scrollbar{display:none}
 
   html.embedded .filters input,
   html.embedded .filters select,
@@ -99,7 +102,7 @@ html.embedded #themeBtn{display:none!important}
     border-radius:7px!important;
     font-size:9px!important;
     line-height:1.2!important;
-    flex:0 1 auto!important;
+    flex:0 0 auto!important;
   }
 
   html.embedded #viewMode{width:108px!important;min-width:82px!important}
@@ -108,7 +111,7 @@ html.embedded #themeBtn{display:none!important}
   html.embedded #exportRoomBtn{white-space:nowrap!important}
 
   html.embedded .filters .font-size-control{
-    flex:0 1 128px!important;
+    flex:0 0 128px!important;
     width:128px!important;
     min-width:94px!important;
     height:var(--embed-control-height)!important;
@@ -129,7 +132,7 @@ html.embedded #themeBtn{display:none!important}
     min-height:0!important;
     max-height:none!important;
     padding:0!important;
-    flex:1 1 auto!important;
+    flex:1 1 0!important;
   }
 
   html.embedded .reader-grid{
@@ -170,7 +173,7 @@ html.embedded #themeBtn{display:none!important}
   }
   html.embedded .comments-head{flex:0 0 auto}
   html.embedded .comments-list{
-    flex:0 1 auto!important;
+    flex:0 0 auto!important;
     min-height:0!important;
     max-height:calc(100vh - (var(--embed-page-pad) * 2) - var(--embed-toolbar-height) - var(--embed-gap) - 48px)!important;
     overflow-y:auto!important;
