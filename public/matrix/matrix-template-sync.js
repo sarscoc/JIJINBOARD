@@ -264,6 +264,7 @@
           window.renderPlaced?.();
         }catch(error){console.warn("MATRIX template redraw failed",error)}finally{applying=false}
         hydrated=true;hydratedLogId=target;
+        if(typeof CustomEvent!=="undefined")window.dispatchEvent(new CustomEvent("matrix-template-hydrated"));
         // Never upload historical local records merely because hydration found them.
         return true;
       }catch(error){console.warn("MATRIX template hydrate failed",error);return false}

@@ -11,6 +11,20 @@
   const rawAppState = appState;
   const rawTemplateStates = templateStates;
   const rawMutate = mutate;
+  const SYNCED='magiaMatrix.displayComments.shared.v1';
+  const recovering=new Set();
+  function synchronized(tid,id){return !!loadJSONSafe(SYNCED,{})[tid]?.[id]}
+  function acknowledge(tid,id){const all=loadJSONSafe(SYNCED,{});all[tid]||={};all[tid][id]=true;localStorage.setItem(SYNCED,JSON.stringify(all))}
+  function recover(tid,id,annotation){
+    const key=tid+':'+id;if(recovering.has(key))return;recovering.add(key);
+    setTimeout(async()=>{
+      try{
+        if(currentTid()!==tid||!window.matrixTemplateSync?.isHydrated?.())return;
+        if(await window.matrixBoardContext?.savePoint?.(id,{...annotation,recoverIfEmpty:true},true))acknowledge(tid,id);
+      }finally{recovering.delete(key)}
+    },300);
+  }
+
 
   const clone = value => {
     try { return structuredClone(value); }
@@ -100,10 +114,11 @@
     const page = loadStore()?.[tid] || {};
     Object.entries(itemsState || {}).forEach(([id, local]) => {
       if (!local) return;
-      if (local.comment === undefined && Object.prototype.hasOwnProperty.call(page, id)) {
+      if (Object.prototype.hasOwnProperty.call(page, id) && (local.comment === undefined || (!local.comment && page[id]?.comment && !synchronized(tid,id)))) {
         const annotation = page[id] || {};
         local.comment = String(annotation.comment ?? "");
         local.commentPosition = String(annotation.commentPosition || "top");
+        if(annotation.comment)recover(tid,id,annotation);
       }
     });
     return itemsState;
@@ -124,14 +139,24 @@
       // Blank is saved explicitly as a tombstone so an older template snapshot
       // cannot resurrect a comment the user intentionally removed.
       page[id] = after;
-      window.matrixBoardContext?.savePoint?.(id,{...afterRaw[id],...after},true);
+      changed = true;
       changed = true;
     });
 
-    if (changed) saveStore(store);
+    if (changed) {
+      saveStore(store);
+      for(const id of ids)if(!sameAnnotation(annotationOf(beforeItems?.[id]),annotationOf(afterItems?.[id]))){
+        Promise.resolve(window.matrixBoardContext?.savePoint?.(id,{...afterItems[id],...page[id]},true)).then(ok=>{if(ok)acknowledge(tid,id)}).catch(console.warn);
+      }
+    }
   }
 
   migrateOnce();
+  window.addEventListener('matrix-template-hydrated',()=>{
+    const live=rawAppState();applyPageComments(live.items||{},currentTid());
+    if(typeof saveJSON==='function'&&typeof STATE!=='undefined')saveJSON(STATE,live);
+    if(typeof renderPlaced==='function')renderPlaced();
+  });
 
   appState = function() {
     const state = rawAppState();

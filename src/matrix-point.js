@@ -15,9 +15,11 @@ export async function handleMatrixPoint(request,env,roomId,logId,itemId){
   if(body?.comment!==undefined){
     const comment=String(body.comment??'').slice(0,4000),commentPosition=['top','bottom','left','right'].includes(body.commentPosition)?body.commentPosition:'top';
     await env.DB.prepare(`INSERT INTO matrix_point(room_id,template_id,point_id,supplement_body,point_settings) VALUES(?,?,?,?,?)
-      ON CONFLICT(room_id,template_id,point_id) DO UPDATE SET supplement_body=excluded.supplement_body,point_settings=json_patch(matrix_point.point_settings,excluded.point_settings),updated_at=CURRENT_TIMESTAMP`)
-      .bind(roomId,templateId,itemId,comment,JSON.stringify({commentPosition})).run();
-    return json({ok:true,point:{itemId,templateId,comment,commentPosition}});
+      ON CONFLICT(room_id,template_id,point_id) DO UPDATE SET supplement_body=excluded.supplement_body,point_settings=json_patch(matrix_point.point_settings,excluded.point_settings),updated_at=CURRENT_TIMESTAMP WHERE ?=0 OR matrix_point.supplement_body=''`)
+      .bind(roomId,templateId,itemId,comment,JSON.stringify({commentPosition}),body.recoverIfEmpty?1:0).run();
+    const saved=await env.DB.prepare('SELECT supplement_body,point_settings FROM matrix_point WHERE room_id=? AND template_id=? AND point_id=?').bind(roomId,templateId,itemId).first();
+    let settings={};try{settings=JSON.parse(saved?.point_settings||'{}')}catch{}
+    return json({ok:true,point:{itemId,templateId,comment:saved?.supplement_body??comment,commentPosition:settings.commentPosition||commentPosition}});
   }
   const old=await env.DB.prepare('SELECT * FROM matrix_point WHERE room_id=? AND template_id=? AND point_id=?').bind(roomId,templateId,itemId).first();
   const placed=body?.placed!==undefined?!!body.placed:!!old?.is_placed,x=finite(body?.x,old?.point_x??null),y=finite(body?.y,old?.point_y??null),templateX=finite(body?.templateX,old?.template_x??null),templateY=finite(body?.templateY,old?.template_y??null),scale=finite(body?.scaleBaseWidth,old?.scale_base_width??null),version=Math.max(0,Math.min(10,Math.trunc(finite(body?.coordVersion,old?.coordinate_version??0))));

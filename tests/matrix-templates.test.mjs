@@ -109,5 +109,6 @@ test('token comments save independently and do not revert newer coordinates',asy
  await call({placed:true,x:88,y:77});
  assert.equal((await call({comment:'shared bubble',commentPosition:'bottom'})).status,200);
  let [row]=await f.list();assert.equal(row.templateState.items.pc.x,88);assert.equal(row.templateState.items.pc.comment,'shared bubble');assert.equal(row.templateState.items.pc.commentPosition,'bottom');
+ await call({comment:'stale recovery',recoverIfEmpty:true});[row]=await f.list();assert.equal(row.templateState.items.pc.comment,'shared bubble');
  await call({comment:'',commentPosition:'top'});[row]=await f.list();assert.equal(row.templateState.items.pc.comment,'');assert.equal(row.templateState.items.pc.x,88);
 });

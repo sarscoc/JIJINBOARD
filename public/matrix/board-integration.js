@@ -186,13 +186,15 @@
   async function savePoint(itemId,item,commentOnly=false){
     if(!roomId||loadedRoom!==roomId||applyingRemote||!itemId)return;
     const me=profile();if(!me?.plName)return;
-    const point=commentOnly?{itemId,comment:String(item.comment||''),commentPosition:item.commentPosition||'top'}:pointPayload(itemId,item);point.templateId=window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId+':'+commentOnly;
+    const point=commentOnly?{itemId,comment:String(item.comment||''),commentPosition:item.commentPosition||'top',recoverIfEmpty:!!item.recoverIfEmpty}:pointPayload(itemId,item);point.templateId=window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId+':'+commentOnly;
     pointRequests.set(key,point);
     try{
       const result=await api(pointPath(itemId),{method:"PATCH",body:JSON.stringify({authorId:me.id,authorName:me.plName,...point})});
       if(pointRequests.get(key)!==point)return;
       pointRequests.delete(key);
+      if(point.recoverIfEmpty&&result.point)applyRemotePoint(result.point);
       notifyChange("matrix-point",result.point||point);
+      return true;
     }catch(error){
       pointRequests.delete(key);
       fullStateDirty=true;
