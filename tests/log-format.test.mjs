@@ -63,3 +63,12 @@ test('the real fast-render override preserves explicit Tekey ruby and annotation
  const start=message.text.indexOf('赤'),end=start+1;host.innerHTML=w.markedText(message,[{id:'saved',message_id:'m',start_offset:start,end_offset:end}]);
  assert.equal(host.querySelector('ruby mark').textContent,'赤');const run=host.querySelector('ruby mark span');assert.equal(w.JijinLogFormat.sourceOffset(host,run.firstChild,0),start);
 });
+
+test('dice blank lines are visually collapsed without changing stored text or source offsets',t=>{
+ const w=fixture(t),source='choice 1 2\n\nCthulhu : choice → 1',host=w.document.createElement('div');
+ host.innerHTML=w.JijinLogFormat.render(source,[],{compactBlankLines:true});
+ assert.equal(host.textContent,source,'raw text remains intact');
+ assert.equal(Array.from(host.querySelectorAll('[data-log-start]:not([data-log-hidden])'),n=>n.textContent).join(''),'choice 1 2\nCthulhu : choice → 1');
+ const result=host.querySelector('[data-log-hidden]').nextElementSibling;assert.equal(w.JijinLogFormat.sourceOffset(host,result.firstChild,0),source.indexOf('Cthulhu'));
+ host.innerHTML=w.JijinLogFormat.render(source);assert.equal(host.querySelector('[data-log-hidden]'),null,'non-dice paragraphs retain intentional blank lines');
+});

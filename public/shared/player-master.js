@@ -111,6 +111,12 @@
     })().finally(()=>{refreshTask=null});
     return refreshTask;
   }
+  async function inspectProfile(){
+    if(!playerId||!token)throw Error('この部屋のPL登録を確認してください');
+    const result=await api(endpoint());
+    if(!Array.isArray(result.master?.characters))throw Error('保存データを確認できませんでした');
+    return result.master;
+  }
   async function updateProfile(value){
     if(!master)await bootstrap();
     if(!playerId||!token)throw Error('先にPL名を登録してください');
@@ -242,6 +248,6 @@
     }));
   }
 
-  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,refresh,setEditing,updateProfile,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
+  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,refresh,setEditing,inspectProfile,updateProfile,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",scheduleStart,{once:true});else scheduleStart();
 })();

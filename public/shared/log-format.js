@@ -19,13 +19,18 @@
   }
   literal(end);return out;
  }
- function render(source,segments=[]){
+ function render(source,segments=[],options={}){
   source=String(source??'');
+  const hidden=options.compactBlankLines?Array.from(source.matchAll(/\n(?:[\t ]*\n)+/g),m=>({start:m.index+1,end:m.index+m[0].length})):[];
+  function mapped(start,end){
+   const cuts=[...new Set([start,end,...hidden.flatMap(r=>[r.start,r.end]).filter(n=>n>start&&n<end)])].sort((a,b)=>a-b);
+   return cuts.slice(0,-1).map((a,i)=>{const b=cuts[i+1],hide=hidden.some(r=>r.start<=a&&r.end>=b);return `<span data-log-start="${a}" data-log-end="${b}"${hide?' data-log-hidden="1" aria-hidden="true" style="display:none"':''}>${escape(source.slice(a,b))}</span>`}).join('');
+  }
   function textHtml(token){
    const edges=[...new Set([token.start,token.end,...segments.flatMap(s=>[s.start,s.end]).filter(n=>n>token.start&&n<token.end)])].sort((a,b)=>a-b);
    let html='';for(let i=0;i<edges.length-1;i++){
     const start=edges[i],end=edges[i+1],winner=segments.find(s=>s.start<=start&&s.end>=end)?.winner;
-    const value=`<span data-log-start="${start}" data-log-end="${end}">${escape(source.slice(start,end))}</span>`;
+    const value=mapped(start,end);
     html+=winner?`<mark data-ann="${escape(winner.id)}" style="--marker:${escape(winner.color)}">${value}</mark>`:value;
    }return html;
   }
