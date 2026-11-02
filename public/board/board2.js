@@ -122,16 +122,17 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
   window.__boardPresenceOwner=true;
   let socket=null,reconnectTimer=0,stopped=false,attempt=0;
   const clientId=crypto.randomUUID();
-  const visitorId=`visitor:${clientId}`;
   const currentProfile=()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')}catch{return null}};
   function publish(type='presence'){
     if(socket?.readyState!==WebSocket.OPEN)return;
     const p=currentProfile();
-    socket.send(JSON.stringify({type,clientId,authorId:p?.id||visitorId,plName:p?.plName||'ゲスト',plIcon:p?.plIcon||'',isTyping:false}));
+    const name=String(p?.plName||'').trim();
+    if(!p?.id||!name)return;
+    socket.send(JSON.stringify({type,clientId,authorId:p.id,plName:name,plIcon:p.plIcon||'',isTyping:false}));
   }
   function draw(people){
     const bar=document.querySelector('#presenceBar');if(!bar)return;
-    bar.innerHTML=(people||[]).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||'?').slice(0,1))}</i>`}<b>${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':''}</span>`).join('');
+    bar.innerHTML=(people||[]).filter(person=>String(person.pl_name||'').trim()&&!String(person.author_id||'').startsWith('visitor:')).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||'?').slice(0,1))}</i>`}<b>${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':''}</span>`).join('');
   }
   function connect(){
     if(stopped||socket&&socket.readyState<2)return;
