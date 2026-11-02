@@ -1,3 +1,4 @@
+import {ensurePlayerScope} from './player-scope.js';
 import {freshnessStatements} from './data-freshness.js';
 export const createStatements = [
   `CREATE TABLE IF NOT EXISTS top_auth (password_hash TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash_version INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -82,13 +83,15 @@ export function ensureSchema(db){
   let task=ready.get(db);
   if(!task){
     task=(async()=>{
-      if(await isV2(db)){await db.batch(freshnessStatements.map(sql=>db.prepare(sql)));return;}
+      if(await isV2(db)){await db.batch(freshnessStatements.map(sql=>db.prepare(sql)));await ensurePlayerScope(db);return;}
       const existing=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%' LIMIT 1").first();
       if(existing)throw new Error('データベースの構成が現行版と異なります。保存データを保護するため自動初期化を停止しました。');
       await db.batch([...createStatements,...freshnessStatements].map(sql=>db.prepare(sql)));
+      await ensurePlayerScope(db);
     })();
     ready.set(db,task);
     task.catch(()=>ready.delete(db));
   }
   return task;
 }
+

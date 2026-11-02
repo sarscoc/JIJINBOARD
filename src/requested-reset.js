@@ -1,3 +1,4 @@
+import {playerScopeTriggers as scopeTriggers} from './player-scope.js';
 // Explicit, one-time reset requested by the owner. Enabled only by RESET_DATASET_ONCE.
 // The durable completion record survives code deployment and is never in the wipe set.
 import {createStatements} from './schema.js';
@@ -8,13 +9,7 @@ const system=name=>/^(sqlite_|_cf_|d1_)/.test(name);
 const preserve=new Set(['app_reset','app_dataset','top_auth','top_session']);
 // After the reset, even an already-admitted old Worker request cannot recreate
 // the retired global identity rows. New application code always uses addresses.
-const scopeTriggers=[
- `CREATE TRIGGER IF NOT EXISTS pl_room_address_insert BEFORE INSERT ON pl WHEN NEW.pl_id NOT GLOB '/boards/*/players/*' BEGIN SELECT RAISE(ABORT,'Room player address required'); END`,
- `CREATE TRIGGER IF NOT EXISTS pl_room_address_update BEFORE UPDATE ON pl WHEN NEW.pl_id NOT GLOB '/boards/*/players/*' BEGIN SELECT RAISE(ABORT,'Room player address required'); END`,
- `CREATE TRIGGER IF NOT EXISTS character_room_address_insert BEFORE INSERT ON character WHEN NEW.character_id NOT GLOB (NEW.pl_id||'/characters/*') BEGIN SELECT RAISE(ABORT,'Room character address required'); END`,
- `CREATE TRIGGER IF NOT EXISTS character_room_address_update BEFORE UPDATE ON character WHEN NEW.character_id NOT GLOB (NEW.pl_id||'/characters/*') BEGIN SELECT RAISE(ABORT,'Room character address required'); END`,
- `CREATE TRIGGER IF NOT EXISTS room_owner_address_insert BEFORE INSERT ON room WHEN NEW.owner_pl_id NOT GLOB '/boards/*/players/*' BEGIN SELECT RAISE(ABORT,'Room owner address required'); END`
-];
+
 const pending=(diagnostic={})=>new Response(JSON.stringify({...diagnostic,code:'DATASET_RESETTING',error:'保存データを初期化しています。しばらくしてから再読み込みしてください。'}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','retry-after':'5'}});
 export async function performRequestedReset(env){
  const id=String(env.RESET_DATASET_ONCE||'');if(!id)return null;
@@ -106,3 +101,4 @@ export async function requestedResetStatus(env){
  const row=await env.DB.prepare('SELECT reset_id,state,phase,cursor,completed_at FROM app_reset WHERE reset_id=?').bind(String(env.RESET_DATASET_ONCE)).first();
  return row?{id:row.reset_id,state:row.state,phase:row.phase,cursor:Number(row.cursor)||0,completedAt:row.completed_at||null}:null;
 }
+
