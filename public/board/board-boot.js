@@ -4,14 +4,38 @@
  const boardId=new URL(location.href).searchParams.get('id');if(!boardId)return;
  let finishImage,finishProfile;
  const image=new Promise(resolve=>finishImage=resolve),profile=new Promise(resolve=>finishProfile=resolve);
- const title=(async()=>{
+ const cacheKey=`board:${encodeURIComponent(boardId)}:title`;
+ async function request(path,priority){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
+  try{
+   const response=await fetch(path,{cache:'no-store',priority,signal:controller.signal});
+   const data=await response.json();if(!response.ok)throw Error(data.error||'部屋情報を取得できませんでした');
+   return data;
+  }finally{clearTimeout(timer)}
+ }
+ const freshTitle=(async()=>{
   await window.JijinDataset?.ready;
-  const response=await fetch(`/api/boards/${encodeURIComponent(boardId)}?summary=1`,{cache:'no-store',priority:'high'});
-  const data=await response.json();if(!response.ok)throw Error(data.error||'部屋名を取得できませんでした');
+  const data=await request(`/api/boards/${encodeURIComponent(boardId)}?summary=1`,'high');
   if(!data.name)throw Error('部屋名がありません');
+  try{localStorage.setItem(cacheKey,JSON.stringify({generation:localStorage.getItem('jijin.dataset.generation.v1'),data}))}catch{}
+  const label=document.getElementById('boardName');if(label)label.textContent=data.name;
+  document.title=`${data.name} | JIJINBOARD`;
   return data;
  })();
- title.catch(()=>{});
+ const title=(async()=>{
+  await window.JijinDataset?.ready;
+  try{
+   const saved=JSON.parse(localStorage.getItem(cacheKey)||'null');
+   if(saved?.generation===localStorage.getItem('jijin.dataset.generation.v1')&&saved?.data?.id===boardId&&saved.data.name)return saved.data;
+  }catch{}
+  return freshTitle;
+ })();
+ // Fetch in parallel; the board still reveals name -> image -> PL -> logs.
+ const boardData=(async()=>{
+  await window.JijinDataset?.ready;
+  return request(`/api/boards/${encodeURIComponent(boardId)}`,'low');
+ })();
+ title.catch(()=>{});freshTitle.catch(()=>{});boardData.catch(()=>{});
  let started=false;
  function startImage(){
   if(started)return;started=true;
@@ -34,5 +58,5 @@
    if(target.complete&&target.naturalWidth)complete(true);
   }).catch(()=>finishImage(false));
  }
- window.JijinBoardReady={title,image,profile,startImage,finishProfile};
+ window.JijinBoardReady={title,boardData,image,profile,startImage,finishProfile};
 })();

@@ -279,12 +279,6 @@
     if(roomId!==previousRoom){
       disconnectRealtimeEvents();
       dirtyState=dirtyParticipants=dirtyComments=false;
-      applyingRemote=true;
-      try{
-        const blank=emptyRoomState();
-        saveState(blank);
-        redrawMatrix(blank,false);
-      }finally{applyingRemote=false}
       window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
     }
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
@@ -295,8 +289,9 @@
       try{
         const roomState=normalizedRoomState(matrix.state);
         // Room-level refreshes must not blank the selected template's saved layout.
-        const selected=window.currentTemplateId?.(),saved=window.matrixTemplateSync?.isHydrated?.()?window.templateStates?.()?.[selected]:null;
-        if(saved){roomState.items=JSON.parse(JSON.stringify(saved.items||{}));roomState.display={...roomState.display,...saved.display}}
+        const selected=window.currentTemplateId?.(),saved=window.templateStates?.()?.[selected];
+        roomState.items=JSON.parse(JSON.stringify(saved?.items||appState()?.items||{}));
+        if(saved)roomState.display={...roomState.display,...saved.display};
         saveState(roomState);
         redrawMatrix(roomState,active);
         lastState=JSON.stringify(matrix.state||{});

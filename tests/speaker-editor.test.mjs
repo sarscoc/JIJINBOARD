@@ -72,7 +72,7 @@ test('board clears a previous PC list when an authoritative empty list arrives',
 
 test('room name is painted before screenshot starts, and PL waits for screenshot outcome',async t=>{
  const dom=new JSDOM('<strong id="boardName"></strong><img id="boardHomeImage" class="hidden"><div id="boardHomeEmpty"></div>',{url:'https://test/board/?id=one',runScripts:'outside-only',pretendToBeVisual:true});t.after(()=>dom.window.close());const w=dom.window;
- let release;w.fetch=()=>new Promise(r=>release=r);w.JijinDataset={ready:Promise.resolve()};
+ let release;w.fetch=path=>path.includes('summary=1')?new Promise(r=>release=r):Promise.resolve({ok:true,json:async()=>({id:'one',name:'部屋名',logs:[]})});w.JijinDataset={ready:Promise.resolve()};
  w.eval(source('board/board-boot.js'));w.JijinBoardReady.startImage();
  const image=w.document.querySelector('img');assert.equal(image.getAttribute('src'),null);
  await tick();release({ok:true,json:async()=>({id:'one',name:'部屋名'})});await w.JijinBoardReady.title;await tick();

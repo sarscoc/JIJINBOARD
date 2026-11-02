@@ -13,7 +13,7 @@ function fixture(options={}){
     parent:{postMessage(){}},requestIdleCallback(){},requestAnimationFrame:fn=>fn(),setTimeout,clearTimeout,
     document:{querySelector:()=>null,querySelectorAll:()=>[],addEventListener(){}},addEventListener:(name,fn)=>listeners.set(name,fn),
     mutate:fn=>fn(state),appState:()=>state,saveState:s=>{state=s},saveJSON:(key,s)=>{state=s},saveCurrentTemplateState:s=>Object.assign(saved,structuredClone(s)),STATE:'state',items:[],
-    currentTemplateId:()=> 'tpl',templateStates:()=>({tpl:saved}),matrixTemplateSync:{isHydrated:()=>true},
+    currentTemplateId:()=> 'tpl',templateStates:()=>({tpl:saved}),matrixTemplateSync:{isHydrated:()=>options.hydrated!==false},
     scheduleTemplateOverlaySync(){},renderLibrary(){},renderPlaced(){},restoreDisplay(){},restorePaneWidth(){},makeLocalItemState:()=>({})
   };
   context.window=context;vm.runInNewContext(source,context);
@@ -67,4 +67,8 @@ test('first placement persists coordinates even when it also initializes comment
  f.context.mutate(s=>{s.items.pc.placed=true;s.items.pc.x=24;s.items.pc.y=37;s.items.pc.commentPosition='top'});await tick();
  const patch=f.requests.find(r=>r.method==='PATCH');assert.ok(patch,'mixed coordinate/metadata mutation must PATCH its point');
  const data=JSON.parse(patch.body);assert.equal(data.placed,true);assert.equal(data.x,24);assert.equal(data.y,37);
+});
+
+test('a delayed room settings response cannot erase template placements before template hydration finishes',async()=>{
+ const f=fixture({hydrated:false});await tick();assert.equal(f.state().items.pc.placed,true);assert.equal(f.state().items.pc.x,73);
 });

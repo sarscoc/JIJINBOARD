@@ -18,7 +18,7 @@ async function loadBoard(){
   for(let attempt=0;attempt<2;attempt++){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);
     try{
-      const data=await api(`/api/boards/${encodeURIComponent(boardId)}`,{signal:controller.signal});
+      const data=attempt===0&&window.JijinBoardReady?.boardData?await window.JijinBoardReady.boardData:await api(`/api/boards/${encodeURIComponent(boardId)}`,{signal:controller.signal});
       if(!data?.id||!Array.isArray(data.logs))throw new Error('部屋情報の応答形式が正しくありません');
       return data;
     }catch(error){failure=error;if(attempt===0)$("#boardName").textContent="再接続中…";}

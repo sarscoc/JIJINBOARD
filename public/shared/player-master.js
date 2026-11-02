@@ -59,6 +59,7 @@
     let result;
     try{result=await api(root,{method:"POST",body:JSON.stringify(payload)})}
     catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api(root,{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
+    await window.JijinBoardReady?.image;
     token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);master=result.master||null;applySnapshot(master);return master;
   }
 
@@ -228,7 +229,7 @@
 
   async function start(){
     document.querySelector("#masterRoomPcPicker")?.remove();
-    try{await window.JijinBoardReady?.image;await bootstrap();hookRoomLoad();if(typeof state!=="undefined")await hydrateRoom();connectUpdates()}catch(error){console.warn("Player master bootstrap failed",error)}finally{window.JijinBoardReady?.finishProfile()}
+    try{await bootstrap();await window.JijinBoardReady?.image;hookRoomLoad();if(typeof state!=="undefined")await hydrateRoom();connectUpdates()}catch(error){console.warn("Player master bootstrap failed",error)}finally{window.JijinBoardReady?.finishProfile()}
     const issue=document.querySelector("#issueTransferBtn"),redeem=document.querySelector("#redeemTransferBtn");if(issue){issue.textContent="スマホ・別端末を追加";issue.onclick=issueDeviceCode}if(redeem)redeem.onclick=redeemDeviceCode;
     if(typeof state!=="undefined"){
       document.addEventListener("change",event=>{
