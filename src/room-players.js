@@ -16,20 +16,22 @@ async function masterData(db,board,row){
  return {boardId:board,address:row.pl_id,playerId:localId(row.pl_id),plName:row.pl_name,plIcon:playerIconUrl(board,row.pl_icon_key),plColor:row.pl_color,plColorDark:row.pl_color_dark,
   characters:chars.map(c=>({id:localId(c.character_id),address:c.character_id,type:c.character_type,name:c.character_name,icon:playerIconUrl(board,c.character_icon_key),matrixIcon:playerIconUrl(board,c.matrix_icon_key),color:c.character_color,colorDark:c.character_color_dark,updatedAt:c.updated_at})),deletedCharacterIds:deleted.map(c=>localId(c.character_id)),updatedAt:row.updated_at};
 }
-async function saveCharacters(env,board,playerId,list){
+async function characterSaveStatement(env,board,playerId,list){
  const pl=playerKey(board,playerId);
+ const existing=(await env.DB.prepare('SELECT * FROM character WHERE pl_id=?').bind(pl).all()).results||[];
+ const oldById=new Map(existing.map(c=>[c.character_id,c])),records=[];
  for(const item of Array.isArray(list)?list.slice(0,100):[]){
   const id=text(item?.id||item?.characterId),name=text(item?.name,80).trim();if(!id||!name)continue;
-  const key=characterKey(board,playerId,id);
-  if(await env.DB.prepare('SELECT 1 FROM deleted_character WHERE character_id=?').bind(key).first())continue;
-  const old=await env.DB.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(key,pl).first();
+  const key=characterKey(board,playerId,id),old=oldById.get(key);
   const icon=await storeImage(env.LOGS,text(item.icon,7_000_000),iconPrefix(board,'character-icons'))||old?.character_icon_key||'';
   const matrix=await storeImage(env.LOGS,text(item.matrixIcon,7_000_000),iconPrefix(board,'matrix-icons'))||old?.matrix_icon_key||'';
-  await env.DB.prepare(`INSERT INTO character(character_id,pl_id,character_type,character_name,character_icon_key,matrix_icon_key,character_color,character_color_dark,updated_at)
-   SELECT ?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP WHERE NOT EXISTS(SELECT 1 FROM deleted_character WHERE character_id=?)
-   ON CONFLICT(character_id) DO UPDATE SET character_type=excluded.character_type,character_name=excluded.character_name,character_icon_key=excluded.character_icon_key,matrix_icon_key=excluded.matrix_icon_key,character_color=excluded.character_color,character_color_dark=excluded.character_color_dark,updated_at=CURRENT_TIMESTAMP WHERE character.pl_id=excluded.pl_id`)
-   .bind(key,pl,item.type==='NPC'?'NPC':'PC',name,icon,matrix,text(item.color||'#ffe66b',40),text(item.colorDark||item.color||'#ffe66b',40),key).run();
+  records.push({key,type:item.type==='NPC'?'NPC':'PC',name,icon,matrix,color:text(item.color||'#ffe66b',40),dark:text(item.colorDark||item.color||'#ffe66b',40)});
  }
+ // One bounded SQL statement, even with 100 PCs. Check tombstones at write time.
+ return env.DB.prepare(`INSERT INTO character(character_id,pl_id,character_type,character_name,character_icon_key,matrix_icon_key,character_color,character_color_dark,updated_at)
+  SELECT json_extract(j.value,'$.key'),?,json_extract(j.value,'$.type'),json_extract(j.value,'$.name'),json_extract(j.value,'$.icon'),json_extract(j.value,'$.matrix'),json_extract(j.value,'$.color'),json_extract(j.value,'$.dark'),CURRENT_TIMESTAMP
+  FROM json_each(?) j WHERE NOT EXISTS(SELECT 1 FROM deleted_character d WHERE d.character_id=json_extract(j.value,'$.key'))
+  ON CONFLICT(character_id) DO UPDATE SET character_type=excluded.character_type,character_name=excluded.character_name,character_icon_key=excluded.character_icon_key,matrix_icon_key=excluded.matrix_icon_key,character_color=excluded.character_color,character_color_dark=excluded.character_color_dark,updated_at=CURRENT_TIMESTAMP WHERE character.pl_id=excluded.pl_id`).bind(pl,JSON.stringify(records));
 }
 async function redeem(request,env,board,code){
  const hash=await tokenHash(code),row=await env.DB.prepare('SELECT * FROM transfer WHERE transfer_code_hash=? AND substr(pl_id,1,?)=?').bind(hash,playerPrefix(board).length,playerPrefix(board)).first();
@@ -71,15 +73,19 @@ async function roomPlayers(request,env,board,parts=[]){
  if(method==='GET'&&parts.length===1)return json({master:await masterData(env.DB,board,row)});
  if(method==='PUT'&&parts.length===1){
   const icon=await storeImage(env.LOGS,String(data?.plIcon||''),iconPrefix(board,'pl-icons'))||row.pl_icon_key;
-  await env.DB.prepare('UPDATE pl SET pl_name=?,pl_icon_key=?,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(text(data?.plName||row.pl_name,80).trim(),icon,text(data?.plColor||row.pl_color,40),text(data?.plColorDark||data?.plColor||row.pl_color_dark,40),key).run();
-  await saveCharacters(env,board,playerId,data?.characters);
+  const characters=await characterSaveStatement(env,board,playerId,data?.characters);
+  await env.DB.batch([env.DB.prepare('UPDATE pl SET pl_name=?,pl_icon_key=?,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(text(data?.plName||row.pl_name,80).trim(),icon,text(data?.plColor||row.pl_color,40),text(data?.plColorDark||data?.plColor||row.pl_color_dark,40),key),characters,
   // Existing log marks use the same light/dark pair as the edited speaker.
-  await env.DB.prepare(`UPDATE log_comment_range SET marker_color=COALESCE(
+  env.DB.prepare(`UPDATE log_comment_range SET marker_color=COALESCE(
    (SELECT CASE WHEN c.author_character_id IS NULL THEN p.pl_color||'|'||p.pl_color_dark
     ELSE ch.character_color||'|'||ch.character_color_dark END
     FROM comment c JOIN pl p ON p.pl_id=c.author_pl_id LEFT JOIN character ch ON ch.character_id=c.author_character_id
     WHERE c.comment_id=log_comment_range.comment_id),marker_color)
-   WHERE comment_id IN(SELECT comment_id FROM comment WHERE room_id=? AND author_pl_id=?)`).bind(board,key).run();
+   WHERE comment_id IN(SELECT comment_id FROM comment WHERE room_id=? AND author_pl_id=?)`).bind(board,key),
+  env.DB.prepare('DELETE FROM room_participant WHERE room_id=? AND pl_id=?').bind(board,key),
+  env.DB.prepare('INSERT INTO room_participant(room_id,pl_id,character_id) VALUES(?,?,NULL)').bind(board,key),
+  env.DB.prepare("INSERT OR IGNORE INTO room_participant(room_id,pl_id,character_id) SELECT ?,pl_id,character_id FROM character WHERE pl_id=? AND character_type='PC'").bind(board,key)
+  ]);
   return json({master:await masterData(env.DB,board,await masterRow(env.DB,key))});
  }
  if(parts[1]==='characters'&&parts[2]&&parts.length===3&&method==='DELETE'){

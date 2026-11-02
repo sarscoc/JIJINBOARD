@@ -159,14 +159,18 @@
     plIconInput.onchange = async event => {
       const file = event.target.files?.[0];
       if (!file) return;
+      window.JIJINPlayerMaster?.setEditing?.(true);
       try {
         state.profile.plIcon = await resizeIcon(file);
         saveProfile();
         renderPlIcon();
         emitIntegratedProfile();
         heartbeatPresence();
+        await window.JIJINPlayerMaster?.pushCurrent?.();
       } catch (error) {
         console.warn("PL icon save failed", error);
+      } finally {
+        window.JIJINPlayerMaster?.setEditing?.(false);
       }
     };
   }
@@ -232,3 +236,4 @@
     closeProfile();
   });
 })();
+

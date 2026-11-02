@@ -53,3 +53,9 @@ test('TRPG JSON import and standalone HTML export retain all three styles',async
  const html=w.standaloneArchiveHtml({room:w.parsed(),annotations:[]}),exported=new JSDOM(html);t.after(()=>exported.window.close());
  assert.equal(exported.window.document.querySelector('ruby rt').textContent,'かんじ');assert.equal(exported.window.document.querySelector('strong').textContent,'太字');assert.equal(exported.window.document.querySelector('del').textContent,'取り消し');
 });
+
+test('pipe-free kanji ruby from the reported Tekey log renders above the base text',t=>{
+ const w=fixture(t),host=w.document.createElement('div');host.innerHTML=w.JijinLogFormat.render('名前は鈍呑《にびのみ》塗笑《ぬえ》。|赤《あか》い');
+ assert.deepEqual(Array.from(host.querySelectorAll('ruby rt'),el=>el.textContent),['にびのみ','ぬえ','あか']);
+ assert.equal(w.JijinLogFormat.plain('名前は鈍呑《にびのみ》塗笑《ぬえ》。|赤《あか》い'),'名前は鈍呑塗笑。赤い');
+});

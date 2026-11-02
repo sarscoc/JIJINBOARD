@@ -83,3 +83,23 @@ test('the first board registration persists PL data and its token before closing
  assert.equal(w.document.querySelector('dialog').open,false);assert.ok(writes.some(x=>x.path==='/api/boards/one/players'&&x.payload.plName==='New PL'));
  assert.equal(w.localStorage.getItem('jijinboardPlayerMasterToken.v1'),'room-token');
 });
+
+
+test('100 PCs fit a bounded D1 query budget and their participant list saves together',async t=>{
+ const f=roomFixture(t),one=await register(f.env,'one');f.DB.queryCount=0;
+ const response=await handleRoomPlayers(req('PUT',{playerId:'same',plName:'PL',characters:Array.from({length:100},(_,i)=>({id:'pc'+i,name:'PC'+i}))},one.accessToken),f.env,'one',['same']);
+ assert.equal(response.status,200);assert.equal((await response.json()).master.characters.length,100);
+ assert.ok(f.DB.queryCount<25,`queries: ${f.DB.queryCount}`);
+ assert.equal(f.db.prepare('SELECT count(*) AS n FROM room_participant WHERE character_id IS NOT NULL').get().n,100);
+});
+
+test('a failed PC write rolls back PL edits and preserves all previous characters and selections',async t=>{
+ const f=roomFixture(t),one=await register(f.env,'one');
+ const save=body=>handleRoomPlayers(req('PUT',{playerId:'same',...body},one.accessToken),f.env,'one',['same']);
+ await save({plName:'Original',characters:[{id:'pc',name:'Original PC'}]});
+ f.db.exec("CREATE TRIGGER simulated_failure BEFORE INSERT ON character WHEN NEW.character_name='FAIL' BEGIN SELECT RAISE(ABORT,'simulated'); END");
+ await assert.rejects(save({plName:'Uncommitted',characters:[{id:'pc',name:'Changed'},{id:'new',name:'FAIL'}]}),/simulated/);
+ const data=await (await handleRoomPlayers(req('GET',null,one.accessToken),f.env,'one',['same'])).json();
+ assert.equal(data.master.plName,'Original');assert.equal(data.master.characters.length,1);assert.equal(data.master.characters[0].name,'Original PC');
+ assert.equal(f.db.prepare('SELECT count(*) AS n FROM room_participant WHERE character_id IS NOT NULL').get().n,1);
+});

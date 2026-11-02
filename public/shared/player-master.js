@@ -59,7 +59,7 @@
     let result;
     try{result=await api(root,{method:"POST",body:JSON.stringify(payload)})}
     catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api(root,{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
-    token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);master=result.master||null;mergeMasterLocal(master);return master;
+    token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);master=result.master||null;applySnapshot(master);return master;
   }
 
   let bootstrapTask=null;
@@ -71,7 +71,7 @@
 
   // Server snapshots replace the current room's profile, including an empty PC list.
   function applySnapshot(next){
-    if(!next)return;
+    if(!next||!next.playerId||typeof next.plName!=='string'||!Array.isArray(next.characters))throw Error('PL情報の応答が不正です。保存済みの表示を保持します');
     master=next;
     const personas=(next.characters||[]).filter(ch=>ch.type==='PC').map(personaFromMaster);
     const current=profile()||{};
@@ -91,10 +91,12 @@
     write(PEOPLE_KEY,read(PEOPLE_KEY,[]).filter(p=>String(p.id)!==String(next.playerId)&&String(p.plId)!==String(next.playerId)));
     mergeMasterLocal(next);
   }
+  let localEditPending=false;
+  const setEditing=value=>{localEditPending=!!value};
   let refreshTask=null,refreshVersion=0;
   async function refresh(){
     ++refreshVersion;
-    if(pushRunning||syncTimer)return;
+    if(pushRunning||syncTimer||localEditPending)return;
     if(!playerId||!token)return bootstrap();
     if(refreshTask)return refreshTask;
     refreshTask=(async()=>{
@@ -102,7 +104,7 @@
       while(applied<refreshVersion){
         const version=refreshVersion,result=await api(endpoint());
         if(version!==refreshVersion)continue;
-        if(!pushRunning&&!syncTimer)applySnapshot(result.master);
+        if(!pushRunning&&!syncTimer&&!localEditPending)applySnapshot(result.master);
         applied=version;
       }
       return master;
@@ -113,8 +115,6 @@
     if(!master)await bootstrap();
     if(!playerId||!token)throw Error('先にPL名を登録してください');
     const result=await api(endpoint(),{method:'PUT',body:JSON.stringify({...value,playerId})});
-    const ids=(result.master.characters||[]).filter(c=>c.type==='PC').map(c=>c.id);
-    await persistRoomSelection(ids);
     applySnapshot(result.master);
     return master;
   }
@@ -162,7 +162,7 @@
     const rid=roomId();if(!master||!playerId||!token||!rid)return;
     if(hydratingRoom===rid)return;hydratingRoom=rid;
     try{
-      const result=await api(endpoint('/selection')),ids=Array.isArray(result.characterIds)?result.characterIds.map(String):[];
+      const ids=(master.characters||[]).filter(c=>c.type==='PC').map(c=>String(c.id));
       await setRoomSelection(ids,{persist:false});
     }finally{hydratingRoom=""}
   }
@@ -242,6 +242,6 @@
     }));
   }
 
-  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,refresh,updateProfile,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
+  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,refresh,setEditing,updateProfile,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",scheduleStart,{once:true});else scheduleStart();
 })();

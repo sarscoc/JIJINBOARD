@@ -16,5 +16,6 @@ export async function servePlayerIcon(request,env,board,kind,hash){
  if(request.method!=='GET'||!['pl-icons','character-icons','matrix-icons'].includes(kind)||! /^[A-Za-z0-9_-]{20,80}$/.test(hash))return new Response('Not found',{status:404});
  if(!await env.DB.prepare('SELECT 1 FROM room WHERE room_id=?').bind(board).first())return new Response('Not found',{status:404});
  const object=await env.LOGS.get(iconPrefix(board,kind)+'/'+hash);
- return object?new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, no-store'}}):new Response('Not found',{status:404});
+ return object?new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, max-age=31536000, immutable'}}):new Response('Not found',{status:404});
 }
+

@@ -80,3 +80,15 @@ test('room name is painted before screenshot starts, and PL waits for screenshot
  let next=false;w.JijinBoardReady.image.then(()=>next=true);await tick();assert.equal(next,false);
  image.dispatchEvent(new w.Event('load'));await w.JijinBoardReady.image;assert.equal(next,true);assert.equal(image.classList.contains('hidden'),false);
 });
+
+
+test('failed settings save retains the edited PC and PL image across refresh and can be retried',async t=>{
+ const dom=new JSDOM('<div id="editor"></div>',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.structuredClone=structuredClone;
+ let master={plName:'PL',plIcon:'/saved.png',characters:[{id:'pc',type:'PC',name:'Saved PC'}]},fail=true;
+ w.JIJINPlayerMaster={get master(){return master},async refresh(){return master},setEditing(){},async updateProfile(body){if(fail)throw Error('通信エラー (500)');master={...body};return master}};
+ w.eval(source('board/speaker-editor.js'));const editor=w.JijinSpeakerEditor(w.document.querySelector('#editor'));await editor.open();
+ const input=w.document.querySelector('[data-person="pc"] .speaker-name');input.value='Draft PC';input.dispatchEvent(new w.Event('input',{bubbles:true}));await assert.rejects(editor.flush(),/500/);
+ master={plName:'PL',characters:[]};w.dispatchEvent(new w.Event('jijinboard-player-master-updated'));await editor.open();
+ assert.equal(w.document.querySelector('[data-person="pc"] .speaker-name').value,'Draft PC');assert.equal(w.document.querySelector('[data-person="PL"] img').getAttribute('src'),'/saved.png');assert.equal(w.document.querySelector('[data-retry]').hidden,false);
+ fail=false;await editor.flush();assert.equal(master.characters[0].name,'Draft PC');
+});
