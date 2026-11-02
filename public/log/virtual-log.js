@@ -35,9 +35,8 @@
   }
   function timelineRow(meta, index) {
     const slot = meta.items[index], list = (slot.byTab.get(meta.tab) || []).filter(m => matchesSearch(m, meta.search));
-    const previewCount = list.length ? 0 : Math.min(3, [...slot.byTab.entries()].filter(([otherTab]) => otherTab !== meta.tab).reduce((sum, [, messages]) => sum + messages.filter(m => matchesSearch(m, meta.search)).length, 0));
-    const minHeight = list.length ? 24 : previewCount ? previewCount * 24 + 6 : 20;
-    return `<div class="page-row timeline-slot ${list.length ? "has-message" : "empty-slot"}" data-virtual-index="${index}" data-slot-index="${index}" data-time="${esc(slot.time)}" style="min-height:${minHeight}px"><time>${esc(slot.time)}</time><div class="timeline-slot-content">${list.map(m => messageHtml(m, meta.grouped)).join("")}</div></div>`;
+    const height=meta.heights[index];
+    return `<div class="page-row timeline-slot ${list.length ? "has-message" : "empty-slot"}" data-virtual-index="${index}" data-slot-index="${index}" data-time="${esc(slot.time)}" style="height:${height}px;min-height:${height}px;box-sizing:border-box"><time>${esc(slot.time)}</time><div class="timeline-slot-content">${list.map(m => messageHtml(m, meta.grouped)).join("")}</div></div>`;
   }
   function rowHtml(meta, index) { return meta.mode === "timeline" ? timelineRow(meta, index) : compactRow(meta, index); }
 
@@ -48,6 +47,7 @@
   }
 
   function measureWindow(panel, meta, start) {
+    if(meta.mode==="timeline"){updateSpacers(panel,meta);return}
     const scroll = panel.querySelector(".page-scroll"), rows = [...panel.querySelectorAll(".virtual-rows > .page-row")];
     if (!scroll || !rows.length) return;
     const oldPrefix = prefixFor(meta), oldTop = oldPrefix[start] || 0;
@@ -155,7 +155,7 @@
   timelinePagePanelHtml = function(tab, realIndex, trackIndex, slots, grouped, search, clone = "") {
     if (state.archiveMode) return originalTimelinePagePanelHtml(tab, realIndex, trackIndex, slots, grouped, search, clone);
     const key = `${state.virtualGeneration}:timeline:${trackIndex}`;
-    const heights = slots.map(slot => Math.max(20, Number(slot.height) || 30));
+    const heights = window.JijinTimelineLayout?.heights(slots,grouped,search)||slots.map(slot => Math.max(20, Number(slot.height) || 30));
     state.virtualPanels.set(key, { mode: "timeline", tab, grouped, search, items: slots, heights, prefix: null, start: 0, end: 0, frame: 0 });
     return `<section class="log-page virtual-page" data-virtual-key="${key}" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll timeline-page"><div class="virtual-spacer-top" aria-hidden="true"></div><div class="virtual-rows"></div><div class="virtual-spacer-bottom" aria-hidden="true"></div></div></section>`;
   };
@@ -199,3 +199,4 @@
     document.querySelectorAll(".log-page[data-virtual-key]").forEach(panel => renderWindow(panel, null, true));
   });
 })();
+

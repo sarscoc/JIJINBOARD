@@ -92,6 +92,14 @@ for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executin
   assert.deepEqual(duplicateKeys(d.querySelectorAll('[id]'),e=>e.id),[]);
   if(tool==='log'){
     const master=w.JIJINPlayerMaster;assert.ok(master);w.eval(text('shared/player-master.js'));assert.equal(w.JIJINPlayerMaster,master);
+    w.document.elementFromPoint=()=>null;
+    w.eval("state.room={id:'log',tabs:['main','info'],messages:[{id:'a',tab:'main',time:'21:00',speaker:'PL',text:'short'},{id:'b',tab:'info',time:'21:01',speaker:'PC',text:'long '.repeat(200)}]};state.hiddenTabs=new Set();state.viewMode='timeline';state.activeTabIndex=0;state.carouselPosition=1;renderLog();");
+    await sleep(60);
+    assert.ok(w.JijinTimelineLayout);
+    assert.equal(w.eval("(()=>{const panels=[...state.virtualPanels.values()];return panels.length>1&&panels.every(p=>p.heights===panels[0].heights)})()"),true);
+    const timelineRows=w.document.querySelector('.log-page[data-track-index="1"]').querySelectorAll('.timeline-slot');
+    assert.equal(timelineRows.length,2);assert.ok(timelineRows[1].classList.contains('empty-slot'));
+    assert.ok(parseFloat(timelineRows[1].style.height)>110,'long messages in another tab need their full shared blank height');
   }
   assert.deepEqual(errors,[]);
 });

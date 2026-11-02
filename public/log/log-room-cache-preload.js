@@ -104,8 +104,10 @@
   }
   function paintMore(){
     const scroll=activeScroll(),top=scroll?.scrollTop||0,tab=activeTab();
-    if(typeof renderLog==='function')renderLog(typeof currentReadingTime==='function'?currentReadingTime():'');
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{if(activeTab()===tab&&activeScroll())activeScroll().scrollTop=top}));
+    let anchor=typeof currentReadingTime==='function'?currentReadingTime():'';
+    if(state.viewMode==='timeline'&&anchor.startsWith('@slot:'))anchor=decodeURIComponent(anchor.slice(anchor.indexOf('|')+1));
+    if(typeof renderLog==='function')renderLog(anchor);
+    if(state.viewMode!=='timeline')requestAnimationFrame(()=>requestAnimationFrame(()=>{if(activeTab()===tab&&activeScroll())activeScroll().scrollTop=top}));
   }
   async function pump(all=false){
     if(!streamState())return;
