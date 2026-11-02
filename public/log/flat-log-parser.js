@@ -29,7 +29,7 @@
   function textWithBreaks(node) {
     const clone = node.cloneNode(true);
     clone.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
-    return clone.textContent
+    return JijinLogFormat.fromNode(clone)
       .replace(/\u00a0/g, " ")
       .replace(/\r/g, "")
       // CCFOLIA pretty-prints each message span on its own indented line.
@@ -44,7 +44,7 @@
     const clone = font.cloneNode(true);
     clone.querySelector(":scope > b")?.remove();
     clone.querySelectorAll("br").forEach(br => br.replaceWith("\n"));
-    return clone.textContent
+    return JijinLogFormat.fromNode(clone)
       .replace(/\u00a0/g, " ")
       .replace(/^[\t \r\n]*[：:][\t ]*/, "")
       .replace(/[\t ]+\n/g, "\n")
