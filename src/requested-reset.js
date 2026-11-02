@@ -65,6 +65,20 @@ export async function performRequestedReset(env){
     db.prepare('UPDATE app_reset SET phase=?,cursor=?,lease_until=0 WHERE reset_id=? AND lease_token=?').bind(next===statements.length?'images':'database',next,id,lease)
    ]);return pending();
   }
+  if(row.phase==='verify'){
+   const tables=JSON.parse(row.plan),next=Math.min(tables.length,row.cursor+12);
+   // D1 limits compound SELECTs more tightly than desktop SQLite. Use bounded
+   // separate statements, and persist the cursor so verification can resume too.
+   const counts=await db.batch(tables.slice(row.cursor,next).map(name=>db.prepare(`SELECT COUNT(*) AS n FROM ${quote(name)}`)));
+   if(counts.some(x=>Number(x.results?.[0]?.n)!==0)){
+    await db.prepare("UPDATE app_reset SET phase='drain',plan='{}',cursor=0,not_before=?,lease_until=0 WHERE reset_id=? AND lease_token=?").bind(Date.now()+30_000,id,lease).run();return pending();
+   }
+   if(next<tables.length){await db.prepare('UPDATE app_reset SET cursor=?,lease_until=0 WHERE reset_id=? AND lease_token=?').bind(next,id,lease).run();return pending();}
+   if(((await db.prepare('PRAGMA foreign_key_check').all()).results||[]).length)throw Error('Reset foreign-key verification failed');
+   if((await env.LOGS.list({limit:1})).objects?.length){await db.prepare("UPDATE app_reset SET phase='images',lease_until=0 WHERE reset_id=? AND lease_token=?").bind(id,lease).run();return pending();}
+   if(!await own())return pending();
+   await db.prepare("UPDATE app_reset SET state='complete',completed_at=CURRENT_TIMESTAMP,lease_until=0 WHERE reset_id=? AND lease_token=?").bind(id,lease).run();return null;
+  }
   // Always start at the first page: a failed invocation can safely resume without
   // losing a cursor, and no new application writes are allowed during the wipe.
   for(let page=0;page<8;page++){
@@ -72,15 +86,8 @@ export async function performRequestedReset(env){
    const listed=await env.LOGS.list({limit:1000}),keys=(listed.objects||[]).map(x=>x.key);
    if(!keys.length){
     const remaining=(await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'").all()).results||[];
-    const tables=remaining.filter(x=>!system(x.name)&&!preserve.has(x.name));
-    const counts=tables.length?(await db.prepare(tables.map(x=>`SELECT COUNT(*) AS n FROM ${quote(x.name)}`).join(' UNION ALL ')).all()).results||[]:[];
-    if(counts.some(x=>Number(x.n)!==0)){
-     await db.prepare("UPDATE app_reset SET phase='drain',plan='{}',cursor=0,not_before=?,lease_until=0 WHERE reset_id=? AND lease_token=?").bind(Date.now()+30_000,id,lease).run();return pending();
-    }
-    const violations=(await db.prepare('PRAGMA foreign_key_check').all()).results||[];if(violations.length)throw Error('Reset foreign-key verification failed');
-    if(!await own())return pending();
-    await db.prepare("UPDATE app_reset SET state='complete',completed_at=CURRENT_TIMESTAMP,lease_until=0 WHERE reset_id=? AND lease_token=?").bind(id,lease).run();
-    return null;
+    const tables=remaining.filter(x=>!system(x.name)&&!preserve.has(x.name)).map(x=>x.name);
+    await db.prepare("UPDATE app_reset SET phase='verify',plan=?,cursor=0,lease_until=0 WHERE reset_id=? AND lease_token=?").bind(JSON.stringify(tables),id,lease).run();return pending();
    }
    await env.LOGS.delete(keys);
   }
