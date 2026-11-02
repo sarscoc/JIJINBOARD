@@ -54,8 +54,12 @@ test('TRPG JSON import and standalone HTML export retain all three styles',async
  assert.equal(exported.window.document.querySelector('ruby rt').textContent,'かんじ');assert.equal(exported.window.document.querySelector('strong').textContent,'太字');assert.equal(exported.window.document.querySelector('del').textContent,'取り消し');
 });
 
-test('pipe-free kanji ruby from the reported Tekey log renders above the base text',t=>{
- const w=fixture(t),host=w.document.createElement('div');host.innerHTML=w.JijinLogFormat.render('名前は鈍呑《にびのみ》塗笑《ぬえ》。|赤《あか》い');
- assert.deepEqual(Array.from(host.querySelectorAll('ruby rt'),el=>el.textContent),['にびのみ','ぬえ','あか']);
- assert.equal(w.JijinLogFormat.plain('名前は鈍呑《にびのみ》塗笑《ぬえ》。|赤《あか》い'),'名前は鈍呑塗笑。赤い');
+test('the real fast-render override preserves explicit Tekey ruby and annotation positions',t=>{
+ const w=fixture(t);w.eval(`var state={room:{messages:[]},annotations:[],profile:{id:'pl'},activeMarkerId:''};function esc(v){return String(v)};function annotationMarkerColor(){return '#ffe66b'};function markedText(){return 'old'};`);
+ w.eval(source('log/log-fast-first-paint.js'));
+ const message={id:'m',tab:'main',text:'名前は|鈍呑《にびのみ》|塗笑《ぬえ》。|赤《あか》い **太字** ~~削除~~'};w.state.room.messages=[message];
+ const host=w.document.createElement('span');host.innerHTML=w.markedText(message,[]);
+ assert.deepEqual(Array.from(host.querySelectorAll('ruby rt'),el=>el.textContent),['にびのみ','ぬえ','あか']);assert.equal(host.querySelector('strong').textContent,'太字');assert.equal(host.querySelector('del').textContent,'削除');
+ const start=message.text.indexOf('赤'),end=start+1;host.innerHTML=w.markedText(message,[{id:'saved',message_id:'m',start_offset:start,end_offset:end}]);
+ assert.equal(host.querySelector('ruby mark').textContent,'赤');const run=host.querySelector('ruby mark span');assert.equal(w.JijinLogFormat.sourceOffset(host,run.firstChild,0),start);
 });

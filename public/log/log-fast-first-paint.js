@@ -39,7 +39,7 @@
 
   if(typeof markedText==="function"){
     markedText=function(message,annotations){
-      if(!annotations?.length)return esc(message.text);
+      if(!annotations?.length)return JijinLogFormat.render(message.text);
       ensureIndexes();
       const current=messageIndex.get(message.id);
       const ranges=[...annotations].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(annotation=>{
@@ -61,10 +61,7 @@
         if(previous&&previous.winner?.id===winner?.id&&previous.end===start)previous.end=end;
         else segments.push({start,end,winner});
       }
-      return segments.map(({start,end,winner})=>{
-        const text=esc(message.text.slice(start,end));
-        return winner?`<mark data-ann="${esc(winner.id)}" style="--marker:${esc(winner.color)}">${text}</mark>`:text;
-      }).join("");
+      return JijinLogFormat.render(message.text,segments);
     };
   }
 

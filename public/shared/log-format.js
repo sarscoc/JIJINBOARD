@@ -11,9 +11,6 @@
    if(source[i]==='|'||source[i]==='｜'){
     const m=source.slice(i,end).match(/^[|｜]([^|｜《》\n]+)《([^《》\n]+)》/);
     if(m){next=i+m[0].length;token={type:'ruby',start:i,end:next,children:tokens(source,i+1,i+1+m[1].length,depth+1),reading:m[2],baseStart:i+1,baseEnd:i+1+m[1].length}}
-   }else if(/[\p{Script=Han}々〆ヵヶ]/u.test(source[i])){
-    const m=source.slice(i,end).match(/^([\p{Script=Han}々〆ヵヶ]+)《([^《》\n]+)》/u);
-    if(m){next=i+m[0].length;token={type:'ruby',start:i,end:next,children:tokens(source,i,i+m[1].length,depth+1),reading:m[2],baseStart:i,baseEnd:i+m[1].length}}
    }else if(source.slice(i,i+2)==='**'||source.slice(i,i+2)==='~~'){
     const delimiter=source.slice(i,i+2),close=source.indexOf(delimiter,i+2);
     if(close>i+2&&close+2<=end){next=close+2;token={type:delimiter==='**'?'strong':'del',start:i,end:next,children:tokens(source,i+2,close,depth+1)}}
