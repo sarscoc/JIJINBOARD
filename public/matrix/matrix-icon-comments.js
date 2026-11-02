@@ -1,5 +1,7 @@
 "use strict";
 (()=>{
+  if(window.__jijinMatrixCommentController)return;
+  window.__jijinMatrixCommentController=true;
   let comments=[],targetId="",replyTo="",editingId="",posting=false,pendingAnchor=null,lastSerial="",composerPeople=[];
   const TARGET_SEP="@@matrix-template@@";
   const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));

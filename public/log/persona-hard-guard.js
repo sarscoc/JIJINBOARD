@@ -123,9 +123,4 @@
   }
 })();
 
-// The durable PL/PC master is loaded after all legacy persona guards so room data
-// becomes a reference/cache, never the source of truth.
-(()=>{
-  if(document.querySelector('script[data-jijin-player-master]'))return;
-  const script=document.createElement('script');script.src='/shared/player-master.js?v=20260830-1';script.dataset.jijinPlayerMaster='1';document.body.append(script);
-})();
+// The page loads player-master.js once, after the room-specific guards.

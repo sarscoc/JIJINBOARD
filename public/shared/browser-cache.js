@@ -13,14 +13,24 @@
   window.fetch=async function(input,options){
     const request=new Request(input,options),url=new URL(request.url);
     if(request.method!=="GET"||url.origin!==location.origin||!url.pathname.startsWith("/api/")||url.pathname.includes("realtime"))return network(input,options);
+    if(request.cache==='no-store')return network(input,options);
     let cache,key,cached;
     try{
       // Do not let unavailable storage block a network request.
       const hit=await Promise.race([(async()=>{const c=await caches.open(cacheName),k=await keyFor(request);return {cache:c,key:k,cached:await c.match(k)}})(),new Promise(resolve=>setTimeout(()=>resolve(null),60))]);
       if(hit)({cache,key,cached}=hit);
+      // Earlier releases stored no-store API replies in CacheStorage anyway.
+      // Ignore those old snapshots, without touching durable user data.
+      if(cached&&/no-store|no-cache/i.test(cached.headers.get('cache-control')||'')){
+        await cache.delete(key);cached=undefined;
+      }
     }catch{}
     const refresh=async()=>{
       const response=await network(input,options);
+      if(/no-store|no-cache/i.test(response.headers.get('cache-control')||'')){
+        if(cache&&key)cache.delete(key).catch(()=>{});
+        return response;
+      }
       try{
         cache||=await caches.open(cacheName);key||=await keyFor(request);
         if(response.ok){

@@ -176,9 +176,12 @@
     try{
       remote=(await api(endpoint,{cache:"reload"})).state;
       if(localEditingStarted)return;
+      if(remote!==null&&(typeof remote!=='object'||Array.isArray(remote)))throw Error('保存データを読み込めませんでした');
       cleanRemote=sanitizeSnapshot(remote||{});remoteString=JSON.stringify(cleanRemote);
       const local=currentSnapshot(),localString=JSON.stringify(local),hasLocal=!!meaningful(local);
-      if(remote&&meaningful(cleanRemote)){
+      // A saved empty board is authoritative too. Only null means there has
+      // never been a shared snapshot; do not resurrect a cleared board's cache.
+      if(remote!==null&&typeof remote==='object'&&!Array.isArray(remote)){
         if(remoteString!==localString)applyRemote(cleanRemote);else lastRemoteSerial=remoteString;
       }else if(hasLocal){
         await api(endpoint,{method:'POST',body:JSON.stringify({state:local})});

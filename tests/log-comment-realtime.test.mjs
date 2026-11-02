@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 test('log page loads its saved comment notification handler and applies remote creates',()=>{
  const html=readFileSync(new URL('../public/log/index.html',import.meta.url),'utf8');
- assert.match(html,/<script src="comment-incremental-sync.js"><\/script>/);
+ assert.match(html,/<script src="comment-incremental-sync.js(?:\?[^"]*)?"><\/script>/);
  const listeners=new Map();let refreshes=0;
  const socket={addEventListener:(name,fn)=>listeners.set(name,fn)};
  const context={state:{roomId:'log',annotations:[],room:{messages:[]},profile:{id:'viewer'},realtime:socket},

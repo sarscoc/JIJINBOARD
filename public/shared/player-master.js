@@ -1,6 +1,7 @@
 (()=>{
   "use strict";
   if(/\/spreadsheet(?:\/|$)/.test(location.pathname))return;
+  if(window.JIJINPlayerMaster)return;
 
   const TOKEN_KEY="jijinboardPlayerMasterToken.v1";
   const PLAYER_KEY="jijinboardPlayerMasterId.v1";

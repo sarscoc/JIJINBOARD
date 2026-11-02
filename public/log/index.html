@@ -1,9 +1,9 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<script src="/shared/browser-cache.js"></script>
-<script src="/shared/comment-target.js?v=20261102-1"></script>
-<script src="/shared/comments.js?v=20261102-1"></script>
+<script src="/shared/browser-cache.js?v=20261102-ui1"></script>
+<script src="/shared/comment-target.js?v=20261102-ui1"></script>
+<script src="/shared/comments.js?v=20261102-ui1"></script>
 <script>
 (()=>{const q=new URL(location.href).searchParams,b=q.get('board')||q.get('id');if(q.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;try{const t=JSON.parse(localStorage.getItem('jijinboardScopedTheme:'+b)||'null')||{};const rgba=(hex,a)=>{if(!/^#[0-9a-f]{6}$/i.test(hex||''))return '';const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};const root=document.documentElement;const one=rgba(t.gradientColor1,.24),two=rgba(t.gradientColor2,.12);if(one)root.style.setProperty('--jijin-background-one',one);if(two)root.style.setProperty('--jijin-background-two',two)}catch{}})();
 </script>
@@ -34,9 +34,9 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
   <meta name="twitter:image" content="https://logcomments.pages.dev/twitter-card.png?v=20260821">
   <meta name="twitter:image:alt" content="TRPG LOG MARKER">
   <title>TRPG LOG MARKER</title>
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="profile-compact.css?v=20260829-3">
-  <link rel="stylesheet" href="embedded-layout.css?v=20260830-3">
+  <link rel="stylesheet" href="style.css?v=20261102-ui1">
+  <link rel="stylesheet" href="profile-compact.css?v=20261102-ui1">
+  <link rel="stylesheet" href="embedded-layout.css?v=20261102-ui1">
   <script>(function(){const p=new URL(location.href).searchParams;if(p.get("embedded")==="1")document.documentElement.classList.add("embedded");if(p.get("room"))document.documentElement.classList.add("existing-log")})()</script>
   <style>html.existing-log #homeView{display:none!important}html.existing-log #roomView.hidden{display:block!important}</style>
 <script>
@@ -150,28 +150,28 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
       <button type="submit" class="primary profile-save">保存</button>
     </form>
   </dialog>
-  <script src="log-room-cache-preload.js?v=20260831-fast1"></script>
-  <script src="comment-window-loader.js?v=20260902-2"></script>
-  <script src="app.js"></script>
-  <script src="log-fast-first-paint.js?v=20260830-2"></script>
-  <script src="comment-submit-guard.js"></script>
-  <script src="comment-incremental-sync.js"></script>
-  <script src="profile-compact.js?v=20260830-2"></script>
-  <script src="profile-data-integrity.js?v=20260830-2"></script>
-  <script src="persona-hard-guard.js?v=20260830-2"></script>
-  <script src="../shared/player-master.js?v=20260830-4"></script>
-  <script src="profile-auto-ui.js?v=20260830-5"></script>
-  <script src="persona-immediate-sync.js?v=20260830-2"></script>
-  <script src="comment-avatar-fallback.js?v=20260830-1"></script>
-  <script src="matrix-icon-quality.js?v=20260830-3"></script>
-  <script src="flat-log-parser.js"></script>
-  <script src="trpg-log-import.js"></script>
-  <script src="virtual-log.js?v=20260830-2"></script>
-  <script src="virtual-scroll-stability.js"></script>
-  <script src="shared-tab-settings.js"></script>
-  <script src="upload-title-default.js?v=20260830-2"></script>
-  <script src="timeline-prewarm.js"></script>
-  <script src="embedded-ready.js?v=20260829-1"></script>
-  <script src="log-app-bridge.js?v=20260901-1"></script>
+  <script src="log-room-cache-preload.js?v=20261102-ui1"></script>
+  <script src="comment-window-loader.js?v=20261102-ui1"></script>
+  <script src="app.js?v=20261102-ui1"></script>
+  <script src="log-fast-first-paint.js?v=20261102-ui1"></script>
+  <script src="comment-submit-guard.js?v=20261102-ui1"></script>
+  <script src="comment-incremental-sync.js?v=20261102-ui1"></script>
+  <script src="profile-compact.js?v=20261102-ui1"></script>
+  <script src="profile-data-integrity.js?v=20261102-ui1"></script>
+  <script src="persona-hard-guard.js?v=20261102-ui1"></script>
+  <script src="../shared/player-master.js?v=20261102-ui1" data-jijin-player-master="1"></script>
+  <script src="profile-auto-ui.js?v=20261102-ui1"></script>
+  <script src="persona-immediate-sync.js?v=20261102-ui1"></script>
+  <script src="comment-avatar-fallback.js?v=20261102-ui1"></script>
+  <script src="matrix-icon-quality.js?v=20261102-ui1"></script>
+  <script src="flat-log-parser.js?v=20261102-ui1"></script>
+  <script src="trpg-log-import.js?v=20261102-ui1"></script>
+  <script src="virtual-log.js?v=20261102-ui1"></script>
+  <script src="virtual-scroll-stability.js?v=20261102-ui1"></script>
+  <script src="shared-tab-settings.js?v=20261102-ui1"></script>
+  <script src="upload-title-default.js?v=20261102-ui1"></script>
+  <script src="timeline-prewarm.js?v=20261102-ui1"></script>
+  <script src="embedded-ready.js?v=20261102-ui1"></script>
+  <script src="log-app-bridge.js?v=20261102-ui1"></script>
 </body>
 </html>

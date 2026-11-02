@@ -2,6 +2,8 @@
   "use strict";
   const pageParams=new URL(location.href).searchParams;
   const board=pageParams.get('board');if(!board)return;
+  if(window.__jijinSheetCommentController)return;
+  window.__jijinSheetCommentController=true;
   let comments=[],cell='',reply='',edit='',posting=false,pendingAnchor=null;
   let active=pageParams.get('embedded')!=='1',loadedOnce=false,lastSerial='',dirtyComments=false;
   let socket=null;

@@ -1,3 +1,4 @@
+import {serveAsset} from './assets.js';
 import {handleComments} from './comments.js';
 import {handleLegacyComments} from './comments-legacy.js';
 import { onRequest as handleApi } from './api-v2.js';
@@ -25,47 +26,6 @@ import { handleBoardHomeImage } from './board-home-image.js';
 export { RoomHub };
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const contextFor=(request,env,path,executionContext)=>({request,env,params:{path},waitUntil:p=>executionContext.waitUntil(p),next:()=>env.ASSETS.fetch(request)});
-async function serveAsset(request,env,url){
-  const response=await env.ASSETS.fetch(request);
-  if(request.method==='GET'&&/^\/board\/?$/.test(url.pathname)&&url.searchParams.get('id')&&response.ok){
-    const image=new URL('/api/boards/'+encodeURIComponent(url.searchParams.get('id'))+'/home-image',url.origin).href;
-    let html=await response.text();
-    html=html.replace(/<meta[^>]+(?:property|name)=["'](?:og:image|twitter:image|twitter:card)["'][^>]*>/g,'');
-    html=html.replace('</head>',`<meta property="og:image" content="${image}"><meta name="twitter:image" content="${image}"><meta name="twitter:card" content="summary_large_image"></head>`);
-    const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
-    return new Response(html,{headers,status:response.status});
-  }
-  if(request.method==='GET'&&/^\/log\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
-    const type=response.headers.get('content-type')||'';
-    if(type.includes('text/html')){
-      const html=(await response.text())
-        .replace('log-room-cache-preload.js?v=20260831-fast1','log-room-cache-preload.js?v=20260901-simple1')
-        .replace('../shared/player-master.js?v=20260830-4','../shared/player-master.js?v=20260901-idle1')
-        .replace('embedded-ready.js?v=20260829-1','embedded-ready.js?v=20260901-simple1');
-      const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
-      return new Response(html,{status:response.status,statusText:response.statusText,headers});
-    }
-  }
-  if(request.method==='GET'&&/^\/matrix\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
-    const type=response.headers.get('content-type')||'';
-    if(type.includes('text/html')){
-      const html=(await response.text()).replace('</body>','<script src="/matrix/matrix-template-sync.js?v=20260831-2"></script></body>');
-      const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
-      return new Response(html,{status:response.status,statusText:response.statusText,headers});
-    }
-  }
-  if(request.method==='GET'&&/^\/spreadsheet\/?(?:index\.html)?$/.test(url.pathname)&&response.ok){
-    const type=response.headers.get('content-type')||'';
-    if(type.includes('text/html')){
-      const html=(await response.text())
-        .replace('src="sheet-sync.js"','src="sheet-sync.js?v=20260901-localfirst1"')
-        .replace('</body>','<link rel="stylesheet" href="/spreadsheet/sheet-layout-six-grid.css"><script src="/spreadsheet/sheet-blank-layout.js"></script><script src="/spreadsheet/sheet-layout-six-grid.js"></script><script src="/spreadsheet/sheet-image-sync.js?v=20260831-2"></script></body>');
-      const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
-      return new Response(html,{status:response.status,statusText:response.statusText,headers});
-    }
-  }
-  return response;
-}
 
 export default{
   async fetch(request,env,executionContext){

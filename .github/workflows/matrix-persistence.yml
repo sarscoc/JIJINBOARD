@@ -24,4 +24,4 @@ jobs:
           node --check public/spreadsheet/sheet-sync.js
           node --check public/spreadsheet/sheet-display-settings.js
           node --check public/spreadsheet/sheet-layout-six-grid.js
-          node --check public/spreadsheet/sheet-comments.js
+          node --check public/spreadsheet/sheet-comments-controller.js

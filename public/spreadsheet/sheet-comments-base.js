@@ -1,5 +1,7 @@
 (()=>{
   const board=new URL(location.href).searchParams.get('board');if(!board)return;
+  if(window.__jijinSheetCommentsBase)return;
+  window.__jijinSheetCommentsBase=true;
   let mode=localStorage.getItem('sheetCommentMode')||'comment';
 
   function setupTocOverlay(){

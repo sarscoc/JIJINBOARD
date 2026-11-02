@@ -1,0 +1,86 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {JSDOM,VirtualConsole,requestInterceptor} from 'jsdom';
+import {serveAsset} from '../src/assets.js';
+
+const root=new URL('../public',import.meta.url).pathname;
+const text=file=>fs.readFileSync(root+'/'+file,'utf8');
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+function idb(w){
+  const stores=new Map();
+  const db={objectStoreNames:{contains:()=>true},close(){},transaction(name){
+    const data=stores.get(name)||new Map();stores.set(name,data);
+    const tx={objectStore(){const request=result=>{const r={result};w.setTimeout(()=>{r.onsuccess?.();tx.oncomplete?.()},0);return r};return {
+      get:key=>request(data.get(key)),getAll:()=>request([...data.values()]),getAllKeys:()=>request([...data.keys()]),
+      put(value,key){data.set(key??value.id,value);return request(key??value.id)},delete(key){data.delete(key);return request(undefined)}
+    }}};return tx;
+  }};
+  w.indexedDB={open(){const r={result:db};w.setTimeout(()=>r.onsuccess?.(),0);return r}};
+}
+
+function duplicateKeys(elements,key){
+  const counts=new Map();for(const element of elements){const value=key(element);counts.set(value,(counts.get(value)||0)+1)}
+  return [...counts].filter(([value,count])=>value&&count>1);
+}
+
+for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: static and Worker delivery have one dependency list`,async()=>{
+  const original=text(tool+'/index.html'),url=`http://127.0.0.1:8765/${tool}/?id=test&board=test&room=log`;
+  const response=await serveAsset(new Request(url),{ASSETS:{fetch:async()=>new Response(original,{headers:{'content-type':'text/html'}})}});
+  const delivered=await response.text(),raw=new JSDOM(original),served=new JSDOM(delivered);
+  const dependencies=d=>[...d.window.document.querySelectorAll('script[src],link[rel=stylesheet]')].map(e=>e.getAttribute('src')||e.getAttribute('href'));
+  assert.deepEqual(dependencies(served),dependencies(raw));
+  const keys=dependencies(served).map(path=>new URL(path,url).pathname);
+  assert.equal(new Set(keys).size,keys.length);
+  assert.ok(!delivered.includes('sheet-blank-layout.js'));assert.ok(!delivered.includes('src="sheet-comments.js'));
+  raw.window.close();served.window.close();
+});
+
+for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executing the complete page does not duplicate UI or controllers`,async t=>{
+  const errors=[],vc=new VirtualConsole();vc.on('jsdomError',error=>errors.push(error.message));
+  const dom=new JSDOM(text(tool+'/index.html'),{url:`http://127.0.0.1:8765/${tool}/?id=test&board=test&room=log`,runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,
+    resources:{interceptors:[requestInterceptor(request=>{try{return new Response(fs.readFileSync(root+new URL(request.url).pathname),{headers:{'content-type':request.url.includes('.css')?'text/css':'application/javascript'}})}catch{return new Response('')}})]},
+    beforeParse(w){
+      w.CSS={escape:String};w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;idb(w);
+      w.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){}});
+      w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};w.scrollTo=()=>{};w.alert=()=>{};
+      w.requestIdleCallback=fn=>w.setTimeout(fn,0);
+      w.HTMLElement.prototype.scrollIntoView=function(){};w.HTMLElement.prototype.scrollTo=function(){};
+      w.HTMLDialogElement.prototype.show=function(){this.open=true};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
+      class Socket{static OPEN=1;static CONNECTING=0;readyState=0;addEventListener(){}close(){}send(){}}w.WebSocket=Socket;
+      w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'pl',plName:'PL',personas:[]}));
+      w.fetch=async(input,options={})=>({ok:true,json:async()=>({id:'test',name:'test',logs:[],state:{},annotations:[],comments:[],templates:[],tabs:[],messages:[],participants:[],characters:[],images:[]})});
+    }
+  });t.after(()=>dom.window.close());
+  const w=dom.window;
+  for(let i=0;i<100&&w.document.readyState!=='complete';i++)await sleep(10);
+  await sleep(250);
+  if(tool==='spreadsheet'){
+    w.document.getElementById('sheetLayoutBtn').click();
+    assert.equal(w.document.querySelectorAll('.sheet-layout-workspace').length,1);
+    assert.equal(w.document.querySelectorAll('.sheet-layout-unplaced').length,1);
+    assert.equal(w.document.querySelectorAll('.sheet-layout-command-area').length,1);
+    const render=w.renderSheetLayoutEditor;
+    w.eval(text('spreadsheet/sheet-layout-six-grid.js'));assert.equal(w.renderSheetLayoutEditor,render);
+    w.renderSheetLayoutEditor();assert.equal(w.document.querySelectorAll('.sheet-layout-unplaced').length,1);
+  }
+  const d=w.document;
+  assert.deepEqual(duplicateKeys(d.querySelectorAll('script[src]'),e=>new URL(e.src).pathname),[]);
+  assert.deepEqual(duplicateKeys(d.querySelectorAll('link[rel=stylesheet]'),e=>new URL(e.href).pathname),[]);
+  assert.deepEqual(duplicateKeys(d.querySelectorAll('[id]'),e=>e.id),[]);
+  if(tool==='log'){
+    const master=w.JIJINPlayerMaster;assert.ok(master);w.eval(text('shared/player-master.js'));assert.equal(w.JIJINPlayerMaster,master);
+  }
+  assert.deepEqual(errors,[]);
+});
+
+test('MATRIX page filters accept the new comment addresses and still accept old targets',async t=>{
+  const dom=new JSDOM('<div id="matrixIconComments"><div class="matrix-comment-head"><b id="matrixIconCommentCount"></b></div><section id="matrixIconCommentList"><div class="matrix-comment-thread"><article class="matrix-comment-card" data-comment-target="/boards/board/matrix/template/points/pc"></article></div><div class="matrix-comment-thread"><article class="matrix-comment-card" data-comment-target="other@@matrix-template@@pc"></article></div><div class="matrix-comment-thread"><article class="matrix-comment-card" data-comment-target="template@@matrix-template@@old"></article></div></section></div>',{url:'http://127.0.0.1:8765/matrix/',runScripts:'outside-only'});
+  t.after(()=>dom.window.close());const w=dom.window;
+  w.matrixBoardContext={boardId:'board'};w.currentTemplateId=()=> 'template';
+  w.eval(text('shared/comment-target.js'));w.eval(text('matrix/matrix-icon-interactions.js'));
+  w.filterMatrixCommentsToCurrentPage();
+  assert.deepEqual([...w.document.querySelectorAll('.matrix-comment-thread')].map(e=>e.hidden),[false,true,false]);
+  assert.equal(w.document.getElementById('matrixIconCommentCount').textContent,'2');
+  const filter=w.filterMatrixCommentsToCurrentPage;w.eval(text('matrix/matrix-icon-interactions.js'));assert.equal(w.filterMatrixCommentsToCurrentPage,filter);
+});

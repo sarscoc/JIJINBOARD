@@ -1,7 +1,9 @@
 (()=>{
+  if(window.__jijinSheetSixGridInstalled)return;
   const originalRenderEditor=window.renderSheetLayoutEditor;
   const originalRenderCharacter=window.renderCharacterView;
   if(typeof originalRenderEditor!=='function')return;
+  window.__jijinSheetSixGridInstalled=true;
 
   // A missing position means unplaced in every renderer, not just in this editor.
   window.ensureSheetGridPositions=()=>ensureSheetLayoutOrder();

@@ -1,5 +1,7 @@
 "use strict";
 (() => {
+  if(window.__jijinMatrixIconInteractions)return;
+  window.__jijinMatrixIconInteractions=true;
   const TARGET_SEP = "@@matrix-template@@";
   let pageFilter = "";
   let listObserver = null;
@@ -12,6 +14,10 @@
 
   function targetParts(value) {
     const raw = String(value || "");
+    if(raw.startsWith('/boards/')){
+      const target=window.JijinCommentTarget?.parse(raw,window.matrixBoardContext?.boardId);
+      return {templateId:target?.templateId||'',itemId:target?.pointId||target?.legacyId||''};
+    }
     const at = raw.indexOf(TARGET_SEP);
     return at >= 0
       ? { templateId: raw.slice(0, at), itemId: raw.slice(at + TARGET_SEP.length) }
