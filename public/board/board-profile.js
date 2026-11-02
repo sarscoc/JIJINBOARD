@@ -47,6 +47,8 @@ function installBoardSettingsWorkspace(){
  }
  function open(){isOpen=true;overlay.hidden=false;gear.setAttribute("aria-expanded","true");shareUrl.value=`${location.origin}/board/?id=${encodeURIComponent(boardId())}`;showTab("general")}
  function close(){if(!isOpen)return;isOpen=false;token++;disposeSpeaker();overlay.hidden=true;gear.setAttribute("aria-expanded","false")}
+ window.JijinBoardSettings={open};
+ window.addEventListener("message",event=>{if(event.origin===location.origin&&event.source===document.getElementById("logFrame")?.contentWindow&&event.data?.type==="jijinboard-open-settings")open()});
  gear.addEventListener("click",()=>isOpen?close():open());
  overlay.querySelectorAll("[data-board-settings-tab]").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.boardSettingsTab)));
  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&isOpen)close()});

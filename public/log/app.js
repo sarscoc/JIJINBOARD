@@ -1,5 +1,5 @@
 const $ = s => document.querySelector(s);
-const state = { roomId: null, room: null, annotations: [], annotationVersion: -1, presence: [], parsed: null, selection: null, pendingSelection: null, replyTo: null, editingCommentId: null, editingOriginalPersona: null, commentImage: "", activeTabIndex: 0, carouselPosition: 1, isSliding: false, slideQueue: 0, readingAnchor: "", syncingScrollUntil: 0, viewMode: localStorage.getItem("trpgMarkerViewMode") || "compact", mainTab: "", hiddenTabs: new Set(), timelineSlots: [], glimpseFrame: 0, glimpseTimer: 0, suggestionTimer: null, newPersonaIcon: "", profile: null, legacyPersonas: [], lastPersona: "PL", realtime: null, realtimeReconnectTimer: null, realtimeAttempts: 0, fallbackPoller: null, realtimeWanted: false, isTyping: false, typingTimer: null };
+const state = { roomId: null, room: null, annotations: [], annotationVersion: -1, presence: [], parsed: null, selection: null, pendingSelection: null, replyTo: null, editingCommentId: null, editingOriginalPersona: null, commentImage: "", activeTabIndex: 0, carouselPosition: 1, isSliding: false, slideQueue: 0, readingAnchor: "", syncingScrollUntil: 0, viewMode: localStorage.getItem("trpgMarkerViewMode") || "compact", mainTab: "", hiddenTabs: new Set(), timelineSlots: [], glimpseFrame: 0, glimpseTimer: 0, suggestionTimer: null, profile: null, lastPersona: "PL", realtime: null, realtimeReconnectTimer: null, realtimeAttempts: 0, fallbackPoller: null, realtimeWanted: false, isTyping: false, typingTimer: null };
 const uid = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2) + Date.now();
 const integrationParams=new URL(location.href).searchParams,integrationBoardId=integrationParams.get("board")||"",integrationEmbedded=integrationParams.get("embedded")==="1";
 state.realtimeClientId=uid();
@@ -20,8 +20,7 @@ async function readArchiveFile(file){if(file.name.toLowerCase().endsWith(".zip")
 
 function loadProfile() {
   const saved = JSON.parse(localStorage.getItem("trpgMarkerProfile") || "null");
-  state.legacyPersonas=Array.isArray(saved?.personas)?saved.personas:[];
-  state.profile = saved ? {id:saved.id,plName:saved.plName||"",plIcon:saved.plIcon||"",plColor:saved.plColor||"#ffe66b",personas:[]} : { id: uid(), plName: "", personas: [] };
+  state.profile = saved ? {id:saved.id,plName:saved.plName||"",plIcon:saved.plIcon||"",plColor:saved.plColor||"#ffe66b",plColorDark:saved.plColorDark||saved.plColor||"#ffe66b",personas:[]} : { id: uid(), plName: "", personas: [] };
   if (!state.profile.id) state.profile.id = uid();
   if (!Array.isArray(state.profile.personas)) state.profile.personas = [];
   if (!state.profile.plIcon) state.profile.plIcon = "";
@@ -29,15 +28,21 @@ function loadProfile() {
   state.profile.personas.forEach(persona=>{if(!persona.color)persona.color="#ffe66b"});
   saveProfile();
 }
-function saveProfile() { localStorage.setItem("trpgMarkerProfile", JSON.stringify({id:state.profile.id,plName:state.profile.plName,plIcon:state.profile.plIcon||"",plColor:state.profile.plColor||"#ffe66b"}));if(state.roomId)localStorage.setItem(`personas:${state.roomId}`,JSON.stringify(state.profile.personas)) }
-function loadRoomPersonas(roomId){const key=`personas:${roomId}`,saved=localStorage.getItem(key);if(saved!==null)state.profile.personas=JSON.parse(saved)||[];else if(state.legacyPersonas.length){state.profile.personas=state.legacyPersonas.map(persona=>({...persona,color:persona.color||"#ffe66b"}));localStorage.setItem(key,JSON.stringify(state.profile.personas));state.legacyPersonas=[];saveProfile()}else state.profile.personas=[];let changed=false;state.profile.personas.forEach(persona=>{if(!persona.id){persona.id=uid();changed=true}if(!persona.color)persona.color="#ffe66b"});if(changed)saveProfile();state.lastPersona=localStorage.getItem(`lastPersona:${roomId}`)||"PL"}
+function saveProfile() { localStorage.setItem("trpgMarkerProfile", JSON.stringify({id:state.profile.id,plName:state.profile.plName,plIcon:state.profile.plIcon||"",plColor:state.profile.plColor||"#ffe66b",plColorDark:state.profile.plColorDark||state.profile.plColor||"#ffe66b"}));if(state.roomId)localStorage.setItem(`personas:${state.roomId}`,JSON.stringify(state.profile.personas)) }
+function loadRoomPersonas(roomId){const key=`personas:${roomId}`,saved=localStorage.getItem(key);if(saved!==null)state.profile.personas=JSON.parse(saved)||[];else state.profile.personas=[];let changed=false;state.profile.personas.forEach(persona=>{if(!persona.id){persona.id=uid();changed=true}if(!persona.color)persona.color="#ffe66b"});if(changed)saveProfile();state.lastPersona=localStorage.getItem(`lastPersona:${roomId}`)||"PL"}
 function emitIntegratedProfile(){if(integrationEmbedded&&parent!==window)parent.postMessage({type:"jijinboard-profile",roomId:state.roomId,profile:{id:state.profile.id,plName:state.profile.plName,plIcon:state.profile.plIcon||"",personas:state.profile.personas.map(persona=>({id:persona.id||"",name:persona.name,type:persona.type,icon:persona.icon||""}))}},location.origin)}
-function currentPersona() {
+function selectedPersona() {
   const value = $("#personaSelect").value;
   if (value === "PL") return { name: state.profile.plName, type: "PL", icon: state.profile.plIcon || "", color: state.profile.plColor || "#ffe66b" };
   if (value === "ORIGINAL" && state.editingOriginalPersona) return state.editingOriginalPersona;
   return state.profile.personas[Number(value)] || { name: state.profile.plName, type: "PL", icon: state.profile.plIcon || "", color: state.profile.plColor || "#ffe66b" };
 }
+function currentPersona(){
+ const persona=selectedPersona();
+ const light=persona.color||"#ffe66b",dark=persona.type==="PL"?state.profile.plColorDark:persona.colorDark;
+ return {...persona,color:light.includes("|")?light:`${light}|${dark||light}`};
+}
+
 
 function parseTekey(html, filename) {
   const doc = new DOMParser().parseFromString(html, "text/html");
@@ -116,7 +121,7 @@ const logTextCache=(()=>{
 })();
 
 async function openRoom(id) {
-  state.roomId = id;applyTheme(localStorage.getItem(`theme:${id}`)||localStorage.getItem("theme")||"light"); loadRoomPersonas(id); $("#homeView").classList.add("hidden"); $("#roomView").classList.remove("hidden"); $("#profileBtn").classList.remove("hidden");
+  state.roomId = id;applyTheme(localStorage.getItem(`theme:${id}`)||"light"); loadRoomPersonas(id); $("#homeView").classList.add("hidden"); $("#roomView").classList.remove("hidden"); $("#profileBtn").classList.remove("hidden");
   $("#roomStatus").textContent = "ログを読み込んでいます…";
   try {
     const fresh=api(`/api/rooms/${encodeURIComponent(id)}`);
@@ -128,7 +133,7 @@ async function openRoom(id) {
     state.hiddenTabs=new Set(JSON.parse(localStorage.getItem(`hiddenTabs:${id}`)||"[]").filter(tab=>state.room.tabs.includes(tab)));
     let displayTitle=state.room.scenarioTitle||state.room.title;
     try{displayTitle=parent.JIJINBOARD_LOG_TITLE?.(id)||displayTitle}catch{}
-    $("#roomTitle").textContent=displayTitle;document.title=`${displayTitle} | TRPG LOG MARKER`;
+    $("#roomTitle").textContent=displayTitle;document.title=`${displayTitle} | LOGCOMMENTS`;
     $("#tabFilter").innerHTML='<option value="">メインタブを選択</option>';
     state.room.tabs.forEach(tab => $("#tabFilter").insertAdjacentHTML("beforeend", `<option>${esc(tab)}</option>`));
     const savedMain=localStorage.getItem(`mainTab:${id}`);state.mainTab=state.room.tabs.includes(savedMain)?savedMain:(state.room.tabs.find(tab=>/^メイン$/i.test(tab))||state.room.tabs[0]||"");$("#tabFilter").value=state.mainTab;
@@ -144,7 +149,7 @@ async function openRoom(id) {
     if (!state.profile.plName) openProfile();
   } catch (e) { $("#roomStatus").textContent = e.message; }
 }
-function openArchiveData(data){if(data?.format!=="trpg-log-marker"||!data.room?.messages?.length)throw new Error("TRPG LOG MARKERの保存ファイルではありません");disconnectRealtime();state.archiveMode=true;state.archiveImages=data.archiveImages||{};state.roomId="archive";state.room={...data.room,id:"archive"};state.annotations=data.annotations||[];state.presence=[];state.profile.personas=data.personas||state.profile.personas;state.hiddenTabs=new Set();state.activeTabIndex=0;state.carouselPosition=1;state.mainTab=state.room.tabs[0]||"";if(data.theme==="dark"||data.theme==="light")applyTheme(data.theme);$("#homeView").classList.add("hidden");$("#roomView").classList.remove("hidden");$("#profileBtn").classList.add("hidden");$("#shareBtn").classList.add("hidden");$("#roomTitle").textContent=state.room.title;$("#roomStatus").textContent="";$("#tabFilter").innerHTML='<option value="">メインタブを選択</option>';state.room.tabs.forEach(tab=>$("#tabFilter").insertAdjacentHTML("beforeend",`<option>${esc(tab)}</option>`));$("#tabFilter").value=state.mainTab;renderComments();renderLog();document.title=`${state.room.title} | 保存版`}
+function openArchiveData(data){if(data?.format!=="trpg-log-marker"||!data.room?.messages?.length)throw new Error("LOGCOMMENTSの保存ファイルではありません");disconnectRealtime();state.archiveMode=true;state.archiveImages=data.archiveImages||{};state.roomId="archive";state.room={...data.room,id:"archive"};state.annotations=data.annotations||[];state.presence=[];state.profile.personas=data.personas||state.profile.personas;state.hiddenTabs=new Set();state.activeTabIndex=0;state.carouselPosition=1;state.mainTab=state.room.tabs[0]||"";if(data.theme==="dark"||data.theme==="light")applyTheme(data.theme);$("#homeView").classList.add("hidden");$("#roomView").classList.remove("hidden");$("#profileBtn").classList.add("hidden");$("#shareBtn").classList.add("hidden");$("#roomTitle").textContent=state.room.title;$("#roomStatus").textContent="";$("#tabFilter").innerHTML='<option value="">メインタブを選択</option>';state.room.tabs.forEach(tab=>$("#tabFilter").insertAdjacentHTML("beforeend",`<option>${esc(tab)}</option>`));$("#tabFilter").value=state.mainTab;renderComments();renderLog();document.title=`${state.room.title} | 保存版`}
 async function openArchiveFile(file){try{openArchiveData(await readArchiveFile(file))}catch(error){$("#homeStatus").textContent=error.message}}
 async function fetchArchiveForRoom(id){const room=await api(`/api/rooms/${encodeURIComponent(id)}`),data=await api(`/api/rooms/${encodeURIComponent(id)}/annotations?authorId=${encodeURIComponent(state.profile.id)}`),personas=JSON.parse(localStorage.getItem(`personas:${id}`)||"[]");return{room,annotations:data.annotations||[],personas}}
 function askDeleteOwnedRoom(id,title){state.deleteTarget={id,title};$("#deleteRoomTitle").textContent=`「${title}」を削除しますか？`;$("#deleteRoomDialog").showModal()}
@@ -199,7 +204,7 @@ function markedText(message, anns) {
       }
       return JijinLogFormat.render(message.text,segments,{compactBlankLines:!!message.diceroll});
 }
-function markerColor(value){return /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(value||"")?value:"#ffe66b"}
+function markerColor(value){const pair=String(value||"").split("|");value=pair[document.documentElement.classList.contains("dark")&&pair.length>1?1:0];return /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(value||"")?value:"#ffe66b"}
 function messageHtml(m, grouped) {
   const anns = grouped[m.id] || [];
   const color = /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(m.color || "") ? m.color : "";
@@ -415,17 +420,10 @@ async function postComment(event) {
   const payload = { ...state.pendingSelection, parentId:state.replyTo||"", color: persona.color || "#ffe66b", authorId: state.profile.id, authorName: state.profile.plName, personaName: persona.name, personaType: persona.type, personaIcon: persona.icon || "", body,imageData:state.commentImage };
   try { const editingId=state.editingCommentId;await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`, { method:editingId?"PATCH":"POST", body:JSON.stringify(payload) }); setTyping(false); $("#commentDialog").close(); state.pendingSelection=null; state.selection=null; state.replyTo=null;state.editingCommentId=null; getSelection()?.removeAllRanges(); $("#selectionBar").classList.add("hidden"); await refreshAnnotations(true); if(!payload.parentId)jumpToMessage(payload.messageId); } catch(e) { alert(e.message); }
 }
-function openProfile() {
-  $("#plName").value = state.profile.plName; $("#plMarkerColor").value=markerColor(state.profile.plColor); renderPlIcon(); renderPersonas(); $("#profileDialog").showModal();
-}
-function avatarHtml(icon, fallback="＋") { return icon ? `<img src="${esc(icon)}" alt="">` : `<span>${fallback}</span>`; }
-function renderPlIcon() { $("#plIconPreview").innerHTML=avatarHtml(state.profile.plIcon); }
-function renderPersonas() { $("#personaList").innerHTML = state.profile.personas.map((p,i)=>`<div class="persona-row"><label class="persona-avatar">${avatarHtml(p.icon || "")}<input type="file" accept="image/*" data-persona-icon="${i}"></label><span>${esc(p.name)}（${esc(p.type)}）</span><input type="color" value="${esc(markerColor(p.color))}" data-persona-color="${i}" title="マーカー色"><button type="button" class="icon-btn" data-remove-persona="${i}">×</button></div>`).join(""); }
-function addPersona() { const name=$("#newPersonaName").value.trim(); if(!name)return; state.profile.personas.push({id:uid(),name,type:$("#newPersonaType").value,icon:state.newPersonaIcon||"",color:$("#newPersonaColor").value||"#ffe66b"});state.lastPersona=String(state.profile.personas.length-1);localStorage.setItem(`lastPersona:${state.roomId}`,state.lastPersona);saveProfile();emitIntegratedProfile(); state.newPersonaIcon=""; $("#newPersonaName").value=""; $("#newPersonaIcon").value=""; renderPersonas(); }
-function saveProfileForm(e) { e.preventDefault(); const name=$("#plName").value.trim(); if(!name)return; state.profile.plName=name; state.profile.plColor=$("#plMarkerColor").value||"#ffe66b"; saveProfile();emitIntegratedProfile(); syncPersonaColor({name:state.profile.plName,type:"PL",color:state.profile.plColor}); $("#profileDialog").close(); fillPersonaSelect(); heartbeatPresence(); if(state.pendingSelection)setTimeout(()=>openCommentDialog(),0); }
-async function issueProfileTransfer(){return window.JIJINPlayerMaster?.issueDeviceCode()}
-async function redeemProfileTransfer(){return window.JIJINPlayerMaster?.redeemDeviceCode()}
-async function syncPersonaColor(persona){if(!state.roomId||!persona?.name)return;await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/color`,{method:"PATCH",body:JSON.stringify({authorId:state.profile.id,personaName:persona.name,personaType:persona.type,color:persona.color})});await refreshAnnotations()}
+// PL/PC editing is owned by the current room editor, never a second LOG form.
+function openProfile(){window.JijinLogSettings?.open()}
+function renderPlIcon(){}
+function renderPersonas(){}
 function focusCommentChain(id){
   document.querySelectorAll(".comment-card.focused").forEach(card=>card.classList.remove("focused"));
   const seen=new Set();
@@ -481,38 +479,31 @@ function pulseLogMarker(element,id){
 
 function jumpToMessage(id, annotationId) { const message=state.room?.messages.find(m=>m.id===id); if(!message)return;const index=state.room.tabs.indexOf(message.tab);if(state.hiddenTabs.has(message.tab)){state.hiddenTabs.delete(message.tab);localStorage.setItem(`hiddenTabs:${state.roomId}`,JSON.stringify([...state.hiddenTabs]));state.activeTabIndex=index;renderLog(message.time)}else if(index!==state.activeTabIndex){if(state.viewMode==="timeline")goToTab(index);else{state.activeTabIndex=index;renderLog(message.time)}}const panel=document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`),el=panel?.querySelector(`[data-message="${CSS.escape(id)}"]`);if(!el)return;const annotation=annotationId&&state.annotations.find(item=>item.id===annotationId),color=markerColor(annotation?.color||"#ffe66b");el.style.setProperty("--flash-color",color);el.querySelector(".annotation-count")?.style.setProperty("--flash-color",color);el.classList.remove("flash");pulseLogMarker(el,annotationId);}
 
-async function resizeIcon(file) {
-  if (!file) return "";
-  const bitmap = await createImageBitmap(file), size = 96, canvas = document.createElement("canvas"); canvas.width=size; canvas.height=size;
-  const ctx=canvas.getContext("2d"), scale=Math.min(size/bitmap.width,size/bitmap.height), w=bitmap.width*scale, h=bitmap.height*scale;
-  ctx.clearRect(0,0,size,size);
-  ctx.drawImage(bitmap,(size-w)/2,(size-h)/2,w,h); bitmap.close?.();
-  return canvas.toDataURL("image/webp",.82);
-}
 async function resizeCommentImage(file){if(!file)return"";const bitmap=await createImageBitmap(file),max=1000,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext("2d").drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();let quality=.78,data="";do{data=canvas.toDataURL("image/webp",quality);quality-=.1}while(data.length>600000&&quality>=.38);if(data.length>600000){const small=document.createElement("canvas");small.width=Math.round(canvas.width*.72);small.height=Math.round(canvas.height*.72);small.getContext("2d").drawImage(canvas,0,0,small.width,small.height);data=small.toDataURL("image/webp",.55)}return data}
 function clearCommentImage(){state.commentImage=""}
 function jumpToComment(id) { const el=$("#comment-"+CSS.escape(id)); if(!el)return; if(innerWidth<=800)$("#commentsPane").classList.add("open"); el.scrollIntoView({behavior:"smooth",block:"center"}); focusCommentChain(id); }
 
 loadProfile();
-function applyTheme(theme){document.documentElement.classList.toggle("dark",theme==="dark")}applyTheme(localStorage.getItem("theme")||"light");
-$("#themeBtn").onclick=()=>{const theme=document.documentElement.classList.contains("dark")?"light":"dark";applyTheme(theme);localStorage.setItem(state.roomId?`theme:${state.roomId}`:"theme",theme)};
+function applyTheme(theme){
+ document.documentElement.classList.toggle("dark",theme==="dark");
+ requestAnimationFrame(()=>{
+  document.querySelectorAll("mark[data-ann]").forEach(mark=>{const a=state.annotations.find(a=>a.id===mark.dataset.ann);if(a)mark.style.setProperty("--marker",annotationMarkerColor(a))});
+  document.querySelectorAll(".comment-card[id^='comment-']").forEach(card=>{const a=state.annotations.find(a=>a.id===card.id.slice(8));if(a)card.style.setProperty("--comment-marker",markerColor(a.color))});
+ });
+}applyTheme("light");
+
 $("#fileInput").onchange=e=>e.target.files[0]&&handleFile(e.target.files[0]);
 $("#spoilerInput").onchange=e=>$("#spoilerDetails").classList.toggle("hidden",!e.target.checked);
 for(const ev of ["dragenter","dragover"]){$("#dropzone").addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.add("drag")})}
 for(const ev of ["dragleave","drop"]){$("#dropzone").addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.remove("drag")})}
 $("#dropzone").addEventListener("drop",e=>e.dataTransfer.files[0]&&handleFile(e.dataTransfer.files[0]));
-$("#createRoomBtn").onclick=createRoom; $("#profileBtn").onclick=openProfile; $("#savePersonaBtn").onclick=addPersona; $("#profileForm").onsubmit=saveProfileForm; $("#commentForm").onsubmit=postComment;
-$("#issueTransferBtn").onclick=issueProfileTransfer;$("#redeemTransferBtn").onclick=redeemProfileTransfer;
-document.addEventListener("click",e=>{if(e.target.matches("[data-close]"))e.target.closest("dialog").close();const image=e.target.closest("[data-expand-image]");if(image){e.stopPropagation();$("#expandedCommentImage").src=image.src;$("#imageDialog").showModal();return}const like=e.target.closest("[data-like-comment]");if(like){e.stopPropagation();toggleLike(like.dataset.likeComment,like);return}const edit=e.target.closest("[data-edit-comment]");if(edit){e.stopPropagation();const annotation=state.annotations.find(item=>item.id===edit.dataset.editComment);openEditDialog(annotation,edit.closest(".comment-card").getBoundingClientRect());return}const typing=e.target.closest("[data-typing-target]");if(typing){jumpToMessage(typing.dataset.typingTarget);return} const rm=e.target.closest("[data-remove-persona]");if(rm){state.profile.personas.splice(Number(rm.dataset.removePersona),1);saveProfile();renderPersonas()} const mark=e.target.closest("mark[data-ann]");if(mark)jumpToComment(mark.dataset.ann);const reply=e.target.closest("[data-reply-comment]");if(reply){const annotation=state.annotations.find(item=>item.id===reply.dataset.replyComment);openReplyDialog(annotation,reply.closest(".comment-card").getBoundingClientRect())} const card=e.target.closest(".comment-card");if(card&&!reply)jumpToMessage(card.dataset.target,card.id.replace("comment-","")); const count=e.target.closest("[data-message-comments]");if(count){const a=state.annotations.find(x=>x.message_id===count.dataset.messageComments&&!x.parent_id);if(a)jumpToComment(a.id)} const page=e.target.closest("[data-page]");if(page)switchLogPage(page.dataset.page==="next"?1:-1)});
+$("#createRoomBtn").onclick=createRoom; $("#profileBtn").onclick=openProfile; $("#commentForm").onsubmit=postComment;
+document.addEventListener("click",e=>{if(e.target.matches("[data-close]"))e.target.closest("dialog").close();const image=e.target.closest("[data-expand-image]");if(image){e.stopPropagation();$("#expandedCommentImage").src=image.src;$("#imageDialog").showModal();return}const like=e.target.closest("[data-like-comment]");if(like){e.stopPropagation();toggleLike(like.dataset.likeComment,like);return}const edit=e.target.closest("[data-edit-comment]");if(edit){e.stopPropagation();const annotation=state.annotations.find(item=>item.id===edit.dataset.editComment);openEditDialog(annotation,edit.closest(".comment-card").getBoundingClientRect());return}const typing=e.target.closest("[data-typing-target]");if(typing){jumpToMessage(typing.dataset.typingTarget);return} const mark=e.target.closest("mark[data-ann]");if(mark)jumpToComment(mark.dataset.ann);const reply=e.target.closest("[data-reply-comment]");if(reply){const annotation=state.annotations.find(item=>item.id===reply.dataset.replyComment);openReplyDialog(annotation,reply.closest(".comment-card").getBoundingClientRect())} const card=e.target.closest(".comment-card");if(card&&!reply)jumpToMessage(card.dataset.target,card.id.replace("comment-","")); const count=e.target.closest("[data-message-comments]");if(count){const a=state.annotations.find(x=>x.message_id===count.dataset.messageComments&&!x.parent_id);if(a)jumpToComment(a.id)} const page=e.target.closest("[data-page]");if(page)switchLogPage(page.dataset.page==="next"?1:-1)});
 document.addEventListener("click",e=>{const tab=e.target.closest("[data-tab-index]");if(tab)goToTab(Number(tab.dataset.tabIndex))});
 document.addEventListener("dblclick",e=>{const tab=e.target.closest(".tab-rail [data-tab-index]");if(!tab)return;e.preventDefault();e.stopPropagation();toggleTabVisibility(Number(tab.dataset.tabIndex))});
 document.addEventListener("click",e=>{const suggestion=e.target.closest("[data-suggest-message]");if(!suggestion)return;hideTabSuggestions();jumpToMessage(suggestion.dataset.suggestMessage)});
 document.addEventListener("click",e=>{const button=e.target.closest("[data-delete-room]");if(button)askDeleteOwnedRoom(button.dataset.deleteRoom,button.dataset.roomTitle)});
-document.addEventListener("change",async e=>{if(e.target.matches("[data-persona-icon]")){const i=Number(e.target.dataset.personaIcon);state.profile.personas[i].icon=await resizeIcon(e.target.files[0]);saveProfile();renderPersonas()}});
-document.addEventListener("change",e=>{if(e.target.matches("[data-persona-color]")){const persona=state.profile.personas[Number(e.target.dataset.personaColor)];persona.color=e.target.value;saveProfile();syncPersonaColor(persona)}});
 $("#personaSelect").onchange=()=>{if($("#personaSelect").value==="ADD"){$("#commentDialog").close();openProfile();return}state.lastPersona=$("#personaSelect").value;localStorage.setItem(`lastPersona:${state.roomId}`,state.lastPersona);updateCommentPersonaAvatar()};
-$("#plIconInput").onchange=async e=>{state.profile.plIcon=await resizeIcon(e.target.files[0]);saveProfile();renderPlIcon()};
-$("#newPersonaIcon").onchange=async e=>{state.newPersonaIcon=await resizeIcon(e.target.files[0])};
 $("#commentDeleteBtn").onclick=async()=>{const id=state.editingCommentId;if(!id)return;if(!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;$("#commentDialog").close();await deleteComment(id,true);state.editingCommentId=null};
 $("#imageDialog").addEventListener("click",e=>{if(e.target===$("#imageDialog"))$("#imageDialog").close()});
 $("#exportRoomBtn").onclick=async()=>{if(!state.room)return;const button=$("#exportRoomBtn"),label=button.textContent;button.disabled=true;button.textContent="保存中…";try{await downloadArchive(state.room,state.annotations,state.profile.personas)}catch(error){alert(error.message)}finally{button.disabled=false;button.textContent=label}};
@@ -525,7 +516,7 @@ document.addEventListener("mouseup",()=>setTimeout(showSelection)); document.add
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.realtimeWanted&&state.realtime?.readyState!==WebSocket.OPEN)connectRealtime()});
 addEventListener("pagehide",disconnectRealtime);
 addEventListener("pageshow",()=>{if(state.roomId&&state.roomId!=="archive"&&!state.archiveMode)connectRealtime()});
-addEventListener("message",event=>{if(event.origin!==location.origin)return;if(event.data?.type==="jijinboard-open-profile")openProfile();if(event.data?.type==="jijinboard-toggle-theme")$("#themeBtn").click();if(event.data?.type==="jijinboard-request-profile")emitIntegratedProfile()});
+addEventListener("message",event=>{if(event.origin!==location.origin)return;if(event.data?.type==="jijinboard-open-profile")openProfile();if(event.data?.type==="jijinboard-request-profile")emitIntegratedProfile()});
 $("#markBtn").onclick=openCommentDialog; $("#viewMode").value=state.viewMode; $("#viewMode").onchange=e=>{const time=currentReadingTime();state.readingAnchor=time;state.viewMode=e.target.value;localStorage.setItem("trpgMarkerViewMode",state.viewMode);renderLog(time);setTimeout(revealInlineSuggestions,20)}; $("#tabFilter").onchange=e=>{const time=currentReadingTime();state.readingAnchor=time;state.mainTab=e.target.value;localStorage.setItem(`mainTab:${state.roomId}`,state.mainTab);renderLog(time);setTimeout(revealInlineSuggestions,20)}; $("#searchInput").oninput=()=>{const time=currentReadingTime();state.readingAnchor=time;renderLog(time);setTimeout(revealInlineSuggestions,20)};
 $("#shareBtn").onclick=async()=>{await navigator.clipboard.writeText(location.href);$("#roomStatus").textContent="共有URLをコピーしました";setTimeout(()=>$("#roomStatus").textContent="",1800)};
 function applyFontSize(value){const size=Math.min(20,Math.max(10,Number(value)||12.5));document.documentElement.style.setProperty("--log-font-size",`${size}px`);$("#fontSize").value=String(size);localStorage.setItem("trpgMarkerFontSize",String(size))}$("#fontSize").oninput=e=>applyFontSize(e.target.value);applyFontSize(localStorage.getItem("trpgMarkerFontSize")||12.5);

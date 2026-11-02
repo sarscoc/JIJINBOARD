@@ -39,14 +39,6 @@
 
   if(!embedded||!boardId)return;
 
-  const themeButton=document.getElementById("themeBtn");
-  if(themeButton){
-    themeButton.style.display="none";
-    themeButton.setAttribute("aria-hidden","true");
-    themeButton.tabIndex=-1;
-    themeButton.onclick=event=>event?.preventDefault?.();
-  }
-
   function applySharedMode(mode){
     mode=mode==="dark"?"dark":"light";
     if(typeof applyTheme==="function")applyTheme(mode);
@@ -81,3 +73,4 @@
     }
   }
 })();
+

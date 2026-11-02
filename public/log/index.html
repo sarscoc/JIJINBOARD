@@ -22,23 +22,19 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
   <meta name="robots" content="noindex,noarchive,max-image-preview:large">
   <meta name="description" content="ログにリアルタイムでコメントを付けるサイトです。">
   <meta property="og:type" content="website">
-  <meta property="og:site_name" content="TRPG LOG MARKER">
-  <meta property="og:title" content="TRPG LOG MARKER">
+  <meta property="og:site_name" content="LOGCOMMENTS">
+  <meta property="og:title" content="LOGCOMMENTS">
   <meta property="og:description" content="ログにリアルタイムでコメントを付けるサイトです。">
-  <meta property="og:image" content="https://logcomments.pages.dev/twitter-card.png?v=20260821">
-  <meta property="og:image:secure_url" content="https://logcomments.pages.dev/twitter-card.png?v=20260821">
   <meta property="og:image:type" content="image/png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="TRPG LOG MARKER">
+  <meta name="twitter:title" content="LOGCOMMENTS">
   <meta name="twitter:description" content="ログにリアルタイムでコメントを付けるサイトです。">
-  <meta name="twitter:image" content="https://logcomments.pages.dev/twitter-card.png?v=20260821">
-  <meta name="twitter:image:alt" content="TRPG LOG MARKER">
-  <title>TRPG LOG MARKER</title>
-  <link rel="stylesheet" href="style.css?v=20261102-room1">
-  <link rel="stylesheet" href="profile-compact.css?v=20261102-room1">
-  <link rel="stylesheet" href="embedded-layout.css?v=20261102-room1">
+  <meta name="twitter:image:alt" content="LOGCOMMENTS">
+  <title>LOGCOMMENTS</title>
+  <link rel="stylesheet" href="style.css?v=20261103-log-settings1">
+  <link rel="stylesheet" href="embedded-layout.css?v=20261103-log-settings1">
   <script>(function(){const p=new URL(location.href).searchParams;if(p.get("embedded")==="1")document.documentElement.classList.add("embedded");if(p.get("room"))document.documentElement.classList.add("existing-log")})()</script>
   <style>html.existing-log #homeView{display:none!important}html.existing-log #roomView.hidden{display:block!important}</style>
 <script>
@@ -47,10 +43,9 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/">TRPG LOG MARKER</a>
+    <a class="brand" href="/">LOGCOMMENTS</a>
     <div id="presenceBar" class="presence-bar" aria-label="入室中のPL"></div>
     <div class="top-actions">
-      <button id="themeBtn" class="icon-btn" title="表示切替">◐</button>
       <button id="profileBtn" class="quiet hidden">発言者</button>
     </div>
   </header>
@@ -115,62 +110,24 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
     <form method="dialog"><div class="dialog-head"><strong id="deleteRoomTitle">部屋を削除しますか？</strong><button type="button" class="icon-btn" data-close>×</button></div><p class="delete-room-note">ログと感想は元に戻せません。</p><div class="delete-room-actions"><button id="saveDeleteRoomBtn" type="button" class="primary">保存して削除</button><button id="deleteOnlyRoomBtn" type="button" class="danger-quiet">削除だけ</button><button type="button" class="quiet" data-close>キャンセル</button></div></form>
   </dialog>
 
-  <dialog id="profileDialog" class="compact-profile-dialog">
-    <form id="profileForm" method="dialog">
-      <div class="profile-close-row"><button type="button" class="icon-btn" data-close aria-label="閉じる">×</button></div>
-
-      <div class="profile-person-row profile-pl-row">
-        <input id="plName" maxlength="80" required placeholder="PL名" aria-label="PL名">
-        <div class="profile-image-pair">
-          <label class="profile-image-control" title="アイコン画像">
-            <span id="plIconPreview" class="profile-image-preview">画像</span>
-            <input id="plIconInput" type="file" accept="image/*">
-          </label>
-          <span class="profile-image-control profile-matrix-spacer" aria-hidden="true"></span>
-        </div>
-        <div class="profile-color-pair">
-          <label class="marker-choice light" title="白背景用"><b id="plMarkerLightPreview"></b><input id="plMarkerColor" type="color" value="#ffe66b" aria-label="白背景用マーカー色"></label>
-          <label class="marker-choice dark" title="黒背景用"><b id="plMarkerDarkPreview"></b><input id="plMarkerColorDark" type="color" value="#ffe66b" aria-label="黒背景用マーカー色"></label>
-        </div>
-        <span class="profile-row-spacer" aria-hidden="true"></span>
-      </div>
-
-      <div id="personaList" class="profile-persona-list"></div>
-      <div class="profile-add-wrap"><button type="button" id="savePersonaBtn" class="profile-add-button" aria-label="キャラクターを追加">＋</button></div>
-
-      <input id="newPersonaName" type="hidden"><input id="newPersonaType" type="hidden" value="PC"><input id="newPersonaIcon" type="file" accept="image/*" hidden><input id="newPersonaColor" type="hidden" value="#ffe66b"><input id="newPersonaColorDark" type="hidden" value="#ffe66b">
-
-      <div class="profile-transfer">
-        <button type="button" id="transferToggle" class="profile-transfer-toggle">引き継ぎ設定</button>
-        <div id="transferPanel" class="profile-transfer-panel hidden">
-          <button type="button" id="issueTransferBtn" class="quiet">別端末へ引き継ぐ</button>
-          <input id="transferCodeInput" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" placeholder="4桁の引き継ぎコード">
-          <button type="button" id="redeemTransferBtn" class="quiet">引き継ぐ</button>
-        </div>
-      </div>
-
-      <button type="submit" class="primary profile-save">保存</button>
-    </form>
-  </dialog>
+  <dialog id="profileDialog" class="log-speaker-dialog"><button type="button" data-close aria-label="閉じる">×</button><div id="logSpeakerSlot"></div></dialog>
   <script src="log-room-cache-preload.js?v=20261102-room1"></script>
   <script src="comment-window-loader.js?v=20261102-room1"></script>
   <script src="../shared/log-format.js?v=20261102-dice1"></script>
-  <script src="app.js?v=20261102-dice1"></script>
+  <script src="app.js?v=20261103-log-settings1"></script>
   <script src="log-fast-first-paint.js?v=20261102-dice1"></script>
   <script src="comment-submit-guard.js?v=20261102-room1"></script>
   <script src="comment-incremental-sync.js?v=20261102-room1"></script>
-  <script src="profile-compact.js?v=20261102-room1"></script>
+  <script src="../board/speaker-editor.js?v=20261103-log-settings1"></script>
+  <script src="log-speaker-settings.js?v=20261103-log-settings1"></script>
   <script src="../shared/player-master.js?v=20261102-startup2" data-jijin-player-master="1"></script>
-  <script src="profile-auto-ui.js?v=20261102-repair1"></script>
-  <script src="persona-immediate-sync.js?v=20261102-room1"></script>
   <script src="comment-avatar-fallback.js?v=20261102-room1"></script>
-  <script src="matrix-icon-quality.js?v=20261102-room1"></script>
   <script src="flat-log-parser.js?v=20261102-tekey1"></script>
   <script src="trpg-log-import.js?v=20261102-room1"></script>
   <script src="virtual-log.js?v=20261102-room1"></script>
   <script src="virtual-scroll-stability.js?v=20261102-room1"></script>
   <script src="shared-tab-settings.js?v=20261102-room1"></script>
-  <script src="upload-title-default.js?v=20261102-room1"></script>
+  <script src="upload-title-default.js?v=20261103-log-settings1"></script>
   <script src="timeline-prewarm.js?v=20261102-room1"></script>
   <script src="embedded-ready.js?v=20261102-room1"></script>
   <script src="log-app-bridge.js?v=20261102-room1"></script>

@@ -127,7 +127,7 @@ html:root.dark body::before{background:#424242;background-image:none}
     }
   </script>
   <script src="board2.js?v=20261102-clean-settings1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
-  <script src="board-home.js?v=20261102-editor1"></script>
+  <script src="board-home.js?v=20261103-log-settings1"></script>
   <script src="room-change-notify.js?v=20261102-clean-settings1"></script>
   <script src="matrix-icon-bridge.js?v=20261102-room1"></script>
   <script src="board-spoiler-preview.js?v=20261102-room1"></script>
@@ -135,25 +135,12 @@ html:root.dark body::before{background:#424242;background-image:none}
   <script src="board-tab-settings.js?v=20261102-room1"></script>
   <script src="../shared/player-master.js?v=20261102-startup2"></script>
   <script src="speaker-editor.js?v=20261102-inspect1"></script>
-  <script src="board-profile.js?v=20261102-clean-settings1"></script>
+  <script src="board-profile.js?v=20261103-log-settings1"></script>
   <script src="theme-scoped.js?v=20261102-clean-settings1"></script>
   <script src="shared-background-sync.js?v=20261102-clean-settings1"></script>
   <script src="log-no-shadows.js?v=20261102-clean-settings1"></script>
   <script src="group-row-colors.js?v=20261102-room1"></script>
   <script>
-    const __logFrame=document.getElementById('logFrame');
-    function __hideEmbeddedLogThemeToggle(){
-      try{
-        const button=__logFrame?.contentDocument?.getElementById('themeBtn');
-        if(!button)return;
-        button.hidden=true;
-        button.setAttribute('aria-hidden','true');
-        button.tabIndex=-1;
-        button.style.setProperty('display','none','important');
-      }catch{}
-    }
-    __logFrame?.addEventListener('load',()=>{__hideEmbeddedLogThemeToggle();setTimeout(__hideEmbeddedLogThemeToggle,80)});
-
     const __spreadsheetFrame=document.getElementById('spreadsheetFrame');
     function __forceSpreadsheetCommentsVisible(){
       try{

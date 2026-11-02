@@ -1,8 +1,6 @@
 /* JIJINBOARD embed: exact shared geometry with MAGIA MATRIX.
    Desktop baseline: 12px outer inset -> 30px toolbar -> 8px gap -> reader/comments. */
 
-/* JIJINBOARD owns white/black per log. Never expose the old per-viewer toggle. */
-html.embedded #themeBtn{display:none!important}
 
 @media (min-width:801px){
   :root{
@@ -217,3 +215,4 @@ html.embedded body .comment-card:hover{border-color:var(--comment-marker,var(--m
   html.embedded .room-tools h1{position:absolute!important;left:0!important;top:0!important;width:max(0px,calc(100% - 590px))!important;min-width:0!important;height:30px!important;line-height:30px!important;transition:none!important}
   html.embedded #exportRoomBtn{width:72px!important;flex:0 0 72px!important}
 }
+
