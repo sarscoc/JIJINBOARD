@@ -82,7 +82,25 @@
       if(limit<=0)limit=batchSize;
       limit=Math.min(Math.max(limit,batchSize),Math.max(items.length,batchSize));
       const visible=items.slice(0,limit);
-      list.innerHTML=visible.length?visible.map(item=>item.typing?typingHtml(item):cardHtml(item.annotation,children,messageTabs)).join(''):'<p class="empty">マーカーされた感想がここに並びます。</p>';
+      // Keep unchanged threads (and their loaded images) attached across presence updates.
+      const existing=new Map([...list.children].map(node=>[node.dataset.threadKey,node]));
+      const keep=new Set();
+      const entries=visible.length?visible.map(item=>({
+        key:item.typing?`typing:${item.person.id||item.person.pl_name}:${item.message_id}`:`comment:${item.annotation.id}`,
+        html:item.typing?typingHtml(item):cardHtml(item.annotation,children,messageTabs)
+      })):[{key:'empty',html:'<p class="empty">マーカーされた感想がここに並びます。</p>'}];
+      let cursor=list.firstElementChild;
+      for(const entry of entries){
+        let node=existing.get(entry.key);
+        if(!node||node.__threadHtml!==entry.html){
+          const template=document.createElement('template');template.innerHTML=entry.html;
+          const next=template.content.firstElementChild;next.dataset.threadKey=entry.key;next.__threadHtml=entry.html;
+          if(node){if(cursor===node)cursor=next;node.replaceWith(next)}node=next;
+        }
+        if(node!==cursor)list.insertBefore(node,cursor);
+        keep.add(node);cursor=node.nextElementSibling;
+      }
+      for(const node of [...list.children])if(!keep.has(node))node.remove();
       list.scrollTop=Math.max(0,Math.min(scrollTop,Math.max(0,list.scrollHeight-list.clientHeight)));
       queueFill();
     };
@@ -120,3 +138,4 @@
   }
   setTimeout(install,0);
 })();
+

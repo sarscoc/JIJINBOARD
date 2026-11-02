@@ -137,7 +137,7 @@
         if(localDirty||saving||timer||window.sheetDisplaySettings?.isEditing?.())return;
         lastRemoteRevision=result.revision??null;
         const clean=sanitizeSnapshot(remote||{}),serial=JSON.stringify(clean);
-        if(serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
+        if(serial!==lastRemoteSerial&&serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
         remoteDirty=false;
       }catch(error){console.warn('Spreadsheet remote refresh failed',error)}
     })();
@@ -173,10 +173,13 @@
   function notifyReady(){if(readySent)return;readySent=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{try{parent.postMessage({type:'jijinboard-spreadsheet-ready'},location.origin)}catch{}}))}
   function finishLocalReady(){loading=false;remoteDirty=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady()}
 
+  // Start I/O while the parser finishes installing the presentation helpers.
+  const initialRequest=api(endpoint,{cache:'no-store'});
+  initialRequest.catch(()=>{});
   async function initialRemoteSync(){
     let remote=null;
     try{
-      const result=await api(endpoint,{cache:"no-store"});
+      const result=await initialRequest;
       remote=result.state;lastRemoteRevision=result.revision??null;
       if(remote!==null&&(typeof remote!=='object'||Array.isArray(remote)))throw Error('保存データを読み込めませんでした');
       const cleanRemote=sanitizeSnapshot(remote||{});
