@@ -15,7 +15,7 @@ const scopeTriggers=[
  `CREATE TRIGGER IF NOT EXISTS character_room_address_update BEFORE UPDATE ON character WHEN NEW.character_id NOT GLOB (NEW.pl_id||'/characters/*') BEGIN SELECT RAISE(ABORT,'Room character address required'); END`,
  `CREATE TRIGGER IF NOT EXISTS room_owner_address_insert BEFORE INSERT ON room WHEN NEW.owner_pl_id NOT GLOB '/boards/*/players/*' BEGIN SELECT RAISE(ABORT,'Room owner address required'); END`
 ];
-const pending=()=>new Response(JSON.stringify({code:'DATASET_RESETTING',error:'保存データを初期化しています。しばらくしてから再読み込みしてください。'}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','retry-after':'5'}});
+const pending=(diagnostic={})=>new Response(JSON.stringify({...diagnostic,code:'DATASET_RESETTING',error:'保存データを初期化しています。しばらくしてから再読み込みしてください。'}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','retry-after':'5'}});
 export async function performRequestedReset(env){
  const id=String(env.RESET_DATASET_ONCE||'');if(!id)return null;
  const db=env.DB;
@@ -90,12 +90,12 @@ export async function performRequestedReset(env){
  }catch(error){
   console.error('Requested dataset reset paused',error);
   await db.prepare('UPDATE app_reset SET lease_until=0 WHERE reset_id=? AND lease_token=?').bind(id,lease).run();
-  return pending();
+  return pending({phase:row.phase,detail:String(error.message||error).slice(0,300)});
  }
 }
 
 export async function requestedResetStatus(env){
  if(!env.RESET_DATASET_ONCE)return null;
- const row=await env.DB.prepare('SELECT reset_id,state,completed_at FROM app_reset WHERE reset_id=?').bind(String(env.RESET_DATASET_ONCE)).first();
- return row?{id:row.reset_id,state:row.state,completedAt:row.completed_at||null}:null;
+ const row=await env.DB.prepare('SELECT reset_id,state,phase,cursor,completed_at FROM app_reset WHERE reset_id=?').bind(String(env.RESET_DATASET_ONCE)).first();
+ return row?{id:row.reset_id,state:row.state,phase:row.phase,cursor:Number(row.cursor)||0,completedAt:row.completed_at||null}:null;
 }

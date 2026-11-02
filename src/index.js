@@ -37,6 +37,7 @@ export default{
     if(url.pathname.startsWith('/api/'))url.pathname=url.pathname.replace(/\/+$/,'');
     if(!url.pathname.startsWith('/api/')&&url.pathname!=='/'&&!/^\/index(?:\.html)?\/?$/.test(url.pathname))return serveAsset(request,env,url);
     if(!env.DB){if(url.pathname.startsWith('/api/'))return json({error:'D1データベースが接続されていません'},503);return new Response('管理TOPを読み込めません。D1接続を確認してください。',{status:503})}
+    if(url.pathname==='/api/dataset/reset-status'&&request.method==='GET'){try{return json({reset:await requestedResetStatus(env)})}catch{return json({reset:null})}}
     const resetting=await performRequestedReset(env);if(resetting){
       if(!url.pathname.startsWith('/api/'))return new Response('<!doctype html><html lang="ja"><meta charset="utf-8"><meta http-equiv="refresh" content="5"><title>初期化中</title><p>保存データを初期化しています。そのままお待ちください。</p></html>',{status:503,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
       return resetting;
