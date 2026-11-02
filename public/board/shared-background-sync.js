@@ -78,7 +78,9 @@
   },true);
   window.addEventListener("storage",event=>{if(event.key===storageKey)syncAll()});
 
+  window.addEventListener("jijinboard-theme-updated",syncAll);
   syncAll();
   setTimeout(syncAll,300);
   setTimeout(syncAll,1200);
 })();
+

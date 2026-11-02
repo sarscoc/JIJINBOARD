@@ -103,8 +103,6 @@ $("#confirmOpen").onclick=async()=>{const room=state.pendingRoom,title=$("#spoil
 function showUploader(){closeSpoiler();$("#welcome").classList.add("hidden");const frame=$("#logFrame");setLogActive(frame,false);delete frame.dataset.room;setToolFrameLoading(frame);frame.src=`/log/?embedded=1&board=${encodeURIComponent(boardId)}`;selectTool("log")}
 $("#addLogButton").onclick=showUploader;
 $("#closeLogEdit").onclick=()=>$("#logEditDialog").close();$("#logEditForm").onsubmit=saveLogEdit;$("#deleteLogButton").onclick=removeLog;
-$("#shareBoard").onclick=async()=>{await navigator.clipboard.writeText(`${location.origin}/board/?id=${encodeURIComponent(boardId)}`);const old=$("#shareBoard").textContent;$("#shareBoard").textContent="コピー済";setTimeout(()=>$("#shareBoard").textContent=old,1400)};
-$("#profileButton").onclick=()=>{const bridge=logBridge();if(bridge?.openProfile)bridge.openProfile();else $("#logFrame").contentWindow?.postMessage({type:"jijinboard-open-profile"},location.origin)};
 $("#logFrame").addEventListener("load",()=>{const frame=$("#logFrame");hydrateProfile(frame.dataset.room||state.activeRoom);requestProfile();setLogActive(frame,state.tool==="log")});
 $("#matrixFrame").addEventListener("load",()=>{const frame=$("#matrixFrame");frame.contentWindow?.postMessage({type:"jijinboard-matrix-active",active:state.tool==="matrix"},location.origin)});
 $("#spreadsheetFrame").addEventListener("load",()=>$("#spreadsheetFrame").contentWindow?.postMessage({type:"jijinboard-spreadsheet-active",active:state.tool==="spreadsheet"},location.origin));

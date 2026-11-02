@@ -17,7 +17,8 @@
   function readLocal(){try{const raw=JSON.parse(localStorage.getItem(storageKey)||"null");if(!raw)return null;const clean=normalize(raw);if(JSON.stringify(clean)!==JSON.stringify(raw))localStorage.setItem(storageKey,JSON.stringify(clean));return clean}catch{return null}}
   const localTheme=readLocal();
   let theme=localTheme||{...defaults};
-  let saveTimer=0,uiBuilt=false,remoteLoaded=false,remoteLoading=false;
+  let saveTimer=0,uiBuilt=false,remoteLoaded=false,remoteLoading=false,editVersion=0,dirty=false;
+  let saveChain=Promise.resolve();
 
   function writeLocal(){try{localStorage.setItem(storageKey,JSON.stringify(theme))}catch{}}
   function adminToken(){try{return localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||""}catch{return localStorage.getItem(`boardAdmin:${boardId}`)||""}}
@@ -25,10 +26,9 @@
   const uiInk="rgb(75,75,75)";
   const noBlur="backdrop-filter:none!important;-webkit-backdrop-filter:none!important;";
   const hexRgba=(hex,alpha)=>{const value=validColor(hex)?hex:"#000000",n=parseInt(value.slice(1),16);return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${alpha})`};
-  const whiteGradient=value=>`--jijin-background-one:${hexRgba(value.gradientColor1,.24)};--jijin-background-two:${hexRgba(value.gradientColor2,.12)};background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,${hexRgba(value.gradientColor1,.24)},transparent 28%),radial-gradient(circle at 86% 82%,${hexRgba(value.gradientColor2,.12)},transparent 30%)!important;background-repeat:no-repeat!important;background-size:100% 100%!important;background-attachment:fixed!important;`;
 
   function parentCss(value){return `
-    .topbar .brand,.board-brand-kicker,.topbar .presence-person b,.topbar .app-tabs button,.log-list-head>span{color:${value.color1}!important}
+    :root{--jijin-pre-color1:${value.color1}}
     .log-sidebar{background:#fff!important}
     .log-item.active{border-left-color:${value.color1}!important}
     .log-list{scrollbar-color:${value.color1} transparent!important}
@@ -104,6 +104,10 @@
   };
   function applyToFrame(frame,scope){try{const doc=frame?.contentDocument;if(!doc?.head)return;styleIn(doc,"jijinboardScopedThemeStyle",scope==="log"?logCss(theme):scope==="matrix"?matrixCss(theme):sheetCss(theme))}catch{}}
   function applyAll(){
+    document.documentElement.style.setProperty("--jijin-pre-color1",theme.color1);
+    document.documentElement.style.setProperty("--jijin-background-one",hexRgba(theme.gradientColor1,.24));
+    document.documentElement.style.setProperty("--jijin-background-two",hexRgba(theme.gradientColor2,.12));
+    window.dispatchEvent(new Event("jijinboard-theme-updated"));
     let icon=document.querySelector('link[data-board-favicon]');
     if(!icon){icon=document.createElement('link');icon.rel='icon';icon.type='image/svg+xml';icon.dataset.boardFavicon='1';document.head.append(icon)}
     const brand=document.querySelector('.board-brand-kicker:not(.hidden)')||document.querySelector('.board-brand-kicker');
@@ -115,11 +119,33 @@ styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));applyToFrame(doc
   for(const [id,scope] of [["logFrame","log"],["matrixFrame","matrix"],["spreadsheetFrame","sheet"]])document.getElementById(id)?.addEventListener("load",()=>applyToFrame(document.getElementById(id),scope));
 
   function scheduleSave(){clearTimeout(saveTimer);saveTimer=setTimeout(saveRemote,500)}
-  async function saveRemote(){const token=adminToken();if(!token)return;try{await fetch(themeEndpoint,{method:"POST",headers:{"content-type":"application/json","x-board-admin-token":token},body:JSON.stringify({theme})})}catch{}}
-  async function loadRemote(){if(remoteLoaded||remoteLoading)return;remoteLoading=true;try{const response=await fetch(themeEndpoint);if(!response.ok)return;const body=await response.json().catch(()=>null);if(body?.theme){const next=normalize(body.theme);const changed=JSON.stringify(next)!==JSON.stringify(theme);theme=next;writeLocal();if(changed){applyAll();syncUi()}}remoteLoaded=true}catch{}finally{remoteLoading=false}}
+  function saveRemote(){
+    const token=adminToken();if(!token)return Promise.resolve();
+    const version=editVersion,body=JSON.stringify({theme});
+    const task=saveChain.then(async()=>{
+      const response=await fetch(themeEndpoint,{method:"POST",headers:{"content-type":"application/json","x-board-admin-token":token},body});
+      if(response.ok&&version===editVersion)dirty=false;
+    });
+    saveChain=task.catch(()=>{});return saveChain;
+  }
+  async function loadRemote(force=false){
+    if((remoteLoaded&&!force)||remoteLoading||dirty)return;
+    remoteLoading=true;const version=editVersion;
+    try{
+      const response=await fetch(themeEndpoint,{cache:"no-store"});if(!response.ok)return;
+      const body=await response.json();if(!body||!Object.hasOwn(body,"theme"))return;
+      // A response started before a local edit must never replace that edit.
+      if(version!==editVersion||dirty)return;
+      theme=normalize(body.theme);writeLocal();applyAll();syncUi();remoteLoaded=true;
+    }catch{}finally{remoteLoading=false}
+  }
   function idleLoadRemote(){const run=()=>loadRemote();if("requestIdleCallback" in window)requestIdleCallback(run,{timeout:1800});else setTimeout(run,900)}
-  async function resetTheme(){theme={...defaults};writeLocal();applyAll();syncUi();const token=adminToken();if(token)try{await fetch(themeEndpoint,{method:"DELETE",headers:{"x-board-admin-token":token}})}catch{}}
-  function update(patch){theme=normalize({...theme,...patch});writeLocal();applyAll();syncUi();scheduleSave()}
+  async function resetTheme(){
+    editVersion++;dirty=true;clearTimeout(saveTimer);theme={...defaults};writeLocal();applyAll();syncUi();
+    // Persist the current defaults through the same ordered writer as color edits.
+    await saveRemote();
+  }
+  function update(patch){editVersion++;dirty=true;theme=normalize({...theme,...patch});writeLocal();applyAll();syncUi();scheduleSave()}
 
   function installUiStyle(){if(document.getElementById("jijinboardScopedThemeUiStyle"))return;const style=document.createElement("style");style.id="jijinboardScopedThemeUiStyle";style.textContent=`
     #boardSettingsOverlay .board-settings-design{padding:0!important}
@@ -131,9 +157,10 @@ styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));applyToFrame(doc
   `;document.head.append(style)}
   function buildUi(){const slot=document.getElementById("boardDesignSlot");if(!slot)return;installUiStyle();slot.classList.add("scoped-theme-slot");slot.innerHTML=`<div class="scoped-theme-ui"><section class="scoped-theme-section"><div class="scoped-theme-head"><b>共通カラー</b></div><div class="scoped-theme-grid"><label class="scoped-theme-field"><span>文字色1</span><input id="scopedColor1" type="color"></label><label class="scoped-theme-field"><span>グラデーション色1</span><input id="scopedGradient1" type="color"></label><label class="scoped-theme-field"><span>グラデーション色2</span><input id="scopedGradient2" type="color"></label><label class="scoped-theme-field scoped-check"><input id="scopedAlt" type="checkbox"><span>スプシのマスを交互に塗る</span></label><label class="scoped-theme-field"><span>交互マスの色</span><input id="scopedAltColor" type="color"></label></div></section><div class="scoped-theme-actions"><button id="scopedThemeReset" type="button">初期状態に戻す</button></div></div>`;uiBuilt=true;slot.querySelector("#scopedColor1").addEventListener("input",e=>update({color1:e.target.value}));slot.querySelector("#scopedGradient1").addEventListener("input",e=>update({gradientColor1:e.target.value}));slot.querySelector("#scopedGradient2").addEventListener("input",e=>update({gradientColor2:e.target.value}));slot.querySelector("#scopedAlt").addEventListener("change",e=>update({alternateCells:e.target.checked}));slot.querySelector("#scopedAltColor").addEventListener("input",e=>update({alternateCellColor:e.target.value}));slot.querySelector("#scopedThemeReset").onclick=()=>{if(confirm("共通デザイン設定を初期状態に戻しますか？"))resetTheme()};syncUi()}
   function syncUi(){if(!uiBuilt)return;const slot=document.getElementById("boardDesignSlot");if(!slot)return;const set=(id,v)=>{const el=slot.querySelector(`#${id}`);if(el)el.value=v};set("scopedColor1",theme.color1);set("scopedGradient1",theme.gradientColor1);set("scopedGradient2",theme.gradientColor2);set("scopedAltColor",theme.alternateCellColor);const alt=slot.querySelector("#scopedAlt");if(alt)alt.checked=!!theme.alternateCells}
-  function installDesignTabOverride(){const old=document.querySelector('[data-board-settings-tab="design"]'),page=document.querySelector('[data-board-settings-page="design"]');if(!old||!page||old.dataset.scopedTheme==="1")return !!old;const button=old.cloneNode(true);button.dataset.scopedTheme="1";old.replaceWith(button);button.addEventListener("click",()=>{document.querySelectorAll("[data-board-settings-tab]").forEach(tab=>tab.classList.toggle("active",tab===button));document.querySelectorAll("[data-board-settings-page]").forEach(item=>item.hidden=item!==page);if(!uiBuilt)buildUi();else syncUi();loadRemote()});return true}
+  window.JijinBoardTheme={open(){if(!uiBuilt)buildUi();else syncUi();loadRemote(true)}};
+  window.addEventListener("focus",()=>loadRemote(true));
+  window.addEventListener("storage",event=>{if(event.key===storageKey)loadRemote(true)});
 
   applyAll();
-  if(!localTheme)idleLoadRemote();
-  if(!installDesignTabOverride()){setTimeout(installDesignTabOverride,0);setTimeout(installDesignTabOverride,250)}
+  idleLoadRemote();
 })();
