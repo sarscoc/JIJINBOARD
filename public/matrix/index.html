@@ -3476,7 +3476,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
   </div>
 </div>
 
-<script src="../shared/project-data.js?v=20261102-room1"></script>
+
 <script>
 
 const $=s=>document.querySelector(s);
@@ -6752,12 +6752,10 @@ restoreTemplate();
 hydrateCharacterImages(items).catch(err=>console.warn('image hydration failed',err));
 
 const PROJECT_MATRIX_ASSETS='trpgProjectMatrixAssets.v1';
-async function loadProjectMatrixLibrary(){
-  const people=(window.TRPGProjectData?.importLogPeople?.()||[]).map(person=>({id:person.id,name:person.name,url:'',baseImage:person.icon||'',imageSignature:`project-person:${person.id}`,color:person.color||null,order:null,projectPersonId:person.id,assetType:'person'}));
+async function loadMatrixAssetLibrary(){
   const assets=loadJSON(PROJECT_MATRIX_ASSETS,[]).map(asset=>({...asset,baseImage:`project-asset:${asset.id}`,imageSignature:`project-asset:${asset.id}`,assetType:'matrix'}));
-  items=[...people,...assets];
+  items=assets;
   const s=appState();s.items||={};items.forEach(item=>{if(!s.items[item.id])s.items[item.id]=makeLocalItemState(item.id);item.local=s.items[item.id]});saveState(s);
-  await Promise.all(people.filter(person=>person.baseImage).map(person=>ensureItemImageCached(person).catch(()=>null)));
   await Promise.all(assets.map(async asset=>{const record=await charImgGetRecord(asset.id).catch(()=>null);if(record?.blob)setItemImageUrl(asset.id,record.blob)}));
   renderLibrary();renderPlaced();
 }
@@ -6769,15 +6767,15 @@ $('#matrixAssetInput').addEventListener('change',async event=>{
     await charImgSetRecord(id,{blob:file,signature:`project-asset:${id}`,savedAt:Date.now(),name:file.name,sourceKey:'matrix'});
     assets.push({id,name:file.name.replace(/\.[^.]+$/,''),url:'',color:null,order:null});
   }
-  saveJSON(PROJECT_MATRIX_ASSETS,assets);event.target.value='';await loadProjectMatrixLibrary();
+  saveJSON(PROJECT_MATRIX_ASSETS,assets);event.target.value='';await loadMatrixAssetLibrary();
 });
 if(!new URL(location.href).searchParams.has('board')){
-  loadProjectMatrixLibrary().catch(err=>console.warn('project library failed',err));
+  loadMatrixAssetLibrary().catch(err=>console.warn('matrix asset library failed',err));
 }
 
 </script>
-<script src="board-integration.js?v=20261102-startup2"></script>
-<script src="matrix-pc.js?v=20261102-room1"></script>
+<script src="board-integration.js?v=20261103-clean-tools1"></script>
+<script src="matrix-pc.js?v=20261103-clean-tools1"></script>
 <script src="matrix-icon-comments.js?v=20261102-room1"></script>
 <script src="matrix-template-sync.js?v=20261102-matrixsave1" data-matrix-template-sync="1"></script>
 </body>

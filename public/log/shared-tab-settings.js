@@ -22,7 +22,7 @@
     if (!select) return;
     const tabs = state.room?.tabs || [];
     const previous = state.mainTab || "";
-    select.innerHTML = '<option value="">メインタブを選択</option>' + tabs.map(tab => `<option>${esc(tab)}</option>`).join("");
+    select.innerHTML = '' + tabs.map(tab => `<option>${esc(tab)}</option>`).join("");
     if (previous && tabs.includes(previous)) state.mainTab = previous;
     else state.mainTab = tabs.find(tab => /^メイン$/i.test(tab)) || tabs[0] || "";
     select.value = state.mainTab;
@@ -92,3 +92,4 @@
     applyPending();
   });
 })();
+

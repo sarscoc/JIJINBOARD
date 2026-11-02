@@ -77,7 +77,7 @@
     max-width:calc(100% - 96px)!important;
     display:flex!important;
     align-items:center!important;
-    justify-content:flex-end!important;
+    justify-content:flex-start!important;
     gap:5px!important;
     height:var(--embed-control-height)!important;
     min-height:var(--embed-control-height)!important;
@@ -211,7 +211,7 @@ html.embedded body .comment-card:hover{border-color:var(--comment-marker,var(--m
 /* Pin the controls to the right edge; loading titles cannot move the bar. */
 @media(min-width:801px){
   html.embedded .room-tools{position:relative!important;display:block!important}
-  html.embedded .room-tools .filters{position:absolute!important;right:0!important;top:1px!important;width:min(574px,100%)!important;max-width:100%!important;justify-content:flex-end!important;flex:none!important;transition:none!important}
+  html.embedded .room-tools .filters{position:absolute!important;right:0!important;top:1px!important;width:min(574px,100%)!important;max-width:100%!important;justify-content:flex-start!important;flex:none!important;transition:none!important}
   html.embedded .room-tools h1{position:absolute!important;left:0!important;top:0!important;width:max(0px,calc(100% - 590px))!important;min-width:0!important;height:30px!important;line-height:30px!important;transition:none!important}
   html.embedded #exportRoomBtn{width:72px!important;flex:0 0 72px!important}
 }

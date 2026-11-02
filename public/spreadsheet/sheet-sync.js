@@ -18,7 +18,7 @@
     const out={...input};
     const chars=Array.isArray(input?.['charaHub.characters'])?input['charaHub.characters']:[];
     const removed=new Set(chars.filter(isAutoProjectCharacter).map(ch=>ch.id));
-    out['charaHub.characters']=chars.filter(ch=>!removed.has(ch.id));
+    out['charaHub.characters']=chars.filter(ch=>!removed.has(ch.id)).map(ch=>{const next={...ch};delete next.projectPersonId;return next});
     const sources=Array.isArray(input?.['charaHub.sources'])?input['charaHub.sources']:[];
     out['charaHub.sources']=sources.map(src=>{
       if(!removed.size||!src||typeof src!=='object')return src;
@@ -215,3 +215,4 @@
   }
   const save=document.getElementById('saveReadBtn');if(save?.onclick)save.onclick=busy(save,save.onclick);
 })();
+

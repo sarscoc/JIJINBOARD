@@ -6613,7 +6613,7 @@ html[data-db-alternate="1"] .data-sheet tbody tr:not(.group-row) .item-col{
   </div>
 </div>
 
-<script src="../shared/project-data.js?v=20261102-room1"></script>
+
 <script>
 const $=id=>document.getElementById(id);
 const state={
@@ -6634,19 +6634,6 @@ function saveState(){
   localStorage.setItem('charaHub.sources',JSON.stringify(state.sources));
   localStorage.setItem('charaHub.layoutV1',JSON.stringify(state.layout));
 }
-function syncProjectPeople(){
-  const project=window.TRPGProjectData;if(!project)return;
-  const people=project.importLogPeople().filter(person=>person.type==='PC'||person.type==='NPC');let changed=false;
-  state.characters.forEach(character=>{
-    if(character.projectPersonId)return;
-    let person=people.find(item=>item.id===character.id)||people.find(item=>item.type!=='PL'&&item.name===character.name);
-    if(!person){person=project.upsertPerson({type:'PC',name:character.name});people.push(person)}
-    character.projectPersonId=person.id;changed=true;
-  });
-  people.forEach(person=>{if(state.characters.some(character=>character.projectPersonId===person.id||character.id===person.id))return;state.characters.push({id:person.id,projectPersonId:person.id,name:person.name,alias:'',key:characterKey(person.name),base:null,sources:[],local:true});changed=true});
-  if(changed)saveState();
-}
-syncProjectPeople();
 function saveLayoutState(){
   // 配置・見た目だけを触る場面では巨大なCharacter/Source配列を再直列化しない
   localStorage.setItem('charaHub.layoutV1',JSON.stringify(state.layout));
@@ -6798,10 +6785,8 @@ $('createCharacterBtn').onclick=()=>{
   if(state.characters.some(ch=>(key && ch.key===key) || ch.name===title)){
     return showToast('同じCharacterがすでにあります');
   }
-  const projectPerson=window.TRPGProjectData?.upsertPerson({type:'PC',name:title.split(/\r?\n/)[0].trim()});
   state.characters.push({
-    id:projectPerson?.id||uid('char'),
-    projectPersonId:projectPerson?.id||'',
+    id:uid('char'),
     name:title.split(/\r?\n/)[0].trim(),
     alias:title,
     key:key,
@@ -7462,10 +7447,8 @@ $('saveReadBtn').onclick=()=>{
       const name=document.querySelector(`.newName[data-i="${i}"]`).value.trim();
       if(!name)return;
       if(!state.characters.some(c=>c.name===name)){
-        const projectPerson=window.TRPGProjectData?.upsertPerson({type:'PC',name});
         state.characters.push({
-          id:projectPerson?.id||uid('char'),
-          projectPersonId:projectPerson?.id||'',
+          id:uid('char'),
           name,
           alias:original.name!==name?original.name:'',
           base:{
@@ -10907,7 +10890,7 @@ document.addEventListener('keydown',e=>{
 <link rel="stylesheet" href="sheet-comments.css?v=20261102-room1">
 <link rel="stylesheet" href="sheet-comment-mode.css?v=20261102-room1">
 <script>if(!localStorage.getItem('sheetCommentMode'))localStorage.setItem('sheetCommentMode','comment');</script>
-<script src="decouple-project-people.js?v=20261102-room1"></script>
+
 <script src="theme-accent-bridge.js?v=20261102-room1"></script>
 <link rel="stylesheet" href="sheet-comments-unified.css?v=20261102-room1">
 <link rel="stylesheet" href="sheet-comment-marker-fix.css?v=20261102-room1">
@@ -10920,7 +10903,7 @@ document.addEventListener('keydown',e=>{
 <script src="sheet-display-settings.js?v=20261102-room1"></script>
 <script src="sheet-character-fit.js?v=20261102-room1"></script>
 <script src="question-presentation.js?v=20261102-room1"></script>
-<script src="sheet-sync.js?v=20261102-room1"></script>
+<script src="sheet-sync.js?v=20261103-clean-tools1"></script>
 <script src="sheet-image-sync.js?v=20261102-room1"></script>
 <div id="toast" class="toast-mini"></div>
 </body>

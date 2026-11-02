@@ -1,0 +1,15 @@
+/* The inset focus ring stays intact inside the horizontally scrolling toolbar. */
+.filters select[data-pretty-select]{display:none!important}
+.filters .log-select{display:inline-flex;flex:0 0 108px;min-width:82px;width:108px;align-self:center}
+.filters .log-select .log-select-trigger{display:flex!important;align-items:center;justify-content:space-between;gap:8px;width:100%!important;min-width:0!important;margin:0;border:1px solid #dfe3e8!important;border-radius:9px!important;background:#fff!important;color:#4b4b4b!important;box-shadow:none!important;cursor:pointer;text-align:left;outline:0;white-space:nowrap}
+.log-select-trigger>span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.log-select-trigger::after{content:"";flex:0 0 5px;width:5px;height:5px;border-right:1.5px solid #9299a7;border-bottom:1.5px solid #9299a7;transform:rotate(45deg);margin:-3px 2px 0 0}
+.filters .log-select .log-select-trigger:hover,.filters .log-select .log-select-trigger[aria-expanded="true"]{border-color:var(--log-loader-color,#e27bc1)!important;background:#fdf9fc!important}
+.filters .log-select .log-select-trigger:focus-visible{box-shadow:inset 0 0 0 1px var(--log-loader-color,#e27bc1)!important}
+.log-select-trigger:disabled{opacity:.5;cursor:default}
+.log-select-menu{position:fixed;z-index:1000;box-sizing:border-box;padding:5px;border:1px solid #e4e7ed;border-radius:12px;background:#fff;color:#59616d;box-shadow:0 10px 30px rgba(47,39,67,.12);overflow:auto;overscroll-behavior:contain;font:11px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif;scrollbar-width:thin;scrollbar-color:var(--log-loader-color,#e27bc1) transparent}
+.log-select-menu[hidden]{display:none!important}
+.log-select-option{position:relative;min-height:30px;display:flex;align-items:center;padding:6px 23px 6px 10px;border-radius:7px;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
+.log-select-option[aria-selected="true"]{background:#fbecf6;color:#a64d8b;font-weight:650}
+.log-select-option[aria-selected="true"]::after{content:"✓";position:absolute;right:8px;font-size:10px}
+.log-select-option.highlighted{background:#f3f0fa;color:#665180}

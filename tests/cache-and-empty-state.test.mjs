@@ -34,3 +34,14 @@ for(const saved of ['empty','missing','invalid'])test(`saved ${saved} spreadshee
     assert.equal(writes.length,0);assert.equal(w.state.characters.length,0);
   }else assert.equal(writes.length,0);
 });
+
+
+test('Sheets removes old shared-PC links without touching the room people master',async t=>{
+ const dom=new JSDOM('',{url:'https://test/spreadsheet/?board=board',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ const people=JSON.stringify([{id:'pc',name:'Current PC'}]);w.localStorage.setItem('trpgProjectPeople.v1',people);
+ const chars=[{id:'auto',projectPersonId:'auto',name:'Old auto',local:true,base:null,sources:[],alias:''},{id:'sheet',projectPersonId:'pc',name:'Sheet character',local:true,base:null,sources:[],alias:'Sheet'}];
+ w.state={characters:[],sources:[],layout:{}};w.sheetDisplaySettings={isEditing:()=>false};w.requestAnimationFrame=fn=>fn();w.setMainView=()=>{};const writes=[];
+ w.fetch=async(path,options={})=>{if(options.method)writes.push(options);return {ok:true,json:async()=>({state:{'charaHub.characters':chars,'charaHub.sources':[],'charaHub.layoutV1':{}},revision:'r1'})}};
+ w.eval(source('spreadsheet/sheet-sync.js'));await tick();await tick();
+ assert.equal(w.state.characters.length,1);assert.equal(w.state.characters[0].id,'sheet');assert.equal(Object.hasOwn(w.state.characters[0],'projectPersonId'),false);assert.equal(w.localStorage.getItem('trpgProjectPeople.v1'),people);assert.equal(writes.length,0);
+});

@@ -38,7 +38,6 @@
   let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0,activePaintFrame=0;
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
-  const localPcs=(room=activeRoom)=>{try{return (JSON.parse(localStorage.getItem(`personas:${room}`)||"[]")||[]).filter(person=>String(person?.type||"PC")==="PC"&&String(person?.name||"").trim())}catch{return[]}};
   const participantPath=room=>room===boardId?`/api/boards/${encodeURIComponent(boardId)}/participants`:`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`;
   const preferredImage=person=>person?.matrixIcon||person?.baseIcon||person?.icon||"";
   const fallbackImage=person=>person?.baseIcon||person?.icon||"";
@@ -102,21 +101,6 @@
     if(typeof renderPlaced==="function")renderPlaced();
   }
 
-  function retainPlacedParticipants(list){
-    const next=Array.isArray(list)?[...list]:[];
-    const known=new Set(next.map(person=>`participant:${person.authorId}:${person.personaId}`));
-    const state=appState();
-    for(const person of participants){
-      const id=`participant:${person.authorId}:${person.personaId}`;
-      if(known.has(id))continue;
-      const local=state?.items?.[id]||savedItemState(id);
-      if(!local?.placed)continue;
-      next.push(person);
-      known.add(id);
-    }
-    return next;
-  }
-
   function paintParticipants(){
     try{renderLibrary()}catch{}
     try{renderPlaced()}catch{}
@@ -132,7 +116,7 @@
   }
 
   function setParticipants(list,{forcePaint=false}={}){
-    const next=retainPlacedParticipants(list),signature=participantKey(next);
+    const next=Array.isArray(list)?list:[],signature=participantKey(next);
     participants=next;
     if(signature===participantsSignature){if(forcePaint)paintParticipants();return false}
     participantsSignature=signature;
@@ -150,40 +134,6 @@
     return true;
   }
 
-  function localParticipantRows(room=activeRoom){
-    const profile=me();if(!profile?.id)return[];
-    return localPcs(room).map((person,index)=>({authorId:profile.id,plName:profile.plName||"",personaId:person.id||`persona-${index}`,name:person.name,icon:person.icon||"",baseIcon:person.icon||"",matrixIcon:person.matrixIcon||"",color:String(person.color||"").split("|")[0]}));
-  }
-
-  function mergeOwnLocalImages(list,room){
-    const profile=me();if(!profile?.id)return list||[];
-    const local=localPcs(room),byId=new Map(),byName=new Map();
-    for(const person of local){
-      const id=String(person?.id||person?.projectPersonId||"");if(id)byId.set(id,person);
-      const name=String(person?.name||"");if(name&&!byName.has(name))byName.set(name,person);
-    }
-    return (list||[]).map(person=>{
-      if(String(person?.authorId||"")!==String(profile.id))return person;
-      const localPerson=byId.get(String(person?.personaId||""))||byName.get(String(person?.name||""));
-      if(!localPerson)return person;
-      const localBase=String(localPerson.icon||"");
-      const localMatrix=String(localPerson.matrixIcon||"");
-      const serverIcon=preferredImage(person);
-      return {...person,color:String(person.color||localPerson.color||"").split("|")[0],serverIcon,icon:localBase||person.icon||"",baseIcon:localBase||person.baseIcon||person.icon||"",matrixIcon:localMatrix||person.matrixIcon||""};
-    });
-  }
-
-  async function syncLocalPcsIfNeeded(current,room){
-    const profile=me(),local=localPcs(room);if(!profile?.id||!profile?.plName||!local.length||!room||room===boardId)return false;
-    const mine=(current||[]).filter(person=>person.authorId===profile.id);
-    const currentKey=mine.map(person=>`${person.personaId}:${person.name}`).sort().join("|");
-    const localKey=local.map((person,index)=>`${person.id||`persona-${index}`}:${person.name}`).sort().join("|");
-    if(currentKey===localKey)return false;
-    await api(participantPath(room),{method:"POST",body:JSON.stringify({authorId:profile.id,plName:profile.plName,personas:local.map((person,index)=>({id:person.id||`persona-${index}`,name:person.name,type:"PC",icon:person.icon||""}))})});
-    window.matrixBoardContext?.notifyChange?.("participants");
-    return true;
-  }
-
   async function load(room,force=false){
     const nextRoom=room||activeRoom||"";
     activeRoom=nextRoom;
@@ -197,11 +147,7 @@
     loadKey=nextRoom;
     const task=(async()=>{
       let list=(await api(participantPath(nextRoom))).participants||[];
-      if(await syncLocalPcsIfNeeded(list,nextRoom).catch(()=>false))list=(await api(participantPath(nextRoom))).participants||[];
       if(seq!==loadSeq||activeRoom!==nextRoom)return;
-      list=mergeOwnLocalImages(list,nextRoom);
-      const profile=me();
-      if(profile?.id&&!list.some(person=>person.authorId===profile.id))list=[...list,...localParticipantRows(nextRoom)];
       const changed=setParticipants(list);
       lastLoadedAt=Date.now();
       if(changed)paintAfterLayout();
@@ -336,14 +282,12 @@
   setupBoardUi();
   setupPcControls();
 
-  const immediate=localParticipantRows(activeRoom);
-  if(immediate.length)setParticipants(immediate,{forcePaint:true});
+  items=[];
+  setParticipants([],{forcePaint:true});
 
   window.addEventListener("matrix-board-room",event=>{
     activeRoom=event.detail?.roomId||boardId;
-    participantsSignature="";
-    const local=localParticipantRows(activeRoom);
-    if(local.length)setParticipants(local,{forcePaint:true});
+    setParticipants([],{forcePaint:true});
     load(activeRoom,true).catch(console.warn);
   });
   window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));

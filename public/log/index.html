@@ -34,7 +34,8 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
   <meta name="twitter:image:alt" content="LOGCOMMENTS">
   <title>LOGCOMMENTS</title>
   <link rel="stylesheet" href="style.css?v=20261103-log-settings1">
-  <link rel="stylesheet" href="embedded-layout.css?v=20261103-log-settings1">
+  <link rel="stylesheet" href="log-select-menu.css?v=20261103-select1">
+  <link rel="stylesheet" href="embedded-layout.css?v=20261103-select1">
   <script>(function(){const p=new URL(location.href).searchParams;if(p.get("embedded")==="1")document.documentElement.classList.add("embedded");if(p.get("room"))document.documentElement.classList.add("existing-log")})()</script>
   <style>html.existing-log #homeView{display:none!important}html.existing-log #roomView.hidden{display:block!important}</style>
 <script>
@@ -72,7 +73,7 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
         <h1 id="roomTitle"></h1>
         <div class="filters">
           <select id="viewMode"><option value="compact">通常</option><option value="timeline">共有時間軸モード</option></select>
-          <select id="tabFilter" aria-label="メインタブ" title="メインタブを選択"><option value="">メインタブを選択</option></select>
+          <select id="tabFilter" aria-label="メインタブ"></select>
           <input id="searchInput" type="search" placeholder="ログ内検索">
           <label class="font-size-control" title="ログの文字サイズ"><span>A−</span><input id="fontSize" type="range" min="10" max="20" step="0.5" aria-label="ログの文字サイズ"><span>A＋</span></label>
           <button id="shareBtn" class="primary small hidden">共有URLをコピー</button>
@@ -114,7 +115,7 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
   <script src="log-room-cache-preload.js?v=20261102-room1"></script>
   <script src="comment-window-loader.js?v=20261102-room1"></script>
   <script src="../shared/log-format.js?v=20261102-dice1"></script>
-  <script src="app.js?v=20261103-log-settings1"></script>
+  <script src="app.js?v=20261103-select1"></script>
   <script src="log-fast-first-paint.js?v=20261102-dice1"></script>
   <script src="comment-submit-guard.js?v=20261102-room1"></script>
   <script src="comment-incremental-sync.js?v=20261102-room1"></script>
@@ -126,9 +127,10 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
   <script src="trpg-log-import.js?v=20261102-room1"></script>
   <script src="virtual-log.js?v=20261102-room1"></script>
   <script src="virtual-scroll-stability.js?v=20261102-room1"></script>
-  <script src="shared-tab-settings.js?v=20261102-room1"></script>
+  <script src="shared-tab-settings.js?v=20261103-select1"></script>
   <script src="upload-title-default.js?v=20261103-log-settings1"></script>
   <script src="timeline-prewarm.js?v=20261102-room1"></script>
+  <script src="log-select-menu.js?v=20261103-select1"></script>
   <script src="embedded-ready.js?v=20261102-room1"></script>
   <script src="log-app-bridge.js?v=20261102-room1"></script>
 </body>
