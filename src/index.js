@@ -57,7 +57,7 @@ export default{
     // Unscoped identity/transfer endpoints are retired; never import old profiles.
     if(/^\/api\/(?:player-master|profile-transfers)(?:\/|$)/.test(url.pathname))return json({error:'部屋のURLからPLを登録してください'},410);
     const players=url.pathname.match(/^\/api\/boards\/([^/]+)\/players(?:\/(.*))?$/);
-    if(players)return handleRoomPlayers(request,env,decodeURIComponent(players[1]),(players[2]||'').split('/').filter(Boolean).map(decodeURIComponent));
+    if(players)return handleRoomPlayers(request,env,decodeURIComponent(players[1]),(players[2]||'').split('/').filter(Boolean).map(decodeURIComponent),executionContext);
     const playerIcon=url.pathname.match(/^\/api\/boards\/([^/]+)\/player-icons\/([^/]+)\/([^/]+)$/);
     if(playerIcon)return servePlayerIcon(request,env,decodeURIComponent(playerIcon[1]),playerIcon[2],playerIcon[3]);
     if(request.method==='POST'&&url.pathname==='/api/rooms')return createStreamRoom(request,env);
@@ -95,7 +95,7 @@ export default{
     const boardParticipant=url.pathname.match(/^\/api\/boards\/([^/]+)\/participants$/);
     if(boardParticipant&&request.method==='GET')return handleRoomParticipants(request,env,decodeURIComponent(boardParticipant[1]));
     const participant=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/participants(?:\/([^/]+))?(?:\/matrix-icon)?$/);
-    if(participant){const handled=await handleRoomParticipants(request,env,decodeURIComponent(participant[1]),decodeURIComponent(participant[2]),participant[3]?decodeURIComponent(participant[3]):'');if(handled)return handled}
+    if(participant){const handled=await handleRoomParticipants(request,env,decodeURIComponent(participant[1]),decodeURIComponent(participant[2]),participant[3]?decodeURIComponent(participant[3]):'',executionContext);if(handled)return handled}
 
     const theme=url.pathname.match(/^\/api\/boards\/([^/]+)\/theme$/);if(theme)return handleBoardTheme(request,env,decodeURIComponent(theme[1]));
     const group=url.pathname.match(/^\/api\/boards\/([^/]+)\/group-row-colors$/);if(group)return handleGroupRowColors(request,env,decodeURIComponent(group[1]));

@@ -69,6 +69,74 @@
     try{return await task}finally{if(bootstrapTask===task)bootstrapTask=null}
   }
 
+  // Server snapshots replace the current room's profile, including an empty PC list.
+  function applySnapshot(next){
+    if(!next)return;
+    master=next;
+    const personas=(next.characters||[]).filter(ch=>ch.type==='PC').map(personaFromMaster);
+    const current=profile()||{};
+    const updated={...current,id:next.playerId,plName:next.plName,plIcon:next.plIcon||'',plColor:next.plColor||'#ffe66b',plColorDark:next.plColorDark||next.plColor||'#ffe66b',personas};
+    write('trpgMarkerProfile',updated);
+    const swatches={PL:{light:updated.plColor,dark:updated.plColorDark}};
+    for(const p of personas)swatches[p.id]={light:p.color,dark:p.colorDark};
+    write(`jijinboardSelectedColors:${boardId}:${next.playerId}`,swatches);
+    write('trpgMarkerProfileColorsV2',{plColorDark:updated.plColorDark});
+    for(const k of window.JijinRoomStorage?.keys()||[])if(k.startsWith('personas:'))write(k,personas);
+    if(typeof state!=='undefined'){
+      state.profile=updated;
+      if(state.roomId)write(`personas:${state.roomId}`,personas);
+      try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.();heartbeatPresence?.()}catch{}
+    }
+    // Drop old candidates belonging to this PL instead of merging deleted/empty lists.
+    write(PEOPLE_KEY,read(PEOPLE_KEY,[]).filter(p=>String(p.id)!==String(next.playerId)&&String(p.plId)!==String(next.playerId)));
+    mergeMasterLocal(next);
+  }
+  let refreshTask=null,refreshVersion=0;
+  async function refresh(){
+    ++refreshVersion;
+    if(pushRunning||syncTimer)return;
+    if(!playerId||!token)return bootstrap();
+    if(refreshTask)return refreshTask;
+    refreshTask=(async()=>{
+      let applied=0;
+      while(applied<refreshVersion){
+        const version=refreshVersion,result=await api(endpoint());
+        if(version!==refreshVersion)continue;
+        if(!pushRunning&&!syncTimer)applySnapshot(result.master);
+        applied=version;
+      }
+      return master;
+    })().finally(()=>{refreshTask=null});
+    return refreshTask;
+  }
+  async function updateProfile(value){
+    if(!master)await bootstrap();
+    if(!playerId||!token)throw Error('先にPL名を登録してください');
+    const result=await api(endpoint(),{method:'PUT',body:JSON.stringify({...value,playerId})});
+    const ids=(result.master.characters||[]).filter(c=>c.type==='PC').map(c=>c.id);
+    await persistRoomSelection(ids);
+    applySnapshot(result.master);
+    return master;
+  }
+  function connectUpdates(){
+    if(typeof WebSocket==='undefined')return;
+    let socket=null,timer=0,stopped=false,attempt=0;
+    const catchUp=()=>refresh().catch(error=>console.warn('Player refresh failed',error));
+    function connect(){
+      clearTimeout(timer);if(stopped||socket&&socket.readyState<2)return;
+      const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`);socket=ws;
+      ws.addEventListener('open',()=>{attempt=0;catchUp()});
+      ws.addEventListener('message',event=>{let message;try{message=JSON.parse(event.data)}catch{return}if(message.type==='refresh'&&message.action==='participants')catchUp()});
+      ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped)timer=setTimeout(connect,Math.min(15000,500*2**attempt++))});
+      ws.addEventListener('error',()=>ws.close());
+    }
+    addEventListener('online',()=>{connect();catchUp()});
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden){connect();catchUp()}});
+    addEventListener('pagehide',()=>{stopped=true;clearTimeout(timer);socket?.close()});
+    addEventListener('pageshow',()=>{stopped=false;connect()});
+    connect();
+  }
+
   function masterPc(id){return(master?.characters||[]).find(ch=>String(ch.id)===String(id)&&ch.type==="PC")||null}
   function personaFromMaster(ch){return{id:String(ch.id),projectPersonId:String(ch.id),name:ch.name,type:"PC",icon:ch.icon||"",matrixIcon:ch.matrixIcon||"",color:ch.color||"#ffe66b",colorDark:ch.colorDark||ch.color||"#ffe66b"}}
 
@@ -126,10 +194,10 @@
       window.dispatchEvent(new CustomEvent("jijinboard-player-master-saved",{detail:{master}}));
     }catch(error){console.warn("Player master sync failed",error)}
   }
-  const schedulePush=(delay=120)=>{if(applying)return;clearTimeout(syncTimer);syncTimer=setTimeout(pushCurrent,delay)};
+  const schedulePush=(delay=120)=>{if(applying)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>{syncTimer=0;pushCurrent()},delay)};
 
   async function issueDeviceCode(){if(!master)await bootstrap();if(!playerId||!token)return alert("先にPL名を登録してください。");try{const result=await api(endpoint('/code'),{method:"POST",body:JSON.stringify({playerId})});await navigator.clipboard?.writeText(result.code).catch(()=>{});alert(`端末追加コード：${result.code}\n10分以内にスマホの「引き継ぎ設定」で入力してください。\nPC側のアクセス権はそのまま残ります。`)}catch(error){alert(error.message)}}
-  async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`${root}/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);mergeMasterLocal(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){alert(error.message)}}
+  async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`${root}/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);applySnapshot(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){alert(error.message)}}
 
   async function deleteCharacter(id){
     if(!master)await bootstrap();if(!playerId||!token)throw Error('先にPL名を登録してください');
@@ -154,7 +222,7 @@
 
   async function start(){
     document.querySelector("#masterRoomPcPicker")?.remove();
-    try{await bootstrap();hookRoomLoad();if(typeof state!=="undefined")await hydrateRoom()}catch(error){console.warn("Player master bootstrap failed",error)}
+    try{await window.JijinBoardReady?.image;await bootstrap();hookRoomLoad();if(typeof state!=="undefined")await hydrateRoom();connectUpdates()}catch(error){console.warn("Player master bootstrap failed",error)}finally{window.JijinBoardReady?.finishProfile()}
     const issue=document.querySelector("#issueTransferBtn"),redeem=document.querySelector("#redeemTransferBtn");if(issue){issue.textContent="スマホ・別端末を追加";issue.onclick=issueDeviceCode}if(redeem)redeem.onclick=redeemDeviceCode;
     if(typeof state!=="undefined"){
       document.addEventListener("change",event=>{
@@ -174,6 +242,6 @@
     }));
   }
 
-  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
+  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,refresh,updateProfile,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",scheduleStart,{once:true});else scheduleStart();
 })();

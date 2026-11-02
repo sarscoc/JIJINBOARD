@@ -1,9 +1,11 @@
 <!doctype html>
 <html lang="ja">
 <head>
+
 <script src="/shared/dataset-guard.js?v=20261102-room1"></script>
 <script src="/shared/room-storage.js?v=20261102-room1"></script>
 <script src="/shared/browser-cache.js?v=20261102-room1"></script>
+<script src="board-boot.js?v=20261102-editor1"></script>
 <script>
 (()=>{const q=new URL(location.href).searchParams,b=q.get('board')||q.get('id');if(q.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;try{const t=JSON.parse(localStorage.getItem('jijinboardScopedTheme:'+b)||'null')||{};const rgba=(hex,a)=>{if(!/^#[0-9a-f]{6}$/i.test(hex||''))return '';const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};const root=document.documentElement;const one=rgba(t.gradientColor1,.24),two=rgba(t.gradientColor2,.12);if(one)root.style.setProperty('--jijin-background-one',one);if(two)root.style.setProperty('--jijin-background-two',two)}catch{}})();
 </script>
@@ -90,9 +92,7 @@ html:root.dark body::before{background:#424242;background-image:none}
       }catch{}
     })();
   </script>
-<script>
-(()=>{const id=new URL(location.href).searchParams.get('id');if(!id)return;const preload=document.createElement('link');preload.rel='preload';preload.as='image';preload.href='/api/boards/'+encodeURIComponent(id)+'/home-image';preload.fetchPriority='high';document.head.append(preload)})();
-</script>
+
 </head>
 <body>
   <header class="topbar">
@@ -117,6 +117,7 @@ html:root.dark body::before{background:#424242;background-image:none}
         <div class="board-home-shell">
           <img id="boardHomeImage" class="board-home-image hidden" alt="部屋のトップ画像">
           <div id="boardHomeEmpty" class="board-home-empty"><strong>JIJINBOARD</strong></div>
+          <script>window.JijinBoardReady?.startImage()</script>
           <label id="boardHomeUpload" class="board-home-upload hidden"><span id="boardHomeUploadLabel">スクショを設定</span><input id="boardHomeInput" type="file" accept="image/*"></label>
         </div>
       </section>
@@ -138,15 +139,16 @@ html:root.dark body::before{background:#424242;background-image:none}
       if(empty)empty.textContent="ページを再読み込みしてください。";
     }
   </script>
-  <script src="board2.js?v=20261102-room1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
-  <script src="board-home.js?v=20261102-room1"></script>
+  <script src="board2.js?v=20261102-editor1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board-home.js?v=20261102-editor1"></script>
   <script src="board-profile-overlay.js?v=20261102-room1"></script>
   <script src="matrix-icon-bridge.js?v=20261102-room1"></script>
   <script src="board-spoiler-preview.js?v=20261102-room1"></script>
   <script src="board-log-meta.js?v=20261102-room1"></script>
   <script src="board-tab-settings.js?v=20261102-room1"></script>
-  <script src="../shared/player-master.js?v=20261102-room2"></script>
-  <script src="board-profile.js?v=20261102-name1"></script>
+  <script src="../shared/player-master.js?v=20261102-editor1"></script>
+  <script src="speaker-editor.js?v=20261102-editor1"></script>
+  <script src="board-profile.js?v=20261102-editor1"></script>
   <script src="theme-scoped.js?v=20261102-room1"></script>
   <script src="shared-background-sync.js?v=20261102-room1"></script>
   <script src="log-no-shadows.js?v=20261102-room1"></script>

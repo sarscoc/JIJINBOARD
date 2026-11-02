@@ -10,7 +10,7 @@
     image.loading="eager";image.fetchPriority="high";image.decoding="async";
     image.onload=()=>{image.classList.remove("hidden");empty.classList.add("hidden");if(label)label.textContent="スクショを変更"};
     image.onerror=()=>{image.classList.add("hidden");empty.classList.remove("hidden");if(label)label.textContent="スクショを設定"};
-    image.src=src;
+    if(image.getAttribute("src")!==src)image.src=src;
     if(image.complete&&image.naturalWidth)image.onload();
   }
 
@@ -88,7 +88,8 @@
     upload.style.zIndex="20";
   }
   input?.addEventListener("change",event=>uploadScreenshot(event.target.files?.[0]));
-  showImage(imageUrl());
+  if(window.JijinBoardReady)window.JijinBoardReady.image.then(ok=>{if(ok&&$("#boardHomeUploadLabel"))$("#boardHomeUploadLabel").textContent="スクショを変更"});
+  else showImage(imageUrl());
   installLogTransitionGuard();
   installBoardHomeLink();
 })();

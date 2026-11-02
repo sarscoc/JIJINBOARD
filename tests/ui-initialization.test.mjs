@@ -55,6 +55,14 @@ for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executin
   const w=dom.window;
   for(let i=0;i<100&&w.document.readyState!=='complete';i++)await sleep(10);
   await sleep(250);
+  if(tool==='board'){
+    // jsdom does not download/decode images. Finish the explicit screenshot stage.
+    const image=w.document.querySelector('#boardHomeImage');
+    assert.ok(image.src.includes('/home-image'));
+    assert.equal(w.document.querySelector('#boardProfileDialog').open,false);
+    image.dispatchEvent(new w.Event('error'));
+    await sleep(80);
+  }
   if(tool==='spreadsheet'){
     w.document.getElementById('sheetLayoutBtn').click();
     assert.equal(w.document.querySelectorAll('.sheet-layout-workspace').length,1);
@@ -85,3 +93,4 @@ test('MATRIX page filters accept the new comment addresses and still accept old 
   assert.equal(w.document.getElementById('matrixIconCommentCount').textContent,'2');
   const filter=w.filterMatrixCommentsToCurrentPage;w.eval(text('matrix/matrix-icon-interactions.js'));assert.equal(w.filterMatrixCommentsToCurrentPage,filter);
 });
+

@@ -91,7 +91,7 @@
         let message; try { message = JSON.parse(event.data); } catch { return; }
         if (message.action === 'comment:typing') { onTyping(message.data); return; }
         if (message.action === 'comment:note') { onNote(message.data); return; }
-        if (message.type === 'comment-change' || (message.type === 'refresh' && ['spreadsheet-comments','matrix-comment','matrix-edit','matrix-delete','matrix-like','matrix-template-comments-delete'].includes(message.action))) update();
+        if (message.type === 'comment-change' || (message.type === 'refresh' && ['participants','spreadsheet-comments','matrix-comment','matrix-edit','matrix-delete','matrix-like','matrix-template-comments-delete'].includes(message.action))) update();
       });
       current.addEventListener('close', () => { if (socket === current) { socket = null; retry(); } });
       current.addEventListener('error', () => current.close());

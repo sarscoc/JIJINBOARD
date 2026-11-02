@@ -44,7 +44,7 @@ async function redeem(request,env,board,code){
  if(!saved.meta?.changes)return json({error:'コードは使用済みです'},409);
  return json({playerId:localId(row.pl_id),accessToken,master:await masterData(env.DB,board,await masterRow(env.DB,row.pl_id))});
 }
-export async function handleRoomPlayers(request,env,board,parts=[]){
+async function roomPlayers(request,env,board,parts=[]){
  if(!await env.DB.prepare('SELECT 1 FROM room WHERE room_id=?').bind(board).first())return json({error:'自陣が見つかりません'},404);
  const method=request.method;
  if(method==='POST'&&parts[0]==='redeem'&&/^\d{4}$/.test(parts[1]||''))return redeem(request,env,board,parts[1]);
@@ -73,6 +73,13 @@ export async function handleRoomPlayers(request,env,board,parts=[]){
   const icon=await storeImage(env.LOGS,String(data?.plIcon||''),iconPrefix(board,'pl-icons'))||row.pl_icon_key;
   await env.DB.prepare('UPDATE pl SET pl_name=?,pl_icon_key=?,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(text(data?.plName||row.pl_name,80).trim(),icon,text(data?.plColor||row.pl_color,40),text(data?.plColorDark||data?.plColor||row.pl_color_dark,40),key).run();
   await saveCharacters(env,board,playerId,data?.characters);
+  // Existing log marks use the same light/dark pair as the edited speaker.
+  await env.DB.prepare(`UPDATE log_comment_range SET marker_color=COALESCE(
+   (SELECT CASE WHEN c.author_character_id IS NULL THEN p.pl_color||'|'||p.pl_color_dark
+    ELSE ch.character_color||'|'||ch.character_color_dark END
+    FROM comment c JOIN pl p ON p.pl_id=c.author_pl_id LEFT JOIN character ch ON ch.character_id=c.author_character_id
+    WHERE c.comment_id=log_comment_range.comment_id),marker_color)
+   WHERE comment_id IN(SELECT comment_id FROM comment WHERE room_id=? AND author_pl_id=?)`).bind(board,key).run();
   return json({master:await masterData(env.DB,board,await masterRow(env.DB,key))});
  }
  if(parts[1]==='characters'&&parts[2]&&parts.length===3&&method==='DELETE'){
@@ -100,4 +107,17 @@ export async function handleRoomPlayers(request,env,board,parts=[]){
   await env.DB.prepare('INSERT INTO transfer(transfer_id,pl_id,transfer_code_hash,transfer_expires_at) VALUES(?,?,?,?)').bind(randomToken(18),key,await tokenHash(code),expires).run();return json({code,expiresAt:expires});
  }
  return json({error:'Not found'},404);
+}
+
+
+// Notify only after the durable write succeeds; disconnected clients catch up on reconnect.
+export async function handleRoomPlayers(request,env,board,parts=[],context){
+ const response=await roomPlayers(request,env,board,parts);
+ if(response?.ok&&!['GET','HEAD','OPTIONS'].includes(request.method)&&parts[1]!=='code'&&env.ROOMS){
+  const task=Promise.resolve().then(()=>env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/notify',{
+   method:'POST',body:JSON.stringify({action:'participants',data:{profileChanged:true}})
+  })).catch(error=>console.warn('Player update notification failed',error));
+  if(context?.waitUntil)context.waitUntil(task);else await task;
+ }
+ return response;
 }

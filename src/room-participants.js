@@ -4,7 +4,7 @@ import { ensurePlIdentity,resolveCharacterIdentity,storeImage,parentRoomForLog }
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 
 
-export async function handleRoomParticipants(request,env,roomId,logId='',characterId=''){
+async function roomParticipants(request,env,roomId,logId='',characterId=''){
   if(logId){const log=await parentRoomForLog(env.DB,logId);if(!log||log.room_id!==roomId)return json({error:'この自陣にないログです'},404)}
 
   if(request.method==='GET'&&!characterId){
@@ -59,4 +59,14 @@ export async function handleRoomParticipants(request,env,roomId,logId='',charact
   }
 
   return null;
+}
+
+
+export async function handleRoomParticipants(request,env,roomId,logId='',characterId='',context){
+ const response=await roomParticipants(request,env,roomId,logId,characterId);
+ if(response?.ok&&!['GET','HEAD','OPTIONS'].includes(request.method)&&env.ROOMS){
+  const task=Promise.resolve().then(()=>env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action:'participants',data:{profileChanged:true}})})).catch(()=>{});
+  if(context?.waitUntil)context.waitUntil(task);else await task;
+ }
+ return response;
 }

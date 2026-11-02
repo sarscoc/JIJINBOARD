@@ -24,6 +24,7 @@ export async function handleRoomLogMeta(request,env,roomId,logId='',executionCon
   const room=await roomRow(env.DB,roomId);if(!room)return json({error:'自陣の部屋が見つかりません'},404);
 
   if(request.method==='GET'&&!logId){
+    if(new URL(request.url).searchParams.get('summary')==='1')return json({id:room.room_id,name:room.room_name,createdAt:room.created_at});
     const [result,participants]=await Promise.all([
       env.DB.prepare('SELECT log_id,log_name,scenario_title,scenario_participants,spoiler_enabled,log_sort_order,created_at FROM log WHERE room_id=? ORDER BY log_sort_order,created_at').bind(roomId).all(),
       roomParticipants(env,roomId)
