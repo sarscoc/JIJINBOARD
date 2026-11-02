@@ -33,7 +33,7 @@ test('posting a sheet comment refreshes after an older pending read and only pos
  assert.ok(original.classList.contains('sheet-has-comment'));
 
 });
-test('matrix saves a draft before opening another target',async t=>{
+test('matrix keeps a desktop draft when another target is clicked, and sends with Enter',async t=>{
  const dom=new JSDOM('<div class="stage-shell"></div>',{url:'https://example.test/matrix/',runScripts:'outside-only',pretendToBeVisual:true});
  t.after(()=>dom.window.close());const w=dom.window;w.CSS={escape:String};
  w.HTMLDialogElement.prototype.show=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
@@ -48,11 +48,14 @@ test('matrix saves a draft before opening another target',async t=>{
  w.eval(fs.readFileSync(new URL('../public/matrix/matrix-icon-comments.js',import.meta.url),'utf8'));
  await w.openMatrixIconComment('first');w.document.querySelector('textarea').value='draft';
  await w.openMatrixIconComment('second');
+ assert.equal(writes.length,0);assert.equal(w.document.querySelector('textarea').value,'draft');
+ w.document.querySelector('textarea').dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await tick();await tick();
  assert.equal(writes.length,1);assert.equal(writes[0].target,'/boards/b/matrix/template/points/first');
- assert.equal(w.document.querySelector('#matrixIconCommentCount').textContent,'1');assert.equal(w.document.querySelector('textarea').value,'');
+ assert.equal(w.document.querySelector('#matrixIconCommentCount').textContent,'1');assert.equal(w.document.querySelector('dialog').open,false);
  w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'other-device',templateId:'template',name:'Other PC',typing:true}}));
  assert.match(w.document.querySelector('.matrix-typing').textContent,/Other PC.*入力中/);
  w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'other-device',typing:false}}));
  assert.equal(w.document.querySelector('.matrix-typing'),null);
 
 });
+

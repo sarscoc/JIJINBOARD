@@ -5,7 +5,7 @@
 <script src="/shared/room-storage.js?v=20261102-room1"></script>
 <script src="/shared/browser-cache.js?v=20261102-room1"></script>
 <script src="/shared/comment-target.js?v=20261102-room1"></script>
-<script src="/shared/comments.js?v=20261102-editor1"></script>
+<script src="/shared/comments.js?v=20261103-enter1"></script>
 <script src="/shared/appearance.js?v=20261103-layout1"></script>
 <link rel="stylesheet" href="/shared/appearance.css?v=20261103-layout1">
 
@@ -4889,6 +4889,7 @@ function commitActiveCommentEditor(){
 }
 
 function openInlineCommentEditor(id,el){
+  if(window.JijinCommentComposer?.desktop()&&activeCommentEditor?.box?.querySelector('textarea')?.value.trim())return;
   commitActiveCommentEditor();
   document.querySelectorAll('.inline-comment-editor').forEach(x=>x.remove());
   document.querySelectorAll('.placed.comment-editing').forEach(x=>x.classList.remove('comment-editing'));
@@ -4986,6 +4987,7 @@ function openInlineCommentEditor(id,el){
     closed=true;
 
     document.removeEventListener('pointerdown',outsideHandler,true);
+    try{if(parent!==window)parent.document.removeEventListener('pointerdown',outsideHandler,true)}catch{}
 
     mutate(st=>{
       const local=st.items?.[id];
@@ -5008,6 +5010,15 @@ function openInlineCommentEditor(id,el){
   const outsideHandler=e=>{
     if(closed)return;
     if(box.contains(e.target))return;
+    if(window.JijinCommentComposer?.desktop()){
+      if(ta.value.trim())return;
+      draftComment=l.comment||'';draftPosition=l.commentPosition||'top';updateCommentPreview();
+      closed=true;box.remove();el.classList.remove('comment-editing');
+      document.removeEventListener('pointerdown',outsideHandler,true);
+      try{if(parent!==window)parent.document.removeEventListener('pointerdown',outsideHandler,true)}catch{}
+      if(activeCommentEditor?.box===box)activeCommentEditor=null;
+      return;
+    }
     commit();
   };
 
@@ -5017,6 +5028,9 @@ function openInlineCommentEditor(id,el){
   });
 
   ta.addEventListener('keydown',e=>{
+    if(window.JijinCommentComposer?.desktop()&&e.key==='Enter'&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){
+      e.preventDefault();if(!e.repeat){draftComment=ta.value;commit()}return;
+    }
     if(e.key==='Escape'){
       e.preventDefault();
       commit();
@@ -5030,6 +5044,7 @@ function openInlineCommentEditor(id,el){
 
   activeCommentEditor={id,box,commit};
   document.addEventListener('pointerdown',outsideHandler,true);
+  try{if(parent!==window)parent.document.addEventListener('pointerdown',outsideHandler,true)}catch{}
 
   requestAnimationFrame(()=>{
     ta.focus();
@@ -6773,7 +6788,7 @@ if(!new URL(location.href).searchParams.has('board')){
 </script>
 <script src="board-integration.js?v=20261103-pretty1"></script>
 <script src="matrix-pc.js?v=20261103-clean-tools1"></script>
-<script src="matrix-icon-comments.js?v=20261102-room1"></script>
+<script src="matrix-icon-comments.js?v=20261103-enter1"></script>
 <script src="matrix-template-sync.js?v=20261103-newest1" data-matrix-template-sync="1"></script>
 <script src="../log/log-select-menu.js?v=20261103-pretty1"></script>
 <script src="matrix-settings-ui.js?v=20261103-pretty1"></script>

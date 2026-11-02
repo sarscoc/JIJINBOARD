@@ -113,3 +113,34 @@
   }
   globalThis.JijinComments = Object.freeze({target, request, adapter, loader, serialize, live, clientId});
 })();
+
+// Desktop composer behavior shared by LOG, MATRIX and Sheets.
+(()=>{
+ if(typeof document==='undefined'||globalThis.JijinCommentComposer)return;
+ const selector='#commentDialog,#matrixIconCommentDialog,#sheetCommentDialog';
+ const desktop=()=>innerWidth>800;
+ const hasText=d=>!!d?.querySelector('textarea')?.value.trim();
+ const keep=(d,extra=false)=>desktop()&&!!d?.open&&(hasText(d)||extra);
+ function outside(d,extra=false){
+  if(!desktop())return false;
+  if(d?.open&&!hasText(d)&&!extra&&d.dataset.submitting!=='1'&&d.querySelector('form')?.dataset.submitting!=='1')d.close();
+  return true;
+ }
+ document.addEventListener('keydown',event=>{
+  const field=event.target,dialog=field?.closest?.(selector);
+  if(!desktop()||!dialog?.open||field.tagName!=='TEXTAREA'||event.key!=='Enter')return;
+  // Japanese conversion confirmation is never a send action.
+  if(event.isComposing||event.keyCode===229||event.shiftKey)return;
+  event.preventDefault();event.stopImmediatePropagation();
+  if(event.repeat||dialog.dataset.submitting==='1'||dialog.querySelector('form')?.dataset.submitting==='1')return;
+  dialog.querySelector('form')?.requestSubmit();
+ },true);
+ const parentOutside=()=>{
+  for(const d of document.querySelectorAll(selector)){
+   const image=d.id==='commentDialog'&&typeof state!=='undefined'&&!!state.commentImage;
+   outside(d,image);
+  }
+ };
+ try{if(parent!==window){parent.document.addEventListener('pointerdown',parentOutside,true);window.addEventListener('pagehide',()=>parent.document.removeEventListener('pointerdown',parentOutside,true),{once:true})}}catch{}
+ globalThis.JijinCommentComposer={desktop,keep,outside};
+})();

@@ -199,6 +199,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
   async function open(id,reply="",edit="",anchor=null){
     if(!id||posting)return;
     const existing=document.querySelector('#matrixIconCommentDialog');
+    if(window.JijinCommentComposer?.keep(existing))return;
     if(existing?.open&&existing.querySelector('textarea')?.value.trim()){
       await post({preventDefault(){}});
       if(existing.open)return;
@@ -266,6 +267,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
   function saveOutside(){
     const d=document.querySelector("#matrixIconCommentDialog");
     if(!d?.open||posting)return;
+    if(window.JijinCommentComposer?.outside(d))return;
     if(d.querySelector("#matrixCommentBody")?.value.trim())post({preventDefault(){}});
     else d.close();
   }
@@ -288,3 +290,4 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
   window.addEventListener("matrix-board-comments-changed",()=>load().catch(console.warn));
   setTimeout(()=>load().catch(console.warn),900);
 })();
+
