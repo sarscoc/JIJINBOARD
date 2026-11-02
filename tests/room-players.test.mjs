@@ -74,7 +74,7 @@ test('a delete arriving before an in-flight first PC save still leaves a tombsto
 });
 
 test('the first board registration persists PL data and its token before closing the form',async t=>{
- const dom=new JSDOM('<dialog id="boardProfileDialog" open><form id="boardProfileForm"><input id="boardPlName" value="New PL"><input id="boardPlColor" value="#123456"><button type="submit">入る</button></form></dialog>',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ const dom=new JSDOM('<dialog id="boardProfileDialog" open><form id="boardProfileForm"><input id="boardPlName" value="New PL"><button type="submit">入る</button></form></dialog>',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};w.alert=message=>assert.fail(message);
  const writes=[];w.fetch=async(path,options={})=>{const payload=options.body?JSON.parse(options.body):null;writes.push({path,payload});return {ok:true,json:async()=>({playerId:payload?.playerId,accessToken:'room-token',master:{boardId:'one',playerId:payload?.playerId,plName:payload?.plName,characters:[],deletedCharacterIds:[]}})}};
  w.eval(source('shared/room-storage.js'));w.eval(source('shared/player-master.js'));w.eval(source('board/board-profile.js'));
