@@ -53,14 +53,14 @@ test('conflicts stop queued stale writes, back up the edit, and reload',async()=
 });
 
 
-test('template order is stable when updated timestamps change',async()=>{
+test('newest uploads come first and editing does not change their order',async()=>{
  const f=fixture();await tick();
  await f.context.tplSetRecord('new',{id:'new',createdAt:200,updatedAt:1});
  await f.context.tplSetRecord('old',{id:'old',createdAt:100,updatedAt:999});
  const first=(await f.context.tplAllRecords()).map(r=>r.id);
  await f.context.tplSetRecord('new',{id:'new',createdAt:200,updatedAt:99999});
  assert.deepEqual((await f.context.tplAllRecords()).map(r=>r.id),first);
- assert.ok(first.indexOf('old')<first.indexOf('new'));
+ assert.ok(first.indexOf('new')<first.indexOf('old'));
 });
 
 test('loading the template sync script twice installs only one save controller',async()=>{
@@ -80,3 +80,4 @@ test('disjoint concurrent display changes rebase using the new revision',async()
  assert.equal(f.puts().length,2);assert.equal(f.puts()[1].baseRevision,'remote-r2');
  assert.equal(f.puts()[1].templateState.display.color,'red');assert.equal(f.puts()[1].templateState.display.other,'remote');assert.equal(f.alerts.length,0);
 });
+

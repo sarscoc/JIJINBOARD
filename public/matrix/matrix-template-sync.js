@@ -95,7 +95,7 @@
   const rawAll=window.tplAllRecords;
   window.tplAllRecords=async function(...args){
     const records=await rawAll.apply(this,args);
-    return records.slice().sort((a,b)=>(Number(a.createdAt)||0)-(Number(b.createdAt)||0)||String(a.id).localeCompare(String(b.id)));
+    return records.slice().sort((a,b)=>(Number(b.createdAt)||Number(b.uploadedAt)||0)-(Number(a.createdAt)||Number(a.uploadedAt)||0)||String(a.id).localeCompare(String(b.id)));
   };
   // A transient/cached image failure gets one fresh request, without an infinite retry loop.
   document.addEventListener('error',event=>{
