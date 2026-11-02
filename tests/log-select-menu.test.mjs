@@ -22,3 +22,9 @@ test('keyboard choice, Escape and switching menus keep focus and expanded state 
 test('the popup is clamped inside the viewport when the original select is near its left edge',t=>{
  const w=fixture(t),trigger=w.document.getElementById('viewModeTrigger');trigger.getBoundingClientRect=()=>({left:-5,right:103,bottom:40,top:12,width:108});trigger.click();const menu=w.document.getElementById('viewModeMenu');assert.equal(menu.style.left,'8px');assert.equal(menu.style.top,'46px');
 });
+
+test('settings selects reuse the same menu and reflect restored values and disabled state',async t=>{
+ const dom=new JSDOM('<select id="iconShape" data-select-menu data-select-menu-label="アイコン表示方法"><option value="circle">丸</option><option value="sharp">四角</option></select>',{url:'https://test/matrix/',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.eval(source);
+ const select=w.document.getElementById('iconShape'),button=w.document.getElementById('iconShapeTrigger');assert.equal(button.getAttribute('aria-label'),'アイコン表示方法');
+ select.value='sharp';w.document.dispatchEvent(new w.Event('jijinboard-selects-updated'));assert.equal(button.textContent,'四角');select.disabled=true;await new Promise(setImmediate);assert.equal(button.disabled,true);
+});

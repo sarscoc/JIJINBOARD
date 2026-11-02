@@ -63,6 +63,19 @@ for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executin
     image.dispatchEvent(new w.Event('error'));
     await sleep(80);
   }
+  if(tool==='matrix'){
+    w.toggleDisplayPanel(true);
+    const trigger=w.document.getElementById('iconShapeTrigger');trigger.click();
+    const option=w.document.querySelector('#iconShapeMenu [role=option]:last-child');
+    option.dispatchEvent(new w.Event('pointerdown',{bubbles:true}));option.click();
+    assert.equal(w.document.getElementById('iconShape').value,'sharp');
+    assert.equal(w.document.getElementById('settings').classList.contains('floating-closed'),false);
+    trigger.click();trigger.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}));
+    assert.equal(w.document.getElementById('iconShapeMenu').hidden,true);
+    assert.equal(w.document.getElementById('settings').classList.contains('floating-closed'),false);
+    w.eval("(()=>{const s=appState();s.display.iconShape='original';saveState(s);restoreDisplay()})()");
+    assert.equal(trigger.textContent,'アイコン切らずに表示');
+  }
   if(tool==='spreadsheet'){
     w.document.getElementById('sheetLayoutBtn').click();
     assert.equal(w.document.querySelectorAll('.sheet-layout-workspace').length,1);
@@ -91,6 +104,10 @@ test('MATRIX page filters accept the new comment addresses and still accept old 
   w.filterMatrixCommentsToCurrentPage();
   assert.deepEqual([...w.document.querySelectorAll('.matrix-comment-thread')].map(e=>e.hidden),[false,true,false]);
   assert.equal(w.document.getElementById('matrixIconCommentCount').textContent,'2');
+  w.currentTemplateId=()=> 'empty-template';w.filterMatrixCommentsToCurrentPage();
+  assert.equal(w.document.getElementById('matrixIconCommentCount').textContent,'0');
+  assert.equal(w.document.getElementById('matrixIconCommentList').textContent.includes('このシートの感想'),false);
+  assert.equal(w.document.querySelector('.matrix-comment-head').title,'');
   const filter=w.filterMatrixCommentsToCurrentPage;w.eval(text('matrix/matrix-icon-interactions.js'));assert.equal(w.filterMatrixCommentsToCurrentPage,filter);
 });
 

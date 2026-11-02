@@ -421,7 +421,7 @@
     helpers.forEach(([src,key])=>{
       if(document.querySelector(`script[data-${key.replace(/[A-Z]/g,m=>"-"+m.toLowerCase())}]`))return;
       const script=document.createElement("script");
-      script.src=src+"?v=20261103-clean-tools1";
+      script.src=src+"?v=20261103-pretty1";
       script.async=false;
       script.dataset[key]="1";
       document.body.append(script);

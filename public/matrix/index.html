@@ -3175,6 +3175,8 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
 <script>
 (()=>{if(parent===window)return;try{parent.JIJINBOARD_APPLY_FRAME_THEME?.(document,"matrix")}catch{}})();
 </script>
+<link rel="stylesheet" href="../log/log-select-menu.css?v=20261103-select1">
+<link rel="stylesheet" href="matrix-settings-pretty.css?v=20261103-pretty1">
 </head>
 <body>
 <div class="project-matrix-bar"><a href="/">‹ TRPG PROJECT</a><strong>MAGIA MATRIX</strong><span class="matrix-spacer"></span><label>＋ MATRIX専用素材<input id="matrixAssetInput" type="file" accept="image/*" multiple></label></div>
@@ -3288,7 +3290,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
               </div>
 
               <div class="settings-row settings-icon-shape-row">
-                <select id="iconShape" aria-label="アイコン表示方法">
+                <select data-select-menu data-select-menu-label="アイコン表示方法" id="iconShape" aria-label="アイコン表示方法">
                   <option value="original">アイコン切らずに表示</option>
                   <option value="circle">丸に切り抜き</option>
                   <option value="square">角丸四角に切り抜き</option>
@@ -3304,7 +3306,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
                 </div>
                 <div class="settings-row">
                   <div class="settings-label-line"><label for="iconBackgroundMode">背景</label></div>
-                  <select id="iconBackgroundMode">
+                  <select data-select-menu data-select-menu-label="アイコンの背景" id="iconBackgroundMode">
                     <option value="transparent">透明</option>
                     <option value="custom">色を選択</option>
                     <option value="character">キャラクターの文字色</option>
@@ -3329,7 +3331,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
 
                 <div class="settings-row">
                   <label>フォント</label>
-                  <select id="nameFontFamily">
+                  <select data-select-menu data-select-menu-label="名前のフォント" id="nameFontFamily">
                     <option value="system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">標準</option>
                     <option value="'Yu Gothic','YuGothic',sans-serif">游ゴシック</option>
                     <option value="'Yu Mincho','YuMincho',serif">游明朝</option>
@@ -3371,7 +3373,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
 
                 <div class="settings-row">
                   <label>フォント</label>
-                  <select id="commentFontFamily">
+                  <select data-select-menu data-select-menu-label="コメントのフォント" id="commentFontFamily">
                     <option value="system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">標準</option>
                     <option value="'Yu Gothic','YuGothic',sans-serif">游ゴシック</option>
                     <option value="'Yu Mincho','YuMincho',serif">游明朝</option>
@@ -3391,7 +3393,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
 
                 <div class="settings-row">
                   <label>コメント枠</label>
-                  <select id="commentBox">
+                  <select data-select-menu data-select-menu-label="コメント枠" id="commentBox">
                     <option value="on">あり</option>
                     <option value="off">なし</option>
                   </select>
@@ -6397,6 +6399,7 @@ $('#settingsMenuBtn').onclick=e=>{
   toggleDisplayPanel();
 };
 document.addEventListener('keydown',e=>{
+  if(e.defaultPrevented)return;
   if(e.key==='Escape'&&!$('#settings').classList.contains('floating-closed')){
     toggleDisplayPanel(false);
     $('#settingsMenuBtn').focus({preventScroll:true});
@@ -6414,6 +6417,8 @@ document.addEventListener('pointerdown',e=>{
   const menuBtn=$('#settingsMenuBtn');
   if(!panel||panel.classList.contains('floating-closed'))return;
   if(panel.contains(e.target))return;
+  const popup=e.target.closest?.('.log-select-menu');
+  if(popup&&panel.contains(document.getElementById(popup.dataset.selectOwner)))return;
   if(menuBtn&&menuBtn.contains(e.target))return;
   toggleDisplayPanel(false);
 });
@@ -6774,9 +6779,11 @@ if(!new URL(location.href).searchParams.has('board')){
 }
 
 </script>
-<script src="board-integration.js?v=20261103-clean-tools1"></script>
+<script src="board-integration.js?v=20261103-pretty1"></script>
 <script src="matrix-pc.js?v=20261103-clean-tools1"></script>
 <script src="matrix-icon-comments.js?v=20261102-room1"></script>
 <script src="matrix-template-sync.js?v=20261102-matrixsave1" data-matrix-template-sync="1"></script>
+<script src="../log/log-select-menu.js?v=20261103-pretty1"></script>
+<script src="matrix-settings-ui.js?v=20261103-pretty1"></script>
 </body>
 </html>

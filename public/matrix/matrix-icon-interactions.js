@@ -39,20 +39,13 @@
     return oldCommentBelongsToCurrentPage(parts.itemId);
   }
 
-  function setHeaderState(panel) {
-    const head = panel?.querySelector(".matrix-comment-head");
-    if (!head) return;
-    head.style.cursor = pageFilter ? "pointer" : "";
-    head.title = pageFilter ? "クリックで全コメント表示" : "";
-  }
-
   function applyPageFilter() {
     const panel = document.querySelector("#matrixIconComments");
     const list = document.querySelector("#matrixIconCommentList");
     if (!panel || !list) return false;
 
     panel.hidden = false;
-    setHeaderState(panel);
+    const head=panel.querySelector(".matrix-comment-head");if(head){head.style.cursor="";head.removeAttribute("title")}
 
     const topThreads = [...list.children].filter(node => node.classList?.contains("matrix-comment-thread"));
     const allCards = [...list.querySelectorAll(".matrix-comment-card")];
@@ -65,21 +58,12 @@
       if (show) visibleCount += thread.querySelectorAll(".matrix-comment-card").length;
     });
 
-    const baseEmpty = list.querySelector(":scope > .matrix-comment-empty:not(.matrix-comment-page-empty)");
-    let pageEmpty = list.querySelector(":scope > .matrix-comment-page-empty");
-
-    if (pageFilter && visibleCount === 0) {
-      if (!pageEmpty) {
-        pageEmpty = document.createElement("p");
-        pageEmpty.className = "matrix-comment-empty matrix-comment-page-empty";
-        pageEmpty.textContent = "このシートの感想はありません。";
-        list.append(pageEmpty);
-      }
-      if (baseEmpty) baseEmpty.hidden = true;
-    } else {
-      pageEmpty?.remove();
-      if (baseEmpty) baseEmpty.hidden = false;
+    let empty = list.querySelector(":scope > .matrix-comment-empty");
+    if(!empty&&visibleCount===0){
+      empty=document.createElement("p");empty.className="matrix-comment-empty";
+      empty.textContent="マーカーされた感想がここに並びます。";list.append(empty);
     }
+    if(empty)empty.hidden=visibleCount>0;
 
     const count = panel.querySelector("#matrixIconCommentCount");
     if (count) count.textContent = String(pageFilter ? visibleCount : allCards.length);
@@ -153,14 +137,6 @@
     filterCurrentPage();
     if(sharedCommentComposer)sharedCommentComposer(placed.dataset.id||"");
   }, true);
-
-  document.addEventListener("click", event => {
-    if (!(event.target instanceof Element)) return;
-    const head = event.target.closest(".matrix-comment-head");
-    if (!head || !pageFilter) return;
-    if (event.target.closest("button")) return;
-    showAllComments();
-  });
 
   document.addEventListener("dblclick", event => {
     const placed = placedFromEvent(event);
@@ -263,3 +239,4 @@
     if (ensureListObserver() || tries > 30) clearInterval(waitForComments);
   }, 120);
 })();
+
