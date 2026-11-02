@@ -35,7 +35,8 @@
     .log-list::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
   `}
   function logCss(value){return `
-    html.embedded{--log-loader-color:${value.color1}}
+    html.embedded{--log-loader-color:${value.color1};--shadow:none!important}
+    html.embedded body,html.embedded body *{box-shadow:none!important}
     html.embedded,html.embedded body{background:transparent!important;background-image:none!important;transition:none!important}
     html.embedded.dark,html.embedded.dark body{background:#424242!important;background-image:none!important}
     html.embedded #roomTitle{color:${uiInk}!important}
@@ -62,7 +63,7 @@
     html.embedded .page-scroll::-webkit-scrollbar-thumb,html.embedded .comments-list::-webkit-scrollbar-thumb{background:${value.color1}!important;box-shadow:none!important;border:2px solid transparent!important;background-clip:padding-box!important}
   `}
   function matrixCss(value){return `
-    html.embedded body{background:transparent!important;background-image:none!important}
+    html.embedded,html.embedded body{background:transparent!important;background-image:none!important;transition:none!important}
     html.embedded{--matrix-glass:rgba(255,255,255,.85)!important;--matrix-glass-strong:rgba(255,255,255,.85)!important}
     html.embedded .library,html.embedded .stage,html.embedded #matrixIconComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
     html.embedded .matrix-comment-head,html.embedded #matrixIconComments .matrix-comments-body{background:transparent!important;${noBlur}}
@@ -78,7 +79,7 @@
     html.embedded #sheetZoomControl input::-webkit-slider-thumb{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important;box-shadow:0 1px 7px ${hexRgba(value.gradientColor1,.4)}!important}
     html.embedded #sheetZoomControl input::-moz-range-thumb{background:linear-gradient(90deg,${value.gradientColor1},${value.gradientColor2})!important;box-shadow:0 1px 7px ${hexRgba(value.gradientColor1,.4)}!important}
 
-    html.embedded body{background:transparent!important;background-image:none!important}
+    html.embedded,html.embedded body{background:transparent!important;background-image:none!important;transition:none!important}
     html.embedded{--sheet-glass:rgba(255,255,255,.85)!important;--sheet-glass-strong:rgba(255,255,255,.85)!important;--sheet-cell:rgba(255,255,255,.85)!important}
     html.embedded #databaseLayout,html.embedded #sheetComments>section{background:rgba(255,255,255,.85)!important;${noBlur}}
     html.embedded .table-actions > :is(.btn,button),html.embedded .table-actions .btn,html.embedded .view-switch .btn,

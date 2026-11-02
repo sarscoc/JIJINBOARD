@@ -17,9 +17,9 @@ html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!importan
 #sheetComments .comment-card:hover,#sheetComments .comment-card.focused{border-color:var(--sheet-ink)!important;border-left-color:var(--comment-marker,var(--jijin-sheet-comment-color,#171a20))!important}
 #sheetComments .comment-author{display:flex!important;align-items:center!important;gap:4px!important;flex-wrap:nowrap!important;white-space:nowrap!important;font-weight:750!important;font-size:12px!important;margin-top:0!important;min-width:0!important}
 #sheetComments .comment-avatar{width:24px!important;height:24px!important;flex:0 0 24px!important;border-radius:50%!important;overflow:hidden!important;background:var(--sheet-soft)!important;display:grid!important;place-items:center!important;border:1px solid var(--sheet-line)!important;object-fit:contain!important}
-#sheetComments .comment-avatar img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important}
+
 #sheetComments .empty-avatar::before{content:""!important}
-#sheetComments .comment-name{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important}
+
 #sheetComments .persona-type{font-size:9px!important;line-height:1.2!important;border:1px solid var(--sheet-line)!important;padding:0 3px!important;border-radius:4px!important;margin-left:3px!important;font-weight:400!important}
 #sheetComments .comment-edit{margin-left:0!important;border:0!important;background:transparent!important;color:var(--sheet-muted)!important;font-size:9px!important;cursor:pointer!important;padding:0 2px!important;flex:0 0 auto!important;line-height:1!important}
 #sheetComments .comment-edit:hover{color:var(--sheet-ink)!important}
@@ -28,7 +28,7 @@ html.embedded #sheetComments:not(.has-comments)>section{overflow:hidden!importan
 #sheetComments .comment-like.liked{color:#e73152!important;text-shadow:none!important}
 #sheetComments .comment-reply{margin-left:0!important;flex:0 0 auto!important;border:0!important;background:transparent!important;color:var(--sheet-muted)!important;font-size:13px!important;padding:0 2px!important;cursor:pointer!important;opacity:.55!important;line-height:1!important}
 #sheetComments .comment-reply:hover{color:var(--sheet-ink)!important;opacity:1!important}
-#sheetComments .comment-body{margin:4px 0 0!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;line-height:1.5!important}
+#sheetComments .comment-body{margin:4px 0 0!important;line-height:1.5!important}
 
 /* Input dialog: copy the final LOGCOMMENTS #commentDialog values, not Spreadsheet defaults. */
 #sheetCommentDialog{position:fixed!important;z-index:3000!important;margin:0!important;width:min(390px,calc(100% - 24px))!important;max-height:calc(100vh - 24px)!important;overflow:auto!important;border:1px solid #e2e7ed!important;border-radius:14px!important;background:rgba(255,255,255,.82)!important;color:#171a1f!important;box-shadow:0 8px 28px rgba(27,38,51,.07)!important;padding:0!important;font:13px/1.5 system-ui,-apple-system,"Segoe UI","Noto Sans JP",sans-serif!important;backdrop-filter:blur(24px) saturate(145%)!important;-webkit-backdrop-filter:blur(24px) saturate(145%)!important}
@@ -86,3 +86,4 @@ html body #sheetComments .sheet-comments-head{box-sizing:border-box!important;he
 html body #sheetComments .sheet-comments-head strong{font-weight:700!important}
 #sheetCommentDialog .sheet-comment-status{margin:0;font-size:11px;color:#c44}
 #sheetCommentDialog .sheet-comment-status:empty{display:none}
+

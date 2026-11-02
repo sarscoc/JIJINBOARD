@@ -1,0 +1,16 @@
+html:root:not(.dark),html:root:not(.dark) body{background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,var(--jijin-background-one,rgba(103,163,255,.24)),transparent 28%),radial-gradient(circle at 86% 82%,var(--jijin-background-two,rgba(159,113,255,.12)),transparent 30%)!important;background-repeat:no-repeat!important;background-size:100% 100%!important;background-attachment:fixed!important;transition:none!important}
+html:root.dark,html:root.dark body{background:#424242!important;background-image:none!important;transition:none!important}
+
+/* One stationary backdrop belongs to the parent document. Embedded tools reveal it. */
+html:root.board-shell:not(.embedded):not(.dark) body{background:transparent!important;background-image:none!important}
+html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:transparent!important;background-image:none!important}
+.tool-stage,.tool-frame{background:transparent!important}
+
+
+/* A persistent parent layer also covers the initial home screen. */
+html:root.board-shell:not(.embedded){background-color:#f5f7fa!important;background-image:none!important}
+html:root.board-shell:not(.embedded) body{isolation:isolate}
+html:root.board-shell:not(.embedded) body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-color:#f5f7fa;background-image:radial-gradient(circle at 12% 8%,var(--jijin-background-one,rgba(103,163,255,.24)),transparent 28%),radial-gradient(circle at 86% 82%,var(--jijin-background-two,rgba(159,113,255,.12)),transparent 30%);background-repeat:no-repeat;background-size:100% 100%}
+html:root.dark body::before{background:#424242;background-image:none}
+#matrixFrame,#logFrame,#spreadsheetFrame,#welcome,.board-home-shell,.board-layout{background:transparent!important;background-image:none!important}
+

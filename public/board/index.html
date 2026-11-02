@@ -6,25 +6,8 @@
 <script src="/shared/room-storage.js?v=20261102-room1"></script>
 <script src="/shared/browser-cache.js?v=20261102-room1"></script>
 <script src="board-boot.js?v=20261102-startup2"></script>
-<script>
-(()=>{const q=new URL(location.href).searchParams,b=q.get('board')||q.get('id');if(q.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;try{const t=JSON.parse(localStorage.getItem('jijinboardScopedTheme:'+b)||'null')||{};const rgba=(hex,a)=>{if(!/^#[0-9a-f]{6}$/i.test(hex||''))return '';const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};const root=document.documentElement;const one=rgba(t.gradientColor1,.24),two=rgba(t.gradientColor2,.12);if(one)root.style.setProperty('--jijin-background-one',one);if(two)root.style.setProperty('--jijin-background-two',two)}catch{}})();
-</script>
-<style id="jijinboard-common-background">html:root:not(.dark),html:root:not(.dark) body{background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,var(--jijin-background-one,rgba(103,163,255,.24)),transparent 28%),radial-gradient(circle at 86% 82%,var(--jijin-background-two,rgba(159,113,255,.12)),transparent 30%)!important;background-repeat:no-repeat!important;background-size:100% 100%!important;background-attachment:fixed!important;transition:none!important}
-html:root.dark,html:root.dark body{background:#424242!important;background-image:none!important;transition:none!important}
-
-/* One stationary backdrop belongs to the parent document. Embedded tools reveal it. */
-html:root:not(.embedded):not(.dark) body{background:transparent!important;background-image:none!important}
-html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:transparent!important;background-image:none!important}
-.tool-stage,.tool-frame{background:transparent!important}
-
-
-/* A persistent parent layer also covers the initial home screen. */
-html:root:not(.embedded){background-color:#f5f7fa!important;background-image:none!important}
-html:root:not(.embedded) body{isolation:isolate}
-html:root:not(.embedded) body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-color:#f5f7fa;background-image:radial-gradient(circle at 12% 8%,var(--jijin-background-one,rgba(103,163,255,.24)),transparent 28%),radial-gradient(circle at 86% 82%,var(--jijin-background-two,rgba(159,113,255,.12)),transparent 30%);background-repeat:no-repeat;background-size:100% 100%}
-html:root.dark body::before{background:#424242;background-image:none}
-#matrixFrame,#logFrame,#spreadsheetFrame,#welcome,.board-home-shell,.board-layout{background:transparent!important;background-image:none!important}
-</style>
+<script src="/shared/appearance.js?v=20261103-layout1"></script>
+<link rel="stylesheet" href="/shared/appearance.css?v=20261103-layout1">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,noarchive">
@@ -136,9 +119,8 @@ html:root.dark body::before{background:#424242;background-image:none}
   <script src="../shared/player-master.js?v=20261103-startup-repair1"></script>
   <script src="speaker-editor.js?v=20261102-inspect1"></script>
   <script src="board-profile.js?v=20261103-log-settings1"></script>
-  <script src="theme-scoped.js?v=20261102-clean-settings1"></script>
-  <script src="shared-background-sync.js?v=20261102-clean-settings1"></script>
-  <script src="log-no-shadows.js?v=20261102-clean-settings1"></script>
+  <script src="theme-scoped.js?v=20261103-layout1"></script>
+  <script src="log-no-shadows.js?v=20261103-layout1"></script>
   <script src="group-row-colors.js?v=20261102-room1"></script>
   <script>
     const __spreadsheetFrame=document.getElementById('spreadsheetFrame');

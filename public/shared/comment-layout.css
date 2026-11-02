@@ -1,0 +1,4 @@
+/* Shared LOG / Sheets comment structure. MATRIX keeps its own layout. */
+:is(.comments-pane,#sheetComments) .comment-name{min-width:0!important;overflow:hidden!important;text-overflow:ellipsis!important;}
+:is(.comments-pane,#sheetComments) .comment-avatar img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;}
+:is(.comments-pane,#sheetComments) .comment-body{white-space:pre-wrap!important;overflow-wrap:anywhere!important;}

@@ -6,17 +6,8 @@
 <script src="/shared/browser-cache.js?v=20261102-room1"></script>
 <script src="/shared/comment-target.js?v=20261102-room1"></script>
 <script src="/shared/comments.js?v=20261102-editor1"></script>
-<script>
-(()=>{const q=new URL(location.href).searchParams,b=q.get('board')||q.get('id');if(q.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;try{const t=JSON.parse(localStorage.getItem('jijinboardScopedTheme:'+b)||'null')||{};const rgba=(hex,a)=>{if(!/^#[0-9a-f]{6}$/i.test(hex||''))return '';const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};const root=document.documentElement;const one=rgba(t.gradientColor1,.24),two=rgba(t.gradientColor2,.12);if(one)root.style.setProperty('--jijin-background-one',one);if(two)root.style.setProperty('--jijin-background-two',two)}catch{}})();
-</script>
-<style id="jijinboard-common-background">html:root:not(.dark),html:root:not(.dark) body{background-color:#f5f7fa!important;background-image:radial-gradient(circle at 12% 8%,var(--jijin-background-one,rgba(103,163,255,.24)),transparent 28%),radial-gradient(circle at 86% 82%,var(--jijin-background-two,rgba(159,113,255,.12)),transparent 30%)!important;background-repeat:no-repeat!important;background-size:100% 100%!important;background-attachment:fixed!important;transition:none!important}
-html:root.dark,html:root.dark body{background:#424242!important;background-image:none!important;transition:none!important}
-
-/* One stationary backdrop belongs to the parent document. Embedded tools reveal it. */
-html:root:not(.embedded):not(.dark) body{background:transparent!important;background-image:none!important}
-html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:transparent!important;background-image:none!important}
-.tool-stage,.tool-frame{background:transparent!important}
-</style>
+<script src="/shared/appearance.js?v=20261103-layout1"></script>
+<link rel="stylesheet" href="/shared/appearance.css?v=20261103-layout1">
 
   <meta property="og:title" content="MAGIA MATRIX | TRPG PROJECT">
   <meta property="og:description" content="共通人物と専用素材から、アイコンとコメント入りのテンプレ画像を作れるツール。">
@@ -3172,11 +3163,12 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
 <link rel="stylesheet" href="board-integration.css?v=20261102-room1">
 <link rel="stylesheet" href="matrix-pc.css?v=20261102-room1">
 <link rel="stylesheet" href="matrix-icon-comments.css?v=20261102-room1">
+
+<link rel="stylesheet" href="../log/log-select-menu.css?v=20261103-select1">
+<link rel="stylesheet" href="matrix-settings-pretty.css?v=20261103-pretty1">
 <script>
 (()=>{if(parent===window)return;try{parent.JIJINBOARD_APPLY_FRAME_THEME?.(document,"matrix")}catch{}})();
 </script>
-<link rel="stylesheet" href="../log/log-select-menu.css?v=20261103-select1">
-<link rel="stylesheet" href="matrix-settings-pretty.css?v=20261103-pretty1">
 </head>
 <body>
 <div class="project-matrix-bar"><a href="/">‹ TRPG PROJECT</a><strong>MAGIA MATRIX</strong><span class="matrix-spacer"></span><label>＋ MATRIX専用素材<input id="matrixAssetInput" type="file" accept="image/*" multiple></label></div>
