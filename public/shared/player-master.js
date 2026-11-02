@@ -52,7 +52,7 @@
     if(notify)window.dispatchEvent(new CustomEvent("jijinboard-player-master-updated",{detail:{master:nextMaster}}));
   }
 
-  async function bootstrap(){
+  async function bootstrapOnce(){
     const p=profile();if(!p?.id||!String(p.plName||"").trim())return null;
     playerId=String(localStorage.getItem(PLAYER_KEY)||p.id);token=String(localStorage.getItem(TOKEN_KEY)||"");
     const payload={playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b"};
@@ -60,6 +60,13 @@
     try{result=await api(root,{method:"POST",body:JSON.stringify(payload)})}
     catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api(root,{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
     token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);master=result.master||null;mergeMasterLocal(master);return master;
+  }
+
+  let bootstrapTask=null;
+  async function bootstrap(){
+    if(bootstrapTask)return bootstrapTask;
+    const task=bootstrapOnce();bootstrapTask=task;
+    try{return await task}finally{if(bootstrapTask===task)bootstrapTask=null}
   }
 
   function masterPc(id){return(master?.characters||[]).find(ch=>String(ch.id)===String(id)&&ch.type==="PC")||null}

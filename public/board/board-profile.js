@@ -3,7 +3,19 @@ const profileDialog=document.querySelector("#boardProfileDialog"),profileForm=do
 function savedProfile(){try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}}
 function openBoardProfile(){const p=savedProfile();if(p?.plName)return;const t=document.querySelector("#boardProfileTitle"),n=document.querySelector("#boardName")?.textContent||"この部屋";if(t)t.textContent=`${n} に入る`;profileDialog?.showModal()}
 async function compactIcon(file){if(!file)return"";const b=await createImageBitmap(file),c=document.createElement("canvas");c.width=c.height=96;const x=c.getContext("2d"),s=Math.min(96/b.width,96/b.height),w=b.width*s,h=b.height*s;x.drawImage(b,(96-w)/2,(96-h)/2,w,h);b.close?.();return c.toDataURL("image/webp",.82)}
-profileForm?.addEventListener("submit",async e=>{e.preventDefault();const cur=savedProfile()||{},name=document.querySelector("#boardPlName")?.value.trim();if(!name)return;const f=document.querySelector("#boardPlIcon")?.files?.[0],icon=f?await compactIcon(f):(cur.plIcon||"");localStorage.setItem("trpgMarkerProfile",JSON.stringify({id:cur.id||crypto.randomUUID(),plName:name,plIcon:icon,plColor:document.querySelector("#boardPlColor")?.value||"#ffe66b"}));profileDialog?.close();const frame=document.querySelector("#logFrame");if(frame?.src)frame.src=frame.src});
+profileForm?.addEventListener("submit",async e=>{
+ e.preventDefault();const cur=savedProfile(),name=document.querySelector("#boardPlName")?.value.trim();if(!name)return;
+ const button=e.submitter;if(button)button.disabled=true;
+ try{
+  const f=document.querySelector("#boardPlIcon")?.files?.[0],icon=f?await compactIcon(f):(cur?.plIcon||"");
+  localStorage.setItem("trpgMarkerProfile",JSON.stringify({id:cur?.id||crypto.randomUUID(),plName:name,plIcon:icon,plColor:document.querySelector("#boardPlColor")?.value||"#ffe66b"}));
+  await window.JIJINPlayerMaster.bootstrap();
+  profileDialog?.close();const frame=document.querySelector("#logFrame");if(frame?.src)frame.src=frame.src;
+ }catch(error){
+  if(cur)localStorage.setItem("trpgMarkerProfile",JSON.stringify(cur));else localStorage.removeItem("trpgMarkerProfile");
+  alert(error.message||"PL情報を保存できませんでした");
+ }finally{if(button)button.disabled=false}
+});
 setTimeout(openBoardProfile,120);
 
 function installBoardSettingsWorkspace(){

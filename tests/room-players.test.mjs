@@ -72,3 +72,14 @@ test('a delete arriving before an in-flight first PC save still leaves a tombsto
  const saved=await (await handleRoomPlayers(req('PUT',{playerId:'same',characters:[{id:'not-saved-yet',name:'Late save'}]},one.accessToken),f.env,'one',['same'])).json();
  assert.deepEqual(saved.master.characters,[]);assert.ok(saved.master.deletedCharacterIds.includes('not-saved-yet'));
 });
+
+test('the first board registration persists PL data and its token before closing the form',async t=>{
+ const dom=new JSDOM('<dialog id="boardProfileDialog" open><form id="boardProfileForm"><input id="boardPlName" value="New PL"><input id="boardPlColor" value="#123456"><button type="submit">入る</button></form></dialog>',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};w.alert=message=>assert.fail(message);
+ const writes=[];w.fetch=async(path,options={})=>{const payload=options.body?JSON.parse(options.body):null;writes.push({path,payload});return {ok:true,json:async()=>({playerId:payload?.playerId,accessToken:'room-token',master:{boardId:'one',playerId:payload?.playerId,plName:payload?.plName,characters:[],deletedCharacterIds:[]}})}};
+ w.eval(source('shared/room-storage.js'));w.eval(source('shared/player-master.js'));w.eval(source('board/board-profile.js'));
+ w.document.querySelector('#boardProfileForm').dispatchEvent(new w.Event('submit',{bubbles:true,cancelable:true}));
+ for(let i=0;i<10&&w.document.querySelector('dialog').open;i++)await new Promise(setImmediate);
+ assert.equal(w.document.querySelector('dialog').open,false);assert.ok(writes.some(x=>x.path==='/api/boards/one/players'&&x.payload.plName==='New PL'));
+ assert.equal(w.localStorage.getItem('jijinboardPlayerMasterToken.v1'),'room-token');
+});
