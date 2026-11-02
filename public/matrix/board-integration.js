@@ -338,12 +338,6 @@
     const state=appState(),serial=JSON.stringify(state);
     if(serial===lastState){fullStateDirty=false;return}
     const payload=JSON.stringify({authorId:me.id,authorName:me.plName,state});
-    try{
-      if(navigator.sendBeacon){
-        const queued=navigator.sendBeacon(matrixPath(),new Blob([payload],{type:"application/json"}));
-        if(queued)return;
-      }
-    }catch{}
     try{fetch(matrixPath(),{method:"POST",headers:{"content-type":"application/json","x-realtime-client":realtimeClientId},body:payload,keepalive:true}).catch(()=>{})}catch{}
   }
 
@@ -412,7 +406,7 @@
     helpers.forEach(([src,key])=>{
       if(document.querySelector(`script[data-${key.replace(/[A-Z]/g,m=>"-"+m.toLowerCase())}]`))return;
       const script=document.createElement("script");
-      script.src=src+"?v=20261102-ui1";
+      script.src=src+"?v=20261102-fresh1";
       script.async=false;
       script.dataset[key]="1";
       document.body.append(script);

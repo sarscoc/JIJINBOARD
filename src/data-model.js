@@ -59,6 +59,8 @@ export async function resolveCharacterIdentity(db,plId,personaName,personaType='
   if(type==='PL')return null;
   const name=String(personaName||'').trim().slice(0,80);
   if(!plId||!name)return null;
+  if(options.characterId&&await db.prepare('SELECT 1 FROM deleted_character WHERE character_id=?').bind(String(options.characterId).slice(0,120)).first())return null;
+  if(!options.characterId&&await db.prepare('SELECT 1 FROM deleted_character WHERE pl_id=? AND character_name=? AND character_type=?').bind(plId,name,type==='NPC'?'NPC':'PC').first())return null;
   await ensurePlIdentity(db,plId,options.plName||'PL');
   let row=null;
   if(options.characterId)row=await db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(String(options.characterId).slice(0,120),plId).first();
@@ -68,8 +70,8 @@ export async function resolveCharacterIdentity(db,plId,personaName,personaType='
     return db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(row.character_id,plId).first();
   }
   const id=String(options.characterId||`auto_${(await hashText(`${plId}\0${type}\0${name}`)).slice(0,40)}`).slice(0,120);
-  await db.prepare('INSERT OR IGNORE INTO character(character_id,pl_id,character_type,character_name,character_color,character_color_dark,character_icon_key,matrix_icon_key) VALUES(?,?,?,?,?,?,?,?)').bind(id,plId,type==='NPC'?'NPC':'PC',name,String(options.color||'#ffe66b'),String(options.colorDark||options.color||'#ffe66b'),String(options.iconKey||''),String(options.matrixIconKey||'')).run();
-  return db.prepare('SELECT * FROM character WHERE character_id=?').bind(id).first();
+  await db.prepare('INSERT OR IGNORE INTO character(character_id,pl_id,character_type,character_name,character_color,character_color_dark,character_icon_key,matrix_icon_key) SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM deleted_character WHERE character_id=? OR (pl_id=? AND character_name=? AND character_type=? AND ?=0))').bind(id,plId,type==='NPC'?'NPC':'PC',name,String(options.color||'#ffe66b'),String(options.colorDark||options.color||'#ffe66b'),String(options.iconKey||''),String(options.matrixIconKey||''),id,plId,name,type==='NPC'?'NPC':'PC',options.characterId?1:0).run();
+  return db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(id,plId).first();
 }
 
 export async function verifyRoomAdmin(db,roomId,token){

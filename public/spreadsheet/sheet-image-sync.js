@@ -72,8 +72,7 @@
       try{
         const remote=await fetchRemote(partId,charId);checked.add(key);
         if(remote){await rawSave.call(this,partId,charId,remote);return remote}
-        const local=await rawLoad.call(this,partId,charId);
-        if(local){const compressed=await compressImage(local);await rawSave.call(this,partId,charId,compressed);uploadRemote(partId,charId,compressed).then(()=>window.jijinSpreadsheetNotifyChange?.('spreadsheet-image')).catch(error=>console.warn('Spreadsheet image migration failed',error));return compressed}
+        await rawDelete.call(this,partId,charId);
         return null;
       }catch(error){console.warn('Spreadsheet image download failed',error)}
     }

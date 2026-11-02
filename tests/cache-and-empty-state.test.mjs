@@ -31,6 +31,6 @@ for(const saved of ['empty','missing','invalid'])test(`saved ${saved} spreadshee
   if(saved==='empty'){
     assert.equal(writes.length,0);assert.equal(w.state.characters.length,0);assert.deepEqual(JSON.parse(w.localStorage.getItem('charaHub.characters')),[]);
   }else if(saved==='missing'){
-    assert.equal(writes.length,1);assert.equal(writes[0].state['charaHub.characters'][0].id,'old-character');
+    assert.equal(writes.length,0);assert.equal(w.state.characters.length,0);
   }else assert.equal(writes.length,0);
 });

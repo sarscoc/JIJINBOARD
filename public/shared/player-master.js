@@ -35,7 +35,12 @@
 
   function mergeMasterLocal(nextMaster,{notify=true}={}){
     if(!nextMaster)return;
-    const people=read(PEOPLE_KEY,[]),byId=new Map(people.map(item=>[String(item?.id||""),item]));
+    const deleted=new Set((nextMaster.deletedCharacterIds||[]).map(String));
+    if(typeof state!=='undefined'&&state?.profile?.personas)state.profile.personas=state.profile.personas.filter(p=>!deleted.has(String(p.projectPersonId||p.id)));
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);if(k?.startsWith('personas:'))write(k,named(read(k,[])).filter(p=>!deleted.has(String(p.projectPersonId||p.id))));
+    }
+    const people=read(PEOPLE_KEY,[]).filter(p=>!deleted.has(String(p.id))),byId=new Map(people.map(item=>[String(item?.id||""),item]));
     const existingPl=[...byId.values()].find(item=>item?.type==="PL"&&(String(item.id)===String(nextMaster.playerId)||String(item.name||"")===String(nextMaster.plName||"")))||{};
     if(existingPl.id&&String(existingPl.id)!==String(nextMaster.playerId))byId.delete(String(existingPl.id));
     byId.set(nextMaster.playerId,{...existingPl,id:nextMaster.playerId,type:"PL",name:nextMaster.plName,icon:nextMaster.plIcon||existingPl.icon||"",color:nextMaster.plColor||existingPl.color||"#ffe66b",plId:""});

@@ -251,3 +251,6 @@ CREATE TABLE IF NOT EXISTS comment_reaction (
   FOREIGN KEY(comment_id) REFERENCES comment(comment_id) ON DELETE CASCADE,
   FOREIGN KEY(author_pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS app_dataset (singleton INTEGER PRIMARY KEY CHECK(singleton=1),generation TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS deleted_character (character_id TEXT PRIMARY KEY,pl_id TEXT NOT NULL,character_name TEXT NOT NULL DEFAULT '',character_type TEXT NOT NULL DEFAULT 'PC',deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);

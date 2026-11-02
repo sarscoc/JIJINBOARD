@@ -1,6 +1,6 @@
 # JIJINBOARD
 
-LOGCOMMENTSを核に、MAGIA MATRIXとCHARA DATA HUBをまとめたTRPG統合WEBアプリです。
+LOGCOMMENTSを核に、MAGIA MATRIXとSheetsをまとめたTRPG統合WEBアプリです。
 
 ## いちばん簡単なCloudflare導入
 
@@ -36,7 +36,7 @@ R2には無料枠がありますが、Cloudflare側の仕様として最初にR2
 - `/board/?id=...` — 参加者へ共有する自陣の部屋。複数ログと3機能タブを表示
 - `/log/` — 既存TRPG LOG MARKER本体（統合画面内でも既存処理をそのまま利用）
 - `/matrix/` — MAGIA MATRIX本体
-- `/spreadsheet/` — CHARA DATA HUB本体
+- `/spreadsheet/` — Sheets本体
 
 各自陣は複数ログを持てます。左のログ一覧ではシナリオ名、開封状態、参加PCを確認でき、未開封ログを開く前にネタバレ注意を表示します。参加PCは各PLがLOGの発言者設定へ登録したPCから選びます。
 
@@ -51,14 +51,14 @@ Durable Objectsにコメント本文やログ本文は保存しません。通�
 
 ## コメントの共通APIと対象アドレス
 
-LOG / MAGIA MATRIX / CHARA DATA HUB は `src/comments.js` の保存・取得・返信・編集・♡・削除を共有します。
+LOG / MAGIA MATRIX / Sheets は `src/comments.js` の保存・取得・返信・編集・♡・削除を共有します。
 対象の住所は `public/shared/comment-target.js` で組み立て、同じコードでブラウザとWorkerが検証します。
 
 | 対象 | アドレス例 |
 | --- | --- |
 | ログの文字範囲 | `/boards/B/logs/L/ranges/M?start=0&end=12&endMessage=M` |
 | MATRIXのコマ | `/boards/B/matrix/T/points/P` |
-| DATA HUBのセル | `/boards/B/sheets/main/cells/C` |
+| Sheetsのセル | `/boards/B/sheets/main/cells/C` |
 
 各IDはURLエンコードします。表示名・行番号ではなく既存の安定したIDを使い、ログの文字位置はJavaScriptのUTF-16オフセットです。
 これらは対象識別用のアドレスです。ブラウザの遷移先や認証情報ではありません。
@@ -86,7 +86,7 @@ LOG / MAGIA MATRIX / CHARA DATA HUB は `src/comments.js` の保存・取得・�
 
 各画面のスクリプト・CSSは、その画面のHTMLで一度だけ読み込みます。Workerは旧UIや追加の描画処理をHTMLへ挿入しません。
 人物マスター・コメント・レイアウトの初期化には重複実行防止を設けています。
-保存済みの空のDATA HUBも正規の保存データとして扱い、端末内の古い内容を自動で再登録しません。APIの `no-store` 指示もブラウザキャッシュで守ります。
+保存済みの空のSheetsも正規の保存データとして扱い、端末内の古い内容を自動で再登録しません。APIの `no-store` 指示もブラウザキャッシュで守ります。
 既存コメントやテンプレート、人物データの互換読み込み・明示的削除の記録は維持します。
 
 ## ローカル確認（必要な場合だけ）
@@ -112,3 +112,12 @@ Cloudflare公式資料:
 - [Workers BuildsのGit連携](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/)
 - [D1/R2の自動プロビジョニング](https://developers.cloudflare.com/workers/wrangler/configuration/)
 - [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/)
+
+## 古い端末からの復活防止
+
+すべてのAPI書き込みには `GET /api/dataset` で確認した `x-jijin-dataset` が必要です。ヘッダーなし・世代違いの旧クライアントは409で拒否します。この値は鮮度確認用で、認証を代替しません。
+HTMLの最初に `dataset-guard.js` を読み込みます。世代変更時はアプリの端末キャッシュを破棄して再読み込みし、旧画面で組み立てた送信内容を新世代へ再送しません。IndexedDBも世代別・Sheets画像は部屋別に分離します。初回導入時のみ既存の管理鍵・PLアクセス情報を残し、人物候補などの旧キャッシュを除去します。
+
+Sheetsはサーバーが空・未保存の場合でもローカルデータや画像を自動復元しません。全体保存には取得時の `baseRevision` が必要で、競合時は保存を停止して再読み込みを求めます。PC削除は `deleted_character` に削除記録を残し、マスター同期や発言者登録で同じIDを再作成できません。
+
+**実際に初期化するときは、書き込みを停止した保守時間中にD1/R2を消去し、`app_dataset.generation` を新しいUUIDへ必ず変更してください。** 全テーブルを初期化した場合は次のアクセスで新しい世代が作られます。世代だけを維持したデータ消去は不可です。削除記録は通常運用で消さず、完全初期化時だけ世代変更と一緒に破棄します。コードのデプロイ自体は本番データを初期化しません。

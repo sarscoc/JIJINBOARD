@@ -16,7 +16,7 @@ function idb(w){
       put(value,key){data.set(key??value.id,value);return request(key??value.id)},delete(key){data.delete(key);return request(undefined)}
     }}};return tx;
   }};
-  w.indexedDB={open(){const r={result:db};w.setTimeout(()=>r.onsuccess?.(),0);return r}};
+  w.indexedDB={open(){const r={result:db,addEventListener(){}};w.setTimeout(()=>r.onsuccess?.(),0);return r}};
 }
 
 function duplicateKeys(elements,key){
@@ -41,7 +41,7 @@ for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executin
   const dom=new JSDOM(text(tool+'/index.html'),{url:`http://127.0.0.1:8765/${tool}/?id=test&board=test&room=log`,runScripts:'dangerously',pretendToBeVisual:true,virtualConsole:vc,
     resources:{interceptors:[requestInterceptor(request=>{try{return new Response(fs.readFileSync(root+new URL(request.url).pathname),{headers:{'content-type':request.url.includes('.css')?'text/css':'application/javascript'}})}catch{return new Response('')}})]},
     beforeParse(w){
-      w.CSS={escape:String};w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;idb(w);
+      w.Request=Request;w.Headers=Headers;w.localStorage.setItem('jijin.dataset.generation.v1','test');w.CSS={escape:String};w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;idb(w);
       w.matchMedia=()=>({matches:false,addEventListener(){},removeEventListener(){},addListener(){},removeListener(){}});
       w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};w.scrollTo=()=>{};w.alert=()=>{};
       w.requestIdleCallback=fn=>w.setTimeout(fn,0);
@@ -49,7 +49,7 @@ for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executin
       w.HTMLDialogElement.prototype.show=function(){this.open=true};w.HTMLDialogElement.prototype.showModal=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
       class Socket{static OPEN=1;static CONNECTING=0;readyState=0;addEventListener(){}close(){}send(){}}w.WebSocket=Socket;
       w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'pl',plName:'PL',personas:[]}));
-      w.fetch=async(input,options={})=>({ok:true,json:async()=>({id:'test',name:'test',logs:[],state:{},annotations:[],comments:[],templates:[],tabs:[],messages:[],participants:[],characters:[],images:[]})});
+      w.fetch=async(input,options={})=>({ok:true,json:async()=>({generation:'test',id:'test',name:'test',logs:[],state:{},annotations:[],comments:[],templates:[],tabs:[],messages:[],participants:[],characters:[],images:[]})});
     }
   });t.after(()=>dom.window.close());
   const w=dom.window;

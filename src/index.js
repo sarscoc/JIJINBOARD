@@ -1,3 +1,4 @@
+import {datasetGeneration,checkDataset} from './data-freshness.js';
 import {serveAsset} from './assets.js';
 import {handleComments} from './comments.js';
 import {handleLegacyComments} from './comments-legacy.js';
@@ -30,6 +31,8 @@ const contextFor=(request,env,path,executionContext)=>({request,env,params:{path
 export default{
   async fetch(request,env,executionContext){
     const url=new URL(request.url);
+    // Normalize once so trailing slashes cannot reach obsolete fallback writers.
+    if(url.pathname.startsWith('/api/'))url.pathname=url.pathname.replace(/\/+$/,'');
     if(!url.pathname.startsWith('/api/')&&url.pathname!=='/'&&!/^\/index(?:\.html)?\/?$/.test(url.pathname))return serveAsset(request,env,url);
     if(!env.DB){if(url.pathname.startsWith('/api/'))return json({error:'D1データベースが接続されていません'},503);return new Response('管理TOPを読み込めません。D1接続を確認してください。',{status:503})}
     await ensureSchema(env.DB);
@@ -39,6 +42,8 @@ export default{
       return serveProtectedTop(request,env);
     }
     if(!url.pathname.startsWith('/api/'))return serveAsset(request,env,url);
+    if(url.pathname==='/api/dataset'&&request.method==='GET')return json({generation:await datasetGeneration(env.DB)});
+    const stale=await checkDataset(request,env.DB);if(stale)return stale;
     if(url.pathname.startsWith('/api/top-auth/'))return handleTopAuthApi(request,env,url.pathname.slice('/api/top-auth/'.length).split('/')[0]||'');
     if(!env.LOGS||!env.ROOMS)return json({error:'Cloudflareの保存先を準備中です。デプロイ完了後にもう一度お試しください。'},503);
 

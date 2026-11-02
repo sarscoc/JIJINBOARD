@@ -9,19 +9,21 @@ const snapshot={
  'charaHub.sources':[],
  'charaHub.layoutV1':{groups:[{id:'g1',name:'基本'},{id:'g2',name:'詳細'}],localItems:[{id:'one',label:'名前'},{id:'two',label:'紹介'},{id:'three',label:'未分類項目'}],assignments:{'local::one':'g1','local::two':'g2'},parts:[],sheetLayout:{order:['g1','g2','ungrouped'],positions:{g1:{row:1,col:1},g2:{row:2,col:1}},sizes:{g1:1,g2:3},heights:{g1:5,g2:1},baseRows:8},mainMode:'characters'}
 };
-let server=structuredClone(snapshot),posts=[],fail=false,errors=[],pauseNext=false,releasePost=null;
+let revision='r0',server=structuredClone(snapshot),posts=[],fail=false,errors=[],pauseNext=false,releasePost=null;
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function openPage(t){
  const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e.message));
  const dom=new JSDOM(fs.readFileSync(root+'/spreadsheet/index.html','utf8'),{url:'http://127.0.0.1:8765/spreadsheet/?board=test',runScripts:'dangerously',resources:{interceptors:[requestInterceptor(request=>{try{return new Response(fs.readFileSync(root+new URL(request.url).pathname),{headers:{'Content-Type':request.url.includes('.css')?'text/css':'application/javascript'}})}catch{return new Response('')}})]},pretendToBeVisual:true,virtualConsole:vc,beforeParse(w){
+  w.Request=Request;w.Headers=Headers;w.localStorage.setItem('jijin.dataset.generation.v1','test');
   w.CSS={escape:s=>String(s).replace(/[^\w-]/g,c=>'\\'+c)};w.structuredClone=structuredClone;w.TextEncoder=TextEncoder;w.URL.createObjectURL=()=> 'blob:test';w.URL.revokeObjectURL=()=>{};
   w.HTMLElement.prototype.scrollIntoView=function(){};w.HTMLElement.prototype.scrollTo=function(){};w.scrollTo=()=>{};
   for(const [k,v]of Object.entries(snapshot))w.localStorage.setItem('board:test:spreadsheet:'+k,JSON.stringify(v));
   w.fetch=async(input,options={})=>{
    const path=String(input);
+   if(path==='/api/dataset')return {ok:true,json:async()=>({generation:'test'})};
    if(path.includes('/spreadsheet/state')){
-    if(options.method==='POST'){if(pauseNext){pauseNext=false;await new Promise(resolve=>{releasePost=resolve})}if(fail)return {ok:false,json:async()=>({error:'通信エラー'})};const data=JSON.parse(options.body);server=structuredClone(data.state);posts.push(structuredClone(data.state));return {ok:true,json:async()=>({ok:true})}}
-    return {ok:true,json:async()=>({state:structuredClone(server)})};
+    if(options.method==='POST'){if(pauseNext){pauseNext=false;await new Promise(resolve=>{releasePost=resolve})}if(fail)return {ok:false,json:async()=>({error:'通信エラー'})};const data=JSON.parse(options.body);assert.equal(data.baseRevision,revision);revision='r'+(posts.length+1);server=structuredClone(data.state);posts.push(structuredClone(data.state));return {ok:true,json:async()=>({ok:true,revision})}}
+    return {ok:true,json:async()=>({state:structuredClone(server),revision})};
    }
    return {ok:true,json:async()=>({comments:[],images:[],participants:[],characters:[],people:[],tabs:[]})};
   };

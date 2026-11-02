@@ -6,7 +6,7 @@
 
   const keys=['charaHub.characters','charaHub.sources','charaHub.layoutV1'];
   const emptyFor=k=>k==='charaHub.layoutV1'?{}:[];
-  const api=async(path,options={})=>{const r=await fetch(path,{headers:{'content-type':'application/json',...(options.headers||{})},signal:AbortSignal.timeout(15000),...options}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'同期に失敗しました');return d};
+  const api=async(path,options={})=>{const r=await fetch(path,{headers:{'content-type':'application/json',...(options.headers||{})},signal:AbortSignal.timeout(15000),...options}),d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(Error(d.error||'同期に失敗しました'),{status:r.status});return d};
   const parse=(key,value)=>{try{return JSON.parse(value??'')}catch{return emptyFor(key)}};
   const read=()=>Object.fromEntries(keys.map(k=>[k,parse(k,localStorage.getItem(k)??JSON.stringify(emptyFor(k)))]));
   const meaningful=s=>(s?.['charaHub.characters']||[]).length||(s?.['charaHub.sources']||[]).length||(s?.['charaHub.layoutV1']?.localItems||[]).length||(s?.['charaHub.layoutV1']?.parts||[]).length||(s?.['charaHub.layoutV1']?.groups||[]).length;
@@ -33,7 +33,8 @@
     return out;
   }
 
-  let saving=false,resave=false,localDirty=false,savePromise=null,localEditingStarted=false;
+  let lastRemoteRevision=null,conflicted=false;
+  let saving=false,resave=false,localDirty=false,savePromise=null;
   let timer=0,loading=true,readySent=false,itemCache=null,applyingRemote=false,refreshPromise=null,lastRemoteSerial='',remoteDirty=false;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
   const invalidateItemCache=()=>{itemCache=null};
@@ -62,7 +63,7 @@
   const currentSerial=()=>JSON.stringify(currentSnapshot());
 
   const pushNow=()=>{
-    if(loading||applyingRemote)return Promise.resolve(false);
+    if(loading||applyingRemote||conflicted)return Promise.resolve(false);
     if(saving){resave=true;return savePromise}
     clearTimeout(timer);timer=0;
     saving=true;
@@ -72,18 +73,19 @@
           resave=false;
           const snapshot=currentSnapshot(),serial=JSON.stringify(snapshot);
           if(serial===lastRemoteSerial){localDirty=false;break}
-          await api(endpoint,{method:'POST',body:JSON.stringify({state:snapshot})});
+          const saved=await api(endpoint,{method:'POST',body:JSON.stringify({state:snapshot,baseRevision:lastRemoteRevision})});
+          lastRemoteRevision=saved.revision;
           lastRemoteSerial=serial;localDirty=currentSerial()!==serial;
           window.jijinSpreadsheetNotifyChange?.('spreadsheet-state');
         }while(resave||localDirty);
         return true;
-      }catch(error){localDirty=true;console.warn('Spreadsheet sync save failed',error);if(typeof showToast==='function')showToast('保存に失敗しました。通信を確認してください');return false}
+      }catch(error){if(error.status===409)conflicted=true;localDirty=true;console.warn('Spreadsheet sync save failed',error);if(typeof showToast==='function')showToast(conflicted?'他の画面で更新されています。再読み込みしてください':'保存に失敗しました。通信を確認してください');return false}
       finally{saving=false;savePromise=null}
     })();
     return savePromise;
   };
-  window.jijinSpreadsheetSync={saveNow:pushNow,isReady:()=>!loading,useExistingData:()=>{if(!meaningful(currentSnapshot()))return false;localEditingStarted=true;loading=false;return true}};
-  const push=()=>{if(loading||applyingRemote)return;localDirty=true;clearTimeout(timer);timer=setTimeout(pushNow,150)};
+  window.jijinSpreadsheetSync={saveNow:pushNow,isReady:()=>!loading&&!conflicted,useExistingData:()=>!loading&&!conflicted&&!!meaningful(currentSnapshot())};
+  const push=()=>{if(loading||applyingRemote||conflicted)return;localDirty=true;clearTimeout(timer);timer=setTimeout(pushNow,150)};
   const rawSetItem=Storage.prototype.setItem;
   Storage.prototype.setItem=function(key,value){
     const name=String(key);
@@ -127,14 +129,14 @@
   }
 
   async function refreshRemote(){
-    if(loading||!boardActive||localDirty||saving||timer||window.sheetDisplaySettings?.isEditing?.())return;
+    if(conflicted||loading||!boardActive||localDirty||saving||timer||window.sheetDisplaySettings?.isEditing?.())return;
     if(refreshPromise)return refreshPromise;
     const task=(async()=>{
       try{
-        const remote=(await api(endpoint,{cache:"reload"})).state;
-        if(!remote){remoteDirty=false;return}
+        const result=await api(endpoint,{cache:"no-store"}),remote=result.state;
         if(localDirty||saving||timer||window.sheetDisplaySettings?.isEditing?.())return;
-        const clean=sanitizeSnapshot(remote),serial=JSON.stringify(clean);
+        lastRemoteRevision=result.revision??null;
+        const clean=sanitizeSnapshot(remote||{}),serial=JSON.stringify(clean);
         if(serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
         remoteDirty=false;
       }catch(error){console.warn('Spreadsheet remote refresh failed',error)}
@@ -172,26 +174,18 @@
   function finishLocalReady(){loading=false;remoteDirty=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady()}
 
   async function initialRemoteSync(){
-    let remote=null,cleanRemote=null,remoteString='';
+    let remote=null;
     try{
-      remote=(await api(endpoint,{cache:"reload"})).state;
-      if(localEditingStarted)return;
+      const result=await api(endpoint,{cache:"no-store"});
+      remote=result.state;lastRemoteRevision=result.revision??null;
       if(remote!==null&&(typeof remote!=='object'||Array.isArray(remote)))throw Error('保存データを読み込めませんでした');
-      cleanRemote=sanitizeSnapshot(remote||{});remoteString=JSON.stringify(cleanRemote);
-      const local=currentSnapshot(),localString=JSON.stringify(local),hasLocal=!!meaningful(local);
-      // A saved empty board is authoritative too. Only null means there has
-      // never been a shared snapshot; do not resurrect a cleared board's cache.
-      if(remote!==null&&typeof remote==='object'&&!Array.isArray(remote)){
-        if(remoteString!==localString)applyRemote(cleanRemote);else lastRemoteSerial=remoteString;
-      }else if(hasLocal){
-        await api(endpoint,{method:'POST',body:JSON.stringify({state:local})});
-        lastRemoteSerial=localString;
-        window.jijinSpreadsheetNotifyChange?.('spreadsheet-state');
-      }
-    }catch(error){console.warn('Spreadsheet initial sync failed',error)}finally{
+      const cleanRemote=sanitizeSnapshot(remote||{});
+      // Server absence and empty snapshots both discard cached data. Never migrate it back.
+      applyRemote(cleanRemote);
+    }catch(error){conflicted=true;console.warn('Spreadsheet initial sync failed',error)}finally{
       if(loading)finishLocalReady();
     }
-    if(remote&&remoteString&&JSON.stringify(remote)!==remoteString)pushNow();
+
   }
 
   // The parser-inserted layout helpers must be installed before hydration renders sheets.

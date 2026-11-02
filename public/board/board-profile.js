@@ -44,12 +44,7 @@ function installBoardSettingsWorkspace(){
    try{
      const w=frame?.contentWindow,b=boardId();
      if(!w?.state||!b)return;
-     const snapshot={
-       "charaHub.characters":clone(w.state.characters||[]),
-       "charaHub.sources":clone(w.state.sources||[]),
-       "charaHub.layoutV1":clone(w.state.layout||{})
-     };
-     w.fetch(`/api/boards/${encodeURIComponent(b)}/spreadsheet/state`,{method:"POST",keepalive:true,headers:{"content-type":"application/json"},body:JSON.stringify({state:snapshot})}).catch(()=>{});
+     w.jijinSpreadsheetSync?.saveNow();
    }catch(error){console.warn("Design persist failed",error)}
  }
  function disposeSpeaker(){if(!speakerFrame)return;try{speakerFrame.contentWindow?.postMessage({type:"jijinboard-log-active",active:false},location.origin);speakerFrame.contentWindow?.disconnectRealtime?.();speakerFrame.src="about:blank"}catch{}speakerFrame.remove();speakerFrame=null;speakerKey="";speakerLoading.hidden=false;speakerLoading.textContent="読み込み中…"}

@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<script src="/shared/browser-cache.js?v=20261102-ui1"></script>
-<script src="/shared/comment-target.js?v=20261102-ui1"></script>
-<script src="/shared/comments.js?v=20261102-ui1"></script>
+<script src="/shared/dataset-guard.js?v=20261102-fresh1"></script>
+<script src="/shared/browser-cache.js?v=20261102-fresh1"></script>
+<script src="/shared/comment-target.js?v=20261102-fresh1"></script>
+<script src="/shared/comments.js?v=20261102-fresh1"></script>
 <script>
 (()=>{const q=new URL(location.href).searchParams,b=q.get('board')||q.get('id');if(q.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;try{const t=JSON.parse(localStorage.getItem('jijinboardScopedTheme:'+b)||'null')||{};const rgba=(hex,a)=>{if(!/^#[0-9a-f]{6}$/i.test(hex||''))return '';const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};const root=document.documentElement;const one=rgba(t.gradientColor1,.24),two=rgba(t.gradientColor2,.12);if(one)root.style.setProperty('--jijin-background-one',one);if(two)root.style.setProperty('--jijin-background-two',two)}catch{}})();
 </script>
@@ -6611,7 +6612,7 @@ html[data-db-alternate="1"] .data-sheet tbody tr:not(.group-row) .item-col{
   </div>
 </div>
 
-<script src="../shared/project-data.js?v=20261102-ui1"></script>
+<script src="../shared/project-data.js?v=20261102-fresh1"></script>
 <script>
 const $=id=>document.getElementById(id);
 const state={
@@ -7764,7 +7765,7 @@ applyGlobalTheme();
 
 
 
-const IMAGE_DB_NAME='charaHubImages';
+const IMAGE_DB_NAME='charaHubImages.board.'+encodeURIComponent(new URL(location.href).searchParams.get('board')||'standalone');
 const IMAGE_DB_STORE='images';
 let imageDbPromise=null;
 function openImageDb(){
@@ -10902,24 +10903,24 @@ document.addEventListener('keydown',e=>{
 });
 
 </script>
-<link rel="stylesheet" href="sheet-comments.css?v=20261102-ui1">
-<link rel="stylesheet" href="sheet-comment-mode.css?v=20261102-ui1">
+<link rel="stylesheet" href="sheet-comments.css?v=20261102-fresh1">
+<link rel="stylesheet" href="sheet-comment-mode.css?v=20261102-fresh1">
 <script>if(!localStorage.getItem('sheetCommentMode'))localStorage.setItem('sheetCommentMode','comment');</script>
-<script src="decouple-project-people.js?v=20261102-ui1"></script>
-<script src="theme-accent-bridge.js?v=20261102-ui1"></script>
-<link rel="stylesheet" href="sheet-comments-unified.css?v=20261102-ui1">
-<link rel="stylesheet" href="sheet-comment-marker-fix.css?v=20261102-ui1">
-<link rel="stylesheet" href="organize-readable.css?v=20261102-ui1">
-<link rel="stylesheet" href="sheet-layout-six-grid.css?v=20261102-ui1">
-<script src="sheet-comments-base.js?v=20261102-ui1"></script>
-<script src="sheet-comments-controller.js?v=20261102-ui1"></script>
-<script src="sheet-local-zoom.js?v=20261102-ui1"></script>
-<script src="sheet-layout-six-grid.js?v=20261102-ui1"></script>
-<script src="sheet-display-settings.js?v=20261102-ui1"></script>
-<script src="sheet-character-fit.js?v=20261102-ui1"></script>
-<script src="question-presentation.js?v=20261102-ui1"></script>
-<script src="sheet-sync.js?v=20261102-ui1"></script>
-<script src="sheet-image-sync.js?v=20261102-ui1"></script>
+<script src="decouple-project-people.js?v=20261102-fresh1"></script>
+<script src="theme-accent-bridge.js?v=20261102-fresh1"></script>
+<link rel="stylesheet" href="sheet-comments-unified.css?v=20261102-fresh1">
+<link rel="stylesheet" href="sheet-comment-marker-fix.css?v=20261102-fresh1">
+<link rel="stylesheet" href="organize-readable.css?v=20261102-fresh1">
+<link rel="stylesheet" href="sheet-layout-six-grid.css?v=20261102-fresh1">
+<script src="sheet-comments-base.js?v=20261102-fresh1"></script>
+<script src="sheet-comments-controller.js?v=20261102-fresh1"></script>
+<script src="sheet-local-zoom.js?v=20261102-fresh1"></script>
+<script src="sheet-layout-six-grid.js?v=20261102-fresh1"></script>
+<script src="sheet-display-settings.js?v=20261102-fresh1"></script>
+<script src="sheet-character-fit.js?v=20261102-fresh1"></script>
+<script src="question-presentation.js?v=20261102-fresh1"></script>
+<script src="sheet-sync.js?v=20261102-fresh1"></script>
+<script src="sheet-image-sync.js?v=20261102-fresh1"></script>
 <div id="toast" class="toast-mini"></div>
 </body>
 </html>
