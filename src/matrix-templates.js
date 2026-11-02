@@ -1,3 +1,4 @@
+import {playerKey,characterKey,localId} from './player-address.js';
 import { dataImage,ensurePlIdentity,parentRoomForLog,hashText } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -35,7 +36,7 @@ function applyPoint(state,point){
 }
 async function characterMap(db,roomId){
   const rows=(await db.prepare(`SELECT rp.pl_id,c.character_id FROM room_participant rp JOIN character c ON c.character_id=rp.character_id WHERE rp.room_id=? AND rp.character_id IS NOT NULL`).bind(roomId).all()).results||[];
-  return new Map(rows.map(row=>[`participant:${row.pl_id}:${row.character_id}`,row.character_id]));
+  return new Map(rows.map(row=>[`participant:${localId(row.pl_id)}:${localId(row.character_id)}`,row.character_id]));
 }
 async function saveTemplatePoints(db,roomId,templateId,templateState){
   const items=cleanState(templateState.items),ids=Object.keys(items),characters=await characterMap(db,roomId);
@@ -91,7 +92,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
   if(request.method==='PUT'&&templateId){
     const body=await safeBody(request),record=body?.record&&typeof body.record==='object'?body.record:{},templateState=cleanState(body?.templateState),authorId=String(body?.authorId||'').slice(0,120),authorName=String(body?.authorName||'').trim().slice(0,80);
     if(!authorId||!authorName)return json({error:'先に発言者を登録してください'},400);
-    await ensurePlIdentity(env.DB,authorId,authorName);
+    await ensurePlIdentity(env.DB,playerKey(roomId,authorId),authorName);
     const old=await env.DB.prepare('SELECT template_name,template_image_key,template_definition,created_at FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
     if(old?.template_image_key==='__deleted__')return json({error:'削除済みテンプレートは再登録できません'},409);
     // Require the revision actually read by the editor, including for older clients.

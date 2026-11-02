@@ -60,7 +60,7 @@
     };
 
     const warm=()=>{
-      for(const href of ["/log/style.css?v=20261102-fresh1","/log/profile-compact.css?v=20261102-fresh1","/log/embedded-layout.css?v=20261102-fresh1"]){
+      for(const href of ["/log/style.css?v=20261102-room1","/log/profile-compact.css?v=20261102-room1","/log/embedded-layout.css?v=20261102-room1"]){
         const link=document.createElement("link");link.rel="prefetch";link.as="style";link.href=href;document.head.appendChild(link);
       }
     };

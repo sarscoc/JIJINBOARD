@@ -1,8 +1,9 @@
+import {playerKey,characterKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
 import { verifyRoomAdmin,deleteR2Prefix,bumpRoomRevision } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const safeBody=async request=>{try{return await request.json()}catch{return null}};
-const iconUrl=key=>{if(!key)return'';const hash=String(key).replace(/^r2:/,'').split('/').pop();return `/api/player-master/icon/${encodeURIComponent(hash)}`};
+
 
 async function roomRow(db,roomId){return db.prepare('SELECT room_id,room_name,created_at FROM room WHERE room_id=?').bind(roomId).first()}
 async function logRow(db,roomId,logId){return db.prepare('SELECT log_id,room_id,log_name,scenario_title,scenario_participants,spoiler_enabled,log_sort_order,created_at FROM log WHERE room_id=? AND log_id=?').bind(roomId,logId).first()}
@@ -10,7 +11,7 @@ async function roomParticipants(env,roomId){
   const result=await env.DB.prepare(`SELECT rp.pl_id,p.pl_name,c.character_id,c.character_name,c.character_icon_key,c.matrix_icon_key
     FROM room_participant rp JOIN pl p ON p.pl_id=rp.pl_id JOIN character c ON c.character_id=rp.character_id
     WHERE rp.room_id=? AND rp.character_id IS NOT NULL ORDER BY rp.created_at,c.character_name`).bind(roomId).all();
-  return (result.results||[]).map(item=>({authorId:item.pl_id,plName:item.pl_name,personaId:item.character_id,name:item.character_name,icon:iconUrl(item.matrix_icon_key||item.character_icon_key),baseIcon:iconUrl(item.character_icon_key),matrixIcon:iconUrl(item.matrix_icon_key)}));
+  return (result.results||[]).map(item=>({authorId:localId(item.pl_id),plName:item.pl_name,personaId:localId(item.character_id),name:item.character_name,icon:playerIconUrl(roomId,item.matrix_icon_key||item.character_icon_key),baseIcon:playerIconUrl(roomId,item.character_icon_key),matrixIcon:playerIconUrl(roomId,item.matrix_icon_key)}));
 }
 async function notifyDeleted(env,roomId,logId,executionContext){
   if(!env.ROOMS)return;
@@ -57,8 +58,10 @@ export async function handleRoomLogMeta(request,env,roomId,logId='',executionCon
     if(!await verifyRoomAdmin(env.DB,roomId,request.headers.get('x-board-admin-token')||''))return json({error:'この自陣を編集できるのは部屋主だけです'},403);
     const log=await logRow(env.DB,roomId,logId);if(!log)return json({error:'ログが見つかりません'},404);
     const images=(await env.DB.prepare("SELECT comment_image_key FROM comment WHERE room_id=? AND comment_target_type='log_range' AND comment_target_id=? AND comment_image_key IS NOT NULL AND comment_image_key<>''").bind(roomId,logId).all()).results||[];
-    for(const row of images)await env.LOGS.delete(String(row.comment_image_key||'').replace(/^r2:/,'')).catch(()=>{});
     await env.DB.prepare("DELETE FROM comment WHERE room_id=? AND comment_target_type='log_range' AND comment_target_id=?").bind(roomId,logId).run();
+    for(const row of images){
+      if(!await env.DB.prepare('SELECT 1 FROM comment WHERE comment_image_key=? LIMIT 1').bind(row.comment_image_key).first())await env.LOGS.delete(String(row.comment_image_key).replace(/^r2:/,'')).catch(()=>{});
+    }
     await deleteR2Prefix(env.LOGS,`rooms/${roomId}/logs/${logId}/`).catch(()=>{});
     await env.DB.prepare('DELETE FROM log WHERE room_id=? AND log_id=?').bind(roomId,logId).run();
     await bumpRoomRevision(env.DB,roomId);

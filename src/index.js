@@ -1,9 +1,11 @@
+import {performRequestedReset,requestedResetStatus} from './requested-reset.js';
 import {datasetGeneration,checkDataset} from './data-freshness.js';
 import {serveAsset} from './assets.js';
 import {handleComments} from './comments.js';
 import {handleLegacyComments} from './comments-legacy.js';
 import { onRequest as handleApi } from './api-v2.js';
-import { onRequest as handlePlayerMaster } from '../functions/api/player-master/[[path]].js';
+import {handleRoomPlayers} from './room-players.js';
+import {servePlayerIcon} from './player-address.js';
 import { RoomHub } from '../realtime-worker/src/index.js';
 import { ensureSchema } from './schema.js';
 import { handleLogTabSettings } from './log-tab-settings.js';
@@ -35,6 +37,10 @@ export default{
     if(url.pathname.startsWith('/api/'))url.pathname=url.pathname.replace(/\/+$/,'');
     if(!url.pathname.startsWith('/api/')&&url.pathname!=='/'&&!/^\/index(?:\.html)?\/?$/.test(url.pathname))return serveAsset(request,env,url);
     if(!env.DB){if(url.pathname.startsWith('/api/'))return json({error:'D1データベースが接続されていません'},503);return new Response('管理TOPを読み込めません。D1接続を確認してください。',{status:503})}
+    const resetting=await performRequestedReset(env);if(resetting){
+      if(!url.pathname.startsWith('/api/'))return new Response('<!doctype html><html lang="ja"><meta charset="utf-8"><meta http-equiv="refresh" content="5"><title>初期化中</title><p>保存データを初期化しています。そのままお待ちください。</p></html>',{status:503,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
+      return resetting;
+    }
     await ensureSchema(env.DB);
 
     if(/^\/index(?:\.html)?\/?$/.test(url.pathname)||url.pathname==='/'){
@@ -42,22 +48,29 @@ export default{
       return serveProtectedTop(request,env);
     }
     if(!url.pathname.startsWith('/api/'))return serveAsset(request,env,url);
-    if(url.pathname==='/api/dataset'&&request.method==='GET')return json({generation:await datasetGeneration(env.DB)});
+    if(url.pathname==='/api/dataset'&&request.method==='GET')return json({generation:await datasetGeneration(env.DB),reset:await requestedResetStatus(env)});
     const stale=await checkDataset(request,env.DB);if(stale)return stale;
     if(url.pathname.startsWith('/api/top-auth/'))return handleTopAuthApi(request,env,url.pathname.slice('/api/top-auth/'.length).split('/')[0]||'');
     if(!env.LOGS||!env.ROOMS)return json({error:'Cloudflareの保存先を準備中です。デプロイ完了後にもう一度お試しください。'},503);
 
-    if(url.pathname==='/api/player-master'||url.pathname.startsWith('/api/player-master/')){
-      const tail=url.pathname==='/api/player-master'?'':url.pathname.slice('/api/player-master/'.length),path=tail.split('/').filter(Boolean);
-      return handlePlayerMaster({request,env,params:{path}});
-    }
+    // Unscoped identity/transfer endpoints are retired; never import old profiles.
+    if(/^\/api\/(?:player-master|profile-transfers)(?:\/|$)/.test(url.pathname))return json({error:'部屋のURLからPLを登録してください'},410);
+    const players=url.pathname.match(/^\/api\/boards\/([^/]+)\/players(?:\/(.*))?$/);
+    if(players)return handleRoomPlayers(request,env,decodeURIComponent(players[1]),(players[2]||'').split('/').filter(Boolean).map(decodeURIComponent));
+    const playerIcon=url.pathname.match(/^\/api\/boards\/([^/]+)\/player-icons\/([^/]+)\/([^/]+)$/);
+    if(playerIcon)return servePlayerIcon(request,env,decodeURIComponent(playerIcon[1]),playerIcon[2],playerIcon[3]);
     if(request.method==='POST'&&url.pathname==='/api/rooms')return createStreamRoom(request,env);
 
     const stream=url.pathname.match(/^\/api\/rooms\/([^/]+)\/stream\/(meta|full|chunk|find)(?:\/([^/]+))?$/);
     if(stream)return handleLogStream(request,env,decodeURIComponent(stream[1]),stream[2],stream[3]?decodeURIComponent(stream[3]):'',executionContext);
     const direct=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
     if(direct&&request.method==='GET'&&url.searchParams.get('summary')!=='1')return handleLogStream(request,env,decodeURIComponent(direct[1]),'full','',executionContext);
-    if(direct&&request.method==='DELETE'){const prepared=await prepareStreamRoomDelete(request,env,decodeURIComponent(direct[1]));if(prepared)return prepared}
+    if(direct&&request.method==='DELETE'){
+      const logId=decodeURIComponent(direct[1]),prepared=await prepareStreamRoomDelete(request,env,logId);if(prepared)return prepared;
+      const log=await env.DB.prepare('SELECT room_id FROM log WHERE log_id=?').bind(logId).first();
+      const headers=new Headers(request.headers);headers.set('x-board-admin-token',headers.get('x-admin-token')||headers.get('x-board-admin-token')||'');
+      return handleRoomLogMeta(new Request(request,{headers}),env,log.room_id,logId,executionContext);
+    }
     const commonComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);
     if(commonComments)return handleComments(request,env,decodeURIComponent(commonComments[1]),decodeURIComponent(commonComments[2]||''),decodeURIComponent(commonComments[3]||''),executionContext);
     const legacyComments=await handleLegacyComments(request,env,executionContext);

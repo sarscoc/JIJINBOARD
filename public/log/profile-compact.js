@@ -265,26 +265,8 @@
     if (state.pendingSelection) setTimeout(() => openCommentDialog(), 0);
   }
 
-  async function issueCompactProfileTransfer() {
-    if (!state.profile.plName) return alert("先にPL名を保存してください。");
-    pruneDrafts();
-    try {
-      const data = await api("/api/profile-transfers", { method:"POST", body:JSON.stringify({ profile:{ id:state.profile.id, plName:state.profile.plName, plIcon:state.profile.plIcon || "", plColor:state.profile.plColor || "#ffe66b", plColorDark:state.profile.plColorDark || state.profile.plColor || "#ffe66b", personas:state.profile.personas || [] } }) });
-      await navigator.clipboard?.writeText(data.code).catch(() => {});
-      alert(`引き継ぎコード：${data.code}\n30分以内に、新しい端末の「発言者」で入力してください。\nコードは一度使うと無効になります。`);
-    } catch (error) { alert(error.message); }
-  }
-
-  async function redeemCompactProfileTransfer() {
-    const code = $("#transferCodeInput").value.trim(); if (!code) return;
-    try {
-      const data = await api(`/api/profile-transfers/${encodeURIComponent(code)}`, { method:"POST" }), profile = data.profile;
-      state.profile = { id:profile.id, plName:profile.plName, plIcon:profile.plIcon || "", plColor:profile.plColor || "#ffe66b", plColorDark:profile.plColorDark || profile.plColor || "#ffe66b", personas:Array.isArray(profile.personas) ? profile.personas : [] };
-      hydratePersonaColors(); saveProfile(); $("#transferCodeInput").value = "";
-      emitIntegratedProfile(); fillPersonaSelect(); renderPlIcon(); renderPersonas(); syncStaticControls(); await ensureBoardParticipants().catch(() => {}); await loadMatrixIcons();
-      alert("このPLとPCを引き継ぎました。");
-    } catch (error) { alert(error.message); }
-  }
+  async function issueCompactProfileTransfer(){return window.JIJINPlayerMaster?.issueDeviceCode()}
+  async function redeemCompactProfileTransfer(){return window.JIJINPlayerMaster?.redeemDeviceCode()}
 
   function recolorVisibleAnnotations() {
     document.querySelectorAll("mark[data-ann]").forEach(mark => { const annotation = state.annotations?.find(item => item.id === mark.dataset.ann); if (annotation) mark.style.setProperty("--marker", markerColor(annotation.color)); });

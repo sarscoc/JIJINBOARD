@@ -1,5 +1,6 @@
+import {playerKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
 import '../public/shared/comment-target.js';
-import {randomToken, ensurePlIdentity, resolveCharacterIdentity, storeImage, verifyRoomAdmin, publicImagePath} from './data-model.js';
+import {randomToken, ensurePlIdentity, resolveCharacterIdentity, storeImage, verifyRoomAdmin} from './data-model.js';
 
 export const targets = globalThis.JijinCommentTarget;
 const json = (data, status=200) => new Response(JSON.stringify(data), {status, headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -17,9 +18,9 @@ const select = `SELECT c.*,p.pl_name,p.pl_icon_key,p.pl_color,p.pl_color_dark,
 
 export function serializeComment(board, c) {
   const target=targets.fromStorage(board,c),isLog=c.comment_target_type==='log_range';
-  return {id:c.comment_id,target,parent_id:c.parent_comment_id||'',author_id:c.author_pl_id,author_name:c.pl_name,
+  return {id:c.comment_id,target,parent_id:c.parent_comment_id||'',author_id:localId(c.author_pl_id),author_name:c.pl_name,
     persona_name:c.character_name||c.pl_name,persona_type:c.character_type||'PL',
-    persona_icon:publicImagePath(c.author_character_id?'character':'pl',c.character_icon_key||c.pl_icon_key),
+    persona_icon:playerIconUrl(board,c.character_icon_key||c.pl_icon_key),
     color:isLog?(c.marker_color||'yellow'):`${c.character_color||c.pl_color||'#ffe66b'}|${c.character_color_dark||c.pl_color_dark||'#ffe66b'}`,
     body:c.comment_body,created_at:c.created_at,updated_at:c.updated_at,has_image:c.comment_image_key?1:0,
     like_count:Number(c.like_count)||0,liked_by_me:!!c.liked_by_me,
@@ -54,8 +55,9 @@ async function validateTarget(db, board, t, write=false) {
     if(!page || page.template_image_key==='__deleted__')fail('テンプレートが見つかりません',404);
   }
 }
-async function identity(env,b) {
-  const plId=clean(b.authorId,120);if(!plId)fail('参加者情報が必要です');
+async function identity(env,b,board) {
+  const rawId=clean(b.authorId,120);if(!rawId)fail('参加者情報が必要です');
+  const plId=playerKey(board,rawId);
   const old=await env.DB.prepare('SELECT * FROM pl WHERE pl_id=?').bind(plId).first();
   const name=clean(b.authorName||b.plName||old?.pl_name||'PL',80).trim()||'PL';
   await ensurePlIdentity(env.DB,plId,name);
@@ -63,7 +65,7 @@ async function identity(env,b) {
   if(!['PL','PC','NPC'].includes(type))fail('発言者の種類が不正です');
   if(type==='PL')return {plId,characterId:null};
   const personaName=clean(b.personaName,80).trim();if(!personaName)fail('発言者名が必要です');
-  const iconKey=b.personaIcon?await storeImage(env.LOGS,String(b.personaIcon),'character-icons'):'';
+  const iconKey=b.personaIcon?await storeImage(env.LOGS,String(b.personaIcon),iconPrefix(board,'character-icons')):'';
   const character=await resolveCharacterIdentity(env.DB,plId,personaName,type,{plName:name,characterId:clean(b.characterId,120)||undefined,iconKey});
   if(!character || character.pl_id!==plId)fail('発言者情報を確認してください',403);
   return {plId,characterId:character.character_id};
@@ -84,7 +86,7 @@ const bump = (db,board) => db.prepare('UPDATE room SET room_revision=room_revisi
 async function note(request,env,board,b,executionContext) {
   const t=targets.parse(b.target,board);
   if(t.kind!=='matrix'||!t.pointId)fail('コマのアドレスを指定してください');
-  await validateTarget(env.DB,board,t,true);await identity(env,b);
+  await validateTarget(env.DB,board,t,true);await identity(env,b,board);
   const text=clean(b.body ?? b.comment),position=['top','bottom','left','right'].includes(b.commentPosition)?b.commentPosition:'top';
   const settings=JSON.stringify({commentPosition:position,commentDeleted:!text});
   const recover=!!b.recoverIfEmpty,hasBase=Object.hasOwn(b,'baseComment'),base=clean(b.baseComment);
@@ -121,7 +123,7 @@ export async function handleComments(request,env,board,id='',action='',execution
     const match=c=>matches(targets.parse(targets.fromStorage(board,c),board));
     if(scope&&exact&&!within(scope,exact))fail('コメントの対象と範囲が一致しません');
     if(method==='GET'&&!id){
-      const viewer=clean(url.searchParams.get('authorId'),120),filter=conditions(exact||scope,!!exact);
+      const viewerId=clean(url.searchParams.get('authorId'),120),viewer=viewerId?playerKey(board,viewerId):'',filter=conditions(exact||scope,!!exact);
       const [v,rows]=await env.DB.batch([
         env.DB.prepare('SELECT room_revision FROM room WHERE room_id=?').bind(board),
         env.DB.prepare(`${select} WHERE c.room_id=?${filter.sql} ORDER BY c.created_at,c.comment_id`).bind(viewer,board,...filter.args)
@@ -142,7 +144,7 @@ export async function handleComments(request,env,board,id='',action='',execution
       if(!text&&!b.imageData)fail('感想または画像を入力してください');
       await validateTarget(env.DB,board,target,true);
       if(parent){const row=await one(env.DB,board,parent);if(!row)fail('返信先が見つかりません',404);if(targets.fromStorage(board,row)!==target.address)fail('返信先とコメント対象が一致しません')}
-      const who=await identity(env,b),cid=randomToken(16),imageKey=b.imageData?await storeImage(env.LOGS,b.imageData,'comment-images'):'';
+      const who=await identity(env,b,board),cid=randomToken(16),imageKey=b.imageData?await storeImage(env.LOGS,b.imageData,iconPrefix(board,'comment-images')):'';
       if(!text&&!imageKey)fail('画像を読み込めません');
       const writes=[env.DB.prepare(`INSERT INTO comment(comment_id,room_id,author_pl_id,author_character_id,comment_target_type,comment_target_id,comment_body,comment_image_key,parent_comment_id) VALUES(?,?,?,?,?,?,?,?,NULLIF(?,''))`).bind(cid,board,who.plId,who.characterId,stored.type,stored.key,text,imageKey||null,parent)];
       if(target.kind==='log')writes.push(env.DB.prepare('INSERT INTO log_comment_range(comment_id,start_line_id,start_character_offset,end_line_id,end_character_offset,selected_text,marker_color) VALUES(?,?,?,?,?,?,?)').bind(cid,target.messageId,target.startOffset,target.endMessageId,target.endOffset,clean(b.quote,2000),clean(b.color||'yellow',40)));
@@ -151,7 +153,7 @@ export async function handleComments(request,env,board,id='',action='',execution
       await notifyComments(request,env,board,'comment:create',{target:comment.target,comment,annotation:comment,logId:comment.room_id,version:v},executionContext);
       return json({id:cid,comment,annotation:comment,version:v},201);
     }
-    const row=id?await one(env.DB,board,id,clean(url.searchParams.get('authorId'),120)):null;
+    const row=id?await one(env.DB,board,id,url.searchParams.get('authorId')?playerKey(board,clean(url.searchParams.get('authorId'),120)):''):null;
     if(!row||!match(row))fail('コメントが見つかりません',404);
     const target=targets.fromStorage(board,row),logId=row.comment_target_type==='log_range'?row.comment_target_id:'';
     if(method==='GET'&&action==='image'){
@@ -159,20 +161,20 @@ export async function handleComments(request,env,board,id='',action='',execution
       return object?new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, no-store'}}):new Response('Not found',{status:404});
     }
     if(method==='GET')return json({comment:item(board,row)});
-    const b=await bodyOf(request),author=clean(b.authorId,120);
+    const b=await bodyOf(request),rawAuthor=clean(b.authorId,120),author=rawAuthor?playerKey(board,rawAuthor):'';
     if(method==='POST'&&action==='like'){
       if(!author)fail('参加者情報が必要です');
       if(!await env.DB.prepare('SELECT 1 FROM pl WHERE pl_id=?').bind(author).first())await ensurePlIdentity(env.DB,author,b.authorName||'PL');
       const old=await env.DB.prepare('SELECT 1 FROM comment_reaction WHERE comment_id=? AND author_pl_id=?').bind(id,author).first();
       await env.DB.batch([old?env.DB.prepare('DELETE FROM comment_reaction WHERE comment_id=? AND author_pl_id=?').bind(id,author):env.DB.prepare('INSERT OR IGNORE INTO comment_reaction(comment_id,author_pl_id) VALUES(?,?)').bind(id,author),bump(env.DB,board)]);
-      const count=await env.DB.prepare('SELECT COUNT(*) AS n FROM comment_reaction WHERE comment_id=?').bind(id).first(),v=await version(env.DB,board),data={target,logId,id,actorId:author,liked:!old,likeCount:Number(count.n)||0,version:v};
+      const count=await env.DB.prepare('SELECT COUNT(*) AS n FROM comment_reaction WHERE comment_id=?').bind(id).first(),v=await version(env.DB,board),data={target,logId,id,actorId:localId(author),liked:!old,likeCount:Number(count.n)||0,version:v};
       await notifyComments(request,env,board,'comment:like',data,executionContext);return json(data);
     }
     if(row.author_pl_id!==author && !(method==='DELETE'&&await verifyRoomAdmin(env.DB,board,request.headers.get('x-admin-token')||'')))fail('自分のコメントだけ編集・削除できます',403);
     if(method==='PATCH'){
       if(b.target && targets.parse(b.target,board).address!==target)fail('コメントの対象は変更できません');
       const text=clean(b.body??row.comment_body).trim();let image=row.comment_image_key;
-      if(b.imageData!==undefined&&b.imageData!==null)image=b.imageData?await storeImage(env.LOGS,b.imageData,'comment-images'):null;
+      if(b.imageData!==undefined&&b.imageData!==null)image=b.imageData?await storeImage(env.LOGS,b.imageData,iconPrefix(board,'comment-images')):null;
       if(!text&&!image)fail('感想または画像を入力してください');
       const writes=[env.DB.prepare('UPDATE comment SET comment_body=?,comment_image_key=?,updated_at=CURRENT_TIMESTAMP WHERE comment_id=? AND room_id=?').bind(text,image||null,id,board)];
       if(logId&&b.color!==undefined)writes.push(env.DB.prepare('UPDATE log_comment_range SET marker_color=? WHERE comment_id=?').bind(clean(b.color,40),id));

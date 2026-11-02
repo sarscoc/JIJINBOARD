@@ -1,8 +1,9 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<script src="/shared/dataset-guard.js?v=20261102-fresh1"></script>
-<script src="/shared/browser-cache.js?v=20261102-fresh1"></script>
+<script src="/shared/dataset-guard.js?v=20261102-room1"></script>
+<script src="/shared/room-storage.js?v=20261102-room1"></script>
+<script src="/shared/browser-cache.js?v=20261102-room1"></script>
 <script>
 (()=>{const q=new URL(location.href).searchParams,b=q.get('board')||q.get('id');if(q.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;try{const t=JSON.parse(localStorage.getItem('jijinboardScopedTheme:'+b)||'null')||{};const rgba=(hex,a)=>{if(!/^#[0-9a-f]{6}$/i.test(hex||''))return '';const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};const root=document.documentElement;const one=rgba(t.gradientColor1,.24),two=rgba(t.gradientColor2,.12);if(one)root.style.setProperty('--jijin-background-one',one);if(two)root.style.setProperty('--jijin-background-two',two)}catch{}})();
 </script>
@@ -26,10 +27,10 @@ html:root.dark body::before{background:#424242;background-image:none}
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="robots" content="noindex,noarchive">
   <title>JIJINBOARD</title>
-  <link rel="stylesheet" href="board.css?v=20261102-fresh1">
-  <link rel="stylesheet" href="board-extra.css?v=20261102-fresh1">
-  <link rel="stylesheet" href="participant.css?v=20261102-fresh1">
-  <link rel="stylesheet" href="theme-settings-compact.css?v=20261102-fresh1">
+  <link rel="stylesheet" href="board.css?v=20261102-room1">
+  <link rel="stylesheet" href="board-extra.css?v=20261102-room1">
+  <link rel="stylesheet" href="participant.css?v=20261102-room1">
+  <link rel="stylesheet" href="theme-settings-compact.css?v=20261102-room1">
   <style>
     .topbar{background:#fff!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;gap:6px!important}
     .log-sidebar{background:#fff!important}
@@ -137,18 +138,18 @@ html:root.dark body::before{background:#424242;background-image:none}
       if(empty)empty.textContent="ページを再読み込みしてください。";
     }
   </script>
-  <script src="board2.js?v=20261102-fresh1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
-  <script src="board-home.js?v=20261102-fresh1"></script>
-  <script src="board-profile-overlay.js?v=20261102-fresh1"></script>
-  <script src="matrix-icon-bridge.js?v=20261102-fresh1"></script>
-  <script src="board-spoiler-preview.js?v=20261102-fresh1"></script>
-  <script src="board-log-meta.js?v=20261102-fresh1"></script>
-  <script src="board-tab-settings.js?v=20261102-fresh1"></script>
-  <script src="board-profile.js?v=20261102-fresh1"></script>
-  <script src="theme-scoped.js?v=20261102-fresh1"></script>
-  <script src="shared-background-sync.js?v=20261102-fresh1"></script>
-  <script src="log-no-shadows.js?v=20261102-fresh1"></script>
-  <script src="group-row-colors.js?v=20261102-fresh1"></script>
+  <script src="board2.js?v=20261102-room1" onload="window.__jijinboardBootstrapStarted=true" onerror="__jijinboardScriptLoadError()"></script>
+  <script src="board-home.js?v=20261102-room1"></script>
+  <script src="board-profile-overlay.js?v=20261102-room1"></script>
+  <script src="matrix-icon-bridge.js?v=20261102-room1"></script>
+  <script src="board-spoiler-preview.js?v=20261102-room1"></script>
+  <script src="board-log-meta.js?v=20261102-room1"></script>
+  <script src="board-tab-settings.js?v=20261102-room1"></script>
+  <script src="board-profile.js?v=20261102-room1"></script>
+  <script src="theme-scoped.js?v=20261102-room1"></script>
+  <script src="shared-background-sync.js?v=20261102-room1"></script>
+  <script src="log-no-shadows.js?v=20261102-room1"></script>
+  <script src="group-row-colors.js?v=20261102-room1"></script>
   <script>
     const __logFrame=document.getElementById('logFrame');
     function __hideEmbeddedLogThemeToggle(){

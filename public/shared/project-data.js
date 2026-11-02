@@ -7,6 +7,8 @@
     return;
   }
 
+  if(!global.JijinRoomStorage?.boardId){global.TRPGProjectData=null;return;}
+  const scopedKeys=()=>global.JijinRoomStorage.keys();
   const PEOPLE_KEY="trpgProjectPeople.v1";
   const SESSION_META_KEY="trpgProjectSessions.v1";
   const DELETED_KEY="jijinboardDeletedPeople.v1";
@@ -39,7 +41,7 @@
     const profile=read("trpgMarkerProfile",null);
     if(profile?.plName&&!deleted.has(String(profile.id||"")))findOrCreate(list,{id:profile.id,type:"PL",name:profile.plName,icon:profile.plIcon,color:profile.plColor});
 
-    const keys=[];for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key?.startsWith("personas:"))keys.push(key)}
+    const keys=[];for(const key of scopedKeys()){if(key?.startsWith("personas:"))keys.push(key)}
     for(const key of keys){
       const roomPeople=read(key,[]);if(!Array.isArray(roomPeople))continue;
       let changed=false;
@@ -73,7 +75,7 @@
     const profile=read("trpgMarkerProfile",null);
     const authorId=String(profile?.id||"");
 
-    const personaKeys=[];for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key?.startsWith("personas:"))personaKeys.push(key)}
+    const personaKeys=[];for(const key of scopedKeys()){if(key?.startsWith("personas:"))personaKeys.push(key)}
     for(const key of personaKeys){
       const roomId=key.slice("personas:".length),rows=read(key,[]);if(!Array.isArray(rows))continue;
       const removed=rows.filter(persona=>String(persona?.projectPersonId||"")===id||(!persona?.projectPersonId&&String(persona?.id||"")===id));
@@ -95,7 +97,7 @@
     if(vaultChanged)write(VAULT_KEY,vault);
 
     // Also clear cached participant snapshots used by the recovery layer.
-    const syncKeys=[];for(let index=0;index<localStorage.length;index++){const key=localStorage.key(index);if(key?.startsWith("jijinboardParticipantSync:"))syncKeys.push(key)}
+    const syncKeys=[];for(const key of scopedKeys()){if(key?.startsWith("jijinboardParticipantSync:"))syncKeys.push(key)}
     for(const key of syncKeys){
       const snapshot=read(key,null);if(!snapshot||!Array.isArray(snapshot.personas))continue;
       const kept=snapshot.personas.filter(persona=>String(persona?.projectPersonId||"")!==id&&String(persona?.id||"")!==id);

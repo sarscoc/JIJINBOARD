@@ -8,6 +8,9 @@
   const PEOPLE_KEY="trpgProjectPeople.v1";
   const params=new URL(location.href).searchParams;
   const boardId=params.get("board")||params.get("id")||"";
+  if(!boardId)return;
+  const root=`/api/boards/${encodeURIComponent(boardId)}/players`;
+  const endpoint=(tail='')=>`${root}/${encodeURIComponent(playerId)}${tail}`;
   const roomId=()=>String((typeof state!=="undefined"&&state?.roomId)||params.get("room")||boardId||"");
   let master=null,token="",playerId="",syncTimer=0,applying=false,roomSelection=[],hydratingRoom="";
 
@@ -37,8 +40,7 @@
     if(!nextMaster)return;
     const deleted=new Set((nextMaster.deletedCharacterIds||[]).map(String));
     if(typeof state!=='undefined'&&state?.profile?.personas)state.profile.personas=state.profile.personas.filter(p=>!deleted.has(String(p.projectPersonId||p.id)));
-    for(let i=0;i<localStorage.length;i++){
-      const k=localStorage.key(i);if(k?.startsWith('personas:'))write(k,named(read(k,[])).filter(p=>!deleted.has(String(p.projectPersonId||p.id))));
+    for(const k of window.JijinRoomStorage?.keys()||[]){if(k?.startsWith('personas:'))write(k,named(read(k,[])).filter(p=>!deleted.has(String(p.projectPersonId||p.id))));
     }
     const people=read(PEOPLE_KEY,[]).filter(p=>!deleted.has(String(p.id))),byId=new Map(people.map(item=>[String(item?.id||""),item]));
     const existingPl=[...byId.values()].find(item=>item?.type==="PL"&&(String(item.id)===String(nextMaster.playerId)||String(item.name||"")===String(nextMaster.plName||"")))||{};
@@ -53,32 +55,20 @@
   async function bootstrap(){
     const p=profile();if(!p?.id||!String(p.plName||"").trim())return null;
     playerId=String(localStorage.getItem(PLAYER_KEY)||p.id);token=String(localStorage.getItem(TOKEN_KEY)||"");
-    const payload={playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:localCandidates()};
+    const payload={playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b"};
     let result;
-    try{result=await api("/api/player-master/",{method:"POST",body:JSON.stringify(payload)})}
-    catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api("/api/player-master/",{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
+    try{result=await api(root,{method:"POST",body:JSON.stringify(payload)})}
+    catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api(root,{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
     token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);master=result.master||null;mergeMasterLocal(master);return master;
   }
 
   function masterPc(id){return(master?.characters||[]).find(ch=>String(ch.id)===String(id)&&ch.type==="PC")||null}
   function personaFromMaster(ch){return{id:String(ch.id),projectPersonId:String(ch.id),name:ch.name,type:"PC",icon:ch.icon||"",matrixIcon:ch.matrixIcon||"",color:ch.color||"#ffe66b",colorDark:ch.colorDark||ch.color||"#ffe66b"}}
 
-  async function inferRoomSelection(){
-    const current=named(typeof state!=="undefined"?state.profile?.personas:[]),ids=[];
-    for(const persona of current){const hit=(master?.characters||[]).find(ch=>ch.type==="PC"&&(String(ch.id)===String(persona.projectPersonId||persona.id)||ch.name===persona.name));if(hit&&!ids.includes(String(hit.id)))ids.push(String(hit.id))}
-    if(ids.length)return ids;
-    const rid=roomId();
-    try{const cached=named(read(`personas:${rid}`,[]));for(const persona of cached){const hit=(master?.characters||[]).find(ch=>ch.type==="PC"&&(String(ch.id)===String(persona.projectPersonId||persona.id)||ch.name===persona.name));if(hit&&!ids.includes(String(hit.id)))ids.push(String(hit.id))}}catch{}
-    if(ids.length)return ids;
-    if(boardId&&rid)try{const board=await fetch(`/api/boards/${encodeURIComponent(boardId)}`,{cache:"no-store"}).then(r=>r.ok?r.json():null);const log=(board?.logs||[]).find(item=>item.roomId===rid);for(const person of log?.participants||[]){if(String(person.authorId)!==String(playerId))continue;const hit=(master?.characters||[]).find(ch=>ch.type==="PC"&&(String(ch.id)===String(person.personaId)||ch.name===person.name));if(hit&&!ids.includes(String(hit.id)))ids.push(String(hit.id))}}catch{}
-    const pcs=(master?.characters||[]).filter(ch=>ch.type==="PC");if(!ids.length&&pcs.length===1)ids.push(String(pcs[0].id));
-    return ids;
-  }
-
   async function persistRoomSelection(ids){
     const rid=roomId();if(!rid||!playerId||!token)return;
     ids=[...new Set((ids||[]).map(String).filter(Boolean))];
-    await api(`/api/player-master/room?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,boardId,roomId:rid,characterIds:ids})});
+    await api(endpoint('/selection'),{method:"PUT",body:JSON.stringify({playerId,boardId,roomId:rid,characterIds:ids})});
   }
 
   async function setRoomSelection(ids,{persist=true}={}){
@@ -97,8 +87,7 @@
     const rid=roomId();if(!master||!playerId||!token||!rid)return;
     if(hydratingRoom===rid)return;hydratingRoom=rid;
     try{
-      let ids=[];try{const result=await api(`/api/player-master/room?playerId=${encodeURIComponent(playerId)}&boardId=${encodeURIComponent(boardId)}&roomId=${encodeURIComponent(rid)}`);ids=Array.isArray(result.characterIds)?result.characterIds.map(String):[]}catch{}
-      if(!ids.length){ids=await inferRoomSelection();if(ids.length)await setRoomSelection(ids,{persist:true});else{roomSelection=[];return}}
+      const result=await api(endpoint('/selection')),ids=Array.isArray(result.characterIds)?result.characterIds.map(String):[];
       await setRoomSelection(ids,{persist:false});
     }finally{hydratingRoom=""}
   }
@@ -119,11 +108,11 @@
     for(const ch of [...roomChars,...candidates]){const key=String(ch.id||`${ch.type}:${ch.name}`);if(ch.name&&!map.has(key))map.set(key,ch)}
     const chars=[...map.values()];
     try{
-      const result=await api(`/api/player-master/?playerId=${encodeURIComponent(playerId)}`,{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
+      const result=await api(endpoint(),{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
       master=result.master||master;
       mergeMasterLocal(master,{notify:false});
       if(roomId()){
-        for(const ch of roomChars){if(ch.type==="PC"&&!roomSelection.includes(String(ch.id)))roomSelection.push(String(ch.id))}
+        roomSelection=roomChars.filter(ch=>masterPc(ch.id)).map(ch=>String(ch.id));
         await persistRoomSelection(roomSelection);
         try{parent.postMessage({type:"jijinboard-participants-saved",boardId},location.origin)}catch{}
       }
@@ -132,14 +121,28 @@
   }
   const schedulePush=(delay=120)=>{if(applying)return;clearTimeout(syncTimer);syncTimer=setTimeout(pushCurrent,delay)};
 
-  async function issueDeviceCode(){if(!master)await bootstrap();if(!playerId||!token)return alert("先にPL名を登録してください。");try{const result=await api(`/api/player-master/code?playerId=${encodeURIComponent(playerId)}`,{method:"POST",body:JSON.stringify({playerId})});await navigator.clipboard?.writeText(result.code).catch(()=>{});alert(`端末追加コード：${result.code}\n10分以内にスマホの「引き継ぎ設定」で入力してください。\nPC側のアクセス権はそのまま残ります。`)}catch(error){alert(error.message)}}
-  async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`/api/player-master/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);mergeMasterLocal(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){alert(error.message)}}
+  async function issueDeviceCode(){if(!master)await bootstrap();if(!playerId||!token)return alert("先にPL名を登録してください。");try{const result=await api(endpoint('/code'),{method:"POST",body:JSON.stringify({playerId})});await navigator.clipboard?.writeText(result.code).catch(()=>{});alert(`端末追加コード：${result.code}\n10分以内にスマホの「引き継ぎ設定」で入力してください。\nPC側のアクセス権はそのまま残ります。`)}catch(error){alert(error.message)}}
+  async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`${root}/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);mergeMasterLocal(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){alert(error.message)}}
 
+  async function deleteCharacter(id){
+    if(!master)await bootstrap();if(!playerId||!token)throw Error('先にPL名を登録してください');
+    await api(endpoint('/characters/'+encodeURIComponent(id)),{method:'DELETE',body:JSON.stringify({playerId})});
+    const result=await api(endpoint());master=result.master;mergeMasterLocal(master);await hydrateRoom();
+  }
   function hookRoomLoad(){
     if(typeof window.loadRoomPersonas!=="function"||window.loadRoomPersonas.__jijinMasterHooked)return;
     const original=window.loadRoomPersonas;
     const wrapped=function(...args){const result=original.apply(this,args);queueMicrotask(()=>hydrateRoom().catch(error=>console.warn("Room master hydrate failed",error)));return result};
     wrapped.__jijinMasterHooked=true;window.loadRoomPersonas=wrapped;
+  }
+
+  if(typeof state!=='undefined'){
+      document.addEventListener('click',event=>{
+        const button=event.target.closest?.('[data-remove-persona]');if(!button)return;
+        event.preventDefault();event.stopImmediatePropagation();
+        const persona=state.profile?.personas?.[Number(button.dataset.removePersona)];if(!persona)return;
+        button.disabled=true;deleteCharacter(persona.projectPersonId||persona.id).catch(error=>{alert(error.message);button.disabled=false});
+      },true);
   }
 
   async function start(){
@@ -164,6 +167,6 @@
     }));
   }
 
-  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,hydrateRoom,pushCurrent,setRoomSelection,issueDeviceCode,redeemDeviceCode};
+  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",scheduleStart,{once:true});else scheduleStart();
 })();

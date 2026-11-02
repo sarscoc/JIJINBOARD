@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="ja">
 <head>
-<script src="/shared/dataset-guard.js?v=20261102-fresh1"></script>
-<script src="/shared/browser-cache.js?v=20261102-fresh1"></script>
-<script src="/shared/comment-target.js?v=20261102-fresh1"></script>
-<script src="/shared/comments.js?v=20261102-fresh1"></script>
+<script src="/shared/dataset-guard.js?v=20261102-room1"></script>
+<script src="/shared/room-storage.js?v=20261102-room1"></script>
+<script src="/shared/browser-cache.js?v=20261102-room1"></script>
+<script src="/shared/comment-target.js?v=20261102-room1"></script>
+<script src="/shared/comments.js?v=20261102-room1"></script>
 <script>
 (()=>{const q=new URL(location.href).searchParams,b=q.get('board')||q.get('id');if(q.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;try{const t=JSON.parse(localStorage.getItem('jijinboardScopedTheme:'+b)||'null')||{};const rgba=(hex,a)=>{if(!/^#[0-9a-f]{6}$/i.test(hex||''))return '';const n=parseInt(hex.slice(1),16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`};const root=document.documentElement;const one=rgba(t.gradientColor1,.24),two=rgba(t.gradientColor2,.12);if(one)root.style.setProperty('--jijin-background-one',one);if(two)root.style.setProperty('--jijin-background-two',two)}catch{}})();
 </script>
@@ -33,7 +34,7 @@ html:root.embedded:not(.dark),html:root.embedded:not(.dark) body{background:tran
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Magia Matrix</title>
-<script>(function(){const p=new URL(location.href).searchParams,b=p.get('board');if(p.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;const prefix=`board:${b}:matrix:`,shared=k=>k==='trpgProjectPeople.v1'||k==='trpgMarkerProfile'||String(k).startsWith('personas:');for(const method of ['getItem','setItem','removeItem']){const raw=Storage.prototype[method];Storage.prototype[method]=function(key,...args){return raw.call(this,this===localStorage&&!shared(key)?prefix+key:key,...args)}}})()</script>
+<script>(function(){const p=new URL(location.href).searchParams,b=p.get('board');if(p.get('embedded')==='1')document.documentElement.classList.add('embedded');if(!b)return;const prefix=`board:${b}:matrix:`,shared=k=>window.JijinRoomStorage?.isShared(k);for(const method of ['getItem','setItem','removeItem']){const raw=Storage.prototype[method];Storage.prototype[method]=function(key,...args){return raw.call(this,this===localStorage&&!shared(key)?prefix+key:key,...args)}}})()</script>
 <style>
 :root{
   --bg:#fff;--panel:#fff;--ink:#202327;--muted:#70777e;--line:#d9dde1;
@@ -3168,9 +3169,9 @@ body > #settings .display-settings-body{
 body > #settings.floating-closed{display:none!important}
 body > #settings:not(.floating-closed){display:flex!important;flex-direction:column!important}
 </style>
-<link rel="stylesheet" href="board-integration.css?v=20261102-fresh1">
-<link rel="stylesheet" href="matrix-pc.css?v=20261102-fresh1">
-<link rel="stylesheet" href="matrix-icon-comments.css?v=20261102-fresh1">
+<link rel="stylesheet" href="board-integration.css?v=20261102-room1">
+<link rel="stylesheet" href="matrix-pc.css?v=20261102-room1">
+<link rel="stylesheet" href="matrix-icon-comments.css?v=20261102-room1">
 <script>
 (()=>{if(parent===window)return;try{parent.JIJINBOARD_APPLY_FRAME_THEME?.(document,"matrix")}catch{}})();
 </script>
@@ -3475,7 +3476,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
   </div>
 </div>
 
-<script src="../shared/project-data.js?v=20261102-fresh1"></script>
+<script src="../shared/project-data.js?v=20261102-room1"></script>
 <script>
 
 const $=s=>document.querySelector(s);
@@ -6775,9 +6776,9 @@ if(!new URL(location.href).searchParams.has('board')){
 }
 
 </script>
-<script src="board-integration.js?v=20261102-fresh1"></script>
-<script src="matrix-pc.js?v=20261102-fresh1"></script>
-<script src="matrix-icon-comments.js?v=20261102-fresh1"></script>
-<script src="matrix-template-sync.js?v=20261102-fresh1" data-matrix-template-sync="1"></script>
+<script src="board-integration.js?v=20261102-room1"></script>
+<script src="matrix-pc.js?v=20261102-room1"></script>
+<script src="matrix-icon-comments.js?v=20261102-room1"></script>
+<script src="matrix-template-sync.js?v=20261102-room1" data-matrix-template-sync="1"></script>
 </body>
 </html>

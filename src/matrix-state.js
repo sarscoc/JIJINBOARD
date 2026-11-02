@@ -1,3 +1,4 @@
+import {playerKey,characterKey,localId} from './player-address.js';
 import { ensurePlIdentity,parentRoomForLog } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -24,7 +25,7 @@ export async function handleMatrixState(request,env,roomId,logId){
   if(request.method==='POST'){
     const body=await safeBody(request),authorId=String(body?.authorId||'').slice(0,120),authorName=String(body?.authorName||'').trim().slice(0,80);
     if(!authorId||!authorName)return json({error:'先に発言者を登録してください'},400);
-    await ensurePlIdentity(env.DB,authorId,authorName);
+    await ensurePlIdentity(env.DB,playerKey(roomId,authorId),authorName);
     if(body?.state!==undefined){
       const state=roomState(body.state),serialized=JSON.stringify(state);
       if(serialized.length>500_000)return json({error:'MATRIXの表示設定が大きすぎます'},413);

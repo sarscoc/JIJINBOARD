@@ -1,3 +1,4 @@
+import {playerKey} from './player-address.js';
 import {serializeComment} from './comments.js';
 import { parentRoomForLog } from './data-model.js';
 
@@ -7,7 +8,7 @@ const clean=(value,max=140)=>String(value??'').slice(0,max);
 export async function handleLogCommentWindow(request,env,logId){
   const log=await parentRoomForLog(env.DB,logId);
   if(!log)return json({error:'部屋が見つかりません'},404);
-  const roomId=log.room_id,url=new URL(request.url),viewer=clean(url.searchParams.get('authorId')||'',120);
+  const roomId=log.room_id,url=new URL(request.url),viewer=url.searchParams.get('authorId')?playerKey(roomId,clean(url.searchParams.get('authorId'),120)):'';
   const ids=[...new Set(String(url.searchParams.get('messageIds')||'').split(',').map(v=>clean(v.trim())).filter(Boolean))].slice(0,80);
   const [revision,totalRow]=await Promise.all([
     env.DB.prepare('SELECT room_revision FROM room WHERE room_id=?').bind(roomId).first(),

@@ -1,5 +1,5 @@
 import {freshnessStatements} from './data-freshness.js';
-const createStatements = [
+export const createStatements = [
   `CREATE TABLE IF NOT EXISTS top_auth (password_hash TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash_version INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS top_session (session_token_hash TEXT PRIMARY KEY,session_expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_top_session_expires ON top_session(session_expires_at)`,
@@ -39,10 +39,6 @@ const createStatements = [
   `CREATE TABLE IF NOT EXISTS comment_reaction (comment_id TEXT NOT NULL,author_pl_id TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,PRIMARY KEY(comment_id,author_pl_id),FOREIGN KEY(comment_id) REFERENCES comment(comment_id) ON DELETE CASCADE,FOREIGN KEY(author_pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE)`
 ];
 
-const legacyObjects = [
-  'annotation_likes','annotations','presence','room_log_chunks','board_log_participants','log_participant','board_matrix_icon_comment_likes','board_matrix_icon_comments','board_matrix_comments','board_matrix_states','board_sheet_comment_likes','board_sheet_comments','board_spreadsheet_states','board_theme_settings','board_group_row_colors','board_log_display_modes','board_log_tab_settings','board_logs','boards','rooms','profile_transfers','player_room_characters','player_device_codes','player_characters','player_masters','top_sessions'
-];
-const targetObjects = ['comment_reaction','log_comment_range','comment','spreadsheet_cell','spreadsheet_image','spreadsheet','matrix_point','matrix_template','matrix_settings','log_chunk','log_tab','log','room_participant','room_theme','room','transfer','character','pl','top_session','top_auth'];
 const ready = new WeakMap();
 
 async function isV2(db){
@@ -80,15 +76,6 @@ async function isV2(db){
   if(!matrixPointColumns.has('point_settings')||matrixPk.get('room_id')!==1||matrixPk.get('template_id')!==2||matrixPk.get('point_id')!==3)return false;
   const oldParticipant=checks[8].results?.[0]||null;
   return !oldParticipant;
-}
-
-async function resetOldSchema(db){
-  await db.prepare('PRAGMA foreign_keys=OFF').run().catch(()=>{});
-  for(const name of [...legacyObjects,...targetObjects]){
-    try{await db.prepare(`DROP VIEW IF EXISTS ${name}`).run()}catch{}
-    try{await db.prepare(`DROP TABLE IF EXISTS ${name}`).run()}catch{}
-  }
-  await db.prepare('PRAGMA foreign_keys=ON').run().catch(()=>{});
 }
 
 export function ensureSchema(db){

@@ -2,6 +2,7 @@
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "jijinboard",
   "main": "./src/index.js",
+  "vars": {"RESET_DATASET_ONCE":"room-scoped-players-20261102-ef325b3d"},
   "compatibility_date": "2026-08-26",
   "assets": {
     "directory": "./public",

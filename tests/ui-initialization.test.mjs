@@ -65,6 +65,7 @@ for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executin
     w.renderSheetLayoutEditor();assert.equal(w.document.querySelectorAll('.sheet-layout-unplaced').length,1);
   }
   const d=w.document;
+  if(tool==='board')assert.equal(d.querySelector('#boardProfileDialog').open,true,'first visit in a room must ask for PL registration');
   assert.deepEqual(duplicateKeys(d.querySelectorAll('script[src]'),e=>new URL(e.src).pathname),[]);
   assert.deepEqual(duplicateKeys(d.querySelectorAll('link[rel=stylesheet]'),e=>new URL(e.href).pathname),[]);
   assert.deepEqual(duplicateKeys(d.querySelectorAll('[id]'),e=>e.id),[]);

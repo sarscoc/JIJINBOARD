@@ -1,3 +1,4 @@
+import {playerPrefix} from './player-address.js';
 import { verifyRoomAdmin,deleteR2Prefix } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -10,7 +11,8 @@ export async function handleRoomDelete(request,env,roomId,executionContext){
   if(!await verifyRoomAdmin(env.DB,roomId,token))return json({error:'この自陣を削除する権限がありません'},403);
 
   await deleteR2Prefix(env.LOGS,`rooms/${roomId}/`);
-  await env.DB.prepare('DELETE FROM room WHERE room_id=?').bind(roomId).run();
+  const prefix=playerPrefix(roomId);
+  await env.DB.batch([env.DB.prepare('DELETE FROM deleted_character WHERE substr(pl_id,1,?)=?').bind(prefix.length,prefix),env.DB.prepare('DELETE FROM pl WHERE substr(pl_id,1,?)=?').bind(prefix.length,prefix),env.DB.prepare('DELETE FROM room WHERE room_id=?').bind(roomId)]);
 
   if(env.ROOMS){
     const hub=env.ROOMS.get(env.ROOMS.idFromName(roomId));

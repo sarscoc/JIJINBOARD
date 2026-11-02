@@ -1,3 +1,4 @@
+import {boardOf,localId,characterKey} from './player-address.js';
 const encoder=new TextEncoder();
 
 export const randomToken=(bytes=24)=>{
@@ -39,7 +40,7 @@ export async function storeImage(bucket,value,prefix){
 export const imageReference=key=>key?`r2:${key}`:'';
 
 export async function ensurePlIdentity(db,plId,plName='PL',options={}){
-  plId=String(plId||'').slice(0,120);
+  plId=String(plId||'');
   if(!plId)return null;
   const existing=await db.prepare('SELECT * FROM pl WHERE pl_id=?').bind(plId).first();
   const name=String(plName||existing?.pl_name||'PL').trim().slice(0,80)||'PL';
@@ -50,7 +51,7 @@ export async function ensurePlIdentity(db,plId,plName='PL',options={}){
     return db.prepare('SELECT * FROM pl WHERE pl_id=?').bind(plId).first();
   }
   const placeholder=`implicit:${await hashText(plId)}`;
-  await db.prepare('INSERT INTO pl(pl_id,access_token_hash,pl_name,pl_color,pl_color_dark,pl_icon_key) VALUES(?,?,?,?,?,?)').bind(plId,placeholder,name,String(options.plColor||'#ffe66b'),String(options.plColorDark||options.plColor||'#ffe66b'),String(options.plIconKey||'')).run();
+  await db.prepare('INSERT OR IGNORE INTO pl(pl_id,access_token_hash,pl_name,pl_color,pl_color_dark,pl_icon_key) VALUES(?,?,?,?,?,?)').bind(plId,placeholder,name,String(options.plColor||'#ffe66b'),String(options.plColorDark||options.plColor||'#ffe66b'),String(options.plIconKey||'')).run();
   return db.prepare('SELECT * FROM pl WHERE pl_id=?').bind(plId).first();
 }
 
@@ -59,17 +60,18 @@ export async function resolveCharacterIdentity(db,plId,personaName,personaType='
   if(type==='PL')return null;
   const name=String(personaName||'').trim().slice(0,80);
   if(!plId||!name)return null;
-  if(options.characterId&&await db.prepare('SELECT 1 FROM deleted_character WHERE character_id=?').bind(String(options.characterId).slice(0,120)).first())return null;
+  const board=boardOf(plId),charKey=id=>board?characterKey(board,localId(plId),String(id).slice(0,120)):String(id).slice(0,120);
+  if(options.characterId&&await db.prepare('SELECT 1 FROM deleted_character WHERE character_id=?').bind(charKey(options.characterId)).first())return null;
   if(!options.characterId&&await db.prepare('SELECT 1 FROM deleted_character WHERE pl_id=? AND character_name=? AND character_type=?').bind(plId,name,type==='NPC'?'NPC':'PC').first())return null;
   await ensurePlIdentity(db,plId,options.plName||'PL');
   let row=null;
-  if(options.characterId)row=await db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(String(options.characterId).slice(0,120),plId).first();
-  if(!row)row=await db.prepare('SELECT * FROM character WHERE pl_id=? AND character_type=? AND character_name=? ORDER BY updated_at DESC LIMIT 1').bind(plId,type==='NPC'?'NPC':'PC',name).first();
+  if(options.characterId)row=await db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(charKey(options.characterId),plId).first();
+  if(!row&&!options.characterId)row=await db.prepare('SELECT * FROM character WHERE pl_id=? AND character_type=? AND character_name=? ORDER BY updated_at DESC LIMIT 1').bind(plId,type==='NPC'?'NPC':'PC',name).first();
   if(row){
     await db.prepare("UPDATE character SET character_name=?,character_color=COALESCE(NULLIF(?,''),character_color),character_color_dark=COALESCE(NULLIF(?,''),character_color_dark),character_icon_key=CASE WHEN ?<>'' THEN ? ELSE character_icon_key END,updated_at=CURRENT_TIMESTAMP WHERE character_id=? AND pl_id=?").bind(name,String(options.color||''),String(options.colorDark||''),String(options.iconKey||''),String(options.iconKey||''),row.character_id,plId).run();
     return db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(row.character_id,plId).first();
   }
-  const id=String(options.characterId||`auto_${(await hashText(`${plId}\0${type}\0${name}`)).slice(0,40)}`).slice(0,120);
+  const id=charKey(options.characterId||`auto_${(await hashText(`${plId}\0${type}\0${name}`)).slice(0,40)}`);
   await db.prepare('INSERT OR IGNORE INTO character(character_id,pl_id,character_type,character_name,character_color,character_color_dark,character_icon_key,matrix_icon_key) SELECT ?,?,?,?,?,?,?,? WHERE NOT EXISTS(SELECT 1 FROM deleted_character WHERE character_id=? OR (pl_id=? AND character_name=? AND character_type=? AND ?=0))').bind(id,plId,type==='NPC'?'NPC':'PC',name,String(options.color||'#ffe66b'),String(options.colorDark||options.color||'#ffe66b'),String(options.iconKey||''),String(options.matrixIconKey||''),id,plId,name,type==='NPC'?'NPC':'PC',options.characterId?1:0).run();
   return db.prepare('SELECT * FROM character WHERE character_id=? AND pl_id=?').bind(id,plId).first();
 }
@@ -88,14 +90,6 @@ export async function parentRoomForLog(db,logId){
 
 export async function bumpRoomRevision(db,roomId){
   await db.prepare('UPDATE room SET room_revision=room_revision+1,updated_at=CURRENT_TIMESTAMP WHERE room_id=?').bind(roomId).run();
-}
-
-export function publicImagePath(kind,key){
-  if(!key)return '';
-  const clean=String(key).replace(/^r2:/,'');
-  const hash=clean.split('/').pop();
-  if(kind==='pl'||kind==='character'||kind==='matrix')return `/api/player-master/icon/${encodeURIComponent(hash)}`;
-  return '';
 }
 
 export async function deleteR2Prefix(bucket,prefix){

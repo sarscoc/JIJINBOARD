@@ -9,7 +9,8 @@ const {default:worker}=await import('../src/index.js');hooks.deregister();
 import {datasetGeneration,checkDataset} from '../src/data-freshness.js';
 import {handleSpreadsheetState} from '../src/spreadsheet-state.js';
 import {resolveCharacterIdentity,tokenHash} from '../src/data-model.js';
-import {onRequest as player} from '../functions/api/player-master/[[path]].js';
+import {handleRoomPlayers} from '../src/room-players.js';
+import {playerKey,characterKey} from '../src/player-address.js';
 function fixture(t){
  const db=new DatabaseSync(':memory:');t.after(()=>db.close());db.exec(readFileSync(new URL('../schema.sql',import.meta.url),'utf8'));
  db.exec("INSERT INTO pl(pl_id,access_token_hash,pl_name) VALUES('pl','token','PL');INSERT INTO room(room_id,owner_pl_id,room_name,room_admin_token_hash) VALUES('board','pl','room','secret')");
@@ -40,21 +41,20 @@ test('Sheets rejects stale snapshots after a deletion, including trailing slash 
  const response=await worker.fetch(new Request('https://test/api/boards/board/spreadsheet/state/',{method:'POST',headers:{'x-jijin-dataset':g},body:JSON.stringify({state:{old:1}})}),env,{waitUntil(){}});
  assert.equal(response.status,409);assert.deepEqual((await (await call('GET')).json()).state,{});
 });
-test('deleted PC cannot return from master sync or participant identity; another PL cannot take its ID',async t=>{
- const {db,env}=fixture(t);db.prepare("UPDATE pl SET access_token_hash=? WHERE pl_id='pl'").run(await tokenHash('secret'));
- const call=(method,parts,data)=>player({env,params:{path:parts},request:new Request('https://test/api/player-master/?playerId=pl',{method,headers:{'x-player-token':'secret'},...(data?{body:JSON.stringify(data)}:{})})});
+test('deleted room PC cannot return from master sync or participant identity',async t=>{
+ const {db,env}=fixture(t),pl=playerKey('board','pl');
+ db.prepare('INSERT INTO pl(pl_id,access_token_hash,pl_name) VALUES(?,?,?)').run(pl,await tokenHash('secret'),'PL');
+ const call=(method,parts,data)=>handleRoomPlayers(new Request('https://test/api',{method,headers:{'x-player-token':'secret'},...(data?{body:JSON.stringify(data)}:{})}),env,'board',['pl',...parts]);
  const payload={playerId:'pl',characters:[{id:'pc',name:'PC'}]};
  assert.equal((await call('PUT',[],payload)).status,200);
  assert.equal((await call('DELETE',['characters','pc'])).status,200);
  const sync=await (await call('PUT',[],payload)).json();assert.deepEqual(sync.master.characters,[]);assert.deepEqual(sync.master.deletedCharacterIds,['pc']);
- assert.equal(await resolveCharacterIdentity(env.DB,'pl','PC','PC',{characterId:'pc'}),null);
- assert.equal(db.prepare("SELECT * FROM character WHERE character_id='pc'").get(),undefined);
- assert.equal(await resolveCharacterIdentity(env.DB,'pl','PC','PC'),null);
- await call('PUT',[],{playerId:'pl',characters:[{id:'new-pc',name:'PC'}]});assert.ok(db.prepare("SELECT 1 FROM character WHERE character_id='new-pc'").get());
- db.exec("INSERT INTO pl(pl_id,access_token_hash,pl_name) VALUES('other','token','Other');INSERT INTO character(character_id,pl_id,character_name) VALUES('foreign','other','Owned')");
- await call('PUT',[],{playerId:'pl',characters:[{id:'foreign',name:'Takeover'}]});
- assert.equal(db.prepare("SELECT pl_id FROM character WHERE character_id='foreign'").get().pl_id,'other');
+ assert.equal(await resolveCharacterIdentity(env.DB,pl,'PC','PC',{characterId:'pc'}),null);
+ assert.equal(db.prepare('SELECT * FROM character WHERE character_id=?').get(characterKey('board','pl','pc')),undefined);
+ assert.equal(await resolveCharacterIdentity(env.DB,pl,'PC','PC'),null);
+ await call('PUT',[],{playerId:'pl',characters:[{id:'new-pc',name:'PC'}]});assert.ok(db.prepare('SELECT 1 FROM character WHERE character_id=?').get(characterKey('board','pl','new-pc')));
 });
+
 const source=name=>readFileSync(new URL('../public/'+name,import.meta.url),'utf8');
 const tick=()=>new Promise(setImmediate);
 test('a reset during bootstrap discards old cache and never sends the queued stale body',async t=>{

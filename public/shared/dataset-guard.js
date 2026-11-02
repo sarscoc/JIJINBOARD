@@ -24,11 +24,6 @@
     for(const storage of [localStorage,sessionStorage]){
       const keys=Array.from({length:storage.length},(_,i)=>storage.key(i));
       for(const k of keys)if(k&&appKey(k)){
-        // On first rollout keep existing access credentials; a later reset discards them.
-        if(!stored&&(/admin|token/i.test(k)||k==='jijinboardPlayerMasterId.v1'))continue;
-        if(!stored&&k==='trpgMarkerProfile'){
-          try{const p=JSON.parse(get.call(storage,k));delete p.personas;set.call(storage,k,JSON.stringify(p));continue}catch{}
-        }
         remove.call(storage,k);
       }
     }
@@ -38,7 +33,13 @@
     location.reload();
   }
   const ready=(async()=>{
-    const response=await nativeFetch('/api/dataset',{cache:'no-store'});
+    let response;
+    for(let attempt=0;attempt<90;attempt++){
+      response=await nativeFetch('/api/dataset',{cache:'no-store'});
+      if(response.status!==503)break;
+      const data=await response.clone().json().catch(()=>null);if(data?.code!=='DATASET_RESETTING')break;
+      await new Promise(resolve=>setTimeout(resolve,2000));
+    }
     if(!response.ok)throw Error('保存データの世代を確認できません');
     const data=await response.json();
     if(typeof data.generation!=='string'||!data.generation)throw Error('保存データの世代が不正です');
