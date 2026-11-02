@@ -187,27 +187,36 @@
     try{socket.send(JSON.stringify({type:"change",action,data}));return true}catch{pendingActions.set(key,{action,data});return false}
   }
 
+  const saveNote=window.JijinComments?.serialize();
   async function savePoint(itemId,item,commentOnly=false){
     if(!roomId||(!commentOnly&&(loadedRoom!==roomId||applyingRemote))||!itemId)return;
     const me=profile();if(!me?.plName)return;
-    const point=commentOnly?{itemId,comment:String(item.comment||''),commentPosition:item.commentPosition||'top',recoverIfEmpty:!!item.recoverIfEmpty}:pointPayload(itemId,item);point.templateId=window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId+':'+commentOnly;
+    if(commentOnly){
+      const templateId=item.templateId||window.currentTemplateId?.()||'',target=JijinComments.target.matrix(boardId,templateId,itemId);
+      const payload={target,authorId:me.id,authorName:me.plName,body:String(item.comment||''),commentPosition:item.commentPosition||'top',recoverIfEmpty:!!item.recoverIfEmpty};
+      if(Object.hasOwn(item,'baseComment'))payload.baseComment=item.baseComment;
+      return saveNote(target,async()=>{
+        const result=await JijinComments.request(boardId,'/note',{method:'PUT',body:JSON.stringify(payload)});
+        if(payload.recoverIfEmpty&&result.point)applyRemotePoint(result.point);
+        return true;
+      });
+    }
+    const point=pointPayload(itemId,item);point.templateId=window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId;
     pointRequests.set(key,point);
     try{
       const result=await api(pointPath(itemId),{method:"PATCH",body:JSON.stringify({authorId:me.id,authorName:me.plName,...point})});
       if(pointRequests.get(key)!==point)return;
       pointRequests.delete(key);
-      if(point.recoverIfEmpty&&result.point)applyRemotePoint(result.point);
       notifyChange("matrix-point",result.point||point);
       return true;
     }catch(error){
       pointRequests.delete(key);
-      if(commentOnly){throw error}
       fullStateDirty=true;
       requestSave(0);
     }
   }
 
-  window.matrixBoardContext={boardId,get roomId(){return roomId},isApplyingRemote:()=>applyingRemote,api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange,savePoint};
+  window.matrixBoardContext={boardId,get roomId(){return roomId},isApplyingRemote:()=>applyingRemote,api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange,savePoint,applyRemotePoint};
 
   function notifyReady(){
     if(readySent)return;

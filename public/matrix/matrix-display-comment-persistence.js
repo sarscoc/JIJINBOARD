@@ -20,7 +20,7 @@
     setTimeout(async()=>{
       try{
         if(currentTid()!==tid||!window.matrixTemplateSync?.isHydrated?.())return;
-        if(await window.matrixBoardContext?.savePoint?.(id,{...annotation,recoverIfEmpty:true},true))acknowledge(tid,id);
+        if(await window.matrixBoardContext?.savePoint?.(id,{...annotation,templateId:tid,recoverIfEmpty:true},true))acknowledge(tid,id);
       }finally{recovering.delete(key)}
     },300);
   }
@@ -145,7 +145,7 @@
     if (changed) {
       saveStore(store);
       for(const id of ids)if(!sameAnnotation(annotationOf(beforeItems?.[id]),annotationOf(afterItems?.[id]))){
-        Promise.resolve(window.matrixBoardContext?.savePoint?.(id,{...afterItems[id],...page[id]},true)).then(ok=>{if(ok)acknowledge(tid,id)}).catch(error=>{console.warn(error);alert("コマのコメントを共有保存できませんでした。通信を確認して、もう一度編集してください。");});
+        Promise.resolve(window.matrixBoardContext?.savePoint?.(id,{...afterItems[id],...page[id],templateId:tid,baseComment:beforeItems?.[id]?.comment||''},true)).then(ok=>{if(ok)acknowledge(tid,id)}).catch(error=>{console.warn(error);alert("コマのコメントを共有保存できませんでした。通信を確認して、もう一度編集してください。");});
       }
     }
   }

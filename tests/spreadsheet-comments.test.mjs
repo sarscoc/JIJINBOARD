@@ -3,6 +3,11 @@ import assert from 'node:assert/strict';
 import {JSDOM} from 'jsdom';
 import fs from 'node:fs';
 const source=fs.readFileSync(new URL('../public/spreadsheet/sheet-comments-controller.js',import.meta.url),'utf8');
+function shared(w){
+  class Socket{static OPEN=1;static CONNECTING=0;readyState=0;addEventListener(){}close(){}send(){}}
+  w.WebSocket=Socket;
+  for(const name of ['comment-target.js','comments.js'])w.eval(fs.readFileSync(new URL('../public/shared/'+name,import.meta.url),'utf8'));
+}
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('posting a sheet comment refreshes after an older pending read and only posts once',async t=>{
  const dom=new JSDOM('<div data-sheet-cell="c1">cell</div>',{url:'https://example.test/spreadsheet/?board=b',runScripts:'outside-only'});
@@ -15,7 +20,7 @@ test('posting a sheet comment refreshes after an older pending read and only pos
   reads++;if(reads===1)return new Promise(resolve=>{finishRead=()=>resolve({ok:true,json:async()=>({comments:[]})})});
   return {ok:true,json:async()=>({comments:rows})};
  };
- w.eval(source);w.document.querySelector('[data-sheet-cell]').click();
+ shared(w);w.eval(source);w.document.querySelector('[data-sheet-cell]').click();
  const dialog=w.document.querySelector('dialog');dialog.querySelector('textarea').value='saved';
  dialog.querySelector('form').requestSubmit();dialog.querySelector('form').requestSubmit();await tick();
  assert.equal(writes,1);finishRead();await tick();await tick();
@@ -34,14 +39,16 @@ test('matrix saves a draft before opening another target',async t=>{
  w.HTMLDialogElement.prototype.show=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
  const writes=[];let saved=[];
  w.matrixBoardContext={boardId:'b',roomId:'r',profile:()=>({id:'author',plName:'PL'}),api:async(path,options={})=>{
-  if(options.method==='POST'){const data=JSON.parse(options.body);writes.push(data);saved.push({id:'comment',target_id:data.targetId,body:data.body,persona_name:'PL',persona_type:'PL'});return {ok:true}}
+  if(options.method==='POST'){const data=JSON.parse(options.body);writes.push(data);saved.push({id:'comment',target_id:'template@@matrix-template@@'+decodeURIComponent(data.target.split('/').pop()),body:data.body,persona_name:'PL',persona_type:'PL'});return {ok:true}}
   if(path.endsWith('/participants'))return {participants:[]};return {comments:saved};
  }};
  w.items=[];w.currentTemplateId=()=> 'template';w.appState=()=>({items:{}});w.displayImage=()=>'';
+ shared(w);
+ w.fetch=async(path,options={})=>({ok:true,json:()=>w.matrixBoardContext.api(path,options)});
  w.eval(fs.readFileSync(new URL('../public/matrix/matrix-icon-comments.js',import.meta.url),'utf8'));
  await w.openMatrixIconComment('first');w.document.querySelector('textarea').value='draft';
  await w.openMatrixIconComment('second');
- assert.equal(writes.length,1);assert.equal(writes[0].targetId,'template@@matrix-template@@first');
+ assert.equal(writes.length,1);assert.equal(writes[0].target,'/boards/b/matrix/template/points/first');
  assert.equal(w.document.querySelector('#matrixIconCommentCount').textContent,'1');assert.equal(w.document.querySelector('textarea').value,'');
  w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'other-device',templateId:'template',name:'Other PC',typing:true}}));
  assert.match(w.document.querySelector('.matrix-typing').textContent,/Other PC.*入力中/);

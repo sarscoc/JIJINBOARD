@@ -1,8 +1,9 @@
+import {handleComments,targets} from './comments.js';
 import { parentRoomForLog,ensurePlIdentity } from './data-model.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const finite=(value,fallback=null)=>{const n=Number(value);return Number.isFinite(n)?n:fallback};
 const characterIdFromItem=(itemId,authorId)=>{const prefix=`participant:${authorId}:`;return String(itemId||'').startsWith(prefix)?String(itemId).slice(prefix.length):String(itemId||'')};
-export async function handleMatrixPoint(request,env,roomId,logId,itemId){
+export async function handleMatrixPoint(request,env,roomId,logId,itemId,executionContext=null){
   if(request.method!=='PATCH')return json({error:'Method not allowed'},405);
   if(!roomId||!logId||!itemId)return json({error:'座標情報が足りません'},400);
   const log=await parentRoomForLog(env.DB,logId);if(!log||log.room_id!==roomId)return json({error:'この自陣にないログです'},404);
@@ -13,13 +14,8 @@ export async function handleMatrixPoint(request,env,roomId,logId,itemId){
   await ensurePlIdentity(env.DB,authorId,authorName);
   await env.DB.prepare(`INSERT OR IGNORE INTO matrix_template(room_id,template_id,template_name,template_image_key,template_definition) VALUES(?,?,?,'','{}')`).bind(roomId,templateId,'MATRIX').run();
   if(body?.comment!==undefined){
-    const comment=String(body.comment??'').slice(0,4000),commentPosition=['top','bottom','left','right'].includes(body.commentPosition)?body.commentPosition:'top';
-    await env.DB.prepare(`INSERT INTO matrix_point(room_id,template_id,point_id,supplement_body,point_settings) VALUES(?,?,?,?,?)
-      ON CONFLICT(room_id,template_id,point_id) DO UPDATE SET supplement_body=excluded.supplement_body,point_settings=json_patch(matrix_point.point_settings,excluded.point_settings),updated_at=CURRENT_TIMESTAMP WHERE ?=0 OR matrix_point.supplement_body=''`)
-      .bind(roomId,templateId,itemId,comment,JSON.stringify({commentPosition}),body.recoverIfEmpty?1:0).run();
-    const saved=await env.DB.prepare('SELECT supplement_body,point_settings FROM matrix_point WHERE room_id=? AND template_id=? AND point_id=?').bind(roomId,templateId,itemId).first();
-    let settings={};try{settings=JSON.parse(saved?.point_settings||'{}')}catch{}
-    return json({ok:true,point:{itemId,templateId,comment:saved?.supplement_body??comment,commentPosition:settings.commentPosition||commentPosition}});
+    const target=targets.matrix(roomId,templateId,itemId);
+    return handleComments(new Request(request.url,{method:'PUT',headers:request.headers,body:JSON.stringify({...body,target,body:body.comment})}),env,roomId,'note','',executionContext);
   }
   const old=await env.DB.prepare('SELECT * FROM matrix_point WHERE room_id=? AND template_id=? AND point_id=?').bind(roomId,templateId,itemId).first();
   const placed=body?.placed!==undefined?!!body.placed:!!old?.is_placed,x=finite(body?.x,old?.point_x??null),y=finite(body?.y,old?.point_y??null),templateX=finite(body?.templateX,old?.template_x??null),templateY=finite(body?.templateY,old?.template_y??null),scale=finite(body?.scaleBaseWidth,old?.scale_base_width??null),version=Math.max(0,Math.min(10,Math.trunc(finite(body?.coordVersion,old?.coordinate_version??0))));

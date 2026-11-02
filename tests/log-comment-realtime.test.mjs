@@ -14,6 +14,7 @@ test('log page loads its saved comment notification handler and applies remote c
  vm.runInNewContext(readFileSync(new URL('../public/log/comment-incremental-sync.js',import.meta.url),'utf8'),context);
  const message=data=>listeners.get('message')({data:JSON.stringify(data)});
  const event={type:'comment-change',action:'comment:create',data:{logId:'log',version:2,annotation:{id:'new',body:'remote'}}};
+ const installed=context.connectRealtime;vm.runInNewContext(readFileSync(new URL('../public/log/comment-incremental-sync.js',import.meta.url),'utf8'),context);assert.equal(context.connectRealtime,installed);
  message(event);message(event);assert.equal(context.state.annotations.length,1);assert.equal(context.state.annotations[0].body,'remote');
  message({...event,data:{...event.data,logId:'other',annotation:{id:'wrong'}}});assert.equal(context.state.annotations.length,1);
  message({type:'comment-change',data:null});assert.equal(refreshes,1);

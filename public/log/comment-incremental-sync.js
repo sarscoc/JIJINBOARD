@@ -1,9 +1,37 @@
 "use strict";
 (()=>{
-  if(typeof state==='undefined'||typeof api!=='function')return;
+  if(typeof state==='undefined'||typeof api!=='function'||window.__jijinCommentSync)return;
+  window.__jijinCommentSync=true;
+  const shared=window.JijinComments;
+  const board=()=>new URL(location.href).searchParams.get('board')||'';
+  if(shared)api=shared.adapter(board,api);
+  let commentLive=null,logActive=true;
+  const profileOnly=()=>{try{return parent!==window&&window.frameElement?.parentElement?.id==='boardSpeakerSlot'}catch{return false}};
+
+  if(shared){
+    const refresh=shared.loader(async()=>{
+      const roomId=state.roomId;
+      if(!roomId||!state.room)return null;
+      const data=await api(`/api/rooms/${encodeURIComponent(roomId)}/annotations?authorId=${encodeURIComponent(state.profile.id)}`,{cache:'no-store'});
+      return {roomId,data};
+    },result=>{
+      if(!result||result.roomId!==state.roomId)return;
+      const next=result.data.annotations||result.data.comments||[];
+      const markers=list=>JSON.stringify(list.map(a=>[a.id,a.message_id,a.end_message_id,a.start_offset,a.end_offset,a.color]));
+      const changed=markers(next)!==markers(state.annotations),anchor=typeof currentReadingTime==='function'?currentReadingTime():'';
+      state.annotations=next;setVersion(result.data.version);
+      renderComments();if(changed&&typeof renderLog==='function')renderLog(anchor);
+    });
+    refreshAnnotations=function(){return logActive?refresh():Promise.resolve()};
+    window.addEventListener('message',event=>{
+      if(event.origin!==location.origin||event.data?.type!=='jijinboard-log-active')return;
+      logActive=!!event.data.active;commentLive?.setActive(logActive&&!profileOnly());
+    });
+    commentLive=shared.live({board,refresh:()=>state.roomId&&!state.archiveMode?refreshAnnotations(true):undefined});
+  }
   const attachedSockets=new WeakSet();
   const commentsList=()=>document.getElementById('commentsList');
-  const setVersion=value=>{const n=Number(value);if(Number.isFinite(n)&&n>=0)state.annotationVersion=n};
+  const setVersion=value=>{const n=Number(value);if(Number.isFinite(n)&&n>=0)state.annotationVersion=Math.max(Number(state.annotationVersion)||0,n)};
   const messageOrder=id=>{const i=state.room?.messages?.findIndex?.(m=>m.id===id);return i>=0?i:Number.MAX_SAFE_INTEGER};
   const tabFor=id=>state.room?.messages?.find?.(m=>m.id===id)?.tab||'';
 
@@ -59,6 +87,7 @@
 
   function applyRealtime(action,data){
     if(!data||String(data.logId||'')!==String(state.roomId||''))return;
+    if(shared)refreshAnnotations(true).catch(console.warn);
     setVersion(data.version);
     if(action==='comment:create')insertAnnotation(data.annotation);
     else if(action==='comment:edit')patchAnnotation(data.patch);
@@ -68,16 +97,20 @@
 
   function socketMessage(event){let message;try{message=JSON.parse(event.data)}catch{return}if(message?.type==='comment-change'){if(message.data)applyRealtime(message.action,message.data);else refreshAnnotations(true)}}
   function attachSocket(socket){if(!socket||attachedSockets.has(socket))return;attachedSockets.add(socket);socket.addEventListener('message',socketMessage)}
-  try{attachSocket(state.realtime);const rawConnect=connectRealtime;connectRealtime=function(...args){const result=rawConnect.apply(this,args);attachSocket(state.realtime);queueMicrotask(()=>attachSocket(state.realtime));return result};window.connectRealtime=connectRealtime}catch{}
+  try{attachSocket(state.realtime);const rawConnect=connectRealtime;connectRealtime=function(...args){const result=rawConnect.apply(this,args);if(board()&&logActive&&!profileOnly())commentLive?.setActive(true);attachSocket(state.realtime);queueMicrotask(()=>attachSocket(state.realtime));return result};window.connectRealtime=connectRealtime}catch{}
 
+  let posting=false;
   async function fastPostComment(event){
-    event.preventDefault();const persona=currentPersona(),body=document.getElementById('commentBody').value.trim();if(!body&&!state.commentImage&&state.commentImage!==null)return;
+    event.preventDefault();if(posting)return;const persona=currentPersona(),body=document.getElementById('commentBody').value.trim();if(!body&&!state.commentImage&&state.commentImage!==null)return;
     const pending=state.pendingSelection||{},payload={...pending,parentId:state.replyTo||'',color:persona.color||'#ffe66b',authorId:state.profile.id,authorName:state.profile.plName,personaName:persona.name,personaType:persona.type,personaIcon:persona.icon||'',characterId:persona.id||'',body,imageData:state.commentImage};
+    posting=true;
     try{
+      if(shared&&board()&&!state.editingCommentId)payload.target=state.annotations.find(a=>a.id===payload.parentId)?.target||shared.target.log(board(),state.roomId,payload);
       const editingId=state.editingCommentId,result=await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`,{method:editingId?'PATCH':'POST',body:JSON.stringify(payload)});
+      if(shared)refreshAnnotations(true).catch(console.warn);
       setVersion(result.version);if(editingId)patchAnnotation(result.patch);else insertAnnotation(result.annotation);
       setTyping(false);document.getElementById('commentDialog').close();state.pendingSelection=null;state.selection=null;state.replyTo=null;state.editingCommentId=null;getSelection()?.removeAllRanges();document.getElementById('selectionBar').classList.add('hidden');if(!payload.parentId&&!editingId)jumpToMessage(payload.messageId);
-    }catch(error){alert(error.message)}
+    }catch(error){alert(error.message)}finally{posting=false}
   }
 
   async function fastDeleteComment(id,confirmed=false){

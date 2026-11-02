@@ -1,3 +1,5 @@
+import {handleComments} from './comments.js';
+import {handleLegacyComments} from './comments-legacy.js';
 import { onRequest as handleApi } from './api-v2.js';
 import { onRequest as handlePlayerMaster } from '../functions/api/player-master/[[path]].js';
 import { RoomHub } from '../realtime-worker/src/index.js';
@@ -8,11 +10,9 @@ import { handleMatrixTemplates } from './matrix-templates.js';
 import { handleMatrixPoint } from './matrix-point.js';
 import { handleMatrixState } from './matrix-state.js';
 import { createStreamRoom,handleLogStream,prepareStreamRoomDelete } from './log-stream.js';
-import { handleLogCommentMutation } from './log-comments-fast.js';
 import { handleLogCommentWindow } from './log-comments-window.js';
 import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
-import { handleSpreadsheetComments } from './spreadsheet-comments.js';
 import { handleSpreadsheetState } from './spreadsheet-state.js';
 import { handleSpreadsheetImage } from './spreadsheet-images.js';
 import { handleLogDisplayMode } from './log-display-mode.js';
@@ -40,10 +40,8 @@ async function serveAsset(request,env,url){
     if(type.includes('text/html')){
       const html=(await response.text())
         .replace('log-room-cache-preload.js?v=20260831-fast1','log-room-cache-preload.js?v=20260901-simple1')
-        .replace('<script src="app.js"></script>','<script src="/log/comment-window-loader.js?v=20260902-1"></script><script src="app.js"></script>')
         .replace('../shared/player-master.js?v=20260830-4','../shared/player-master.js?v=20260901-idle1')
-        .replace('embedded-ready.js?v=20260829-1','embedded-ready.js?v=20260901-simple1')
-        .replace('</body>','<script src="/log/comment-incremental-sync.js?v=20260831-1"></script></body>');
+        .replace('embedded-ready.js?v=20260829-1','embedded-ready.js?v=20260901-simple1');
       const headers=new Headers(response.headers);headers.delete('content-length');headers.set('cache-control','no-cache');
       return new Response(html,{status:response.status,statusText:response.statusText,headers});
     }
@@ -95,13 +93,12 @@ export default{
     const direct=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
     if(direct&&request.method==='GET'&&url.searchParams.get('summary')!=='1')return handleLogStream(request,env,decodeURIComponent(direct[1]),'full','',executionContext);
     if(direct&&request.method==='DELETE'){const prepared=await prepareStreamRoomDelete(request,env,decodeURIComponent(direct[1]));if(prepared)return prepared}
+    const commonComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);
+    if(commonComments)return handleComments(request,env,decodeURIComponent(commonComments[1]),decodeURIComponent(commonComments[2]||''),decodeURIComponent(commonComments[3]||''),executionContext);
+    const legacyComments=await handleLegacyComments(request,env,executionContext);
+    if(legacyComments)return legacyComments;
     const logCommentWindow=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations-window$/);
     if(logCommentWindow&&request.method==='GET')return handleLogCommentWindow(request,env,decodeURIComponent(logCommentWindow[1]));
-    const logComment=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations(?:\/([^/]+))?(?:\/([^/]+))?$/);
-    if(logComment&&request.method!=='GET'){
-      const handled=await handleLogCommentMutation(request,env,decodeURIComponent(logComment[1]),logComment[2]?decodeURIComponent(logComment[2]):'',logComment[3]?decodeURIComponent(logComment[3]):'',executionContext);
-      if(handled)return handled;
-    }
 
     const boardRealtime=url.pathname.match(/^\/api\/boards\/([^/]+)\/realtime$/);
     if(boardRealtime){if(request.method!=='GET'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'WebSocket接続が必要です'},426);const roomId=decodeURIComponent(boardRealtime[1]);if(!await env.DB.prepare('SELECT room_id FROM room WHERE room_id=?').bind(roomId).first())return json({error:'自陣が見つかりません'},404);return env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch(new Request(new URL('/realtime',request.url),request))}
@@ -126,10 +123,10 @@ export default{
     const display=url.pathname.match(/^\/api\/boards\/([^/]+)\/logs\/([^/]+)\/display-mode$/);if(display)return handleLogDisplayMode(request,env,decodeURIComponent(display[1]),decodeURIComponent(display[2]));
     const sheetState=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/state$/);if(sheetState)return handleSpreadsheetState(request,env,decodeURIComponent(sheetState[1]));
     const sheetImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/image$/);if(sheetImage)return handleSpreadsheetImage(request,env,decodeURIComponent(sheetImage[1]));
-    const sheetComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/spreadsheet\/comments(?:\/([^/]+))?(?:\/([^/]+))?$/);if(sheetComments)return handleSpreadsheetComments(request,env,decodeURIComponent(sheetComments[1]),sheetComments[2]?decodeURIComponent(sheetComments[2]):'',sheetComments[3]?decodeURIComponent(sheetComments[3]):'');
+
     const matrixTemplateImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\/([^/]+)\/image$/);if(matrixTemplateImage)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplateImage[1]),'',decodeURIComponent(matrixTemplateImage[2]),true);
     const matrixTemplates=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/templates(?:\/([^/]+))?$/);if(matrixTemplates)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplates[1]),decodeURIComponent(matrixTemplates[2]),matrixTemplates[3]?decodeURIComponent(matrixTemplates[3]):'',false);
-    const matrixPoint=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/points\/([^/]+)$/);if(matrixPoint)return handleMatrixPoint(request,env,decodeURIComponent(matrixPoint[1]),decodeURIComponent(matrixPoint[2]),decodeURIComponent(matrixPoint[3]));
+    const matrixPoint=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/points\/([^/]+)$/);if(matrixPoint)return handleMatrixPoint(request,env,decodeURIComponent(matrixPoint[1]),decodeURIComponent(matrixPoint[2]),decodeURIComponent(matrixPoint[3]),executionContext);
     const matrixState=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)$/);if(matrixState)return handleMatrixState(request,env,decodeURIComponent(matrixState[1]),decodeURIComponent(matrixState[2]));
     const templateComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);if(templateComments)return handleMatrixTemplateComments(request,env,decodeURIComponent(templateComments[1]),decodeURIComponent(templateComments[2]),decodeURIComponent(templateComments[3]),executionContext);
     const tabSettings=url.pathname.match(/^\/api\/boards\/([^/]+)\/log-tab-settings\/([^/]+)$/);if(tabSettings)return handleLogTabSettings(request,env,decodeURIComponent(tabSettings[1]),decodeURIComponent(tabSettings[2]));

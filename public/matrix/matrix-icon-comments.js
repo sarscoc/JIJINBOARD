@@ -1,13 +1,23 @@
 "use strict";
 (()=>{
-  let comments=[],targetId="",replyTo="",editingId="",posting=false,pendingAnchor=null,loadPromise=null,lastSerial="",composerPeople=[];
+  let comments=[],targetId="",replyTo="",editingId="",posting=false,pendingAnchor=null,lastSerial="",composerPeople=[];
   const TARGET_SEP="@@matrix-template@@";
   const esc=value=>String(value??"").replace(/[&<>\"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
   const ctx=()=>window.matrixBoardContext;
   const profile=()=>ctx()?.profile?.();
+  const commentApi=JijinComments.adapter(()=>ctx()?.boardId,(path,options)=>ctx().api(path,options));
   const commentRoom=()=>ctx()?.roomId||ctx()?.boardId||"";
-  function targetParts(value){const raw=String(value||""),at=raw.indexOf(TARGET_SEP);return at>=0?{templateId:raw.slice(0,at),itemId:raw.slice(at+TARGET_SEP.length)}:{templateId:"",itemId:raw}}
-  function storedTarget(value){const parts=targetParts(value);if(parts.templateId)return value;const tid=typeof currentTemplateId==="function"?currentTemplateId():"";return tid?`${tid}${TARGET_SEP}${parts.itemId}`:parts.itemId}
+  function targetParts(value){
+    const raw=String(value||'');
+    if(raw.startsWith('/boards/')){const t=JijinComments.target.parse(raw,ctx()?.boardId);return {templateId:t.templateId||'',itemId:t.pointId||t.legacyId||''}}
+    // Selection IDs and pre-unification local references are converted once.
+    const at=raw.indexOf(TARGET_SEP);return at>=0?{templateId:raw.slice(0,at),itemId:raw.slice(at+TARGET_SEP.length)}:{templateId:'',itemId:raw};
+  }
+  function storedTarget(value){
+    if(String(value).startsWith('/boards/'))return JijinComments.target.parse(value,ctx()?.boardId).address;
+    const parts=targetParts(value),tid=parts.templateId||(typeof currentTemplateId==='function'?currentTemplateId():'');
+    return JijinComments.target.matrix(ctx().boardId,tid,parts.itemId);
+  }
   const targetItem=id=>items.find(item=>item.id===targetParts(id).itemId);
   const targetImage=id=>displayImage(targetItem(id))||"";
   const targetName=id=>targetItem(id)?.name||"PC";
@@ -158,30 +168,31 @@
   function commentHtml(c,depth=0,children=new Map()){
     const mine=c.author_id===profile()?.id;
     const avatar=c.persona_icon?`<img class="matrix-comment-avatar" src="${esc(c.persona_icon)}" alt="">`:'<span class="matrix-comment-avatar"></span>';
-    const target=targetImage(c.target_id),targetLabel=targetName(c.target_id),replies=children.get(c.id)||[];
+    const target=targetImage(c.target||c.target_id),targetLabel=targetName(c.target||c.target_id),replies=children.get(c.id)||[];
     const targetIcon=target?`<img class="matrix-comment-target-icon" src="${esc(target)}" alt="" title="${esc(targetLabel)}">`:`<span class="matrix-comment-target-icon matrix-comment-target-empty" title="${esc(targetLabel)}"></span>`;
-    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))}" data-comment-target="${esc(c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em><span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
+    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))}" data-comment-target="${esc(c.target||c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em><span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
   function render(){
     const tid=typeof currentTemplateId==="function"?String(currentTemplateId()||""):"";
     const visibleComments=comments.filter(comment=>{
-      const target=targetParts(comment.target_id);
+      const target=targetParts(comment.target||comment.target_id);
       if(!tid)return false;
       if(target.templateId)return target.templateId===tid;
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
 const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
-  async function load(force=false){
-    const c=ctx();if(!c||!commentRoom())return;
-    if(loadPromise){await loadPromise;if(!force)return;}
-    const task=(async()=>{
-      const data=await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments?authorId=${encodeURIComponent(profile()?.id||"")}`,{cache:"reload"});
-      const next=data.comments||[],serial=JSON.stringify(next);
-      if(force||serial!==lastSerial){comments=next;lastSerial=serial;render()}
-    })();
-    loadPromise=task;
-    try{return await task}finally{if(loadPromise===task)loadPromise=null}
-  }
+  const load=JijinComments.loader(async()=>{
+    const c=ctx();if(!c||!commentRoom())return null;
+    return commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments?authorId=${encodeURIComponent(profile()?.id||'')}`);
+  },data=>{if(!data)return;const next=data.comments||[],serial=JSON.stringify(next);if(serial!==lastSerial){comments=next;lastSerial=serial;render()}});
+  const commentLive=JijinComments.live({board:()=>ctx()?.boardId,refresh:load,onNote:data=>{
+    if(ctx()?.isActive?.())ctx()?.applyRemotePoint?.(data?.point);
+    window.dispatchEvent(new CustomEvent('matrix-board-comments-changed',{detail:{action:'matrix-template-state'}}));
+  }});
+  window.addEventListener('matrix-board-active',()=>{commentLive.setActive(true)});
+  window.addEventListener('message',event=>{if(event.origin===location.origin&&event.data?.type==='jijinboard-matrix-active')commentLive.setActive(!!event.data.active)});
+  commentLive.setActive(!!ctx()?.isActive?.());
+
 
   async function open(id,reply="",edit="",anchor=null){
     if(!id||posting)return;
@@ -235,19 +246,19 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     posting=true;sendTyping(false);d.dataset.submitting="1";
     const status=d.querySelector("#matrixCommentStatus");status.textContent="";
     try{
-      if(editingId)await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
-      else await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({targetId:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
+      if(editingId)await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
+      else await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({target:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
       await load(true);d.close();
     }catch(error){status.textContent="保存できませんでした："+error.message;}finally{posting=false;delete d.dataset.submitting}
   }
-  async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
-  async function like(id){const c=ctx();try{await c.api(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:profile()?.id})});await load(true)}catch(error){alert(error.message)}}
+  async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
+  async function like(id){const c=ctx();try{await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(id)}/like`,{method:"POST",body:JSON.stringify({authorId:profile()?.id})});await load(true)}catch(error){alert(error.message)}}
 
   document.addEventListener("click",event=>{
     const likeButton=event.target.closest("[data-matrix-like]"),replyButton=event.target.closest("[data-matrix-reply]"),editButton=event.target.closest("[data-matrix-edit]"),card=event.target.closest("[data-comment-target]");
     if(likeButton){event.stopPropagation();like(likeButton.dataset.matrixLike);return}
-    if(replyButton){event.stopPropagation();const c=comments.find(x=>x.id===replyButton.dataset.matrixReply);open(c?.target_id,c?.id,"",replyButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
-    if(editButton){event.stopPropagation();const c=comments.find(x=>x.id===editButton.dataset.matrixEdit);open(c?.target_id,"",c?.id,editButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
+    if(replyButton){event.stopPropagation();const c=comments.find(x=>x.id===replyButton.dataset.matrixReply);open(c?.target||c?.target_id,c?.id,"",replyButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
+    if(editButton){event.stopPropagation();const c=comments.find(x=>x.id===editButton.dataset.matrixEdit);open(c?.target||c?.target_id,"",c?.id,editButton.closest(".matrix-comment-card")?.getBoundingClientRect());return}
     if(card){document.querySelectorAll(".matrix-comment-card.focused").forEach(node=>node.classList.remove("focused"));card.classList.add("focused");revealTarget(card.dataset.commentTarget)}
   });
   function saveOutside(){

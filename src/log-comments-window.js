@@ -1,4 +1,5 @@
-import { parentRoomForLog,publicImagePath } from './data-model.js';
+import {serializeComment} from './comments.js';
+import { parentRoomForLog } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const clean=(value,max=140)=>String(value??'').slice(0,max);
@@ -32,13 +33,7 @@ export async function handleLogCommentWindow(request,env,logId){
   `).bind(...args).all()).results||[];
 
   return json({
-    annotations:rows.map(c=>({
-      id:c.comment_id,room_id:logId,message_id:c.start_line_id||'',end_message_id:c.end_line_id||c.start_line_id||'',parent_id:c.parent_comment_id||'',
-      start_offset:Number(c.start_character_offset)||0,end_offset:Number(c.end_character_offset)||0,quote:c.selected_text||'',color:c.marker_color||'yellow',
-      author_id:c.author_pl_id,author_name:c.pl_name,persona_name:c.character_name||c.pl_name,persona_type:c.character_type||'PL',
-      persona_icon:publicImagePath(c.author_character_id?'character':'pl',c.character_icon_key||c.pl_icon_key)||'',body:c.comment_body,
-      created_at:c.created_at,updated_at:c.updated_at,has_image:c.comment_image_key?1:0,like_count:Number(c.like_count)||0,liked_by_me:!!c.liked_by_me
-    })),
+    annotations:rows.map(c=>serializeComment(roomId,{...c,comment_target_type:'log_range',comment_target_id:logId})),
     version,totalCount
   });
 }
