@@ -5,6 +5,9 @@ import {playerScopeTriggers,ensurePlayerScope} from '../src/player-scope.js';
 import {createStatements} from '../src/schema.js';
 import {freshnessStatements} from '../src/data-freshness.js';
 import {handleRoomPlayers} from '../src/room-players.js';
+import {handleMatrixTemplates} from '../src/matrix-templates.js';
+import {handleMatrixPoint} from '../src/matrix-point.js';
+import {handleMatrixState} from '../src/matrix-state.js';
 import {handleRoomParticipants} from '../src/room-participants.js';
 const req=(method,data,token='')=>new Request('https://test/api',{method,headers:{'x-player-token':token},...(data?{body:JSON.stringify(data)}:{})});
 
@@ -40,4 +43,19 @@ test('new PC registration succeeds on actual D1 with the production reset trigge
  // Re-running the non-destructive migration never changes the saved data.
  await ensurePlayerScope(DB);
  assert.equal((await DB.prepare('SELECT count(*) AS n FROM character').first()).n,1);
+ // MATRIX must persist at board scope before any log exists.
+ const callTemplate=(method,id,body)=>handleMatrixTemplates(req(method,body),env,board,board,id);
+ const image='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6Z2cAAAAASUVORK5CYII=';
+ const payload=name=>({authorId:player,authorName:'PL',baseRevision:null,record:{name,dataUrl:image},templateState:{items:{},display:{}}});
+ const first=await callTemplate('PUT','template-one',payload('一枚目'));assert.equal(first.status,200,await first.clone().text());
+ const itemId=`participant:${player}:pc-1`;
+ const placed=await handleMatrixPoint(req('PATCH',{authorId:player,authorName:'PL',templateId:'template-one',placed:true,x:21,y:34}),env,board,board,itemId);assert.equal(placed.status,200);
+ const second=await callTemplate('PUT','template-two',payload('二枚目'));assert.equal(second.status,200,await second.clone().text());
+ const listed=await (await callTemplate('GET','')).json();assert.equal(listed.templates.length,2);
+ const one=listed.templates.find(t=>t.record.id==='template-one'),two=listed.templates.find(t=>t.record.id==='template-two');
+ assert.equal(one.templateState.items[itemId].x,21);assert.equal(one.templateState.items[itemId].placed,true);assert.ok(two.record.dataUrl.includes('template-two'));
+ const picture=await handleMatrixTemplates(new Request('https://test/image'),env,board,'','template-two',true);assert.equal(picture.status,200);assert.ok((await picture.arrayBuffer()).byteLength>0);
+ const display=await handleMatrixState(req('POST',{authorId:player,authorName:'PL',state:{display:{color:'white'}}}),env,board,board);assert.equal(display.status,200);
+ const stale=await callTemplate('PUT','template-one',{...payload('stale'),baseRevision:'old'});assert.equal(stale.status,409,'revision conflict protection remains active');
+
 });

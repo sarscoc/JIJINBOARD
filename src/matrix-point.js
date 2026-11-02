@@ -1,3 +1,4 @@
+import {validMatrixScope} from './matrix-scope.js';
 import {playerKey,characterKey,localId} from './player-address.js';
 import {handleComments,targets} from './comments.js';
 import { parentRoomForLog,ensurePlIdentity } from './data-model.js';
@@ -7,7 +8,7 @@ const characterIdFromItem=(itemId,authorId)=>{const prefix=`participant:${author
 export async function handleMatrixPoint(request,env,roomId,logId,itemId,executionContext=null){
   if(request.method!=='PATCH')return json({error:'Method not allowed'},405);
   if(!roomId||!logId||!itemId)return json({error:'座標情報が足りません'},400);
-  const log=await parentRoomForLog(env.DB,logId);if(!log||log.room_id!==roomId)return json({error:'この自陣にないログです'},404);
+  if(!await validMatrixScope(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
   let body=null;try{body=await request.json()}catch{}
   const authorId=String(body?.authorId||'').slice(0,120),authorName=String(body?.authorName||'').trim().slice(0,80),templateId=String(body?.templateId||'').slice(0,160);
   if(!authorId||!authorName)return json({error:'先に発言者を登録してください'},400);
@@ -24,3 +25,4 @@ export async function handleMatrixPoint(request,env,roomId,logId,itemId,executio
   await env.DB.prepare(`INSERT INTO matrix_point(room_id,template_id,point_id,character_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP) ON CONFLICT(room_id,template_id,point_id) DO UPDATE SET character_id=COALESCE(excluded.character_id,matrix_point.character_id),is_placed=excluded.is_placed,point_x=excluded.point_x,point_y=excluded.point_y,template_x=excluded.template_x,template_y=excluded.template_y,scale_base_width=excluded.scale_base_width,coordinate_version=excluded.coordinate_version,updated_at=CURRENT_TIMESTAMP`).bind(roomId,templateId,itemId,ch?.character_id||null,placed?1:0,x,y,templateX,templateY,scale,version).run();
   return json({ok:true,point:{itemId,templateId,placed,x,y,templateX,templateY,coordVersion:version,scaleBaseWidth:scale}});
 }
+

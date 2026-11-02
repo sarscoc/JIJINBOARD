@@ -1,3 +1,4 @@
+import {validMatrixScope} from './matrix-scope.js';
 import {playerKey,characterKey,localId} from './player-address.js';
 import { dataImage,ensurePlIdentity,parentRoomForLog,hashText } from './data-model.js';
 
@@ -11,10 +12,6 @@ const conflict=()=>json({error:'テンプレートが別の画面で更新され
 const imageUrl=(roomId,templateId)=>`/api/boards/${encodeURIComponent(roomId)}/matrix/templates/${encodeURIComponent(templateId)}/image`;
 const POINT_FIELDS=new Set(['placed','x','y','templateX','templateY','scaleBaseWidth','coordVersion','comment','commentPosition']);
 
-async function validateLog(db,roomId,logId){
-  const log=await parentRoomForLog(db,logId);
-  return !!log&&log.room_id===roomId;
-}
 function parseDefinition(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'?value:{}}catch{return{}}}
 function parseSettings(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}catch{return{}}}
 const cleanState=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
@@ -75,7 +72,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const object=await env.LOGS.get(row.template_image_key);if(!object)return new Response('Not found',{status:404});
     return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, max-age=86400'}});
   }
-  if(!logId||!await validateLog(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
+  if(!logId||!await validMatrixScope(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
   if(request.method==='GET'&&!templateId){
     const rows=(await env.DB.prepare("SELECT template_id,template_name,template_image_key,template_definition,created_at,updated_at FROM matrix_template WHERE room_id=? AND template_image_key<>'__deleted__' ORDER BY created_at,template_id").bind(roomId).all()).results||[];
@@ -142,3 +139,4 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
 
   return json({error:'Method not allowed'},405);
 }
+

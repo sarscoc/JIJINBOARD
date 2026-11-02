@@ -1,3 +1,4 @@
+import {validMatrixScope} from './matrix-scope.js';
 import {playerKey,characterKey,localId} from './player-address.js';
 import { ensurePlIdentity,parentRoomForLog } from './data-model.js';
 
@@ -13,8 +14,7 @@ function roomState(value){
 }
 
 export async function handleMatrixState(request,env,roomId,logId){
-  const log=await parentRoomForLog(env.DB,logId);
-  if(!log||log.room_id!==roomId)return json({error:'この自陣にないログです'},404);
+  if(!await validMatrixScope(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
   if(request.method==='GET'){
     const row=await env.DB.prepare('SELECT matrix_settings,updated_at FROM matrix_settings WHERE room_id=?').bind(roomId).first();
@@ -36,3 +36,4 @@ export async function handleMatrixState(request,env,roomId,logId){
 
   return json({error:'Method not allowed'},405);
 }
+

@@ -81,7 +81,7 @@ function selectTool(tool){
   $(".board-layout").classList.toggle("matrix-open",tool==="matrix");
   if(tool==="matrix"&&!frames.matrix.getAttribute("src")){
     setToolFrameLoading(frames.matrix);
-    frames.matrix.src=`/matrix/?embedded=1&board=${encodeURIComponent(boardId)}&room=${encodeURIComponent(state.activeRoom)}`;
+    frames.matrix.src=`/matrix/?embedded=1&board=${encodeURIComponent(boardId)}&room=${encodeURIComponent(state.activeRoom||boardId)}`;
   }
   if(tool==="spreadsheet"&&!frames.spreadsheet.getAttribute("src")){
     setToolFrameLoading(frames.spreadsheet);

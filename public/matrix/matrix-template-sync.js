@@ -6,7 +6,7 @@
   if(window.__jijinMatrixTemplateSyncStarted)return;
   window.__jijinMatrixTemplateSyncStarted=true;
 
-  let lastLogId=params.get("room")||"";
+  let lastLogId=params.get("room")||boardId;
   let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
   const saveTimers=new Map(),pendingSaves=new Map(),savingIds=new Set(),revisions=new Map();
   let editSeq=0;
@@ -205,6 +205,10 @@
   }
 
   const wrappedSet=async function(id,record,...rest){
+    if(!applying&&!window.matrixBoardContext?.isApplyingRemote?.()&&(!hydrated||hydratedLogId!==currentLogId())){
+      if(!await hydrate(currentLogId()))throw Error('部屋の保存情報を読み込めません。少し待ってから再度お試しください。');
+      if(record?.revision&&record.revision!==revisions.get(String(id)))throw Object.assign(Error('テンプレートが更新されています。読み直してから編集してください。'),{status:409});
+    }
     const result=await rawSet.call(this,id,record,...rest);
     if(!applying&&hydrated)scheduleRemote(String(id||""),record,0);
     return result;
@@ -351,3 +355,4 @@
   const wrapped=async function(file,...args){return raw.call(this,await compress(file),...args)};
   wrapped.__jijinTemplateCompressed=true;window.saveTemplateFile=wrapped;
 })();
+

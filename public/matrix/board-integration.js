@@ -52,10 +52,10 @@
 (()=>{
   const params=new URL(location.href).searchParams,boardId=params.get("board");if(!boardId)return;
   const embedded=params.get("embedded")==="1";
-  let roomId=params.get("room")||"",lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false,fullStateDirty=false;
+  let roomId=params.get("room")||boardId,lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false,fullStateDirty=false;
   let loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
   let realtime=null,realtimeRoom="",dirtyState=false,dirtyParticipants=false,dirtyComments=false;
-  const pendingActions=new Map(),pointRequests=new Map();
+  const pendingActions=new Map(),pointRequests=new Map(),pointChains=new Map();
   const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
     const response=await fetch(path,{headers:{"content-type":"application/json","x-realtime-client":realtimeClientId,...(options.headers||{})},...options});
@@ -70,7 +70,7 @@
 
   function realtimeUrl(targetRoom=roomId){
     const protocol=location.protocol==="https:"?"wss:":"ws:";
-    return `${protocol}//${location.host}/api/rooms/${encodeURIComponent(targetRoom)}/realtime`;
+    return targetRoom===boardId?`${protocol}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`:`${protocol}//${location.host}/api/rooms/${encodeURIComponent(targetRoom)}/realtime`;
   }
 
   function disconnectRealtimeEvents(){
@@ -201,18 +201,26 @@
         return true;
       });
     }
-    const point=pointPayload(itemId,item);point.templateId=window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId;
+    const point=pointPayload(itemId,item);point.templateId=item.templateId||window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId;
     pointRequests.set(key,point);
+    const path=pointPath(itemId),body=JSON.stringify({authorId:me.id,authorName:me.plName,...point});
+    const task=(pointChains.get(key)||Promise.resolve()).catch(()=>{}).then(()=>api(path,{method:"PATCH",body}));
+    pointChains.set(key,task);
     try{
-      const result=await api(pointPath(itemId),{method:"PATCH",body:JSON.stringify({authorId:me.id,authorName:me.plName,...point})});
+      const result=await task;
       if(pointRequests.get(key)!==point)return;
       pointRequests.delete(key);
       notifyChange("matrix-point",result.point||point);
       return true;
     }catch(error){
+      if(pointRequests.get(key)!==point)return false;
       pointRequests.delete(key);
-      fullStateDirty=true;
-      requestSave(0);
+      console.warn('MATRIX placement save failed',error);
+      window.dispatchEvent(new CustomEvent('matrix-save-error',{detail:{message:error.message,itemId,templateId:point.templateId}}));
+      if(typeof window.alert==='function')window.alert('配置を保存できませんでした：'+error.message);
+      return false;
+    }finally{
+      if(pointChains.get(key)===task)pointChains.delete(key);
     }
   }
 
@@ -265,7 +273,7 @@
     loadRequested=true;
     const seq=++loadSeq;
     const previousRoom=roomId;
-    roomId=nextRoom||"";
+    roomId=nextRoom||boardId;
     readySent=false;
     loadedRoom="";
     if(roomId!==previousRoom){
@@ -368,6 +376,7 @@
     };
     const optimizedMutate=function(fn){
       const state=appState(),changes=[],cache=new WeakMap(),proxy=wrap(state,[],changes,cache);
+      const beforePoints=new Map(Object.entries(state.items||{}).map(([id,item])=>[id,pointPayload(id,item)]));
       fn(proxy);
       let itemId="",pointOnly=changes.length>0;
       for(const path of changes){
@@ -384,6 +393,17 @@
       }
       saveState(state);
       saveCurrentTemplateState(state);
+      // Initial placement also initializes commentPosition/crop. Those metadata
+      // changes must not divert changed coordinates into the metadata-only save.
+      const touched=new Set();
+      for(const path of changes)if(path[0]==='items'){
+        if(path.length>1)touched.add(path[1]);
+        else for(const id of new Set([...beforePoints.keys(),...Object.keys(state.items||{})]))touched.add(id);
+      }
+      for(const id of touched){
+        const next=state.items?.[id]||{...beforePoints.get(id),placed:false};
+        if(JSON.stringify(pointPayload(id,next))!==JSON.stringify(beforePoints.get(id)))savePoint(id,next);
+      }
     };
     optimizedMutate.__jijinboardPointSync=true;
     window.mutate=optimizedMutate;
@@ -442,7 +462,7 @@
   window.addEventListener("message",event=>{
     if(event.origin!==location.origin)return;
     if(event.data?.type==="jijinboard-active-room"){
-      const nextRoom=event.data.roomId||"";
+      const nextRoom=event.data.roomId||boardId;
       if(nextRoom===roomId&&(loadedRoom===roomId||loadRequested))return;
       if(active||!embedded)loadRoom(nextRoom).catch(console.warn);
       else{

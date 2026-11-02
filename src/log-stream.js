@@ -80,7 +80,8 @@ async function directChunk(request,env,logId,index){
   const where=requestedTabId?'t.tab_id=?':'t.tab_name=?',value=requestedTabId?requestedTabId:requestedTab;
   const row=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,c.chunk_r2_key FROM log_tab t JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? AND ${where} AND c.chunk_index=? LIMIT 1`).bind(logId,value,index).first();
   if(!row)return json({index,tab:requestedTab,tabId:requestedTabId,messages:[]});
-  const messages=await readChunk(env,row,row.tab_name);return json({index,tab:row.tab_name,tabId:row.tab_id,messages});
+  const messages=await readChunk(env,row,row.tab_name),response=json({index,tab:row.tab_name,tabId:row.tab_id,messages});
+  response.headers.set('cache-control','private, max-age=31536000, immutable');return response;
 }
 
 export async function handleLogStream(request,env,logId,action,arg){
@@ -105,3 +106,4 @@ export async function handleLogStream(request,env,logId,action,arg){
 
 export async function cleanupStreamChunks(env,logId){const row=await logRow(env,logId);if(row)await deleteR2Prefix(env.LOGS,`rooms/${row.room_id}/logs/${logId}/`)}
 export async function prepareStreamRoomDelete(request,env,logId){const row=await env.DB.prepare('SELECT l.log_id,l.room_id,r.room_admin_token_hash FROM log l JOIN room r ON r.room_id=l.room_id WHERE l.log_id=?').bind(logId).first();if(!row)return json({error:'部屋が見つかりません'},404);const token=request.headers.get('x-admin-token')||request.headers.get('x-board-admin-token')||'';if(!await verifyRoomAdmin(env.DB,row.room_id,token))return json({error:'部屋主だけが削除できます'},403);await cleanupStreamChunks(env,logId);return null}
+
