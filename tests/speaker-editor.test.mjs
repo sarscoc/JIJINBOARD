@@ -31,7 +31,7 @@ test('another device receives names, colors and an empty PC list without reloadi
   w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'p',plName:'PL'}));w.localStorage.setItem('jijinboardPlayerMasterId.v1','p');w.localStorage.setItem('jijinboardPlayerMasterToken.v1',made.accessToken);
   w.eval(`var state={roomId:'log-one',profile:{id:'p',plName:'PL',personas:[]}};window.view=()=>state.profile;function saveProfile(){}function renderPlIcon(){}function renderPersonas(){}function fillPersonaSelect(){}function emitIntegratedProfile(){}function heartbeatPresence(){}`);
   class Socket extends w.EventTarget{readyState=1;constructor(){super();this.w=w;sockets.push(this);w.setTimeout(()=>this.dispatchEvent(new w.Event('open')),0)}close(){this.readyState=3}}
-  w.WebSocket=Socket;
+  w.WebSocket=Socket;w.AbortSignal=AbortSignal;w.AbortController=AbortController;
   w.fetch=async(path,options={})=>{const parts=new URL(path,'https://test').pathname.split('/').slice(5);return handleRoomPlayers(new Request('https://test'+path,options),f.env,'one',parts)};
   w.eval(source('shared/player-master.js'));return w;
  }

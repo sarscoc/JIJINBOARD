@@ -1,0 +1,20 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
+const source=path=>readFileSync(new URL('../public/'+path,import.meta.url),'utf8');
+test('room and logs render even when registered PL synchronization never finishes',async t=>{
+ const dom=new JSDOM(source('board/index.html'),{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ const data={id:'one',name:'Room',logs:[{roomId:'log',title:'Saved log'}]};
+ w.JijinBoardReady={title:Promise.resolve({id:'one',name:'Room'}),image:Promise.resolve(true),profile:new Promise(()=>{}),boardData:Promise.resolve(data)};
+ w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'p',plName:'PL'}));
+ const code=source('board/board2.js'),end=code.indexOf('\ndocument.querySelectorAll("[data-tool]").forEach(button=>button.onclick=');assert.ok(end>0);
+ w.eval(code.slice(0,end)+';window.boot=init;');await w.boot();
+ assert.equal(w.document.getElementById('boardName').textContent,'Room');assert.equal(w.document.querySelectorAll('#logList [data-room]').length,1);
+});
+test('dataset verification retries a stalled connection and releases waiting reads',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.Request=Request;w.Headers=Headers;w.localStorage.setItem('jijin.dataset.generation.v1','current');
+ const timeout=w.setTimeout.bind(w);w.setTimeout=(fn,ms)=>timeout(fn,ms===10000?5:ms);let calls=0;
+ w.fetch=async(path,options)=>{calls++;if(calls===1)return new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Error('aborted'))));return {ok:true,status:200,json:async()=>({generation:'current'})}};
+ w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;assert.equal(calls,2);assert.equal(w.JijinDataset.blocked,false);
+});

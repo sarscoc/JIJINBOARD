@@ -18,7 +18,7 @@
   const write=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value))}catch{}return value};
   const profile=()=>typeof state!=="undefined"&&state?.profile?state.profile:read("trpgMarkerProfile",null);
   const named=list=>(Array.isArray(list)?list:[]).filter(item=>item&&String(item.name||"").trim());
-  const api=async(path,options={})=>{const headers={"content-type":"application/json",...(options.headers||{})};if(token)headers["x-player-token"]=token;const response=await fetch(path,{...options,headers});const data=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(data.error||`通信エラー (${response.status})`),{status:response.status});return data};
+  const api=async(path,options={})=>{const headers={"content-type":"application/json",...(options.headers||{})};if(token)headers["x-player-token"]=token;const response=await fetch(path,{...options,headers,signal:options.signal||AbortSignal.timeout(15000)});const data=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(data.error||`通信エラー (${response.status})`),{status:response.status});return data};
   const charPayload=item=>({id:String(item.id||item.projectPersonId||""),type:String(item.type||"PC"),name:String(item.name||""),icon:String(item.icon||item.baseIcon||""),matrixIcon:String(item.matrixIcon||""),color:String(item.color||"#ffe66b"),colorDark:String(item.colorDark||item.color||"#ffe66b")});
 
   function localCandidates(){

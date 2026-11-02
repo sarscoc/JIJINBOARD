@@ -35,7 +35,14 @@
   const ready=(async()=>{
     let response;
     for(let attempt=0;attempt<90;attempt++){
-      response=await nativeFetch('/api/dataset',{cache:'no-store'});
+      let failure;
+      for(let retry=0;retry<2;retry++){
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
+        try{response=await nativeFetch('/api/dataset',{cache:'no-store',signal:controller.signal});failure=null;break}
+        catch(error){failure=error}
+        finally{clearTimeout(timer)}
+      }
+      if(failure)throw Error('部屋情報の通信がタイムアウトしました。ページを再読み込みしてください');
       if(response.status!==503)break;
       const data=await response.clone().json().catch(()=>null);if(data?.code!=='DATASET_RESETTING')break;
       await new Promise(resolve=>setTimeout(resolve,2000));
@@ -74,3 +81,4 @@
   addEventListener('storage',event=>{if(event.key===key&&event.newValue!==generation){blocked=true;location.reload()}});
   window.JijinDataset={ready,get blocked(){return blocked}};
 })();
+
