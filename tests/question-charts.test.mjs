@@ -18,3 +18,9 @@ test('all chart types render safely and invalid pie values show an explanation',
  assert.equal(charts.render([{label:'A',text:'-1'}],'pie').querySelector('svg'),null);
  assert.equal(charts.render([],'pie').querySelector('svg'),null);
 });
+
+test('numeric vertical bars use character icons and retain names as accessible titles',t=>{
+ const charts=fixture(t),view=charts.render([{id:'a',label:'A long character name',icon:'🦝',text:'171'}],'bar-vertical');
+ assert.equal(view.querySelector('[data-chart-character="a"] text').textContent,'🦝');
+ assert.equal(view.querySelector('[data-chart-character="a"] title').textContent,'A long character name');
+});

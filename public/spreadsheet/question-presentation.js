@@ -30,8 +30,19 @@
     const answers=document.getElementById('questionPopupAnswers'),isChart=!!graph.value&&!!window.JijinQuestionCharts;
     answers.hidden=isChart;
     if(isChart){
-      const entries=[...answers.querySelectorAll('.question-popup-row')].map((row,index)=>({label:state.characters[index]?.name||String(index+1),text:row.querySelector('textarea')?.value||row.querySelector('.question-popup-answer')?.textContent||''}));
-      answers.after(window.JijinQuestionCharts.render(entries,mode));return;
+      const entries=[...answers.querySelectorAll('.question-popup-row')].map((row,index)=>{
+        const ch=state.characters[index],name=ch?.name||String(index+1);
+        const segments=typeof Intl.Segmenter==='function'?[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(name)].map(s=>s.segment):Array.from(name);
+        return {id:ch?.id,label:name,icon:segments.find(s=>/\p{Extended_Pictographic}/u.test(s))||name.slice(0,1),text:row.querySelector('textarea')?.value||row.querySelector('.question-popup-answer')?.textContent||''};
+      });
+      const chart=window.JijinQuestionCharts.render(entries,mode);answers.after(chart);
+      for(const slot of chart.querySelectorAll('[data-chart-character]')){
+        portrait(slot.dataset.chartCharacter).catch(()=> '').then(url=>{
+          if(seq!==sequence||!slot.isConnected||!url)return;
+          const image=document.createElementNS('http://www.w3.org/2000/svg','image');image.setAttribute('href',url);image.setAttribute('x',slot.dataset.iconX);image.setAttribute('y',slot.dataset.iconY);image.setAttribute('width',slot.dataset.iconSize);image.setAttribute('height',slot.dataset.iconSize);image.setAttribute('preserveAspectRatio','xMidYMid slice');slot.querySelector('text')?.remove();slot.append(image);
+        });
+      }
+      return;
     }
     document.getElementById('questionPopupMeta').hidden=true;
     const images=[];
