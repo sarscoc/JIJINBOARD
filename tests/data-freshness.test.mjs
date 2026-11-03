@@ -81,3 +81,11 @@ test('missing remote Sheets image deletes cache without reuploading it',async t=
  w.fetch=async(path,init={})=>{methods.push(init.method||'GET');return {status:404,ok:false}};
  w.eval(source('spreadsheet/sheet-image-sync.js'));await tick();assert.equal(await w.loadImageBlob('background','global'),null);assert.equal(deleted,1);assert.deepEqual(methods,['GET']);
 });
+
+
+test('board realtime proxy preserves the one-time device admission ticket',async t=>{
+ const f=fixture(t);let forwarded;
+ f.env.ROOMS={idFromName:id=>id,get:()=>({fetch:async request=>{forwarded=new URL(request.url);return new Response('socket')}})};
+ const response=await worker.fetch(new Request('https://test/api/boards/board/realtime?sessionTicket=once',{headers:{Upgrade:'websocket'}}),f.env,{waitUntil(){}});
+ assert.equal(response.status,200);assert.equal(forwarded.pathname,'/realtime');assert.equal(forwarded.searchParams.get('sessionTicket'),'once');
+});

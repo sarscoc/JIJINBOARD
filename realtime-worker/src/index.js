@@ -1,4 +1,4 @@
-import {deviceSession} from '../../src/device-session.js';
+import {deviceSession,consumeDeviceTicket,activeDeviceSessions} from '../../src/device-session.js';
 import { DurableObject } from 'cloudflare:workers';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const clean=(value,max=100)=>String(value||'').slice(0,max);
@@ -8,8 +8,21 @@ export class RoomHub extends DurableObject{
   constructor(ctx,env){super(ctx,env);this.httpPresence=new Map()}
   async fetch(request){
     const url=new URL(request.url);
-    if(url.pathname==='/device-session'&&request.method==='POST'){const result=await deviceSession(this.ctx.storage,await request.json());return json(result.body,result.status)}
-    if(url.pathname.endsWith('/realtime')){if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});const pair=new WebSocketPair(),client=pair[0],server=pair[1];this.ctx.acceptWebSocket(server);server.serializeAttachment({client_id:'',author_id:'',pl_name:'',pl_icon:'',is_typing:false,typing_name:'',typing_icon:'',typing_message_id:''});return new Response(null,{status:101,webSocket:client})}
+    if(url.pathname==='/device-session'&&request.method==='POST'){
+      const data=await request.json();
+      if(data.action==='release')for(const socket of this.ctx.getWebSockets()){const p=socket.deserializeAttachment()||{};if(p.session_player_id===data.playerId&&p.session_device_id===data.deviceId&&p.session_tab_id===data.tabId)socket.close(1000,'page closed')}
+      const result=await deviceSession(this.ctx.storage,data,Date.now(),activeDeviceSessions(this.ctx.getWebSockets()));return json(result.body,result.status);
+    }
+    if(url.pathname.endsWith('/realtime')){
+      if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});
+      const ticket=url.searchParams.get('sessionTicket');
+      const session=ticket?await consumeDeviceTicket(this.ctx.storage,ticket,Date.now(),activeDeviceSessions(this.ctx.getWebSockets())):null;
+      const pair=new WebSocketPair(),client=pair[0],server=pair[1];this.ctx.acceptWebSocket(server);
+      server.serializeAttachment({...session,client_id:'',author_id:'',pl_name:'',pl_icon:'',is_typing:false,typing_name:'',typing_icon:'',typing_message_id:''});
+      if(ticket&&!session){server.send(JSON.stringify({type:'device-session-denied'}));server.close(1008,'session unavailable')}
+      else if(session)server.send(JSON.stringify({type:'device-session-ready'}));
+      return new Response(null,{status:101,webSocket:client});
+    }
     if(url.pathname==='/notify'&&request.method==='POST'){try{const message=await request.json();const action=clean(message?.action,40);const data=cleanData(message?.data),type=action.startsWith('comment:')?'comment-change':'refresh';this.broadcast({type,action,data},clean(message?.excludeClientId,100));return json({ok:true})}catch{return json({error:'Invalid message'},400)}}
     if(url.pathname==='/deleted'&&request.method==='POST'){this.broadcast({type:'room-deleted'});this.httpPresence.clear();return json({ok:true})}
     if(url.pathname==='/presence'){
@@ -19,10 +32,14 @@ export class RoomHub extends DurableObject{
     }
     return new Response('Not found',{status:404});
   }
-  webSocketMessage(socket,message){if(typeof message!=='string'||message.length>180000)return;let data;try{data=JSON.parse(message)}catch{return}if(data?.type==='change'){const action=clean(data.action,40);if(action){const payload=cleanData(data.data),type=action.startsWith('comment:')?'comment-change':'refresh';this.broadcast({type,action,data:payload},'',socket)}return}if(data?.type!=='join'&&data?.type!=='presence')return;const prev=socket.deserializeAttachment()||{},next={client_id:clean(data.clientId||prev.client_id,100),author_id:clean(data.authorId||prev.author_id,120),pl_name:clean(data.plName||prev.pl_name,80),pl_icon:clean(data.plIcon||prev.pl_icon,100000),is_typing:!!data.isTyping,typing_name:data.isTyping?clean(data.typingName,80):'',typing_icon:data.isTyping?clean(data.typingIcon,100000):'',typing_message_id:data.isTyping?clean(data.typingMessageId,100):'',last_seen:new Date().toISOString()};socket.serializeAttachment(next);if(next.author_id)this.httpPresence.delete(next.author_id);this.broadcastPresence()}
-  webSocketClose(socket){this.broadcastPresence(socket)}
+  webSocketMessage(socket,message){if(typeof message!=='string'||message.length>180000)return;let data;try{data=JSON.parse(message)}catch{return}if(data?.type==='change'){const action=clean(data.action,40);if(action){const payload=cleanData(data.data),type=action.startsWith('comment:')?'comment-change':'refresh';this.broadcast({type,action,data:payload},'',socket)}return}if(data?.type!=='join'&&data?.type!=='presence')return;const prev=socket.deserializeAttachment()||{},next={...(prev.session_player_id?{session_player_id:prev.session_player_id,session_device_id:prev.session_device_id,session_tab_id:prev.session_tab_id}:{}),client_id:clean(data.clientId||prev.client_id,100),author_id:clean(data.authorId||prev.author_id,120),pl_name:clean(data.plName||prev.pl_name,80),pl_icon:clean(data.plIcon||prev.pl_icon,100000),is_typing:!!data.isTyping,typing_name:data.isTyping?clean(data.typingName,80):'',typing_icon:data.isTyping?clean(data.typingIcon,100000):'',typing_message_id:data.isTyping?clean(data.typingMessageId,100):'',last_seen:new Date().toISOString()};socket.serializeAttachment(next);if(next.author_id)this.httpPresence.delete(next.author_id);this.broadcastPresence()}
+  async webSocketClose(socket){
+    const p=socket.deserializeAttachment()||{};
+    if(p.session_player_id)await deviceSession(this.ctx.storage,{playerId:p.session_player_id,deviceId:p.session_device_id,tabId:p.session_tab_id,action:'release'});
+    this.broadcastPresence(socket);
+  }
   webSocketError(socket){this.broadcastPresence(socket)}
-  participants(excludedSocket=null){const now=Date.now();for(const [id,p] of this.httpPresence)if(now-Number(p.seen_at||0)>PRESENCE_TTL)this.httpPresence.delete(id);const people=new Map();for(const p of this.httpPresence.values())people.set(p.author_id,p);for(const socket of this.ctx.getWebSockets()){if(socket===excludedSocket)continue;const p=socket.deserializeAttachment()||{};if(!p.author_id||!p.pl_name||!Number.isFinite(Date.parse(p.last_seen))||now-Date.parse(p.last_seen)>PRESENCE_TTL)continue;const current=people.get(p.author_id);if(!current||p.is_typing)people.set(p.author_id,p)}return[...people.values()].filter(p=>String(p.pl_name||'').trim()&&!String(p.author_id||'').startsWith('visitor:')).map(({seen_at,...p})=>p)}
+  participants(excludedSocket=null){const now=Date.now();for(const [id,p] of this.httpPresence)if(now-Number(p.seen_at||0)>PRESENCE_TTL)this.httpPresence.delete(id);const people=new Map();for(const p of this.httpPresence.values())people.set(p.author_id,p);for(const socket of this.ctx.getWebSockets()){if(socket===excludedSocket)continue;const p=socket.deserializeAttachment()||{};if(!p.author_id||!p.pl_name||socket.readyState===2||socket.readyState===3)continue;const current=people.get(p.author_id);if(!current||p.is_typing)people.set(p.author_id,p)}return[...people.values()].filter(p=>String(p.pl_name||'').trim()&&!String(p.author_id||'').startsWith('visitor:')).map(({seen_at,session_player_id,session_device_id,session_tab_id,...p})=>p)}
   broadcastPresence(excludedSocket=null){this.broadcast({type:'presence',presence:this.participants(excludedSocket)},'',excludedSocket)}
   broadcast(payload,excludeClientId='',excludedSocket=null){const text=JSON.stringify(payload);for(const socket of this.ctx.getWebSockets()){if(socket===excludedSocket)continue;const p=socket.deserializeAttachment()||{};if(excludeClientId&&p.client_id===excludeClientId)continue;try{socket.send(text)}catch{}}}
 }

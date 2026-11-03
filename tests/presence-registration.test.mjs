@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
 
 test('presence excludes unregistered and legacy visitor connections, without hiding a real PL named ゲスト',()=>{
- const code=readFileSync(new URL('../realtime-worker/src/index.js',import.meta.url),'utf8').replace("import {deviceSession} from '../../src/device-session.js';",'').replace("import { DurableObject } from 'cloudflare:workers';",'class DurableObject{constructor(ctx){this.ctx=ctx}}').replace('export class RoomHub','class RoomHub').replace('export default','const worker=');
+ const code=readFileSync(new URL('../realtime-worker/src/index.js',import.meta.url),'utf8').replace("import {deviceSession,consumeDeviceTicket,activeDeviceSessions} from '../../src/device-session.js';",'').replace("import { DurableObject } from 'cloudflare:workers';",'class DurableObject{constructor(ctx){this.ctx=ctx}}').replace('export class RoomHub','class RoomHub').replace('export default','const worker=');
  const sandbox={Response,console};vm.runInNewContext(code+';globalThis.Hub=RoomHub',sandbox);
  const socket=p=>({deserializeAttachment:()=>({...p,last_seen:new Date().toISOString()})});
  const hub=new sandbox.Hub({getWebSockets:()=>[
@@ -13,6 +13,8 @@ test('presence excludes unregistered and legacy visitor connections, without hid
  ]});
  hub.httpPresence.set('old-http',{author_id:'visitor:http',pl_name:'ゲスト',seen_at:Date.now()});
  assert.deepEqual(Array.from(hub.participants(),p=>p.author_id),['real','named']);
+ const idle={readyState:1,deserializeAttachment:()=>({author_id:'idle',pl_name:'Reader',last_seen:'2000-01-01T00:00:00Z',session_device_id:'private-device'})},closed={readyState:3,deserializeAttachment:()=>({author_id:'closed',pl_name:'Gone'})};
+ const idleHub=new sandbox.Hub({getWebSockets:()=>[idle,closed]});assert.equal(idleHub.participants().length,1);assert.equal(idleHub.participants()[0].author_id,'idle');assert.equal(idleHub.participants()[0].session_device_id,undefined);
 });
 
 test('board never publishes a placeholder guest and starts publishing after PL registration',async t=>{
@@ -20,7 +22,7 @@ test('board never publishes a placeholder guest and starts publishing after PL r
  class Socket extends w.EventTarget{static OPEN=1;readyState=1;send(value){sent.push(JSON.parse(value))}close(){}constructor(){super();w.socket=this}}
  w.WebSocket=Socket;w.eval('var boardId="one";function esc(value){return String(value)}');
  const code=readFileSync(new URL('../public/board/board2.js',import.meta.url),'utf8'),start=code.indexOf('// Presence belongs'),end=code.indexOf('window.JIJINBOARD_LOG_TITLE',start);
- w.eval(code.slice(start,end));await Promise.resolve();
+ w.setInterval=()=>{throw Error('presence must not use a periodic timer')};w.eval(code.slice(start,end));await new Promise(setImmediate);
  w.socket.dispatchEvent(new w.Event('open'));assert.deepEqual(sent,[]);
  w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'pl',plName:'sars'}));w.document.querySelector('dialog').dispatchEvent(new w.Event('close'));
  assert.equal(sent.length,1);assert.equal(sent[0].plName,'sars');assert.equal(sent[0].authorId,'pl');

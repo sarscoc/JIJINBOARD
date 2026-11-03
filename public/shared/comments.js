@@ -42,21 +42,24 @@
   // Shared reconnect and catch-up policy. Presence/layout channels can keep their
   // own messages; all comment views use this channel for durable changes.
   function live({board, refresh, onNote = () => {}, onTyping = () => {}, onChange = () => false, onError = console.warn}) {
-    let active = false, socket = null, timer = null, attempts = 0, resume = false;
+    let active = false, socket = null, timer = null, attempts = 0, resume = false, connecting = false;
     const room = () => typeof board === 'function' ? board() : board;
     const update = () => Promise.resolve().then(refresh).catch(onError);
     function retry() { clearTimeout(timer); if (active) timer = setTimeout(connect, Math.min(15000, 500 * 2 ** attempts++)); }
-    function connect() {
+    async function connect() {
       clearTimeout(timer);
-      if (!active || !room() || socket?.readyState < 2) return;
+      if (!active || connecting || !room() || socket?.readyState < 2) return;
       const boardId = String(room());
       let current;
-      try { current = new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`); }
+      let address=`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`;
+      const session=window.JijinDeviceSessionOwner||parent===window?window.JijinDeviceSession:null;
+      if(session){connecting=true;try{address=await session.connectionUrl(address)}catch{connecting=false;return}connecting=false;if(!active)return}
+      try { current = new WebSocket(address);session?.attach(current); }
       catch { retry(); return; }
       socket = current;
       current.addEventListener('open', () => {
         if (socket !== current) return;
-        attempts = 0; current.send(JSON.stringify({type:'join', clientId})); update();
+        attempts = 0; publishPresence('join'); update();
       });
       current.addEventListener('message', event => {
         if (socket !== current || boardId !== String(room())) return;
@@ -66,9 +69,16 @@
         if(message.type==='comment-change'){try{if(onChange(message.action,message.data)===true)return}catch(error){onError(error)}}
         if (message.type === 'comment-change' || (message.type === 'refresh' && ['participants','spreadsheet-comments','matrix-comment','matrix-edit','matrix-delete','matrix-like','matrix-template-comments-delete'].includes(message.action))) update();
       });
-      current.addEventListener('close', () => { if (socket === current) { socket = null; retry(); } });
+      current.addEventListener('close', () => { if (socket === current) { socket = null;if(!session?.blocked)retry(); } });
       current.addEventListener('error', () => current.close());
     }
+    function publishPresence(type='presence'){
+      if(socket?.readyState!==WebSocket.OPEN)return;let identity={};
+      if(window.JijinDeviceSessionOwner||parent===window)try{const profile=JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');if(profile?.id&&profile.plName)identity={authorId:profile.id,plName:profile.plName,plIcon:profile.plIcon||''}}catch{}
+      socket.send(JSON.stringify({type,clientId,...identity}));
+    }
+    window.addEventListener('jijinboard-player-master-updated',()=>publishPresence());
+    window.addEventListener('jijinboard-player-master-saved',()=>publishPresence());
     function setActive(next) {
       active = !!next; clearTimeout(timer);
       if (!active) { const old = socket; socket = null; old?.close(); }
@@ -78,6 +88,7 @@
       if (socket?.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({type:'change', action:'comment:typing', data:{clientId, target:address, name:person?.name || 'PL', icon:String(person?.icon || '').slice(0,3000), typing:!!on}}));
     }
+    window.addEventListener('jijinboard-device-session-changed',()=>{if(parent!==window&&!window.JijinDeviceSessionOwner)return;const old=socket;socket=null;old?.close();if(active)connect()});
     window.addEventListener('online', () => { if (active) { connect(); update(); } });
     document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { connect(); update(); } });
     window.addEventListener('pagehide', () => { resume=active;setActive(false); });

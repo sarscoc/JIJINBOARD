@@ -81,7 +81,7 @@ const worker={
     if(logCommentWindow&&request.method==='GET')return handleLogCommentWindow(request,env,decodeURIComponent(logCommentWindow[1]));
 
     const boardRealtime=url.pathname.match(/^\/api\/boards\/([^/]+)\/realtime$/);
-    if(boardRealtime){if(request.method!=='GET'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'WebSocket接続が必要です'},426);const roomId=decodeURIComponent(boardRealtime[1]);if(!await env.DB.prepare('SELECT room_id FROM room WHERE room_id=?').bind(roomId).first())return json({error:'自陣が見つかりません'},404);return env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch(new Request(new URL('/realtime',request.url),request))}
+    if(boardRealtime){if(request.method!=='GET'||request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return json({error:'WebSocket接続が必要です'},426);const roomId=decodeURIComponent(boardRealtime[1]);if(!await env.DB.prepare('SELECT room_id FROM room WHERE room_id=?').bind(roomId).first())return json({error:'自陣が見つかりません'},404);return env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch(new Request(Object.assign(new URL(request.url),{pathname:'/realtime'}),request))}
 
     const boardHomeImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/home-image$/);
     if(boardHomeImage)return handleBoardHomeImage(request,env,decodeURIComponent(boardHomeImage[1]));

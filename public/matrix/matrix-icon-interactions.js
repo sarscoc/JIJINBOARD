@@ -233,10 +233,12 @@
   window.addEventListener("matrix-board-room", filterCurrentPage);
   window.addEventListener("matrix-template-selected",filterCurrentPage);
 
-  let tries = 0;
-  const waitForComments = setInterval(() => {
-    tries += 1;
-    if (ensureListObserver() || tries > 30) clearInterval(waitForComments);
-  }, 120);
+  // Wait for actual DOM insertion rather than checking on an interval.
+  if(!ensureListObserver()){
+    const readyObserver=new MutationObserver(()=>{if(ensureListObserver())readyObserver.disconnect()});
+    readyObserver.observe(document.body,{childList:true,subtree:true});
+    window.addEventListener('pagehide',()=>readyObserver.disconnect(),{once:true});
+  }
+
 })();
 
