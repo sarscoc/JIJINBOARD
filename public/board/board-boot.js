@@ -54,7 +54,8 @@
    const timer=setTimeout(()=>complete(false),8000);
    target.loading='eager';target.fetchPriority='high';target.decoding='async';
    target.onload=()=>complete(true);target.onerror=()=>complete(false);
-   target.src=`/api/boards/${encodeURIComponent(boardId)}/home-image`;
+   if(window.JijinHomeImage)window.JijinHomeImage.show(target).then(complete).catch(()=>complete(false));
+   else target.src=`/api/boards/${encodeURIComponent(boardId)}/home-image`;
    if(target.complete&&target.naturalWidth)complete(true);
   }).catch(()=>finishImage(false));
  }
