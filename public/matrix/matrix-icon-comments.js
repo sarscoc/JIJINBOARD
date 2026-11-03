@@ -183,17 +183,17 @@
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
 const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
-  const changes=JijinSync.ledger();
+  const changes=JijinSync.ledger();let cacheVersion=0;
   const load=JijinComments.loader(async()=>{
     const c=ctx();if(!c||!commentRoom())return null;
     return commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments?authorId=${encodeURIComponent(profile()?.id||'')}`);
-  },data=>{if(!data)return;changes.snapshot(data.version);const next=data.comments||[],serial=JSON.stringify(next);if(serial!==lastSerial){comments=next;lastSerial=serial;render()}});
+  },data=>{if(!data)return;cacheVersion=Math.max(cacheVersion,Number(data.version)||0);changes.snapshot(data.version);const next=data.comments||[],serial=JSON.stringify(next);if(serial!==lastSerial){comments=next;lastSerial=serial;render()}},{key:()=>ctx()?.boardId?JSON.stringify(['matrix',ctx().boardId,profile()?.id||'']):'',snapshot:()=>({comments,version:cacheVersion})});
   function applyChange(action,data,own=false){
     const next=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.matrix(ctx()?.boardId),viewerId:profile()?.id,own});
     if(next===null)return false;
     if(next===comments)return true;
     if(!changes.accept(action,data))return true;
-    load.patch(()=>{if(!changes.newer(data))return;const rows=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.matrix(ctx()?.boardId),viewerId:profile()?.id,own});if(rows===null)return;comments=rows;lastSerial=JSON.stringify(rows);render()});return true;
+    load.patch(()=>{if(!changes.newer(data))return;cacheVersion=Math.max(cacheVersion,Number(data.version)||0);const rows=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.matrix(ctx()?.boardId),viewerId:profile()?.id,own});if(rows===null)return;comments=rows;lastSerial=JSON.stringify(rows);render()});return true;
   }
   const commentLive=JijinComments.live({board:()=>ctx()?.boardId,refresh:load,onChange:applyChange,onNote:data=>{
     if(ctx()?.isActive?.())ctx()?.applyRemotePoint?.(data?.point);

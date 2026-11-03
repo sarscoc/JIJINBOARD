@@ -21,7 +21,7 @@
       const changed=markers(next)!==markers(state.annotations);
       changes?.snapshot(result.data.version);state.annotations=next;setVersion(result.data.version);
       if(state.room){renderComments();if(changed)refreshMarkerView()}
-    });
+    },{key:()=>state.roomId?JSON.stringify(['log',board(),state.roomId,state.profile?.id||'']):'',snapshot:()=>state.roomId?{roomId:state.roomId,data:{annotations:state.annotations,version:state.annotationVersion}}:null});
     refreshLoader=refresh;
     refreshAnnotations=function(){return logActive?refresh():Promise.resolve()};
     window.addEventListener('message',event=>{
@@ -123,13 +123,13 @@
 
   async function fastDeleteComment(id,confirmed=false){
     if(!confirmed&&!confirm('このコメントを削除しますか？\n返信もまとめて削除されます。'))return;
-    try{const result=await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(id)}`,{method:'DELETE',body:JSON.stringify({authorId:state.profile.id}),headers:{'x-admin-token':localStorage.getItem(`admin:${state.roomId}`)||''}});setVersion(result.version);removeAnnotations(result.deletedIds)}catch(error){alert(error.message)}
+    try{const result=await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(id)}`,{method:'DELETE',body:JSON.stringify({authorId:state.profile.id}),headers:{'x-admin-token':localStorage.getItem(`admin:${state.roomId}`)||''}});setVersion(result.version);if(refreshLoader)refreshLoader.patch(()=>removeAnnotations(result.deletedIds));else removeAnnotations(result.deletedIds)}catch(error){alert(error.message)}
   }
 
   async function fastToggleLike(id,button){
     const a=state.annotations.find(x=>x.id===id);if(!a)return;const before=!!a.liked_by_me,count=Number(a.like_count)||0;
     a.liked_by_me=!before;a.like_count=Math.max(0,count+(before?-1:1));if(button){button.classList.toggle('liked',!before);button.textContent=`${before?'♡':'♥'}${a.like_count||''}`;button.classList.remove('heart-pop');void button.offsetWidth;button.classList.add('heart-pop')}
-    try{const result=await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(id)}/like`,{method:'POST',body:JSON.stringify({authorId:state.profile.id})});setVersion(result.version);a.liked_by_me=!!result.liked;a.like_count=Math.max(0,Number(result.likeCount)||0);if(button){button.classList.toggle('liked',a.liked_by_me);button.textContent=`${a.liked_by_me?'♥':'♡'}${a.like_count||''}`}}catch(error){a.liked_by_me=before;a.like_count=count;if(button){button.classList.toggle('liked',before);button.textContent=`${before?'♥':'♡'}${count||''}`}alert(error.message)}
+    try{const result=await api(`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(id)}/like`,{method:'POST',body:JSON.stringify({authorId:state.profile.id})});setVersion(result.version);a.liked_by_me=!!result.liked;a.like_count=Math.max(0,Number(result.likeCount)||0);if(button){button.classList.toggle('liked',a.liked_by_me);button.textContent=`${a.liked_by_me?'♥':'♡'}${a.like_count||''}`}}catch(error){a.liked_by_me=before;a.like_count=count;if(button){button.classList.toggle('liked',before);button.textContent=`${before?'♥':'♡'}${count||''}`}alert(error.message)}finally{refreshLoader?.patch(()=>{})}
   }
 
   try{postComment=fastPostComment;deleteComment=fastDeleteComment;toggleLike=fastToggleLike;window.postComment=postComment;window.deleteComment=deleteComment;window.toggleLike=toggleLike;const form=document.getElementById('commentForm');if(form)form.onsubmit=postComment}catch{}

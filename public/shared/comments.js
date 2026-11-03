@@ -38,7 +38,36 @@
       return request(boardId,`${id?`/${id}${action?`/${action}`:''}`:''}?${query}`,next);
     };
   }
-  const {loader,serialize}=globalThis.JijinSync;
+  const {loader:networkLoader,serialize}=globalThis.JijinSync;
+  // Paint the last known snapshot before waiting for a fresh request.
+  // Cache keys include dataset generation, room scope and viewer identity.
+  function loader(read,apply,cache){
+    if(!cache)return networkLoader(read,apply);
+    const hydrated=new Set();
+    const key=()=>{
+      const scope=cache.key();if(!scope)return '';
+      try{return 'jijin.comment-cache.v1:'+String(localStorage.getItem('jijin.dataset.generation.v1')||'')+':'+scope}catch{return ''}
+    };
+    function save(){
+      const address=key();if(!address)return;
+      try{const data=cache.snapshot();if(!data)return;const json=JSON.stringify({data});if(json.length<=1500000)localStorage.setItem(address,json)}catch{}
+    }
+    const version=data=>Number(data?.version??data?.data?.version);
+    const fresh=networkLoader(read,async data=>{
+      if(version(data)<version(cache.snapshot()))return;
+      await apply(data);save();
+    });
+    function refresh(){
+      const address=key();
+      if(address&&!hydrated.has(address)){
+        hydrated.add(address);
+        try{const saved=JSON.parse(localStorage.getItem(address)||'null');if(saved?.data)apply(saved.data)}catch{}
+      }
+      return fresh();
+    }
+    refresh.patch=patch=>fresh.patch(()=>{patch();save()});
+    return refresh;
+  }
   // Shared reconnect and catch-up policy. Presence/layout channels can keep their
   // own messages; all comment views use this channel for durable changes.
   function live({board, refresh, onNote = () => {}, onTyping = () => {}, onChange = () => false, onError = console.warn}) {
@@ -80,6 +109,7 @@
     window.addEventListener('jijinboard-player-master-updated',()=>publishPresence());
     window.addEventListener('jijinboard-player-master-saved',()=>publishPresence());
     function setActive(next) {
+      if(active===!!next){if(active)connect();return;}
       active = !!next; clearTimeout(timer);
       if (!active) { const old = socket; socket = null; old?.close(); }
       else { connect(); update(); }

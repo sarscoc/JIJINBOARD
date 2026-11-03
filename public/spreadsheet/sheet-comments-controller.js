@@ -48,18 +48,18 @@
   function panel(){let a=document.querySelector('#sheetComments');if(!a){a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head comments-head"><strong>COMMENTS</strong><span class="sheet-comment-count">0</span></div><section class="sheet-comments-list comments-list"></section>';document.body.append(a)}else{const oldHead=a.querySelector('.sheet-comments-head'),oldList=a.querySelector(':scope>section');if(oldHead&&!oldHead.classList.contains('comments-head')){oldHead.className='sheet-comments-head comments-head';oldHead.innerHTML='<strong>COMMENTS</strong><span class="sheet-comment-count">0</span>'}if(oldList)oldList.classList.add('sheet-comments-list','comments-list')}return a}
   function card(c,depth,children){const mine=c.author_id===profile()?.id,icon=iconFor(c),replies=children.get(c.id)||[],avatar=icon?`<img class="sheet-comment-avatar comment-avatar" src="${esc(icon)}" alt="">`:'<span class="sheet-comment-avatar comment-avatar empty-avatar"></span>';return `<div class="sheet-comment-thread comment-thread ${depth?'sheet-reply is-reply':''}" style="--reply-depth:${Math.min(depth,3)}"><div class="sheet-comment-card comment-card" style="--comment-marker:var(--jijin-sheet-comment-color,#171a20);--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-cell="${esc(c.cell_id)}"><div class="sheet-comment-author comment-author">${avatar}<span class="comment-name">${esc(c.persona_name)}<span class="persona-type">${esc(c.persona_type)}</span></span>${mine?`<button class="comment-edit" data-edit="${esc(c.id)}" title="編集">✎</button>`:''}<time class="comment-date">${esc(dateText(c.created_at))}</time><button class="comment-like ${c.liked_by_me?'liked':''}" data-like="${esc(c.id)}" aria-label="好き">${c.liked_by_me?'♥':'♡'}${Number(c.like_count)||''}</button><button class="comment-reply" data-reply="${esc(c.id)}" title="返信">↩</button></div><p class="sheet-comment-body comment-body">${esc(c.body).replace(/\n/g,'<br>')}</p></div>${replies.map(r=>card(r,depth+1,children)).join('')}</div>`}
   function render(){const a=panel(),list=a.querySelector(':scope>section'),count=a.querySelector('.sheet-comment-count'),ids=new Set(comments.map(c=>c.id)),children=new Map();for(const c of comments){if(!c.parent_id)continue;const rows=children.get(c.parent_id)||[];rows.push(c);children.set(c.parent_id,rows)}const roots=comments.filter(c=>!c.parent_id||!ids.has(c.parent_id));if(count)count.textContent=String(comments.length);if(list)list.innerHTML=roots.length?roots.map(c=>card(c,0,children)).join(''):'<p class="sheet-comment-empty empty">セルへのコメントがここに並びます。</p>';a.classList.toggle('has-comments',roots.length>0);markCells()}
-  const changes=JijinSync.ledger();
+  const changes=JijinSync.ledger();let cacheVersion=0;
   const load=JijinComments.loader(async()=>api(`/api/boards/${board}/spreadsheet/comments?authorId=${encodeURIComponent(profile()?.id||'')}`,{cache:'no-store'}),data=>{
-    changes.snapshot(data.version);const next=data.comments||[],serial=JSON.stringify(next);
+    cacheVersion=Math.max(cacheVersion,Number(data.version)||0);changes.snapshot(data.version);const next=data.comments||[],serial=JSON.stringify(next);
     if(serial!==lastSerial){comments=next;lastSerial=serial;render()}
     loadedOnce=true;dirtyComments=false;
-  });
+  },{key:()=>JSON.stringify(['sheets',board,profile()?.id||'']),snapshot:()=>({comments,version:cacheVersion})});
   function applyChange(action,data,own=false){
     const next=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.cell(board),viewerId:profile()?.id,own});
     if(next===null)return false;
     if(next===comments)return true;
     if(!changes.accept(action,data))return true;
-    load.patch(()=>{if(!changes.newer(data))return;const rows=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.cell(board),viewerId:profile()?.id,own});if(rows===null)return;comments=rows;lastSerial=JSON.stringify(rows);render()});return true;
+    load.patch(()=>{if(!changes.newer(data))return;cacheVersion=Math.max(cacheVersion,Number(data.version)||0);const rows=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.cell(board),viewerId:profile()?.id,own});if(rows===null)return;comments=rows;lastSerial=JSON.stringify(rows);render()});return true;
   }
   const commentLive=JijinComments.live({board,refresh:load,onChange:applyChange});
 
