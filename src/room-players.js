@@ -1,6 +1,6 @@
 import {publicParticipants} from './room-participants.js';
 import {randomToken,tokenHash,storeImage} from './data-model.js';
-import {playerKey,playerPrefix,characterKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
+import {playerKey,characterKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const safeTextColor=value=>{const color=String(value||'');if(color&&!/^#[0-9a-f]{6}$/i.test(color))throw Error('文字色の形式が正しくありません');return color};
 const text=(value,max=120)=>String(value||'').slice(0,max);
@@ -10,7 +10,7 @@ const masterRow=(db,id)=>db.prepare('SELECT p.*,s.text_color FROM pl p LEFT JOIN
 async function authorized(db,request,id){
  const row=await masterRow(db,id),raw=token(request);if(!row||!raw)return null;
  const hash=await tokenHash(raw);
- return hash===row.access_token_hash||await db.prepare('SELECT 1 FROM transfer WHERE pl_id=? AND transfer_used_at IS NOT NULL AND transfer_code_hash=?').bind(id,hash).first()?row:null;
+ return hash===row.access_token_hash?row:null;
 }
 async function masterData(db,board,row){
  const chars=(await db.prepare('SELECT c.*,s.text_color FROM character c LEFT JOIN speaker_style s ON s.person_id=c.character_id WHERE c.pl_id=? ORDER BY c.created_at,c.character_id').bind(row.pl_id).all()).results||[];
@@ -39,23 +39,10 @@ async function characterSaveStatement(env,board,playerId,list){
  WHERE 1 ON CONFLICT(person_id) DO UPDATE SET text_color=excluded.text_color WHERE speaker_style.pl_id=excluded.pl_id`).bind(board,pl,JSON.stringify(records),pl);
  return [write,styles];
 }
-async function redeem(request,env,board,code){
- const hash=await tokenHash(code),row=await env.DB.prepare('SELECT * FROM transfer WHERE transfer_code_hash=? AND substr(pl_id,1,?)=?').bind(hash,playerPrefix(board).length,playerPrefix(board)).first();
- // Never allow a code issued for another room to select a player here.
- if(!row||row.transfer_used_at||Date.parse(row.transfer_expires_at)<=Date.now()||!row.pl_id.startsWith(playerPrefix(board)))return json({error:'コードが無効、使用済み、または別の部屋のものです'},404);
- const old=await masterRow(env.DB,row.pl_id);if(!old)return json({error:'PLが見つかりません'},404);
- const accessToken=randomToken(24),newHash=await tokenHash(accessToken);
- const [saved]=await env.DB.batch([
-  env.DB.prepare(`UPDATE pl SET access_token_hash=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=? AND access_token_hash=? AND EXISTS(SELECT 1 FROM transfer WHERE transfer_id=? AND transfer_used_at IS NULL AND transfer_expires_at>?)`).bind(newHash,row.pl_id,old.access_token_hash,row.transfer_id,new Date().toISOString()),
-  env.DB.prepare(`UPDATE transfer SET transfer_code_hash=?,transfer_used_at=CURRENT_TIMESTAMP WHERE transfer_id=? AND transfer_used_at IS NULL AND EXISTS(SELECT 1 FROM pl WHERE pl_id=? AND access_token_hash=?)`).bind(old.access_token_hash,row.transfer_id,row.pl_id,newHash)
- ]);
- if(!saved.meta?.changes)return json({error:'コードは使用済みです'},409);
- return json({playerId:localId(row.pl_id),accessToken,master:await masterData(env.DB,board,await masterRow(env.DB,row.pl_id))});
-}
 async function roomPlayers(request,env,board,parts=[]){
  if(!await env.DB.prepare('SELECT 1 FROM room WHERE room_id=?').bind(board).first())return json({error:'自陣が見つかりません'},404);
  const method=request.method;
- if(method==='POST'&&parts[0]==='redeem'&&/^\d{4}$/.test(parts[1]||''))return redeem(request,env,board,parts[1]);
+ if(parts[0]==='redeem'||parts[1]==='code'||parts[1]==='session')return json({error:'この機能は終了しました'},410);
  const data=['GET','HEAD'].includes(method)?null:await bodyOf(request),playerId=text(parts[0]||data?.playerId);
  if(!playerId)return json({error:'PL情報がありません'},400);
  if(data?.playerId&&data.playerId!==playerId)return json({error:'PLのアドレスが一致しません'},400);
@@ -76,7 +63,6 @@ async function roomPlayers(request,env,board,parts=[]){
   return json({playerId,accessToken,master:await masterData(env.DB,board,row)},created?201:200);
  }
  row=await authorized(env.DB,request,key);if(!row)return json({error:'この部屋のPLへのアクセス権がありません'},403);
- if(parts[1]==='session'&&method==='POST'){if(!env.ROOMS)return json({error:'端末の確認ができません'},503);const deviceId=text(data?.deviceId,100),tabId=text(data?.tabId,100);return env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/device-session',{method:'POST',body:JSON.stringify({playerId:key,deviceId,tabId,action:data?.action==='release'?'release':'claim'})})}
  if(method==='GET'&&parts.length===1)return json({master:await masterData(env.DB,board,row)});
  if(method==='PUT'&&parts.length===1){
   const valid=v=>v===undefined||v===''||/^#[0-9a-f]{6}$/i.test(String(v));if(!valid(data?.plTextColor)||(Array.isArray(data?.characters)?data.characters:[]).some(c=>!valid(c?.textColor)))return json({error:'文字色の形式が正しくありません'},400);
@@ -115,12 +101,6 @@ async function roomPlayers(request,env,board,parts=[]){
    ]);return json({ok:true});
   }
  }
- if(parts[1]==='code'&&parts.length===2&&method==='POST'){
-  let code='';for(let i=0;i<20&&!code;i++){const value=String(crypto.getRandomValues(new Uint32Array(1))[0]%10000).padStart(4,'0');if(!await env.DB.prepare('SELECT 1 FROM transfer WHERE transfer_code_hash=?').bind(await tokenHash(value)).first())code=value}
-  if(!code)return json({error:'コードを発行できませんでした'},503);
-  const expires=new Date(Date.now()+10*60*1000).toISOString();
-  await env.DB.prepare('INSERT INTO transfer(transfer_id,pl_id,transfer_code_hash,transfer_expires_at) VALUES(?,?,?,?)').bind(randomToken(18),key,await tokenHash(code),expires).run();return json({code,expiresAt:expires});
- }
  return json({error:'Not found'},404);
 }
 
@@ -128,7 +108,7 @@ async function roomPlayers(request,env,board,parts=[]){
 // Notify only after the durable write succeeds; disconnected clients catch up on reconnect.
 export async function handleRoomPlayers(request,env,board,parts=[],context){
  const response=await roomPlayers(request,env,board,parts);
- if(response?.ok&&!['GET','HEAD','OPTIONS'].includes(request.method)&&parts[1]!=='code'&&parts[1]!=='session'&&env.ROOMS){
+ if(response?.ok&&!['GET','HEAD','OPTIONS'].includes(request.method)&&env.ROOMS){
   const task=(async()=>{
    await env.DB.prepare('UPDATE room SET room_revision=room_revision+1 WHERE room_id=?').bind(board).run();
    const snapshot=await publicParticipants(env.DB,board);

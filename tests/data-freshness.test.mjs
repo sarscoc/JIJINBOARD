@@ -89,3 +89,11 @@ test('board realtime proxy preserves the one-time device admission ticket',async
  const response=await worker.fetch(new Request('https://test/api/boards/board/realtime?sessionTicket=once',{headers:{Upgrade:'websocket'}}),f.env,{waitUntil(){}});
  assert.equal(response.status,200);assert.equal(forwarded.pathname,'/realtime');assert.equal(forwarded.searchParams.get('sessionTicket'),'once');
 });
+
+test('existing dataset startup reads the saved generation without schema setup or writes',async t=>{
+ const {db,env}=fixture(t);db.exec("INSERT INTO app_dataset(singleton,generation) VALUES(1,'current')");
+ const prepare=env.DB.prepare.bind(env.DB),queries=[];env.DB.prepare=sql=>{queries.push(sql);if(!sql.startsWith('SELECT generation FROM app_dataset'))throw Error('startup must not wait on schema writes');return prepare(sql)};
+ const response=await worker.fetch(new Request('https://test/api/dataset'),env,{waitUntil(){}});
+ assert.equal(response.status,200);assert.equal((await response.json()).generation,'current');assert.equal(queries.length,1);
+ assert.equal(await datasetGeneration(env.DB),'current');assert.equal(queries.length,2);
+});

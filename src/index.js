@@ -43,6 +43,14 @@ const worker={
       if(!url.pathname.startsWith('/api/'))return new Response('<!doctype html><html lang="ja"><meta charset="utf-8"><meta http-equiv="refresh" content="5"><title>初期化中</title><p>保存データを初期化しています。そのままお待ちください。</p></html>',{status:503,headers:{'content-type':'text/html; charset=utf-8','cache-control':'no-store'}});
       return resetting;
     }
+    // Existing rooms need only a read to verify their generation. Schema setup
+    // is reserved for an empty database, rather than blocking every startup.
+    if(url.pathname==='/api/dataset'&&request.method==='GET'){
+      try{
+        const saved=await env.DB.prepare('SELECT generation FROM app_dataset WHERE singleton=1').first();
+        if(saved?.generation)return json({generation:saved.generation,reset:await requestedResetStatus(env)});
+      }catch(error){if(!/no such table.*app_dataset/i.test(String(error.message||error)))throw error;}
+    }
     await ensureSchema(env.DB);
 
     if(/^\/index(?:\.html)?\/?$/.test(url.pathname)||url.pathname==='/'){

@@ -41,13 +41,12 @@ test('room participants and room deletion use room addresses and preserve other 
  assert.ok(f.db.prepare('SELECT * FROM character WHERE character_id=?').get(characterKey('two','same','pc')));
  assert.deepEqual(f.db.prepare('PRAGMA foreign_key_check').all(),[]);
 });
-test('transfer codes only redeem in their own room, once, while the original device remains usable',async t=>{
+test('retired transfer and device admission endpoints cannot run and normal PL authentication still works',async t=>{
  const f=roomFixture(t),one=await register(f.env,'one');
- const code=await (await handleRoomPlayers(req('POST',{playerId:'same'},one.accessToken),f.env,'one',['same','code'])).json();
- assert.equal((await handleRoomPlayers(req('POST'),f.env,'two',['redeem',code.code])).status,404);
- const redeemed=await handleRoomPlayers(req('POST'),f.env,'one',['redeem',code.code]);assert.equal(redeemed.status,200);
- assert.equal((await handleRoomPlayers(req('POST'),f.env,'one',['redeem',code.code])).status,404);
+ for(const parts of [['same','code'],['redeem','1234'],['same','session']])assert.equal((await handleRoomPlayers(req('POST',{playerId:'same'},one.accessToken),f.env,'one',parts)).status,410);
  assert.equal((await handleRoomPlayers(req('GET',null,one.accessToken),f.env,'one',['same'])).status,200);
+ assert.equal((await handleRoomPlayers(req('GET',null,'wrong'),f.env,'one',['same'])).status,403);
+ assert.equal(f.db.prepare("SELECT name FROM sqlite_master WHERE name='transfer'").get(),undefined);
 });
 test('player addresses escape all IDs without truncating the board prefix',()=>{
  const key=characterKey('部屋/%?','PL/日本語','PC/%?');assert.equal(localId(key),'PC/%?');assert.notEqual(key,characterKey('別部屋','PL/日本語','PC/%?'));

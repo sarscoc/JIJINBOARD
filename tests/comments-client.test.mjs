@@ -92,3 +92,10 @@ test('resource revision ledger prevents old edits and deleted comments from retu
  assert.equal(ledger.accept('comment:edit',{patch:{id:'a'},version:6}),false);
  assert.equal(ledger.accept('comment:create',{annotation:{id:'other'},version:6}),true,'a different comment must not be lost just because its notification arrived later');
 });
+
+test('comment connections do not wait on retired device admission',async t=>{
+ const {w,sockets,core}=fixture(t);
+ w.JijinDeviceSession={blocked:true,connectionUrl(){throw Error('retired gate must not run')}};
+ const live=core.live({board:'room',refresh:()=>{}});live.setActive(true);await tick();
+ assert.equal(sockets.length,1);assert.equal(sockets[0].url,'wss://test/api/boards/room/realtime');live.setActive(false);
+});

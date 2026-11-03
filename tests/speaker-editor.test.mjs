@@ -117,7 +117,7 @@ test('compact name cards open detail with independent name and MATRIX previews',
  let master={plName:'PL',characters:[{id:'pc',type:'PC',name:'PC',color:'#ffe66b',textColor:'#123456'}]};
  w.JIJINPlayerMaster={get master(){return master},async refresh(){return master},async updateProfile(body){master=body;return master}};
  w.eval(source('board/speaker-editor.js'));const editor=w.JijinSpeakerEditor(w.document.querySelector('#editor'));await editor.open();
- assert.equal(w.document.querySelectorAll('.speaker-row').length,2);assert.equal(w.document.querySelector('.speaker-name'),null);assert.ok(w.document.querySelector('[data-transfer-toggle]'));
+ assert.equal(w.document.querySelectorAll('.speaker-row').length,2);assert.equal(w.document.querySelector('.speaker-name'),null);assert.equal(w.document.querySelector('[data-transfer-toggle]'),null);
  w.document.querySelector('[data-open-person="pc"]').click();
  assert.match(w.document.querySelector('[data-speaker-detail]').textContent,/MAGIA MATRIX用の画像/);assert.ok(w.document.querySelector('.speaker-delete'));
  const ink=w.document.querySelector('[data-field="textColor"]');ink.value='#abcdef';ink.dispatchEvent(new w.Event('input',{bubbles:true}));

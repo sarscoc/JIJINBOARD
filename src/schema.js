@@ -9,8 +9,6 @@ export const createStatements = [
   `CREATE TABLE IF NOT EXISTS pl (pl_id TEXT PRIMARY KEY,access_token_hash TEXT NOT NULL,pl_name TEXT NOT NULL,pl_color TEXT NOT NULL DEFAULT '#ffe66b',pl_color_dark TEXT NOT NULL DEFAULT '#ffe66b',pl_icon_key TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS character (character_id TEXT PRIMARY KEY,pl_id TEXT NOT NULL,character_type TEXT NOT NULL DEFAULT 'PC' CHECK(character_type IN ('PC','NPC')),character_name TEXT NOT NULL,character_color TEXT NOT NULL DEFAULT '#ffe66b',character_color_dark TEXT NOT NULL DEFAULT '#ffe66b',character_icon_key TEXT NOT NULL DEFAULT '',matrix_icon_key TEXT NOT NULL DEFAULT '',created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE)`,
   `CREATE INDEX IF NOT EXISTS idx_character_pl ON character(pl_id,updated_at)`,
-  `CREATE TABLE IF NOT EXISTS transfer (transfer_id TEXT PRIMARY KEY,pl_id TEXT NOT NULL,transfer_code_hash TEXT NOT NULL UNIQUE,transfer_expires_at TEXT NOT NULL,transfer_used_at TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE)`,
-  `CREATE INDEX IF NOT EXISTS idx_transfer_expiry ON transfer(transfer_expires_at)`,
   `CREATE TABLE IF NOT EXISTS room (room_id TEXT PRIMARY KEY,owner_pl_id TEXT NOT NULL,room_name TEXT NOT NULL,room_admin_token_hash TEXT NOT NULL,room_revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_room_owner ON room(owner_pl_id,updated_at)`,
   `CREATE TABLE IF NOT EXISTS room_theme (room_id TEXT PRIMARY KEY,base_color TEXT NOT NULL DEFAULT '#171a20',alternate_cells_enabled INTEGER NOT NULL DEFAULT 0,alternate_cell_color TEXT NOT NULL DEFAULT '#f7f7f8',gradient_start_color TEXT NOT NULL DEFAULT '#67a3ff',gradient_end_color TEXT NOT NULL DEFAULT '#9f71ff',group_row_color TEXT NOT NULL DEFAULT '#ffffff',updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE)`,
@@ -85,7 +83,7 @@ export function ensureSchema(db){
   let task=ready.get(db);
   if(!task){
     task=(async()=>{
-      if(await isV2(db)){await db.batch([speakerStyleStatement,...freshnessStatements].map(sql=>db.prepare(sql)));await ensurePlayerScope(db);return;}
+      if(await isV2(db)){await db.batch(['DROP TABLE IF EXISTS transfer',speakerStyleStatement,...freshnessStatements].map(sql=>db.prepare(sql)));await ensurePlayerScope(db);return;}
       const existing=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%' LIMIT 1").first();
       if(existing)throw new Error('データベースの構成が現行版と異なります。保存データを保護するため自動初期化を停止しました。');
       await db.batch([...createStatements,...freshnessStatements].map(sql=>db.prepare(sql)));

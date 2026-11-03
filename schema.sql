@@ -41,16 +41,6 @@ CREATE TABLE IF NOT EXISTS character (
 );
 CREATE INDEX IF NOT EXISTS idx_character_pl ON character(pl_id, updated_at);
 
-CREATE TABLE IF NOT EXISTS transfer (
-  transfer_id TEXT PRIMARY KEY,
-  pl_id TEXT NOT NULL,
-  transfer_code_hash TEXT NOT NULL UNIQUE,
-  transfer_expires_at TEXT NOT NULL,
-  transfer_used_at TEXT,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_transfer_expiry ON transfer(transfer_expires_at);
 
 CREATE TABLE IF NOT EXISTS room (
   room_id TEXT PRIMARY KEY,

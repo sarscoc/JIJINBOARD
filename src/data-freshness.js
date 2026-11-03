@@ -4,6 +4,8 @@ export const freshnessStatements = [
   `CREATE TABLE IF NOT EXISTS deleted_character (character_id TEXT PRIMARY KEY,pl_id TEXT NOT NULL,character_name TEXT NOT NULL DEFAULT '',character_type TEXT NOT NULL DEFAULT 'PC',deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`
 ];
 export async function datasetGeneration(db){
+  const saved=await db.prepare('SELECT generation FROM app_dataset WHERE singleton=1').first();
+  if(saved?.generation)return saved.generation;
   await db.prepare('INSERT OR IGNORE INTO app_dataset(singleton,generation) VALUES(1,?)').bind(crypto.randomUUID()).run();
   return (await db.prepare('SELECT generation FROM app_dataset WHERE singleton=1').first()).generation;
 }

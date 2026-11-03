@@ -60,7 +60,7 @@
     try{result=await api(root,{method:"POST",body:JSON.stringify(payload)})}
     catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api(root,{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
     await window.JijinBoardReady?.image;
-    token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);await window.JijinDeviceSession?.start(boardId,playerId,token);master=result.master||null;applySnapshot(master);return master;
+    token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);master=result.master||null;applySnapshot(master);return master;
   }
 
   let bootstrapTask=null;
@@ -194,8 +194,6 @@
   }
   const schedulePush=(delay=120)=>{if(applying)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>{syncTimer=0;pushCurrent()},delay)};
 
-  async function issueDeviceCode(){if(!master)await bootstrap();if(!playerId||!token)return alert("先にPL名を登録してください。");try{const result=await api(endpoint('/code'),{method:"POST",body:JSON.stringify({playerId})});await navigator.clipboard?.writeText(result.code).catch(()=>{});alert(`端末追加コード：${result.code}\n10分以内にスマホの「引き継ぎ設定」で入力してください。\nPC側のアクセス権はそのまま残ります。`)}catch(error){alert(error.message)}}
-  async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`${root}/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);await window.JijinDeviceSession?.start(boardId,playerId,token);applySnapshot(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){if(error.code!=='DEVICE_IN_USE')alert(error.message)}}
 
   async function deleteCharacter(id){
     if(!master)await bootstrap();if(!playerId||!token)throw Error('先にPL名を登録してください');
@@ -221,7 +219,6 @@
   async function start(){
     document.querySelector("#masterRoomPcPicker")?.remove();
     try{await bootstrap();await window.JijinBoardReady?.image;hookRoomLoad();if(typeof state!=="undefined")await hydrateRoom();connectUpdates()}catch(error){console.warn("Player master bootstrap failed",error)}finally{window.JijinBoardReady?.finishProfile()}
-    const issue=document.querySelector("#issueTransferBtn"),redeem=document.querySelector("#redeemTransferBtn");if(issue){issue.textContent="スマホ・別端末を追加";issue.onclick=issueDeviceCode}if(redeem)redeem.onclick=redeemDeviceCode;
     if(typeof state!=="undefined"){
       document.addEventListener("change",event=>{
         if(event.target.closest?.("#plName,[data-persona-name],[data-persona-color],[data-persona-color-dark],#plIconInput,[data-persona-icon],[data-matrix-icon]"))schedulePush(80);
@@ -240,6 +237,6 @@
     }));
   }
 
-  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,refresh,setEditing,inspectProfile,updateProfile,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection,issueDeviceCode,redeemDeviceCode};
+  window.JIJINPlayerMaster={get master(){return master},get playerId(){return playerId},bootstrap,refresh,setEditing,inspectProfile,updateProfile,hydrateRoom,pushCurrent,deleteCharacter,setRoomSelection};
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",scheduleStart,{once:true});else scheduleStart();
 })();

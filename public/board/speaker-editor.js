@@ -5,7 +5,7 @@ window.JijinSpeakerEditor=function(container){
  const esc=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const color=(value,fallback)=>/^#[0-9a-f]{6}$/i.test(value||'')?value:fallback;
  let draft=null,timer=0,version=0,savedVersion=0,running=null,imageJobs=0,editingId=null;
- container.innerHTML=`<div class="speaker-editor"><section data-speaker-list><div class="speaker-list-heading">あなたのPL・キャラクター</div><div data-speaker-rows></div><button type="button" class="speaker-add">＋ キャラクターを追加</button><button type="button" class="speaker-link speaker-transfer-toggle" data-transfer-toggle aria-expanded="false">引き継ぎ設定 <span>›</span></button><div class="speaker-transfer" hidden><p>別の端末でも、同じPL情報を使えます。同時に利用できるのは1台です。</p><button type="button" data-issue>端末追加コードを発行</button><div class="speaker-transfer-code"><input id="transferCodeInput" inputmode="numeric" maxlength="4" aria-label="端末追加コード" placeholder="4桁のコード"><button type="button" data-redeem>引き継ぐ</button></div></div></section><section data-speaker-detail hidden></section><div class="speaker-status" role="status" aria-live="polite"></div><button type="button" class="speaker-link" data-retry hidden>保存を再試行</button></div>`;
+ container.innerHTML=`<div class="speaker-editor"><section data-speaker-list><div class="speaker-list-heading">あなたのPL・キャラクター</div><div data-speaker-rows></div><button type="button" class="speaker-add">＋ キャラクターを追加</button></section><section data-speaker-detail hidden></section><div class="speaker-status" role="status" aria-live="polite"></div><button type="button" class="speaker-link" data-retry hidden>保存を再試行</button></div>`;
  const rows=container.querySelector('[data-speaker-rows]'),list=container.querySelector('[data-speaker-list]'),detail=container.querySelector('[data-speaker-detail]'),status=container.querySelector('[role=status]');
  const person=id=>id==='PL'?draft:draft?.characters.find(c=>c.id===id);
  const nameOf=id=>id==='PL'?draft.plName:person(id)?.name;
@@ -40,8 +40,6 @@ window.JijinSpeakerEditor=function(container){
  });
  container.querySelector('[data-retry]').onclick=()=>flush()?.catch(()=>{});
  container.querySelector('.speaker-add').onclick=()=>{if(!draft)return;const id=crypto.randomUUID();draft.characters.push({id,type:'PC',name:'',icon:'',matrixIcon:'',textColor:'',color:'#ffe66b',colorDark:'#ffe66b'});editingId=id;render();detail.querySelector('.speaker-name')?.focus()};
- container.querySelector('[data-transfer-toggle]').onclick=event=>{const panel=container.querySelector('.speaker-transfer');panel.hidden=!panel.hidden;event.currentTarget.setAttribute('aria-expanded',String(!panel.hidden))};
- container.querySelector('[data-issue]').onclick=()=>service().issueDeviceCode();container.querySelector('[data-redeem]').onclick=async()=>{await service().redeemDeviceCode();readMaster()};
  addEventListener('jijinboard-player-master-updated',readMaster);container.addEventListener('focusout',()=>setTimeout(readMaster,0));
  return {async open(){readMaster();try{if(!service()?.master)await service().bootstrap();else await service().refresh();readMaster()}catch(error){message(error.message,true)}},flush};
 };

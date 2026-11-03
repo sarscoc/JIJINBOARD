@@ -81,9 +81,7 @@
       const boardId = String(room());
       let current;
       let address=`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`;
-      const session=window.JijinDeviceSessionOwner||parent===window?window.JijinDeviceSession:null;
-      if(session){connecting=true;try{address=await session.connectionUrl(address)}catch{connecting=false;return}connecting=false;if(!active)return}
-      try { current = new WebSocket(address);session?.attach(current); }
+      try { current = new WebSocket(address); }
       catch { retry(); return; }
       socket = current;
       current.addEventListener('open', () => {
@@ -98,12 +96,12 @@
         if(message.type==='comment-change'){try{if(onChange(message.action,message.data)===true)return}catch(error){onError(error)}}
         if (message.type === 'comment-change' || (message.type === 'refresh' && ['participants','spreadsheet-comments','matrix-comment','matrix-edit','matrix-delete','matrix-like','matrix-template-comments-delete'].includes(message.action))) update();
       });
-      current.addEventListener('close', () => { if (socket === current) { socket = null;if(!session?.blocked)retry(); } });
+      current.addEventListener('close', () => { if (socket === current) { socket = null;retry(); } });
       current.addEventListener('error', () => current.close());
     }
     function publishPresence(type='presence'){
       if(socket?.readyState!==WebSocket.OPEN)return;let identity={};
-      if(window.JijinDeviceSessionOwner||parent===window)try{const profile=JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');if(profile?.id&&profile.plName)identity={authorId:profile.id,plName:profile.plName,plTextColor:profile.plTextColor||'',plIcon:profile.plIcon||''}}catch{}
+      if(parent===window)try{const profile=JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');if(profile?.id&&profile.plName)identity={authorId:profile.id,plName:profile.plName,plTextColor:profile.plTextColor||'',plIcon:profile.plIcon||''}}catch{}
       socket.send(JSON.stringify({type,clientId,...identity}));
     }
     window.addEventListener('jijinboard-player-master-updated',()=>publishPresence());
@@ -118,7 +116,6 @@
       if (socket?.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({type:'change', action:'comment:typing', data:{clientId, target:address, name:person?.name || 'PL', icon:String(person?.icon || '').slice(0,3000), typing:!!on}}));
     }
-    window.addEventListener('jijinboard-device-session-changed',()=>{if(parent!==window&&!window.JijinDeviceSessionOwner)return;const old=socket;socket=null;old?.close();if(active)connect()});
     window.addEventListener('online', () => { if (active) { connect(); update(); } });
     document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { connect(); update(); } });
     window.addEventListener('pagehide', () => { resume=active;setActive(false); });

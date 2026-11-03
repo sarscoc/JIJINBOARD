@@ -173,15 +173,14 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
   }
   try{const saved=JSON.parse(localStorage.getItem(rosterKey)||'null');if(saved?.generation===localStorage.getItem('jijin.dataset.generation.v1'))draw(saved.people,true)}catch{}
   async function connect(){
-    if(stopped||connecting||window.JijinDeviceSession?.blocked||socket&&socket.readyState<2)return;
+    if(stopped||connecting||socket&&socket.readyState<2)return;
     connecting=true;let address=`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`;
-    try{address=await (window.JijinDeviceSession?.connectionUrl(address)||address)}catch{connecting=false;return}
     connecting=false;if(stopped)return;
-    const ws=new WebSocket(address);window.JijinDeviceSession?.attach(ws);
+    const ws=new WebSocket(address);
     socket=ws;
     ws.addEventListener('open',()=>{if(socket===ws){attempt=0;publish('join');window.dispatchEvent(new Event('jijinboard-reconnected'))}});
     ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence'){const own=currentProfile();if(!own?.id||!String(own.plName||'').trim()||(data.presence||[]).some(person=>String(person.author_id)===String(own.id)))draw(data.presence)}else if(data.type==='refresh')window.dispatchEvent(new CustomEvent('jijinboard-resource-change',{detail:{action:data.action,data:data.data}}))});
-    ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped&&!window.JijinDeviceSession?.blocked){clearTimeout(reconnectTimer);reconnectTimer=setTimeout(connect,Math.min(30000,1000*2**attempt++))}});
+    ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped){clearTimeout(reconnectTimer);reconnectTimer=setTimeout(connect,Math.min(30000,1000*2**attempt++))}});
     ws.addEventListener('error',()=>ws.close());
   }
   (window.JijinBoardReady?.image||Promise.resolve()).then(connect);
@@ -190,7 +189,6 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
   window.addEventListener('jijinboard-player-master-updated',()=>publish());
   window.addEventListener('jijinboard-player-master-saved',()=>publish());
   window.addEventListener('message',event=>{if(event.origin===location.origin&&event.data?.type==='jijinboard-profile')publish()});
-  window.addEventListener('jijinboard-device-session-changed',()=>{const old=socket;socket=null;old?.close();clearTimeout(reconnectTimer);connect()});
   window.addEventListener('online',connect);
   window.addEventListener('pageshow',()=>{if(stopped){stopped=false;connect()}});
   window.addEventListener('pagehide',()=>{stopped=true;clearTimeout(reconnectTimer);socket?.close()});
