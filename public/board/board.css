@@ -3,4 +3,4 @@
 /* Reserve the owner control so LOGS and the first row never move on load. */
 .log-list-head{height:48px;min-height:48px;flex:0 0 48px;box-sizing:border-box}
 #addLogButton.hidden{display:block!important;visibility:hidden;pointer-events:none}
-.log-entry .log-item{min-height:38px;box-sizing:border-box}
+.log-entry .log-item{box-sizing:border-box}
