@@ -159,7 +159,7 @@ function renderPresence(){$("#presenceBar").innerHTML=state.presence.map(person=
 function realtimePresencePayload(type="presence"){const persona=state.isTyping?currentPersona():null;return{type,clientId:state.realtimeClientId,authorId:state.profile.id,plName:state.profile.plName,plIcon:state.profile.plIcon||"",isTyping:state.isTyping,typingName:persona?.name||"",typingIcon:persona?.icon||"",typingMessageId:state.isTyping?state.pendingSelection?.messageId||"":""}}
 function sendRealtime(payload){if(state.realtime?.readyState!==WebSocket.OPEN)return false;try{state.realtime.send(JSON.stringify(payload));return true}catch{return false}}
 function heartbeatPresence(){return sendRealtime(realtimePresencePayload("presence"))}
-function startFallbackPolling(){clearInterval(state.fallbackPoller);state.fallbackPoller=setInterval(pollAnnotationVersion,60000)}
+function startFallbackPolling(){/* Reconnect events perform catch-up; no periodic GET. */}
 function stopFallbackPolling(){clearInterval(state.fallbackPoller);state.fallbackPoller=null}
 function realtimeSocketUrl(){const protocol=location.protocol==="https:"?"wss:":"ws:";return `${protocol}//${location.host}/api/rooms/${encodeURIComponent(state.roomId)}/realtime`}
 function scheduleRealtimeReconnect(){if(!state.realtimeWanted||state.archiveMode||state.realtimeReconnectTimer)return;startFallbackPolling();const delay=Math.min(30000,1000*2**Math.min(state.realtimeAttempts++,5));state.realtimeReconnectTimer=setTimeout(()=>{state.realtimeReconnectTimer=null;connectRealtime()},delay)}

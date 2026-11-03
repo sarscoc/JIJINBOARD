@@ -19,6 +19,6 @@ test('Sheets starts fetching before display helpers are ready and hydrates once'
  const dom=new JSDOM('',{url:'https://test/spreadsheet/?board=b',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
  w.state={characters:[],sources:[],layout:{}};w.requestAnimationFrame=()=>0;let reads=0,renders=0;
  w.fetch=async()=>{reads++;return {ok:true,json:async()=>({state:null,revision:'r'})}};w.setMainView=()=>renders++;
- w.eval(source('spreadsheet/sheet-sync.js'));assert.equal(reads,1);assert.equal(renders,0);
+ w.eval(source('shared/data-sync.js'));w.eval(source('spreadsheet/sheet-sync.js'));assert.equal(reads,1);assert.equal(renders,0);
  w.sheetDisplaySettings={isEditing:()=>false};await new Promise(r=>setTimeout(r,70));assert.equal(renders,1);assert.equal(reads,1);
 });

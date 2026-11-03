@@ -88,6 +88,8 @@
     loadDisplayMode(roomId,true).then(mode=>{if(state.editingRoom===roomId)setEditMode(mode)});
   };
 
+  window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='log-display-mode'){const id=$('#logFrame')?.dataset.room;if(id)loadDisplayMode(id,true).then(applyDisplayMode)}});
+  window.addEventListener('jijinboard-reconnected',()=>{const id=$('#logFrame')?.dataset.room;if(id)loadDisplayMode(id,true).then(applyDisplayMode)});
   ensureDisplayModeUi();
   $("#logEditForm")?.addEventListener("submit",()=>{
     const roomId=state.editingRoom;if(!roomId)return;
@@ -107,3 +109,4 @@
     loadDisplayMode(roomId).then(applyDisplayMode);
   });
 })();
+

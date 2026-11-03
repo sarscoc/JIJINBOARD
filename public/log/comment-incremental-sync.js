@@ -2,10 +2,10 @@
 (()=>{
   if(typeof state==='undefined'||typeof api!=='function'||window.__jijinCommentSync)return;
   window.__jijinCommentSync=true;
-  const shared=window.JijinComments;
+  const shared=window.JijinComments,changes=window.JijinSync?.ledger();
   const board=()=>new URL(location.href).searchParams.get('board')||'';
   if(shared)api=shared.adapter(board,api);
-  let commentLive=null,logActive=true;
+  let commentLive=null,logActive=true,refreshLoader=null;
   const profileOnly=()=>{try{return parent!==window&&window.frameElement?.parentElement?.id==='boardSpeakerSlot'}catch{return false}};
 
   if(shared){
@@ -19,15 +19,16 @@
       const next=result.data.annotations||result.data.comments||[];
       const markers=list=>JSON.stringify(list.map(a=>[a.id,a.message_id,a.end_message_id,a.start_offset,a.end_offset,a.color]));
       const changed=markers(next)!==markers(state.annotations),anchor=typeof currentReadingTime==='function'?currentReadingTime():'';
-      state.annotations=next;setVersion(result.data.version);
+      changes?.snapshot(result.data.version);state.annotations=next;setVersion(result.data.version);
       renderComments();if(changed&&typeof renderLog==='function')renderLog(anchor);
     });
+    refreshLoader=refresh;
     refreshAnnotations=function(){return logActive?refresh():Promise.resolve()};
     window.addEventListener('message',event=>{
       if(event.origin!==location.origin||event.data?.type!=='jijinboard-log-active')return;
       logActive=!!event.data.active;commentLive?.setActive(logActive&&!profileOnly());
     });
-    commentLive=shared.live({board,refresh:()=>state.roomId&&!state.archiveMode?refreshAnnotations(true):undefined});
+    commentLive=shared.live({board,onChange:applyRealtime,refresh:()=>state.roomId&&!state.archiveMode?refreshAnnotations(true):undefined});
   }
   const attachedSockets=new WeakSet();
   const commentsList=()=>document.getElementById('commentsList');
@@ -86,16 +87,22 @@
   }
 
   function applyRealtime(action,data){
-    if(!data||String(data.logId||'')!==String(state.roomId||''))return;
-    if(shared)refreshAnnotations(true).catch(console.warn);
-    setVersion(data.version);
-    if(action==='comment:create')insertAnnotation(data.annotation);
-    else if(action==='comment:edit')patchAnnotation(data.patch);
-    else if(action==='comment:delete')removeAnnotations(data.deletedIds);
-    else if(action==='comment:like')applyLike(data);
+    if(!data)return false;
+    if(String(data.logId||'')!==String(state.roomId||''))return true;
+    if(!['comment:create','comment:edit','comment:delete','comment:like'].includes(action))return false;
+    if(changes&&!changes.accept(action,data))return true;
+    const apply=()=>{
+      if(changes&&!changes.newer(data))return;
+      setVersion(data.version);
+      if(action==='comment:create')insertAnnotation(data.annotation||data.comment);
+      else if(action==='comment:edit')patchAnnotation(data.patch||data.comment);
+      else if(action==='comment:delete')removeAnnotations(data.deletedIds);
+      else applyLike(data);
+    };
+    if(refreshLoader)refreshLoader.patch(apply);else apply();return true;
   }
 
-  function socketMessage(event){let message;try{message=JSON.parse(event.data)}catch{return}if(message?.type==='comment-change'){if(message.data)applyRealtime(message.action,message.data);else refreshAnnotations(true)}}
+  function socketMessage(event){let message;try{message=JSON.parse(event.data)}catch{return}if(message?.type==='comment-change'){if(!applyRealtime(message.action,message.data))refreshAnnotations(true)}}
   function attachSocket(socket){if(!socket||attachedSockets.has(socket))return;attachedSockets.add(socket);socket.addEventListener('message',socketMessage)}
   try{attachSocket(state.realtime);const rawConnect=connectRealtime;connectRealtime=function(...args){const result=rawConnect.apply(this,args);if(board()&&logActive&&!profileOnly())commentLive?.setActive(true);attachSocket(state.realtime);queueMicrotask(()=>attachSocket(state.realtime));return result};window.connectRealtime=connectRealtime}catch{}
 
@@ -103,12 +110,13 @@
   async function fastPostComment(event){
     event.preventDefault();if(posting)return;const persona=currentPersona(),body=document.getElementById('commentBody').value.trim();if(!body&&!state.commentImage&&state.commentImage!==null)return;
     const pending=state.pendingSelection||{},payload={...pending,parentId:state.replyTo||'',color:persona.color||'#ffe66b',authorId:state.profile.id,authorName:state.profile.plName,personaName:persona.name,personaType:persona.type,personaIcon:persona.icon||'',characterId:persona.id||'',body,imageData:state.commentImage};
-    posting=true;
+    posting=true;setTyping(false);
     try{
       if(shared&&board()&&!state.editingCommentId)payload.target=state.annotations.find(a=>a.id===payload.parentId)?.target||shared.target.log(board(),state.roomId,payload);
       const editingId=state.editingCommentId,result=await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`,{method:editingId?'PATCH':'POST',body:JSON.stringify(payload)});
-      if(shared)refreshAnnotations(true).catch(console.warn);
-      setVersion(result.version);if(editingId)patchAnnotation(result.patch);else insertAnnotation(result.annotation);
+      const action=editingId?'comment:edit':'comment:create';changes?.accept(action,result);
+      const apply=()=>{if(changes&&!changes.newer(result))return;setVersion(result.version);if(editingId)patchAnnotation(result.patch||result.comment);else insertAnnotation(result.annotation||result.comment)};
+      if(result.annotation||result.comment||result.patch){if(refreshLoader)refreshLoader.patch(apply);else apply()}else refreshAnnotations(true).catch(console.warn);
       setTyping(false);document.getElementById('commentDialog').close();state.pendingSelection=null;state.selection=null;state.replyTo=null;state.editingCommentId=null;getSelection()?.removeAllRanges();document.getElementById('selectionBar').classList.add('hidden');if(!payload.parentId&&!editingId)jumpToMessage(payload.messageId);
     }catch(error){alert(error.message)}finally{posting=false}
   }
@@ -126,3 +134,4 @@
 
   try{postComment=fastPostComment;deleteComment=fastDeleteComment;toggleLike=fastToggleLike;window.postComment=postComment;window.deleteComment=deleteComment;window.toggleLike=toggleLike;const form=document.getElementById('commentForm');if(form)form.onsubmit=postComment}catch{}
 })();
+

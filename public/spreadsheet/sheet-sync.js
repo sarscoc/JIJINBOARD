@@ -33,7 +33,7 @@
     return out;
   }
 
-  let lastRemoteRevision=null,conflicted=false;
+  let lastRemoteRevision=null,conflicted=false,initialFailed=false;
   let saving=false,resave=false,localDirty=false,savePromise=null;
   let timer=0,loading=true,readySent=false,itemCache=null,applyingRemote=false,refreshPromise=null,lastRemoteSerial='',remoteDirty=false;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
@@ -73,10 +73,12 @@
           resave=false;
           const snapshot=currentSnapshot(),serial=JSON.stringify(snapshot);
           if(serial===lastRemoteSerial){localDirty=false;break}
+          const baseRevision=lastRemoteRevision;
           const saved=await api(endpoint,{method:'POST',body:JSON.stringify({state:snapshot,baseRevision:lastRemoteRevision})});
+          refreshState.patch(()=>{lastRemoteRevision=saved.revision;if(canApplyRemote()&&currentSerial()!==serial)applyRemote(snapshot)});
           lastRemoteRevision=saved.revision;
           lastRemoteSerial=serial;localDirty=currentSerial()!==serial;
-          window.jijinSpreadsheetNotifyChange?.('spreadsheet-state');
+          // Server emits the committed snapshot; no second client notification.
         }while(resave||localDirty);
         return true;
       }catch(error){if(error.status===409)conflicted=true;localDirty=true;console.warn('Spreadsheet sync save failed',error);if(typeof showToast==='function')showToast(conflicted?'他の画面で更新されています。再読み込みしてください':'保存に失敗しました。通信を確認してください');return false}
@@ -128,22 +130,15 @@
     return clean;
   }
 
-  async function refreshRemote(){
-    if(conflicted||loading||!boardActive||localDirty||saving||timer||window.sheetDisplaySettings?.isEditing?.())return;
-    if(refreshPromise)return refreshPromise;
-    const task=(async()=>{
-      try{
-        const result=await api(endpoint,{cache:"no-store"}),remote=result.state;
-        if(localDirty||saving||timer||window.sheetDisplaySettings?.isEditing?.())return;
-        lastRemoteRevision=result.revision??null;
-        const clean=sanitizeSnapshot(remote||{}),serial=JSON.stringify(clean);
-        if(serial!==lastRemoteSerial&&serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
-        remoteDirty=false;
-      }catch(error){console.warn('Spreadsheet remote refresh failed',error)}
-    })();
-    refreshPromise=task;
-    try{return await task}finally{if(refreshPromise===task)refreshPromise=null}
-  }
+  const canApplyRemote=()=>!conflicted&&!loading&&boardActive&&!localDirty&&!saving&&!timer&&!window.sheetDisplaySettings?.isEditing?.();
+  const refreshState=JijinSync.loader(()=>api(endpoint,{cache:'no-store'}),result=>{
+    if(!canApplyRemote())return;
+    lastRemoteRevision=result.revision??null;
+    const clean=sanitizeSnapshot(result.state||{}),serial=JSON.stringify(clean);
+    if(serial!==lastRemoteSerial&&serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
+    remoteDirty=false;
+  });
+  async function refreshRemote(){if(!canApplyRemote())return;try{return await refreshState()}catch(error){console.warn('Spreadsheet remote refresh failed',error)}}
 
   const characterManageButton=document.getElementById('characterManageBtn');
   if(characterManageButton){characterManageButton.onclick=()=>{try{if(typeof openModalById==='function')openModalById('characterManageModal');else document.getElementById('characterManageModal')?.classList.add('show')}catch(error){console.warn('Character manager open failed',error)}try{if(typeof renderCharacters==='function')renderCharacters()}catch(error){console.warn('Character manager render failed',error)}}}
@@ -168,24 +163,37 @@
   document.addEventListener('click',event=>{if(event.target?.closest?.('#mainCharacterModeBtn,#mainDatabaseModeBtn'))setTimeout(()=>{syncFitObserver();fitCharacterFields()},0)},true);
   window.addEventListener('resize',()=>{if(characterFitNeeded())fitCharacterFields()},{passive:true});
   window.addEventListener('message',event=>{if(event.origin!==location.origin)return;if(event.data?.type==='jijinboard-spreadsheet-active')setBoardActive(event.data.active)});
-  window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{if(event.detail?.action!=='spreadsheet-state')return;remoteDirty=true;if(boardActive)refreshRemote()});
+  window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{
+    if(event.detail?.action!=='spreadsheet-state')return;
+    const saved=event.detail.data;
+    if(saved?.revision===lastRemoteRevision)return;
+    if(boardActive&&!loading&&!conflicted&&!localDirty&&!saving&&!timer&&!window.sheetDisplaySettings?.isEditing?.()&&saved?.state&&saved.baseRevision===lastRemoteRevision){
+      refreshState.patch(()=>{if(canApplyRemote()){lastRemoteRevision=saved.revision;applyRemote(saved.state);remoteDirty=false}});return;
+    }
+    remoteDirty=true;if(boardActive)refreshRemote();
+  });
+
+  const catchUp=()=>{if(initialFailed&&boardActive){initialFailed=false;conflicted=false;loading=true;initialRemoteSync(api(endpoint,{cache:'no-store'}));return}remoteDirty=true;if(boardActive)refreshRemote()};
+  window.addEventListener('online',catchUp);window.addEventListener('pageshow',catchUp);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)catchUp()});
+  window.addEventListener('jijinboard-spreadsheet-reconnected',catchUp);
 
   function notifyReady(){if(readySent)return;readySent=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{try{parent.postMessage({type:'jijinboard-spreadsheet-ready'},location.origin)}catch{}}))}
-  function finishLocalReady(){loading=false;remoteDirty=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady()}
+  function finishLocalReady(){loading=false;syncFitObserver();if(characterFitNeeded())fitCharacterFields();notifyReady();if(remoteDirty)refreshRemote()}
 
   // Start I/O while the parser finishes installing the presentation helpers.
   const initialRequest=api(endpoint,{cache:'no-store'});
   initialRequest.catch(()=>{});
-  async function initialRemoteSync(){
+  async function initialRemoteSync(pending=initialRequest){
     let remote=null;
     try{
-      const result=await initialRequest;
+      const result=await pending;
       remote=result.state;lastRemoteRevision=result.revision??null;
       if(remote!==null&&(typeof remote!=='object'||Array.isArray(remote)))throw Error('保存データを読み込めませんでした');
       const cleanRemote=sanitizeSnapshot(remote||{});
       // Server absence and empty snapshots both discard cached data. Never migrate it back.
       applyRemote(cleanRemote);
-    }catch(error){conflicted=true;console.warn('Spreadsheet initial sync failed',error)}finally{
+    }catch(error){initialFailed=true;conflicted=true;console.warn('Spreadsheet initial sync failed',error)}finally{
       if(loading)finishLocalReady();
     }
 

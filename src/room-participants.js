@@ -8,23 +8,7 @@ async function roomParticipants(request,env,roomId,logId='',characterId=''){
   if(logId){const log=await parentRoomForLog(env.DB,logId);if(!log||log.room_id!==roomId)return json({error:'この自陣にないログです'},404)}
 
   if(request.method==='GET'&&!characterId){
-    const result=await env.DB.prepare(`SELECT rp.pl_id,c.character_id,c.character_name,c.character_type,c.character_color,c.character_icon_key,c.matrix_icon_key,p.pl_name
-      FROM room_participant rp
-      JOIN pl p ON p.pl_id=rp.pl_id
-      JOIN character c ON c.character_id=rp.character_id
-      WHERE rp.room_id=? AND rp.character_id IS NOT NULL
-      ORDER BY rp.created_at,c.created_at,c.character_name`).bind(roomId).all();
-    return json({participants:(result.results||[]).map(row=>({
-      authorId:localId(row.pl_id),
-      plName:row.pl_name,
-      personaId:localId(row.character_id),
-      name:row.character_name,
-      type:row.character_type,
-      color:String(row.character_color||'').split('|')[0],
-      icon:playerIconUrl(roomId,row.matrix_icon_key||row.character_icon_key),
-      baseIcon:playerIconUrl(roomId,row.character_icon_key),
-      matrixIcon:playerIconUrl(roomId,row.matrix_icon_key)
-    }))});
+    return json(await publicParticipants(env.DB,roomId));
   }
 
   let body=null;try{body=await request.json()}catch{}
@@ -65,8 +49,29 @@ async function roomParticipants(request,env,roomId,logId='',characterId=''){
 export async function handleRoomParticipants(request,env,roomId,logId='',characterId='',context){
  const response=await roomParticipants(request,env,roomId,logId,characterId);
  if(response?.ok&&!['GET','HEAD','OPTIONS'].includes(request.method)&&env.ROOMS){
-  const task=Promise.resolve().then(()=>env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action:'participants',data:{profileChanged:true}})})).catch(()=>{});
+  const task=(async()=>{await env.DB.prepare('UPDATE room SET room_revision=room_revision+1 WHERE room_id=?').bind(roomId).run();const snapshot=await publicParticipants(env.DB,roomId);return env.ROOMS.get(env.ROOMS.idFromName(roomId)).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action:'participants',data:{profileChanged:true,...snapshot}})})})().catch(()=>{});
   if(context?.waitUntil)context.waitUntil(task);else await task;
  }
  return response;
+}
+
+export async function publicParticipants(db,roomId){
+    const version=await db.prepare('SELECT room_revision FROM room WHERE room_id=?').bind(roomId).first(),revision=Number(version?.room_revision)||0;
+    const result=await db.prepare(`SELECT rp.pl_id,c.character_id,c.character_name,c.character_type,c.character_color,c.character_icon_key,c.matrix_icon_key,p.pl_name
+      FROM room_participant rp
+      JOIN pl p ON p.pl_id=rp.pl_id
+      JOIN character c ON c.character_id=rp.character_id
+      WHERE rp.room_id=? AND rp.character_id IS NOT NULL
+      ORDER BY rp.created_at,c.created_at,c.character_name`).bind(roomId).all();
+    return {participants:(result.results||[]).map(row=>({
+      authorId:localId(row.pl_id),
+      plName:row.pl_name,
+      personaId:localId(row.character_id),
+      name:row.character_name,
+      type:row.character_type,
+      color:String(row.character_color||'').split('|')[0],
+      icon:playerIconUrl(roomId,row.matrix_icon_key||row.character_icon_key),
+      baseIcon:playerIconUrl(roomId,row.character_icon_key),
+      matrixIcon:playerIconUrl(roomId,row.matrix_icon_key)
+    })),revision};
 }

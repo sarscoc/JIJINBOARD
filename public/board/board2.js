@@ -136,8 +136,8 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
     if(stopped||socket&&socket.readyState<2)return;
     const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`);
     socket=ws;
-    ws.addEventListener('open',()=>{if(socket===ws){attempt=0;publish('join')}});
-    ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence')draw(data.presence)});
+    ws.addEventListener('open',()=>{if(socket===ws){attempt=0;publish('join');window.dispatchEvent(new Event('jijinboard-reconnected'))}});
+    ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence')draw(data.presence);else if(data.type==='refresh')window.dispatchEvent(new CustomEvent('jijinboard-resource-change',{detail:{action:data.action,data:data.data}}))});
     ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped){clearTimeout(reconnectTimer);reconnectTimer=setTimeout(connect,Math.min(30000,1000*2**attempt++))}});
     ws.addEventListener('error',()=>ws.close());
   }
@@ -155,3 +155,11 @@ window.JIJINBOARD_LOG_TITLE=roomId=>{
   const item=state.board?.logs?.find(log=>log.roomId===roomId);
   return item?.scenarioTitle||item?.title||state.opened[roomId]||"";
 };
+
+// Room metadata updates have one coalesced catch-up path, without interval reads.
+(()=>{
+ const refresh=window.JijinSync?.loader(()=>api(`/api/boards/${encodeURIComponent(boardId)}`,{cache:'no-store'}),data=>{state.board=data;showBoardTitle(data.name);renderLogs()});
+ if(!refresh)return;
+ window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='board-meta')refresh().catch(console.warn)});
+ window.addEventListener('jijinboard-reconnected',()=>refresh().catch(console.warn));
+})();

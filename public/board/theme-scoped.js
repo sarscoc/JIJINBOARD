@@ -162,6 +162,8 @@ styleIn(document,"jijinboardScopedThemeStyle",parentCss(theme));applyToFrame(doc
   window.addEventListener("focus",()=>loadRemote(true));
   window.addEventListener("storage",event=>{if(event.key===storageKey)loadRemote(true)});
 
+  window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='board-theme')loadRemote(true)});
+  window.addEventListener('jijinboard-reconnected',()=>loadRemote(true));
   applyAll();
   idleLoadRemote();
 })();

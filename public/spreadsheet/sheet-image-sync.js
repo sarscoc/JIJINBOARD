@@ -60,7 +60,7 @@
   const syncedSave=async function(partId,charId,file){
     const compressed=await compressImage(file),key=remoteKey(partId,charId);
     await rawSave.call(this,partId,charId,compressed);
-    try{await uploadRemote(partId,charId,compressed);checked.add(key);window.jijinSpreadsheetNotifyChange?.('spreadsheet-image')}catch(error){console.warn('Spreadsheet image upload failed',error)}
+    try{await uploadRemote(partId,charId,compressed);checked.add(key)}catch(error){console.warn('Spreadsheet image upload failed',error)}
   };
   syncedSave.__jijinRemoteImageSync=true;
   syncedSave.__jijinRaw=rawSave;
@@ -81,7 +81,7 @@
 
   window.deleteImageBlob=async function(partId,charId){
     const key=remoteKey(partId,charId);await rawDelete.call(this,partId,charId);checked.add(key);
-    try{const response=await fetch(endpoint(partId,charId),{method:'DELETE'});if(!response.ok&&response.status!==404)throw new Error(`画像削除エラー (${response.status})`);window.jijinSpreadsheetNotifyChange?.('spreadsheet-image')}catch(error){console.warn('Spreadsheet image delete failed',error)}
+    try{const response=await fetch(endpoint(partId,charId),{method:'DELETE'});if(!response.ok&&response.status!==404)throw new Error(`画像削除エラー (${response.status})`)}catch(error){console.warn('Spreadsheet image delete failed',error)}
   };
 
   async function refreshVisibleImages(){
@@ -91,9 +91,11 @@
     try{if(window.state?.currentView==='character')window.renderCharacterView?.()}catch(error){console.warn('Spreadsheet character image refresh failed',error)}
     try{if(window.state?.currentView==='question')window.renderQuestionView?.()}catch(error){console.warn('Spreadsheet question image refresh failed',error)}
   }
+  window.addEventListener('jijinboard-spreadsheet-reconnected',()=>{checked.clear();refreshVisibleImages()});
   window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{
     if(event.detail?.action!=='spreadsheet-image')return;
     checked.clear();
     setTimeout(()=>refreshVisibleImages(),0);
   });
 })();
+

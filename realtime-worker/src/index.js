@@ -1,3 +1,4 @@
+import {deviceSession} from '../../src/device-session.js';
 import { DurableObject } from 'cloudflare:workers';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const clean=(value,max=100)=>String(value||'').slice(0,max);
@@ -7,6 +8,7 @@ export class RoomHub extends DurableObject{
   constructor(ctx,env){super(ctx,env);this.httpPresence=new Map()}
   async fetch(request){
     const url=new URL(request.url);
+    if(url.pathname==='/device-session'&&request.method==='POST'){const result=await deviceSession(this.ctx.storage,await request.json());return json(result.body,result.status)}
     if(url.pathname.endsWith('/realtime')){if(request.headers.get('Upgrade')?.toLowerCase()!=='websocket')return new Response('WebSocket required',{status:426});const pair=new WebSocketPair(),client=pair[0],server=pair[1];this.ctx.acceptWebSocket(server);server.serializeAttachment({client_id:'',author_id:'',pl_name:'',pl_icon:'',is_typing:false,typing_name:'',typing_icon:'',typing_message_id:''});return new Response(null,{status:101,webSocket:client})}
     if(url.pathname==='/notify'&&request.method==='POST'){try{const message=await request.json();const action=clean(message?.action,40);const data=cleanData(message?.data),type=action.startsWith('comment:')?'comment-change':'refresh';this.broadcast({type,action,data},clean(message?.excludeClientId,100));return json({ok:true})}catch{return json({error:'Invalid message'},400)}}
     if(url.pathname==='/deleted'&&request.method==='POST'){this.broadcast({type:'room-deleted'});this.httpPresence.clear();return json({ok:true})}

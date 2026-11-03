@@ -38,38 +38,10 @@
       return request(boardId,`${id?`/${id}${action?`/${action}`:''}`:''}?${query}`,next);
     };
   }
-  // Every invalidation increments a generation. A notification during an older
-  // GET must cause another GET, including when several callers share a promise.
-  function loader(read, apply) {
-    let requested = 0, applied = 0, task = null;
-    function refresh() {
-      requested++;
-      if (!task) {
-        task = (async () => {
-          while (applied < requested) {
-            const generation = requested;
-            const data = await read();
-            if (generation === requested) { await apply(data); applied = generation; }
-          }
-        })().finally(() => { task = null; });
-      }
-      return task;
-    }
-    return refresh;
-  }
-  function serialize() {
-    const pending = new Map();
-    return (key, write) => {
-      const previous = pending.get(key) || Promise.resolve();
-      const task = previous.catch(() => {}).then(write);
-      pending.set(key, task);
-      task.finally(() => { if (pending.get(key) === task) pending.delete(key); }).catch(() => {});
-      return task;
-    };
-  }
+  const {loader,serialize}=globalThis.JijinSync;
   // Shared reconnect and catch-up policy. Presence/layout channels can keep their
   // own messages; all comment views use this channel for durable changes.
-  function live({board, refresh, onNote = () => {}, onTyping = () => {}, onError = console.warn}) {
+  function live({board, refresh, onNote = () => {}, onTyping = () => {}, onChange = () => false, onError = console.warn}) {
     let active = false, socket = null, timer = null, attempts = 0, resume = false;
     const room = () => typeof board === 'function' ? board() : board;
     const update = () => Promise.resolve().then(refresh).catch(onError);
@@ -91,6 +63,7 @@
         let message; try { message = JSON.parse(event.data); } catch { return; }
         if (message.action === 'comment:typing') { onTyping(message.data); return; }
         if (message.action === 'comment:note') { onNote(message.data); return; }
+        if(message.type==='comment-change'){try{if(onChange(message.action,message.data)===true)return}catch(error){onError(error)}}
         if (message.type === 'comment-change' || (message.type === 'refresh' && ['participants','spreadsheet-comments','matrix-comment','matrix-edit','matrix-delete','matrix-like','matrix-template-comments-delete'].includes(message.action))) update();
       });
       current.addEventListener('close', () => { if (socket === current) { socket = null; retry(); } });

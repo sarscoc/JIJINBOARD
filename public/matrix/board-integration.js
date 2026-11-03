@@ -113,6 +113,7 @@
 
   function applyRemotePoint(data){
     const itemId=String(data?.itemId||"");
+    if(pointRequests.has(String(data?.templateId||window.currentTemplateId?.()||'')+':'+itemId))return;
     if(!itemId||!roomId||data?.templateId&&data.templateId!==window.currentTemplateId?.())return;
     const state=appState();state.items||={};
     const item=state.items[itemId]||(state.items[itemId]=typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{});
@@ -142,7 +143,7 @@
       return;
     }
     if(action==="participants"){
-      if(active)window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}));else dirtyParticipants=true;
+      if(active)window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId,data}}));else dirtyParticipants=true;
       return;
     }
     if(String(action||"").startsWith("matrix-")){
@@ -169,6 +170,7 @@
       if(realtime!==socket)return;
       try{socket.send(JSON.stringify({type:"join",clientId:realtimeClientId}))}catch{}
       flushPendingActions(socket);
+      dispatchRefresh("participants");dispatchRefresh("matrix-state");
       if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
     });
     socket.addEventListener("message",event=>{
@@ -210,7 +212,7 @@
       const result=await task;
       if(pointRequests.get(key)!==point)return;
       pointRequests.delete(key);
-      notifyChange("matrix-point",result.point||point);
+      // Server publishes the saved point; pending local drags retain priority.
       return true;
     }catch(error){
       if(pointRequests.get(key)!==point)return false;
@@ -322,7 +324,7 @@
       await api(matrixPath(),{method:"POST",keepalive:true,body:JSON.stringify({authorId:me.id,authorName:me.plName,state})});
       lastState=serial;
       fullStateDirty=false;
-      notifyChange("matrix-state");
+      // The server publishes the committed state change.
     }catch{}finally{
       saving=false;
       if(saveQueued){saveQueued=false;requestSave(0)}

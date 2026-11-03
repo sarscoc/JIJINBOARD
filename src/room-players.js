@@ -1,3 +1,4 @@
+import {publicParticipants} from './room-participants.js';
 import {randomToken,tokenHash,storeImage} from './data-model.js';
 import {playerKey,playerPrefix,characterKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -70,6 +71,7 @@ async function roomPlayers(request,env,board,parts=[]){
   return json({playerId,accessToken,master:await masterData(env.DB,board,row)},created?201:200);
  }
  row=await authorized(env.DB,request,key);if(!row)return json({error:'この部屋のPLへのアクセス権がありません'},403);
+ if(parts[1]==='session'&&method==='POST'){if(!env.ROOMS)return json({error:'端末の確認ができません'},503);const deviceId=text(data?.deviceId,100),tabId=text(data?.tabId,100);return env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/device-session',{method:'POST',body:JSON.stringify({playerId:key,deviceId,tabId,action:data?.action==='release'?'release':'claim'})})}
  if(method==='GET'&&parts.length===1)return json({master:await masterData(env.DB,board,row)});
  if(method==='PUT'&&parts.length===1){
   const icon=await storeImage(env.LOGS,String(data?.plIcon||''),iconPrefix(board,'pl-icons'))||row.pl_icon_key;
@@ -93,7 +95,7 @@ async function roomPlayers(request,env,board,parts=[]){
   await env.DB.batch([
    env.DB.prepare(`INSERT OR IGNORE INTO deleted_character(character_id,pl_id,character_name,character_type) VALUES(?,?,COALESCE((SELECT character_name FROM character WHERE character_id=? AND pl_id=?),''),COALESCE((SELECT character_type FROM character WHERE character_id=? AND pl_id=?),'PC'))`).bind(char,key,char,key,char,key),
    env.DB.prepare('DELETE FROM character WHERE pl_id=? AND character_id=?').bind(key,char)
-  ]);return json({ok:true});
+  ]);return json({ok:true,master:await masterData(env.DB,board,await masterRow(env.DB,key))});
  }
  if(parts[1]==='selection'&&parts.length===2){
   if(method==='GET'){const rows=(await env.DB.prepare('SELECT character_id FROM room_participant WHERE room_id=? AND pl_id=? AND character_id IS NOT NULL ORDER BY created_at,character_id').bind(board,key).all()).results||[];return json({characterIds:rows.map(x=>localId(x.character_id))})}
@@ -119,10 +121,13 @@ async function roomPlayers(request,env,board,parts=[]){
 // Notify only after the durable write succeeds; disconnected clients catch up on reconnect.
 export async function handleRoomPlayers(request,env,board,parts=[],context){
  const response=await roomPlayers(request,env,board,parts);
- if(response?.ok&&!['GET','HEAD','OPTIONS'].includes(request.method)&&parts[1]!=='code'&&env.ROOMS){
-  const task=Promise.resolve().then(()=>env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/notify',{
-   method:'POST',body:JSON.stringify({action:'participants',data:{profileChanged:true}})
-  })).catch(error=>console.warn('Player update notification failed',error));
+ if(response?.ok&&!['GET','HEAD','OPTIONS'].includes(request.method)&&parts[1]!=='code'&&parts[1]!=='session'&&env.ROOMS){
+  const task=(async()=>{
+   await env.DB.prepare('UPDATE room SET room_revision=room_revision+1 WHERE room_id=?').bind(board).run();
+   const snapshot=await publicParticipants(env.DB,board);
+   const result=await response.clone().json();snapshot.changedPlayerId=result.master?.playerId||parts[0]||'';
+   return env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action:'participants',data:{profileChanged:true,...snapshot}})});
+  })().catch(error=>console.warn('Player update notification failed',error));
   if(context?.waitUntil)context.waitUntil(task);else await task;
  }
  return response;

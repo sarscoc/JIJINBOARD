@@ -35,6 +35,7 @@
   const params=new URL(location.href).searchParams,boardId=params.get("board");
   if(!boardId)return;
   let activeRoom=params.get("room")||boardId,participants=[],draggingPcId="",participantsSignature="";
+  let participantRevision=-1;
   let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0,activePaintFrame=0;
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
@@ -146,7 +147,9 @@
     const seq=++loadSeq;
     loadKey=nextRoom;
     const task=(async()=>{
-      let list=(await api(participantPath(nextRoom))).participants||[];
+      const result=await api(participantPath(nextRoom));let list=result.participants||[];
+      if(Number.isFinite(result.revision)&&result.revision<participantRevision)return;
+      if(Number.isFinite(result.revision))participantRevision=result.revision;
       if(seq!==loadSeq||activeRoom!==nextRoom)return;
       const changed=setParticipants(list);
       lastLoadedAt=Date.now();
@@ -290,13 +293,20 @@
     setParticipants([],{forcePaint:true});
     load(activeRoom,true).catch(console.warn);
   });
-  window.addEventListener("matrix-board-participants-changed",()=>load(activeRoom,true).catch(console.warn));
+  window.addEventListener("matrix-board-participants-changed",event=>{
+    const data=event.detail?.data;
+    if(Array.isArray(data?.participants)&&Number.isFinite(data.revision)){
+      if(data.revision<participantRevision)return;
+      participantRevision=data.revision;++loadSeq;lastLoadedAt=Date.now();setParticipants(data.participants);return;
+    }
+    load(activeRoom,true).catch(console.warn);
+  });
   window.addEventListener("jijinboard-player-master-updated",()=>load(activeRoom).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>{
     load(activeRoom).catch(console.warn);
   });
 
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-participants-saved")load(activeRoom,true).catch(console.warn)});
-  setInterval(()=>{if(document.visibilityState!=="hidden"&&window.matrixBoardContext?.isActive?.()!==false)load(activeRoom,true).catch(console.warn)},5000);
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(activeRoom,true).catch(console.warn)});
   queueMicrotask(()=>load(activeRoom).catch(console.warn));
 })();

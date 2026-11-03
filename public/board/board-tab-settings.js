@@ -182,6 +182,8 @@
 
   ensureEditorUi();
   $("#logEditForm").onsubmit = saveEditor;
+  window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='log-tab-settings'){const id=$('#logFrame')?.dataset.room;if(id)sendCurrentSettings(id,true)}});
+  window.addEventListener('jijinboard-reconnected',()=>{const id=$('#logFrame')?.dataset.room;if(id)sendCurrentSettings(id,true)});
   $("#logFrame").addEventListener("load", () => {
     const roomId = $("#logFrame").dataset.room;
     if (roomId) sendCurrentSettings(roomId);
@@ -192,3 +194,4 @@
     if (message.type === "jijinboard-refresh-shared-tabs" && message.roomId) sendCurrentSettings(String(message.roomId), true);
   });
 })();
+

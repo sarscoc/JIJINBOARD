@@ -5,6 +5,8 @@
   const $=selector=>document.querySelector(selector);
   const imageUrl=()=>`/api/boards/${encodeURIComponent(boardId)}/home-image`;
 
+  window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='board-home')showImage(imageUrl()+'?rev='+Date.now())});
+  window.addEventListener('jijinboard-reconnected',()=>showImage(imageUrl()+'?rev='+Date.now()));
   function showImage(src){
     const image=$("#boardHomeImage"),empty=$("#boardHomeEmpty"),label=$("#boardHomeUploadLabel");if(!image||!empty)return;
     image.loading="eager";image.fetchPriority="high";image.decoding="async";

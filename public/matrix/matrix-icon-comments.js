@@ -183,11 +183,19 @@
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
 const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
+  const changes=JijinSync.ledger();
   const load=JijinComments.loader(async()=>{
     const c=ctx();if(!c||!commentRoom())return null;
     return commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments?authorId=${encodeURIComponent(profile()?.id||'')}`);
-  },data=>{if(!data)return;const next=data.comments||[],serial=JSON.stringify(next);if(serial!==lastSerial){comments=next;lastSerial=serial;render()}});
-  const commentLive=JijinComments.live({board:()=>ctx()?.boardId,refresh:load,onNote:data=>{
+  },data=>{if(!data)return;changes.snapshot(data.version);const next=data.comments||[],serial=JSON.stringify(next);if(serial!==lastSerial){comments=next;lastSerial=serial;render()}});
+  function applyChange(action,data,own=false){
+    const next=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.matrix(ctx()?.boardId),viewerId:profile()?.id,own});
+    if(next===null)return false;
+    if(next===comments)return true;
+    if(!changes.accept(action,data))return true;
+    load.patch(()=>{if(!changes.newer(data))return;const rows=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.matrix(ctx()?.boardId),viewerId:profile()?.id,own});if(rows===null)return;comments=rows;lastSerial=JSON.stringify(rows);render()});return true;
+  }
+  const commentLive=JijinComments.live({board:()=>ctx()?.boardId,refresh:load,onChange:applyChange,onNote:data=>{
     if(ctx()?.isActive?.())ctx()?.applyRemotePoint?.(data?.point);
     window.dispatchEvent(new CustomEvent('matrix-board-comments-changed',{detail:{action:'matrix-template-state'}}));
   }});
@@ -249,9 +257,9 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     posting=true;sendTyping(false);d.dataset.submitting="1";
     const status=d.querySelector("#matrixCommentStatus");status.textContent="";
     try{
-      if(editingId)await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
-      else await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({target:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
-      await load(true);d.close();
+      let result;if(editingId)result=await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
+      else result=await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({target:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
+      d.close();if(!applyChange(editingId?'comment:edit':'comment:create',{...result,target:result.comment?.target||result.annotation?.target},true))load().catch(console.warn);
     }catch(error){status.textContent="保存できませんでした："+error.message;}finally{posting=false;delete d.dataset.submitting}
   }
   async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}
@@ -288,6 +296,6 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
   window.openMatrixIconComment=id=>open(id);
   window.addEventListener("matrix-board-room",()=>{lastSerial="";load(true).catch(console.warn)});
   window.addEventListener("matrix-board-comments-changed",()=>load().catch(console.warn));
-  setTimeout(()=>load().catch(console.warn),900);
+  // The shared channel loads once and catches up on reconnect.
 })();
 

@@ -31,5 +31,8 @@
 
   frame.addEventListener("load",activate);
   document.addEventListener("click",event=>{if(event.target?.closest?.('[data-board-settings-tab="design"]')){requestAnimationFrame(renderUi);loadRemote()}},true);
+  window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='group-row-colors'){remoteLoaded=false;loadRemote()}});
+  window.addEventListener('jijinboard-reconnected',()=>{remoteLoaded=false;loadRemote()});
   activate();
 })();
+

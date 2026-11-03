@@ -5,7 +5,7 @@ import vm from 'node:vm';
 import {JSDOM} from 'jsdom';
 
 test('presence excludes unregistered and legacy visitor connections, without hiding a real PL named ゲスト',()=>{
- const code=readFileSync(new URL('../realtime-worker/src/index.js',import.meta.url),'utf8').replace("import { DurableObject } from 'cloudflare:workers';",'class DurableObject{constructor(ctx){this.ctx=ctx}}').replace('export class RoomHub','class RoomHub').replace('export default','const worker=');
+ const code=readFileSync(new URL('../realtime-worker/src/index.js',import.meta.url),'utf8').replace("import {deviceSession} from '../../src/device-session.js';",'').replace("import { DurableObject } from 'cloudflare:workers';",'class DurableObject{constructor(ctx){this.ctx=ctx}}').replace('export class RoomHub','class RoomHub').replace('export default','const worker=');
  const sandbox={Response,console};vm.runInNewContext(code+';globalThis.Hub=RoomHub',sandbox);
  const socket=p=>({deserializeAttachment:()=>({...p,last_seen:new Date().toISOString()})});
  const hub=new sandbox.Hub({getWebSockets:()=>[

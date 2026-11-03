@@ -6,7 +6,7 @@ const source=fs.readFileSync(new URL('../public/spreadsheet/sheet-comments-contr
 function shared(w){
   class Socket{static OPEN=1;static CONNECTING=0;readyState=0;addEventListener(){}close(){}send(){}}
   w.WebSocket=Socket;
-  for(const name of ['comment-target.js','comments.js'])w.eval(fs.readFileSync(new URL('../public/shared/'+name,import.meta.url),'utf8'));
+  for(const name of ['comment-target.js','data-sync.js','comments.js'])w.eval(fs.readFileSync(new URL('../public/shared/'+name,import.meta.url),'utf8'));
 }
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 test('posting a sheet comment refreshes after an older pending read and only posts once',async t=>{
@@ -59,3 +59,9 @@ test('matrix keeps a desktop draft when another target is clicked, and sends wit
 
 });
 
+
+test('a saved sheet comment appears immediately without an extra list GET',async t=>{
+ const dom=new JSDOM('<div data-sheet-cell="c">cell</div>',{url:'https://test/spreadsheet/?board=b',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.CSS={escape:String};w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'author',plName:'PL'}));w.HTMLDialogElement.prototype.show=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
+ let reads=0,writes=0;w.fetch=async(path,options={})=>{if(options.method==='POST'){writes++;return {ok:true,json:async()=>({comment:{id:'saved',target:'/boards/b/sheets/main/cells/c',cell_id:'c',body:'delivered',persona_name:'PL',persona_type:'PL',author_id:'author'},version:2})}}reads++;return {ok:true,json:async()=>({comments:[],version:1})}};
+ shared(w);w.eval(source);await tick();await tick();w.document.querySelector('[data-sheet-cell]').click();const d=w.document.querySelector('dialog');d.querySelector('textarea').value='delivered';const before=reads;d.querySelector('form').requestSubmit();await tick();await tick();assert.equal(writes,1);assert.equal(reads,before);assert.equal(d.open,false);assert.equal(w.document.querySelector('.comment-body').textContent,'delivered');
+});

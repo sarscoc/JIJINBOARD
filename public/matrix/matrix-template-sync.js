@@ -175,7 +175,7 @@
         }
       }
       if(draft.rebased)rehydrateQueued=true;
-      window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:id});
+      // The server publishes the committed template change.
     }catch(error){
       if(error.status===409){try{if(await rebaseDraft(timerKey,draft))return}catch{}}
       console.warn("MATRIX template sync failed",error);
@@ -290,7 +290,7 @@
       if(!remains){
         const removed=deleted();removed.add(key);localStorage.setItem(deletedKey,JSON.stringify([...removed]));
         const me=profile();
-        if(me?.id){await api(endpoint(logId,key),{method:"DELETE",body:JSON.stringify({authorId:me.id})}).then(()=>window.matrixBoardContext?.notifyChange?.("matrix-template-state",{templateId:key})).catch(error=>{alert("サーバーでの削除に失敗しました："+error.message);throw error})}
+        if(me?.id){await api(endpoint(logId,key),{method:"DELETE",body:JSON.stringify({authorId:me.id})}).catch(error=>{alert("サーバーでの削除に失敗しました："+error.message);throw error})}
       }
       return result;
     };

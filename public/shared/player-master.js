@@ -60,7 +60,7 @@
     try{result=await api(root,{method:"POST",body:JSON.stringify(payload)})}
     catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api(root,{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
     await window.JijinBoardReady?.image;
-    token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);master=result.master||null;applySnapshot(master);return master;
+    token=String(result.accessToken||token);playerId=String(result.playerId||playerId);if(token)localStorage.setItem(TOKEN_KEY,token);if(playerId)localStorage.setItem(PLAYER_KEY,playerId);await window.JijinDeviceSession?.start(boardId,playerId,token);master=result.master||null;applySnapshot(master);return master;
   }
 
   let bootstrapTask=null;
@@ -94,23 +94,14 @@
   }
   let localEditPending=false;
   const setEditing=value=>{localEditPending=!!value};
-  let refreshTask=null,refreshVersion=0;
+  const refreshMaster=window.JijinSync?.loader(()=>api(endpoint()),result=>{
+    if(!pushRunning&&!syncTimer&&!localEditPending)applySnapshot(result.master);
+  });
   async function refresh(){
-    ++refreshVersion;
     if(pushRunning||syncTimer||localEditPending)return;
     if(!playerId||!token)return bootstrap();
-    if(refreshTask)return refreshTask;
-    refreshTask=(async()=>{
-      let applied=0;
-      while(applied<refreshVersion){
-        const version=refreshVersion,result=await api(endpoint());
-        if(version!==refreshVersion)continue;
-        if(!pushRunning&&!syncTimer&&!localEditPending)applySnapshot(result.master);
-        applied=version;
-      }
-      return master;
-    })().finally(()=>{refreshTask=null});
-    return refreshTask;
+    if(refreshMaster){await refreshMaster();return master}
+    const result=await api(endpoint());if(!pushRunning&&!syncTimer&&!localEditPending)applySnapshot(result.master);return master;
   }
   async function inspectProfile(){
     if(!playerId||!token)throw Error('この部屋のPL登録を確認してください');
@@ -122,7 +113,7 @@
     if(!master)await bootstrap();
     if(!playerId||!token)throw Error('先にPL名を登録してください');
     const result=await api(endpoint(),{method:'PUT',body:JSON.stringify({...value,playerId})});
-    applySnapshot(result.master);
+    if(refreshMaster)refreshMaster.patch(()=>applySnapshot(result.master));else applySnapshot(result.master);
     return master;
   }
   function connectUpdates(){
@@ -133,7 +124,7 @@
       clearTimeout(timer);if(stopped||socket&&socket.readyState<2)return;
       const ws=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`);socket=ws;
       ws.addEventListener('open',()=>{attempt=0;catchUp()});
-      ws.addEventListener('message',event=>{let message;try{message=JSON.parse(event.data)}catch{return}if(message.type==='refresh'&&message.action==='participants')catchUp()});
+      ws.addEventListener('message',event=>{let message;try{message=JSON.parse(event.data)}catch{return}if(message.type==='refresh'&&message.action==='participants'&&(!message.data?.changedPlayerId||message.data.changedPlayerId===playerId))catchUp()});
       ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped)timer=setTimeout(connect,Math.min(15000,500*2**attempt++))});
       ws.addEventListener('error',()=>ws.close());
     }
@@ -191,8 +182,8 @@
     const chars=[...map.values()];
     try{
       const result=await api(endpoint(),{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
-      master=result.master||master;
-      mergeMasterLocal(master,{notify:false});
+      const saved=result.master||master,apply=()=>{master=saved;mergeMasterLocal(master,{notify:false})};
+      if(refreshMaster)refreshMaster.patch(apply);else apply();
       if(roomId()){
         roomSelection=roomChars.filter(ch=>masterPc(ch.id)).map(ch=>String(ch.id));
         await persistRoomSelection(roomSelection);
@@ -204,12 +195,12 @@
   const schedulePush=(delay=120)=>{if(applying)return;clearTimeout(syncTimer);syncTimer=setTimeout(()=>{syncTimer=0;pushCurrent()},delay)};
 
   async function issueDeviceCode(){if(!master)await bootstrap();if(!playerId||!token)return alert("先にPL名を登録してください。");try{const result=await api(endpoint('/code'),{method:"POST",body:JSON.stringify({playerId})});await navigator.clipboard?.writeText(result.code).catch(()=>{});alert(`端末追加コード：${result.code}\n10分以内にスマホの「引き継ぎ設定」で入力してください。\nPC側のアクセス権はそのまま残ります。`)}catch(error){alert(error.message)}}
-  async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`${root}/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);applySnapshot(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){alert(error.message)}}
+  async function redeemDeviceCode(){const input=document.querySelector("#transferCodeInput"),code=String(input?.value||"").trim();if(!/^\d{4}$/.test(code))return alert("4桁のコードを入力してください。");try{const result=await fetch(`${root}/redeem/${encodeURIComponent(code)}`,{method:"POST",headers:{"content-type":"application/json"}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||"引き継げませんでした");return d});playerId=String(result.playerId);token=String(result.accessToken);master=result.master;localStorage.setItem(PLAYER_KEY,playerId);localStorage.setItem(TOKEN_KEY,token);await window.JijinDeviceSession?.start(boardId,playerId,token);applySnapshot(master);if(typeof state!=="undefined"&&state.profile){state.profile.id=playerId;state.profile.plName=master.plName;state.profile.plIcon=master.plIcon||"";state.profile.plColor=master.plColor||"#ffe66b";state.profile.plColorDark=master.plColorDark||master.plColor||"#ffe66b";try{saveProfile?.()}catch{};await hydrateRoom();try{renderPlIcon?.();renderPersonas?.();fillPersonaSelect?.();emitIntegratedProfile?.()}catch{}}if(input)input.value="";alert("この端末から同じPL・PCマスターを使えるようになりました。") }catch(error){if(error.code!=='DEVICE_IN_USE')alert(error.message)}}
 
   async function deleteCharacter(id){
     if(!master)await bootstrap();if(!playerId||!token)throw Error('先にPL名を登録してください');
-    await api(endpoint('/characters/'+encodeURIComponent(id)),{method:'DELETE',body:JSON.stringify({playerId})});
-    const result=await api(endpoint());master=result.master;mergeMasterLocal(master);await hydrateRoom();
+    const deleted=await api(endpoint('/characters/'+encodeURIComponent(id)),{method:'DELETE',body:JSON.stringify({playerId})});
+    const result=deleted.master?deleted:await api(endpoint());const apply=()=>{master=result.master;mergeMasterLocal(master)};if(refreshMaster)refreshMaster.patch(apply);else apply();await hydrateRoom();
   }
   function hookRoomLoad(){
     if(typeof window.loadRoomPersonas!=="function"||window.loadRoomPersonas.__jijinMasterHooked)return;

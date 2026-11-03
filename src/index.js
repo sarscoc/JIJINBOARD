@@ -1,3 +1,4 @@
+import {notifyResource} from './resource-notify.js';
 import {performRequestedReset,requestedResetStatus} from './requested-reset.js';
 import {datasetGeneration,checkDataset} from './data-freshness.js';
 import {serveAsset} from './assets.js';
@@ -30,7 +31,7 @@ export { RoomHub };
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const contextFor=(request,env,path,executionContext)=>({request,env,params:{path},waitUntil:p=>executionContext.waitUntil(p),next:()=>env.ASSETS.fetch(request)});
 
-export default{
+const worker={
   async fetch(request,env,executionContext){
     const url=new URL(request.url);
     // Normalize once so trailing slashes cannot reach obsolete fallback writers.
@@ -114,3 +115,5 @@ export default{
     return handleApi(contextFor(request,env,path,executionContext));
   }
 };
+
+export default{async fetch(request,env,context){const copy=request.method==='POST'&&/\/spreadsheet\/state$/.test(new URL(request.url).pathname)?request.clone():null;const response=await worker.fetch(request,env,context);return notifyResource(request,response,env,context,copy)}};

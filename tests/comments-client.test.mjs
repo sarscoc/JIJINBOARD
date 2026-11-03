@@ -8,7 +8,7 @@ function fixture(t){
   const sockets=[],w=dom.window;
   class Socket{static OPEN=1;static CONNECTING=0;readyState=0;listeners=new Map();sent=[];constructor(url){this.url=url;sockets.push(this)}addEventListener(n,f){this.listeners.set(n,f)}send(data){this.sent.push(JSON.parse(data))}close(){this.readyState=3;this.fire('close')}fire(n,data={}){if(n==='open')this.readyState=1;this.listeners.get(n)?.(data)}}
   w.WebSocket=Socket;
-  for(const name of ['comment-target.js','comments.js'])w.eval(readFileSync(new URL('../public/shared/'+name,import.meta.url),'utf8'));
+  for(const name of ['comment-target.js','data-sync.js','comments.js'])w.eval(readFileSync(new URL('../public/shared/'+name,import.meta.url),'utf8'));
   return {w,sockets,core:w.JijinComments};
 }
 const tick=()=>new Promise(setImmediate);
@@ -63,4 +63,32 @@ test('LOG uses the shared loader and catches up after its integrated tab returns
   active(false);await w.refreshAnnotations();assert.equal(reads,0);
   active(true);await tick();await tick();assert.ok(reads>=1);assert.ok(rendered>=1);assert.equal(w.state.annotations[0].id,'other-player');
   active(false);
+});
+
+
+test('a committed comment survives an older pending GET without another fetch',async t=>{
+ const {w,core}=fixture(t);let finish,reads=0,rows=[];const sync=w.JijinSync;
+ const load=sync.loader(()=>{reads++;return new Promise(r=>finish=r)},data=>{rows=data});const task=load();
+ const comment={id:'new',target:'/boards/b/sheets/main/cells/x',body:'saved',liked_by_me:false};
+ const patch=()=>{rows=sync.reduce(rows,'comment:create',{comment},{scope:'/boards/b/sheets/main',own:true})};load.patch(patch);assert.equal(rows.length,1);
+ finish([]);await task;assert.equal(rows.length,1);assert.equal(reads,1);
+});
+test('another viewer applies create/edit/delete directly, preserving personal likes and falling back for incomplete notifications',async t=>{
+ const {w,core,sockets}=fixture(t);let rows=[],reads=0;const scope='/boards/b/sheets/main';
+ const channel=core.live({board:'b',refresh:()=>reads++,onChange:(action,data)=>{const next=w.JijinSync.reduce(rows,action,data,{scope,viewerId:'me'});if(next===null)return false;rows=next;return true}});channel.setActive(true);await tick();sockets[0].fire('open');await tick();const baseline=reads;
+ const fire=(action,data)=>sockets[0].fire('message',{data:JSON.stringify({type:'comment-change',action,data})});const target=scope+'/cells/x';
+ fire('comment:create',{target,comment:{id:'c',target,body:'first',liked_by_me:true}});assert.equal(rows.length,1);assert.equal(rows[0].liked_by_me,false);
+ fire('comment:edit',{target,patch:{id:'c',target,body:'edited'}});assert.equal(rows[0].body,'edited');
+ fire('comment:like',{target,id:'c',actorId:'other',liked:true,likeCount:1});assert.equal(rows[0].liked_by_me,false);
+ fire('comment:delete',{target,deletedIds:['c']});assert.equal(rows.length,0);assert.equal(reads,baseline);
+ fire('comment:create',null);await tick();assert.equal(reads,baseline+1);channel.setActive(false);
+});
+
+test('resource revision ledger prevents old edits and deleted comments from returning',t=>{
+ const {w}=fixture(t),ledger=w.JijinSync.ledger();ledger.snapshot(4);
+ assert.equal(ledger.accept('comment:create',{annotation:{id:'a'},version:3}),false);
+ assert.equal(ledger.accept('comment:create',{annotation:{id:'a'},version:5}),true);
+ assert.equal(ledger.accept('comment:delete',{deletedIds:['a'],version:7}),true);
+ assert.equal(ledger.accept('comment:edit',{patch:{id:'a'},version:6}),false);
+ assert.equal(ledger.accept('comment:create',{annotation:{id:'other'},version:6}),true,'a different comment must not be lost just because its notification arrived later');
 });
