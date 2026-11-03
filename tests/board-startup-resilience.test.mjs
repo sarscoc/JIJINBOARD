@@ -18,3 +18,14 @@ test('dataset verification retries a stalled connection and releases waiting rea
  w.fetch=async(path,options)=>{calls++;if(calls===1)return new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Error('aborted'))));return {ok:true,status:200,json:async()=>({generation:'current'})}};
  w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;assert.equal(calls,2);assert.equal(w.JijinDataset.blocked,false);
 });
+test('dataset verification times out a stalled response body as well as stalled headers',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.Request=Request;w.Headers=Headers;w.localStorage.setItem('jijin.dataset.generation.v1','current');
+ const timeout=w.setTimeout.bind(w);w.setTimeout=(fn,ms)=>timeout(fn,ms===10000?5:ms);let calls=0;
+ w.fetch=async()=>{calls++;return {ok:true,status:200,json:()=>calls===1?new Promise(()=>{}):Promise.resolve({generation:'current'})}};
+ w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;assert.equal(calls,2);assert.equal(w.JijinDataset.blocked,false);
+});
+test('stalled cache cleanup cannot prevent generation isolation and startup recovery',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.Request=Request;w.Headers=Headers;w.localStorage.setItem('jijin.dataset.generation.v1','old');
+ const timeout=w.setTimeout.bind(w);w.setTimeout=(fn,ms)=>timeout(fn,ms===1000?5:ms);w.caches={keys:()=>new Promise(()=>{})};w.fetch=async()=>({ok:true,status:200,json:async()=>({generation:'new'})});
+ w.eval(source('shared/dataset-guard.js'));await assert.rejects(w.JijinDataset.ready,/読み直し/);assert.equal(w.localStorage.getItem('jijin.dataset.generation.v1'),'new');assert.equal(w.JijinDataset.blocked,true);
+});
