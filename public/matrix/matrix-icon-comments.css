@@ -341,3 +341,6 @@ html body #matrixIconComments .matrix-comment-head b{font:inherit!important;font
 .matrix-typing i{width:3px;height:3px;border-radius:50%;background:currentColor;animation:matrixTypingPulse 1s infinite alternate}
 .matrix-typing i:nth-last-child(2){animation-delay:.2s}.matrix-typing i:last-child{animation-delay:.4s}
 @keyframes matrixTypingPulse{to{opacity:.2}}
+
+
+#matrixIconComments .matrix-comment-author>b{color:var(--speaker-name-color,inherit)!important}

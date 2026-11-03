@@ -19,7 +19,7 @@
   const profile=()=>typeof state!=="undefined"&&state?.profile?state.profile:read("trpgMarkerProfile",null);
   const named=list=>(Array.isArray(list)?list:[]).filter(item=>item&&String(item.name||"").trim());
   const api=async(path,options={})=>{const headers={"content-type":"application/json",...(options.headers||{})};if(token)headers["x-player-token"]=token;const response=await fetch(path,{...options,headers,signal:options.signal||AbortSignal.timeout(15000)});const data=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(data.error||`通信エラー (${response.status})`),{status:response.status});return data};
-  const charPayload=item=>({id:String(item.id||item.projectPersonId||""),type:String(item.type||"PC"),name:String(item.name||""),icon:String(item.icon||item.baseIcon||""),matrixIcon:String(item.matrixIcon||""),color:String(item.color||"#ffe66b"),colorDark:String(item.colorDark||item.color||"#ffe66b")});
+  const charPayload=item=>({id:String(item.id||item.projectPersonId||""),type:String(item.type||"PC"),name:String(item.name||""),icon:String(item.icon||item.baseIcon||""),matrixIcon:String(item.matrixIcon||""),textColor:item.textColor,color:String(item.color||"#ffe66b"),colorDark:String(item.colorDark||item.color||"#ffe66b")});
 
   function localCandidates(){
     const p=profile();if(!p?.id)return[];
@@ -45,8 +45,8 @@
     const people=read(PEOPLE_KEY,[]).filter(p=>!deleted.has(String(p.id))),byId=new Map(people.map(item=>[String(item?.id||""),item]));
     const existingPl=[...byId.values()].find(item=>item?.type==="PL"&&(String(item.id)===String(nextMaster.playerId)||String(item.name||"")===String(nextMaster.plName||"")))||{};
     if(existingPl.id&&String(existingPl.id)!==String(nextMaster.playerId))byId.delete(String(existingPl.id));
-    byId.set(nextMaster.playerId,{...existingPl,id:nextMaster.playerId,type:"PL",name:nextMaster.plName,icon:nextMaster.plIcon||existingPl.icon||"",color:nextMaster.plColor||existingPl.color||"#ffe66b",plId:""});
-    for(const ch of nextMaster.characters||[]){const old=byId.get(String(ch.id))||{};byId.set(String(ch.id),{...old,id:String(ch.id),type:ch.type||"PC",name:ch.name,icon:ch.icon||old.icon||"",matrixIcon:ch.matrixIcon||old.matrixIcon||"",color:ch.color||old.color||"#ffe66b",colorDark:ch.colorDark||old.colorDark||ch.color||"#ffe66b",plId:nextMaster.playerId})}
+    byId.set(nextMaster.playerId,{...existingPl,id:nextMaster.playerId,type:"PL",name:nextMaster.plName,icon:nextMaster.plIcon||existingPl.icon||"",textColor:nextMaster.plTextColor||'',color:nextMaster.plColor||existingPl.color||"#ffe66b",plId:""});
+    for(const ch of nextMaster.characters||[]){const old=byId.get(String(ch.id))||{};byId.set(String(ch.id),{...old,id:String(ch.id),type:ch.type||"PC",name:ch.name,icon:ch.icon||old.icon||"",matrixIcon:ch.matrixIcon||old.matrixIcon||"",textColor:ch.textColor||'',color:ch.color||old.color||"#ffe66b",colorDark:ch.colorDark||old.colorDark||ch.color||"#ffe66b",plId:nextMaster.playerId})}
     write(PEOPLE_KEY,[...byId.values()]);
     document.querySelector("#masterRoomPcPicker")?.remove();
     if(notify)window.dispatchEvent(new CustomEvent("jijinboard-player-master-updated",{detail:{master:nextMaster}}));
@@ -55,7 +55,7 @@
   async function bootstrapOnce(){
     const p=profile();if(!p?.id||!String(p.plName||"").trim())return null;
     playerId=String(localStorage.getItem(PLAYER_KEY)||p.id);token=String(localStorage.getItem(TOKEN_KEY)||"");
-    const payload={playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b"};
+    const payload={playerId,plName:p.plName,plIcon:p.plIcon||"",plTextColor:p.plTextColor===undefined?(master?.plTextColor||''):p.plTextColor,plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b"};
     let result;
     try{result=await api(root,{method:"POST",body:JSON.stringify(payload)})}
     catch(error){if(error.status===403&&playerId!==String(p.id)){playerId=String(p.id);token="";result=await api(root,{method:"POST",body:JSON.stringify({...payload,playerId})})}else throw error}
@@ -76,7 +76,7 @@
     master=next;
     const personas=(next.characters||[]).filter(ch=>ch.type==='PC').map(personaFromMaster);
     const current=profile()||{};
-    const updated={...current,id:next.playerId,plName:next.plName,plIcon:next.plIcon||'',plColor:next.plColor||'#ffe66b',plColorDark:next.plColorDark||next.plColor||'#ffe66b',personas};
+    const updated={...current,id:next.playerId,plName:next.plName,plIcon:next.plIcon||'',plTextColor:next.plTextColor||'',plColor:next.plColor||'#ffe66b',plColorDark:next.plColorDark||next.plColor||'#ffe66b',personas};
     write('trpgMarkerProfile',updated);
     const swatches={PL:{light:updated.plColor,dark:updated.plColorDark}};
     for(const p of personas)swatches[p.id]={light:p.color,dark:p.colorDark};
@@ -136,7 +136,7 @@
   }
 
   function masterPc(id){return(master?.characters||[]).find(ch=>String(ch.id)===String(id)&&ch.type==="PC")||null}
-  function personaFromMaster(ch){return{id:String(ch.id),projectPersonId:String(ch.id),name:ch.name,type:"PC",icon:ch.icon||"",matrixIcon:ch.matrixIcon||"",color:ch.color||"#ffe66b",colorDark:ch.colorDark||ch.color||"#ffe66b"}}
+  function personaFromMaster(ch){return{id:String(ch.id),projectPersonId:String(ch.id),name:ch.name,type:"PC",icon:ch.icon||"",matrixIcon:ch.matrixIcon||"",textColor:ch.textColor||'',color:ch.color||"#ffe66b",colorDark:ch.colorDark||ch.color||"#ffe66b"}}
 
   async function persistRoomSelection(ids){
     const rid=roomId();if(!rid||!playerId||!token)return;
@@ -181,7 +181,7 @@
     for(const ch of [...roomChars,...candidates]){const key=String(ch.id||`${ch.type}:${ch.name}`);if(ch.name&&!map.has(key))map.set(key,ch)}
     const chars=[...map.values()];
     try{
-      const result=await api(endpoint(),{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
+      const result=await api(endpoint(),{method:"PUT",body:JSON.stringify({playerId,plName:p.plName,plIcon:p.plIcon||"",plTextColor:p.plTextColor===undefined?(master?.plTextColor||''):p.plTextColor,plColor:p.plColor||"#ffe66b",plColorDark:p.plColorDark||p.plColor||"#ffe66b",characters:chars})});
       const saved=result.master||master,apply=()=>{master=saved;mergeMasterLocal(master,{notify:false})};
       if(refreshMaster)refreshMaster.patch(apply);else apply();
       if(roomId()){

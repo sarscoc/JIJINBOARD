@@ -52,6 +52,7 @@ test('inline settings have no LOG frame; saves serialize and empty snapshots cle
  let master={plName:'PL',characters:[{id:'pc',type:'PC',name:'PC'}]},release,calls=[];
  w.JIJINPlayerMaster={get master(){return master},async refresh(){return master},async updateProfile(body){calls.push(body);if(calls.length===1)await new Promise(r=>release=r);master={...body};return master}};
  w.eval(source('board/speaker-editor.js'));const editor=w.JijinSpeakerEditor(w.document.querySelector('#editor'));await editor.open();assert.equal(w.document.querySelector('iframe'),null);
+ w.document.querySelector('[data-open-person="pc"]').click();
  const input=w.document.querySelector('[data-person="pc"] .speaker-name');input.value='First';input.dispatchEvent(new w.Event('input',{bubbles:true}));const save=editor.flush();await tick();
  input.value='Second';input.dispatchEvent(new w.Event('input',{bubbles:true}));release();await save;
  assert.equal(calls.length,2);assert.equal(calls[1].characters[0].name,'Second');
@@ -89,8 +90,38 @@ test('failed settings save retains the edited PC and PL image across refresh and
  let master={plName:'PL',plIcon:'/saved.png',characters:[{id:'pc',type:'PC',name:'Saved PC'}]},fail=true;
  w.JIJINPlayerMaster={get master(){return master},async refresh(){return master},setEditing(){},async updateProfile(body){if(fail)throw Error('通信エラー (500)');master={...body};return master}};
  w.eval(source('board/speaker-editor.js'));const editor=w.JijinSpeakerEditor(w.document.querySelector('#editor'));await editor.open();
+ w.document.querySelector('[data-open-person="pc"]').click();
  const input=w.document.querySelector('[data-person="pc"] .speaker-name');input.value='Draft PC';input.dispatchEvent(new w.Event('input',{bubbles:true}));await assert.rejects(editor.flush(),/500/);
  master={plName:'PL',characters:[]};w.dispatchEvent(new w.Event('jijinboard-player-master-updated'));await editor.open();
- assert.equal(w.document.querySelector('[data-person="pc"] .speaker-name').value,'Draft PC');assert.equal(w.document.querySelector('[data-person="PL"] img').getAttribute('src'),'/saved.png');assert.equal(w.document.querySelector('[data-retry]').hidden,false);
+ assert.equal(w.document.querySelector('[data-person="pc"] .speaker-name').value,'Draft PC');w.document.querySelector('.speaker-back').click();assert.equal(w.document.querySelector('[data-person="PL"] img').getAttribute('src'),'/saved.png');assert.equal(w.document.querySelector('[data-retry]').hidden,false);
  fail=false;await editor.flush();assert.equal(master.characters[0].name,'Draft PC');
+});
+
+test('text colors save independently from markers, survive older clients, and stay room scoped',async t=>{
+ const f=roomFixture(t);
+ const create=async room=>(await (await handleRoomPlayers(req('POST',{playerId:'p',plName:'PL'}),f.env,room)).json()).accessToken;
+ const one=await create('one'),two=await create('two');
+ const edit=async(room,token,body)=>{const response=await handleRoomPlayers(req('PUT',body,token),f.env,room,['p']);assert.equal(response.status,200);return (await response.json()).master};
+ let m=await edit('one',one,{plTextColor:'#123456',plColor:'#ffe66b',characters:[{id:'pc',name:'PC',textColor:'#654321',color:'#abcdef',colorDark:'#112233'}]});
+ assert.equal(m.plTextColor,'#123456');assert.equal(m.characters[0].textColor,'#654321');assert.equal(m.characters[0].color,'#abcdef');
+ m=await edit('one',one,{plName:'Renamed',characters:[{id:'pc',name:'PC',color:'#ffffff'}]});
+ assert.equal(m.plTextColor,'#123456');assert.equal(m.characters[0].textColor,'#654321');
+ m=await edit('two',two,{characters:[{id:'pc',name:'Other PC'}]});assert.equal(m.plTextColor,'');assert.equal(m.characters[0].textColor,'');
+ assert.equal((await handleRoomPlayers(req('PUT',{plTextColor:'red'},one),f.env,'one',['p'])).status,400);
+ m=await edit('one',one,{plTextColor:'',characters:[{id:'pc',name:'PC',textColor:''}]});assert.equal(m.plTextColor,'');assert.equal(m.characters[0].textColor,'');
+ await handleRoomPlayers(req('DELETE',{},one),f.env,'one',['p','characters','pc']);assert.equal(f.db.prepare('SELECT count(*) AS n FROM speaker_style WHERE character_id IS NOT NULL AND room_id=?').get('one').n,0);
+});
+
+test('compact name cards open detail with independent name and MATRIX previews',async t=>{
+ const dom=new JSDOM('<div id="editor"></div>',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.structuredClone=structuredClone;
+ let master={plName:'PL',characters:[{id:'pc',type:'PC',name:'PC',color:'#ffe66b',textColor:'#123456'}]};
+ w.JIJINPlayerMaster={get master(){return master},async refresh(){return master},async updateProfile(body){master=body;return master}};
+ w.eval(source('board/speaker-editor.js'));const editor=w.JijinSpeakerEditor(w.document.querySelector('#editor'));await editor.open();
+ assert.equal(w.document.querySelectorAll('.speaker-row').length,2);assert.equal(w.document.querySelector('.speaker-name'),null);assert.ok(w.document.querySelector('[data-transfer-toggle]'));
+ w.document.querySelector('[data-open-person="pc"]').click();
+ assert.match(w.document.querySelector('[data-speaker-detail]').textContent,/MAGIA MATRIX用の画像/);assert.ok(w.document.querySelector('.speaker-delete'));
+ const ink=w.document.querySelector('[data-field="textColor"]');ink.value='#abcdef';ink.dispatchEvent(new w.Event('input',{bubbles:true}));
+ assert.equal(w.document.querySelector('[data-preview-ink]').style.color,'rgb(171, 205, 239)');assert.equal(w.document.querySelector('[data-preview-matrix]').style.color,'rgb(171, 205, 239)');assert.equal(w.document.querySelector('.speaker-preview p').style.color,'');
+ await editor.flush();assert.equal(master.characters[0].textColor,'#abcdef');assert.equal(master.characters[0].color,'#ffe66b');
+ w.document.querySelector('.speaker-back').click();w.document.querySelector('[data-open-person="PL"]').click();assert.equal(w.document.querySelector('.speaker-delete'),null);
 });

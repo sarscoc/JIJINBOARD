@@ -254,3 +254,6 @@ CREATE TABLE IF NOT EXISTS comment_reaction (
 
 CREATE TABLE IF NOT EXISTS app_dataset (singleton INTEGER PRIMARY KEY CHECK(singleton=1),generation TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS deleted_character (character_id TEXT PRIMARY KEY,pl_id TEXT NOT NULL,character_name TEXT NOT NULL DEFAULT '',character_type TEXT NOT NULL DEFAULT 'PC',deleted_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+
+
+CREATE TABLE IF NOT EXISTS speaker_style (person_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,pl_id TEXT NOT NULL,character_id TEXT,text_color TEXT NOT NULL DEFAULT '',FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE CASCADE);

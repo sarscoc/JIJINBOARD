@@ -7,19 +7,22 @@ const json = (data, status=200) => new Response(JSON.stringify(data), {status, h
 const fail = (message, status=400) => { throw Object.assign(Error(message), {status}); };
 const clean = (v, max=4000) => String(v ?? '').slice(0,max);
 const bodyOf = async request => { try { const b=await request.json(); if(b && typeof b==='object' && !Array.isArray(b))return b; } catch {} fail('コメント情報を読み込めません'); };
-const select = `SELECT c.*,p.pl_name,p.pl_icon_key,p.pl_color,p.pl_color_dark,
+const select = `SELECT c.*,ps.text_color AS pl_text_color,cs.text_color AS character_text_color,p.pl_name,p.pl_icon_key,p.pl_color,p.pl_color_dark,
   ch.character_name,ch.character_type,ch.character_icon_key,ch.character_color,ch.character_color_dark,
   r.start_line_id,r.end_line_id,r.start_character_offset,r.end_character_offset,r.selected_text,r.marker_color,
   (SELECT COUNT(*) FROM comment_reaction cr WHERE cr.comment_id=c.comment_id) AS like_count,
   EXISTS(SELECT 1 FROM comment_reaction cr WHERE cr.comment_id=c.comment_id AND cr.author_pl_id=?) AS liked_by_me
   FROM comment c JOIN pl p ON p.pl_id=c.author_pl_id
   LEFT JOIN character ch ON ch.character_id=c.author_character_id
+  LEFT JOIN speaker_style ps ON ps.person_id=p.pl_id
+  LEFT JOIN speaker_style cs ON cs.person_id=ch.character_id
   LEFT JOIN log_comment_range r ON r.comment_id=c.comment_id`;
 
 export function serializeComment(board, c) {
   const target=targets.fromStorage(board,c),isLog=c.comment_target_type==='log_range';
   return {id:c.comment_id,target,parent_id:c.parent_comment_id||'',author_id:localId(c.author_pl_id),author_name:c.pl_name,
     persona_name:c.character_name||c.pl_name,persona_type:c.character_type||'PL',
+    text_color:c.author_character_id?(c.character_text_color||''):(c.pl_text_color||''),
     persona_icon:playerIconUrl(board,c.character_icon_key||c.pl_icon_key),
     color:isLog?(c.marker_color||'yellow'):`${c.character_color||c.pl_color||'#ffe66b'}|${c.character_color_dark||c.pl_color_dark||'#ffe66b'}`,
     body:c.comment_body,created_at:c.created_at,updated_at:c.updated_at,has_image:c.comment_image_key?1:0,
@@ -192,3 +195,4 @@ export async function handleComments(request,env,board,id='',action='',execution
     return json({error:'Method not allowed'},405);
   } catch(error) { if(error.status || error instanceof URIError || /アドレス|対象|範囲|ID/.test(error.message))return json({error:error.message},error.status||400);throw error; }
 }
+

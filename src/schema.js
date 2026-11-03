@@ -1,6 +1,8 @@
 import {ensurePlayerScope} from './player-scope.js';
 import {freshnessStatements} from './data-freshness.js';
+export const speakerStyleStatement = `CREATE TABLE IF NOT EXISTS speaker_style (person_id TEXT PRIMARY KEY,room_id TEXT NOT NULL,pl_id TEXT NOT NULL,character_id TEXT,text_color TEXT NOT NULL DEFAULT '',FOREIGN KEY(room_id) REFERENCES room(room_id) ON DELETE CASCADE,FOREIGN KEY(pl_id) REFERENCES pl(pl_id) ON DELETE CASCADE,FOREIGN KEY(character_id) REFERENCES character(character_id) ON DELETE CASCADE)`;
 export const createStatements = [
+  speakerStyleStatement,
   `CREATE TABLE IF NOT EXISTS top_auth (password_hash TEXT NOT NULL,password_salt TEXT NOT NULL,password_hash_version INTEGER NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE TABLE IF NOT EXISTS top_session (session_token_hash TEXT PRIMARY KEY,session_expires_at TEXT NOT NULL,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
   `CREATE INDEX IF NOT EXISTS idx_top_session_expires ON top_session(session_expires_at)`,
@@ -83,7 +85,7 @@ export function ensureSchema(db){
   let task=ready.get(db);
   if(!task){
     task=(async()=>{
-      if(await isV2(db)){await db.batch(freshnessStatements.map(sql=>db.prepare(sql)));await ensurePlayerScope(db);return;}
+      if(await isV2(db)){await db.batch([speakerStyleStatement,...freshnessStatements].map(sql=>db.prepare(sql)));await ensurePlayerScope(db);return;}
       const existing=await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' AND name NOT LIKE 'd1_%' LIMIT 1").first();
       if(existing)throw new Error('データベースの構成が現行版と異なります。保存データを保護するため自動初期化を停止しました。');
       await db.batch([...createStatements,...freshnessStatements].map(sql=>db.prepare(sql)));

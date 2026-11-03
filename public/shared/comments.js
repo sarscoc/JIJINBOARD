@@ -74,7 +74,7 @@
     }
     function publishPresence(type='presence'){
       if(socket?.readyState!==WebSocket.OPEN)return;let identity={};
-      if(window.JijinDeviceSessionOwner||parent===window)try{const profile=JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');if(profile?.id&&profile.plName)identity={authorId:profile.id,plName:profile.plName,plIcon:profile.plIcon||''}}catch{}
+      if(window.JijinDeviceSessionOwner||parent===window)try{const profile=JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null');if(profile?.id&&profile.plName)identity={authorId:profile.id,plName:profile.plName,plTextColor:profile.plTextColor||'',plIcon:profile.plIcon||''}}catch{}
       socket.send(JSON.stringify({type,clientId,...identity}));
     }
     window.addEventListener('jijinboard-player-master-updated',()=>publishPresence());

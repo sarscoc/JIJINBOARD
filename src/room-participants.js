@@ -57,10 +57,11 @@ export async function handleRoomParticipants(request,env,roomId,logId='',charact
 
 export async function publicParticipants(db,roomId){
     const version=await db.prepare('SELECT room_revision FROM room WHERE room_id=?').bind(roomId).first(),revision=Number(version?.room_revision)||0;
-    const result=await db.prepare(`SELECT rp.pl_id,c.character_id,c.character_name,c.character_type,c.character_color,c.character_icon_key,c.matrix_icon_key,p.pl_name
+    const result=await db.prepare(`SELECT rp.pl_id,c.character_id,c.character_name,c.character_type,c.character_color,c.character_icon_key,c.matrix_icon_key,p.pl_name,s.text_color
       FROM room_participant rp
       JOIN pl p ON p.pl_id=rp.pl_id
       JOIN character c ON c.character_id=rp.character_id
+      LEFT JOIN speaker_style s ON s.person_id=c.character_id
       WHERE rp.room_id=? AND rp.character_id IS NOT NULL
       ORDER BY rp.created_at,c.created_at,c.character_name`).bind(roomId).all();
     return {participants:(result.results||[]).map(row=>({
@@ -69,6 +70,7 @@ export async function publicParticipants(db,roomId){
       personaId:localId(row.character_id),
       name:row.character_name,
       type:row.character_type,
+      textColor:row.text_color||'',
       color:String(row.character_color||'').split('|')[0],
       icon:playerIconUrl(roomId,row.matrix_icon_key||row.character_icon_key),
       baseIcon:playerIconUrl(roomId,row.character_icon_key),

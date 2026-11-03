@@ -47,7 +47,7 @@
   const clone=value=>{if(value===undefined)return undefined;try{return structuredClone(value)}catch{try{return JSON.parse(JSON.stringify(value))}catch{return value}}};
   const placementOnlyKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth","mobileSelected"]);
   const participantKey=list=>(list||[]).map(person=>[
-    person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person),fallbackImage(person),person?.color||""
+    person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person),fallbackImage(person),person?.color||"",person?.textColor||""
   ].join("\u001f")).sort().join("\u001e");
 
   function setupBoardUi(){
@@ -128,7 +128,7 @@
       if(!state.items[id]){state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);stateChanged=true}
       const placedImage=String(state.items[id]?.placedImage||"");
       const displayImage=placedImage||image;
-      return{id,name:person.name,url:"",baseImage:displayImage,imageFallback:fallback||displayImage,placementImage:person.serverIcon||image||fallback,imageSignature:`participant:${person.personaId}:${displayImage}:${fallback}`,color:String(person.color||"").split("|")[0]||null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
+      return{id,name:person.name,url:"",baseImage:displayImage,imageFallback:fallback||displayImage,placementImage:person.serverIcon||image||fallback,imageSignature:`participant:${person.personaId}:${displayImage}:${fallback}`,color:/^#[0-9a-f]{6}$/i.test(person.textColor||'')?person.textColor:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     if(stateChanged)saveState(state);
     paintParticipants();

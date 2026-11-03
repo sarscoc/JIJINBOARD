@@ -1,38 +1,21 @@
-/* Settings open from the gear as a compact floating menu, not a full-screen modal. */
-#boardSettingsOverlay.board-settings-overlay{
-  display:block!important;
-  padding:0!important;
-  background:transparent!important;
-  backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
-  pointer-events:none!important;
-}
-#boardSettingsOverlay.board-settings-overlay[hidden]{display:none!important}
-#boardSettingsOverlay .board-settings-panel{
-  position:fixed!important;
-  top:50px!important;
-  right:10px!important;
-  width:min(480px,calc(100vw - 20px))!important;
-  max-width:480px!important;
-  height:min(520px,calc(100vh - 62px))!important;
-  min-height:340px!important;
-  grid-template-columns:58px minmax(0,1fr)!important;
-  border-radius:12px!important;
-  box-shadow:0 16px 46px rgba(24,31,43,.18)!important;
-  transform-origin:top right;
-  animation:boardSettingsMenuIn .11s ease-out;
-  pointer-events:auto!important;
-}
-#boardSettingsOverlay .board-settings-tabs{padding:9px 5px!important}
-#boardSettingsOverlay .board-settings-tab{min-height:36px!important;font-size:7px!important}
-#boardSettingsOverlay .board-settings-main{display:grid!important;grid-template-rows:minmax(0,1fr)!important;height:100%!important;min-height:0!important}
-#boardSettingsOverlay .board-settings-pages{height:100%!important;min-height:0!important}
-#boardSettingsOverlay .board-settings-page{height:100%!important;min-height:0!important}
-#boardSettingsOverlay .board-settings-page{padding:8px 9px 9px!important}
-#boardSettingsOverlay .board-settings-general{gap:7px!important}
-#boardSettingsOverlay .board-settings-section-head{padding:6px 8px!important}
-#boardSettingsOverlay .board-share-body{padding:6px 8px!important}
-
+/* One compact workspace: participant list -> personal detail or common settings. */
+#boardSettingsOverlay.board-settings-overlay{display:block!important;padding:0!important;background:transparent!important;pointer-events:none!important}
+#boardSettingsOverlay[hidden]{display:none!important}
+#boardSettingsOverlay .board-settings-panel{position:fixed!important;top:49px!important;right:10px!important;width:min(430px,calc(100vw - 20px))!important;max-width:430px!important;height:min(560px,calc(100dvh - 62px))!important;min-height:0!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:42px minmax(0,1fr)!important;background:#fff;border:1px solid #eadfec!important;border-radius:16px!important;box-shadow:0 15px 42px #5d3c661b!important;overflow:hidden!important;pointer-events:auto!important;animation:boardSettingsMenuIn .11s ease-out}
+#boardSettingsOverlay .board-settings-header{display:flex;align-items:center;gap:8px;padding:0 13px;border-bottom:1px solid #f0e7f2;background:#fdf9fe;color:#88728e;font-size:11px;letter-spacing:.04em}
+#boardSettingsOverlay .board-settings-header strong{flex:1;font-weight:650}
+#boardSettingsOverlay .board-settings-header button{border:0;background:none;color:#a18aa8;cursor:pointer;font:inherit;font-size:19px;padding:3px}
+#boardSettingsOverlay .board-settings-main,#boardSettingsOverlay .board-settings-pages{height:100%;min-height:0;overflow:hidden}
+#boardSettingsOverlay .board-settings-page{height:100%;min-height:0;box-sizing:border-box;padding:0!important}
+#boardSettingsOverlay .board-settings-general{display:grid;grid-template-rows:minmax(0,1fr) auto!important;gap:0!important}
+#boardSettingsOverlay .board-settings-page[hidden],#boardSettingsOverlay [hidden]{display:none!important}
+#boardSettingsOverlay .board-settings-frame-slot{height:100%;min-height:0;overflow:hidden}
+#boardSettingsOverlay .board-common-settings-link{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 12px 12px;padding:11px 12px;border:1px solid #ebdfef;border-radius:12px;background:#fcf8fd;color:#97809e;text-align:left;font:inherit;cursor:pointer}
+#boardSettingsOverlay .board-common-settings-link b{display:block;font-size:11px;font-weight:650}
+#boardSettingsOverlay .board-common-settings-link small{font-size:9px;color:#b09cb7;display:block;margin-top:3px}
+#boardSettingsOverlay .board-common-settings-link>span:last-child{font-size:19px}
+@keyframes boardSettingsMenuIn{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+@media(max-width:520px){#boardSettingsOverlay .board-settings-panel{right:7px!important;width:calc(100vw - 14px)!important;max-width:none!important;height:min(560px,calc(100dvh - 60px))!important}}
 /* The top-right settings control uses the provided gear icon. */
 #boardSettingsButton.board-settings-trigger{
   position:relative!important;
@@ -56,23 +39,9 @@
 #boardSettingsButton.board-settings-trigger:hover{opacity:1!important;background:transparent!important}
 #boardSettingsButton.board-settings-trigger:active{transform:scale(.94)}
 
-@keyframes boardSettingsMenuIn{from{opacity:0;transform:translateY(-3px) scale(.985)}to{opacity:1;transform:none}}
-@media(max-width:720px){
-  #boardSettingsOverlay .board-settings-panel{
-    top:49px!important;
-    right:7px!important;
-    width:calc(100vw - 14px)!important;
-    max-width:none!important;
-    height:min(500px,calc(100vh - 57px))!important;
-    min-height:0!important;
-    grid-template-columns:52px minmax(0,1fr)!important;
-  }
-}
 
-/* The Basic settings tab has little content, so do not keep the full Design-panel height. */
-#boardSettingsOverlay .board-settings-panel:has(.board-settings-general:not([hidden])){height:min(300px,calc(100vh - 62px))!important;min-height:260px!important}
-#boardSettingsOverlay .board-settings-general{grid-template-rows:auto minmax(0,1fr)!important;gap:5px!important}
-#boardSettingsOverlay .board-settings-page{padding:6px 7px 7px!important}
-#boardSettingsOverlay .board-settings-section-head{padding:5px 7px!important}
-#boardSettingsOverlay .board-share-body{padding:5px 7px!important}
-@media(max-width:720px){#boardSettingsOverlay .board-settings-panel:has(.board-settings-general:not([hidden])){height:min(340px,calc(100vh - 57px))!important;min-height:0!important}}
+#boardSettingsOverlay{position:fixed;inset:0;z-index:2300}
+#boardSettingsOverlay .board-settings-main,#boardSettingsOverlay .board-settings-pages{position:relative;min-width:0}
+#boardSettingsOverlay .board-settings-page{position:absolute;inset:0;min-width:0;background:#fff}
+#boardSettingsOverlay .board-settings-loading{display:grid;place-items:center;color:#a18ba8;font-size:10px;height:100%}
+#boardSettingsButton.board-settings-trigger>img{display:block!important;width:16px!important;height:16px!important;object-fit:contain!important;pointer-events:none!important}

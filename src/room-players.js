@@ -2,37 +2,42 @@ import {publicParticipants} from './room-participants.js';
 import {randomToken,tokenHash,storeImage} from './data-model.js';
 import {playerKey,playerPrefix,characterKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
+const safeTextColor=value=>{const color=String(value||'');if(color&&!/^#[0-9a-f]{6}$/i.test(color))throw Error('文字色の形式が正しくありません');return color};
 const text=(value,max=120)=>String(value||'').slice(0,max);
 async function bodyOf(request){try{return await request.json()}catch{return null}}
 const token=request=>request.headers.get('x-player-token')||'';
-const masterRow=(db,id)=>db.prepare('SELECT * FROM pl WHERE pl_id=?').bind(id).first();
+const masterRow=(db,id)=>db.prepare('SELECT p.*,s.text_color FROM pl p LEFT JOIN speaker_style s ON s.person_id=p.pl_id WHERE p.pl_id=?').bind(id).first();
 async function authorized(db,request,id){
  const row=await masterRow(db,id),raw=token(request);if(!row||!raw)return null;
  const hash=await tokenHash(raw);
  return hash===row.access_token_hash||await db.prepare('SELECT 1 FROM transfer WHERE pl_id=? AND transfer_used_at IS NOT NULL AND transfer_code_hash=?').bind(id,hash).first()?row:null;
 }
 async function masterData(db,board,row){
- const chars=(await db.prepare('SELECT * FROM character WHERE pl_id=? ORDER BY created_at,character_id').bind(row.pl_id).all()).results||[];
+ const chars=(await db.prepare('SELECT c.*,s.text_color FROM character c LEFT JOIN speaker_style s ON s.person_id=c.character_id WHERE c.pl_id=? ORDER BY c.created_at,c.character_id').bind(row.pl_id).all()).results||[];
  const deleted=(await db.prepare('SELECT character_id FROM deleted_character WHERE pl_id=?').bind(row.pl_id).all()).results||[];
- return {boardId:board,address:row.pl_id,playerId:localId(row.pl_id),plName:row.pl_name,plIcon:playerIconUrl(board,row.pl_icon_key),plColor:row.pl_color,plColorDark:row.pl_color_dark,
-  characters:chars.map(c=>({id:localId(c.character_id),address:c.character_id,type:c.character_type,name:c.character_name,icon:playerIconUrl(board,c.character_icon_key),matrixIcon:playerIconUrl(board,c.matrix_icon_key),color:c.character_color,colorDark:c.character_color_dark,updatedAt:c.updated_at})),deletedCharacterIds:deleted.map(c=>localId(c.character_id)),updatedAt:row.updated_at};
+ return {boardId:board,address:row.pl_id,playerId:localId(row.pl_id),plName:row.pl_name,plIcon:playerIconUrl(board,row.pl_icon_key),plColor:row.pl_color,plTextColor:row.text_color||'',plColorDark:row.pl_color_dark,
+  characters:chars.map(c=>({id:localId(c.character_id),address:c.character_id,type:c.character_type,name:c.character_name,icon:playerIconUrl(board,c.character_icon_key),matrixIcon:playerIconUrl(board,c.matrix_icon_key),color:c.character_color,textColor:c.text_color||'',colorDark:c.character_color_dark,updatedAt:c.updated_at})),deletedCharacterIds:deleted.map(c=>localId(c.character_id)),updatedAt:row.updated_at};
 }
 async function characterSaveStatement(env,board,playerId,list){
  const pl=playerKey(board,playerId);
- const existing=(await env.DB.prepare('SELECT * FROM character WHERE pl_id=?').bind(pl).all()).results||[];
+ const existing=(await env.DB.prepare('SELECT c.*,s.text_color FROM character c LEFT JOIN speaker_style s ON s.person_id=c.character_id WHERE c.pl_id=?').bind(pl).all()).results||[];
  const oldById=new Map(existing.map(c=>[c.character_id,c])),records=[];
  for(const item of Array.isArray(list)?list.slice(0,100):[]){
   const id=text(item?.id||item?.characterId),name=text(item?.name,80).trim();if(!id||!name)continue;
   const key=characterKey(board,playerId,id),old=oldById.get(key);
   const icon=await storeImage(env.LOGS,text(item.icon,7_000_000),iconPrefix(board,'character-icons'))||old?.character_icon_key||'';
   const matrix=await storeImage(env.LOGS,text(item.matrixIcon,7_000_000),iconPrefix(board,'matrix-icons'))||old?.matrix_icon_key||'';
-  records.push({key,type:item.type==='NPC'?'NPC':'PC',name,icon,matrix,color:text(item.color||'#ffe66b',40),dark:text(item.colorDark||item.color||'#ffe66b',40)});
+  records.push({key,type:item.type==='NPC'?'NPC':'PC',name,icon,matrix,color:text(item.color||'#ffe66b',40),dark:text(item.colorDark||item.color||'#ffe66b',40),textColor:item.textColor===undefined?old?.text_color||'':safeTextColor(item.textColor)});
  }
  // One bounded SQL statement, even with 100 PCs. Check tombstones at write time.
- return env.DB.prepare(`INSERT INTO character(character_id,pl_id,character_type,character_name,character_icon_key,matrix_icon_key,character_color,character_color_dark,updated_at)
+ const write=env.DB.prepare(`INSERT INTO character(character_id,pl_id,character_type,character_name,character_icon_key,matrix_icon_key,character_color,character_color_dark,updated_at)
   SELECT json_extract(j.value,'$.key'),?,json_extract(j.value,'$.type'),json_extract(j.value,'$.name'),json_extract(j.value,'$.icon'),json_extract(j.value,'$.matrix'),json_extract(j.value,'$.color'),json_extract(j.value,'$.dark'),CURRENT_TIMESTAMP
   FROM json_each(?) j WHERE NOT EXISTS(SELECT 1 FROM deleted_character d WHERE d.character_id=json_extract(j.value,'$.key'))
   ON CONFLICT(character_id) DO UPDATE SET character_type=excluded.character_type,character_name=excluded.character_name,character_icon_key=excluded.character_icon_key,matrix_icon_key=excluded.matrix_icon_key,character_color=excluded.character_color,character_color_dark=excluded.character_color_dark,updated_at=CURRENT_TIMESTAMP WHERE character.pl_id=excluded.pl_id`).bind(pl,JSON.stringify(records));
+ const styles=env.DB.prepare(`INSERT INTO speaker_style(person_id,room_id,pl_id,character_id,text_color)
+ SELECT c.character_id,?,?,c.character_id,json_extract(j.value,'$.textColor') FROM json_each(?) j JOIN character c ON c.character_id=json_extract(j.value,'$.key') AND c.pl_id=?
+ WHERE 1 ON CONFLICT(person_id) DO UPDATE SET text_color=excluded.text_color WHERE speaker_style.pl_id=excluded.pl_id`).bind(board,pl,JSON.stringify(records),pl);
+ return [write,styles];
 }
 async function redeem(request,env,board,code){
  const hash=await tokenHash(code),row=await env.DB.prepare('SELECT * FROM transfer WHERE transfer_code_hash=? AND substr(pl_id,1,?)=?').bind(hash,playerPrefix(board).length,playerPrefix(board)).first();
@@ -74,9 +79,11 @@ async function roomPlayers(request,env,board,parts=[]){
  if(parts[1]==='session'&&method==='POST'){if(!env.ROOMS)return json({error:'端末の確認ができません'},503);const deviceId=text(data?.deviceId,100),tabId=text(data?.tabId,100);return env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/device-session',{method:'POST',body:JSON.stringify({playerId:key,deviceId,tabId,action:data?.action==='release'?'release':'claim'})})}
  if(method==='GET'&&parts.length===1)return json({master:await masterData(env.DB,board,row)});
  if(method==='PUT'&&parts.length===1){
+  const valid=v=>v===undefined||v===''||/^#[0-9a-f]{6}$/i.test(String(v));if(!valid(data?.plTextColor)||(Array.isArray(data?.characters)?data.characters:[]).some(c=>!valid(c?.textColor)))return json({error:'文字色の形式が正しくありません'},400);
   const icon=await storeImage(env.LOGS,String(data?.plIcon||''),iconPrefix(board,'pl-icons'))||row.pl_icon_key;
   const characters=await characterSaveStatement(env,board,playerId,data?.characters);
-  await env.DB.batch([env.DB.prepare('UPDATE pl SET pl_name=?,pl_icon_key=?,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(text(data?.plName||row.pl_name,80).trim(),icon,text(data?.plColor||row.pl_color,40),text(data?.plColorDark||data?.plColor||row.pl_color_dark,40),key),characters,
+  await env.DB.batch([env.DB.prepare('UPDATE pl SET pl_name=?,pl_icon_key=?,pl_color=?,pl_color_dark=?,updated_at=CURRENT_TIMESTAMP WHERE pl_id=?').bind(text(data?.plName||row.pl_name,80).trim(),icon,text(data?.plColor||row.pl_color,40),text(data?.plColorDark||data?.plColor||row.pl_color_dark,40),key),...characters,
+  env.DB.prepare('INSERT INTO speaker_style(person_id,room_id,pl_id,text_color) VALUES(?,?,?,?) ON CONFLICT(person_id) DO UPDATE SET text_color=excluded.text_color WHERE speaker_style.pl_id=excluded.pl_id').bind(key,board,key,data?.plTextColor===undefined?row.text_color||'':safeTextColor(data.plTextColor)),
   // Existing log marks use the same light/dark pair as the edited speaker.
   env.DB.prepare(`UPDATE log_comment_range SET marker_color=COALESCE(
    (SELECT CASE WHEN c.author_character_id IS NULL THEN p.pl_color||'|'||p.pl_color_dark
