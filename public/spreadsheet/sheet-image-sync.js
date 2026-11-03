@@ -71,21 +71,42 @@
   syncedSave.__jijinRaw=rawSave;
   window.saveImageBlob=syncedSave;
 
+  async function sameImage(a,b){
+    if(a===b)return true;
+    if(!a||!b||a.size!==b.size||a.type!==b.type)return false;
+    if(!a.arrayBuffer||!b.arrayBuffer)return false;
+    const [left,right]=await Promise.all([a.arrayBuffer(),b.arrayBuffer()]);
+    const x=new Uint8Array(left),y=new Uint8Array(right);
+    return x.length===y.length&&x.every((value,index)=>value===y[index]);
+  }
+  async function verifyImage(partId,charId,started){
+    const key=remoteKey(partId,charId),remote=await fetchRemote(partId,charId);
+    if(started!==stamp(key))return window.loadImageBlob(partId,charId);
+    checked.add(key);memory.set(key,remote);
+    if(remote)persist(rawSave,partId,charId,remote);
+    else persist(rawDelete,partId,charId);
+    return remote;
+  }
   window.loadImageBlob=async function(partId,charId){
     const key=remoteKey(partId,charId);
     if(memory.has(key))return memory.get(key);
-    if(!checked.has(key)){
-      const started=stamp(key);
-      try{
-        const remote=await fetchRemote(partId,charId);
-        if(started!==stamp(key))return window.loadImageBlob(partId,charId);
-        checked.add(key);memory.set(key,remote);
-        if(remote)persist(rawSave.bind(this),partId,charId,remote);
-        else persist(rawDelete.bind(this),partId,charId);
-        return remote;
-      }catch(error){console.warn('Spreadsheet image download failed',error)}
+    const started=stamp(key);let timer,local=null;
+    try{
+      local=await Promise.race([rawLoad.call(this,partId,charId),new Promise(resolve=>timer=setTimeout(()=>resolve(null),40))]);
+    }catch{}finally{clearTimeout(timer)}
+    if(started!==stamp(key))return window.loadImageBlob(partId,charId);
+    if(local){
+      memory.set(key,local);
+      // Show durable local bytes now; validate once in the background.
+      verifyImage(partId,charId,started).then(async remote=>{
+        if(started!==stamp(key)||await sameImage(local,remote))return;
+        window.dispatchEvent(new CustomEvent('jijinboard-local-image-updated',{detail:{partId,charId}}));
+        refreshVisibleImages();
+      }).catch(error=>console.warn('Spreadsheet image verification deferred',error));
+      return local;
     }
-    return rawLoad.call(this,partId,charId);
+    try{return await verifyImage(partId,charId,started)}
+    catch(error){console.warn('Spreadsheet image download failed',error);return null}
   };
 
   window.deleteImageBlob=async function(partId,charId){

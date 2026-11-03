@@ -75,11 +75,11 @@ test('verified clients attach generation while preserving caller headers',async 
  w.eval(source('shared/dataset-guard.js'));await w.fetch('/api/boards/B',{method:'PATCH',headers:{'x-player-token':'secret'}});
  assert.equal(sent.headers.get('x-jijin-dataset'),'current');assert.equal(sent.headers.get('x-player-token'),'secret');
 });
-test('missing remote Sheets image deletes cache without reuploading it',async t=>{
+test('cached Sheets image displays first, then missing remote image deletes cache without reuploading it',async t=>{
  const dom=new JSDOM('',{url:'https://test/spreadsheet/?board=board',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;let deleted=0;const methods=[];
  w.saveImageBlob=async()=>{};w.loadImageBlob=async()=>new w.Blob(['old']);w.deleteImageBlob=async()=>{deleted++};
  w.fetch=async(path,init={})=>{methods.push(init.method||'GET');return {status:404,ok:false}};
- w.eval(source('spreadsheet/sheet-image-sync.js'));await tick();assert.equal(await w.loadImageBlob('background','global'),null);assert.equal(deleted,1);assert.deepEqual(methods,['GET']);
+ w.eval(source('spreadsheet/sheet-image-sync.js'));await tick();assert.ok(await w.loadImageBlob('background','global'));await tick();assert.equal(await w.loadImageBlob('background','global'),null);assert.equal(deleted,1);assert.deepEqual(methods,['GET']);
 });
 
 

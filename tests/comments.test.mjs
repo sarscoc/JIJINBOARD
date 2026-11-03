@@ -116,3 +116,10 @@ test('comment image validation avoids downloading unchanged bytes and detects re
  await f.call('PATCH',{authorId:'author',imageData:'data:image/png;base64,Qg=='},comment.id);
  const changed=await handleComments(new Request('https://test/api',{headers:{'if-none-match':etag}}),f.env,'board',comment.id,'image');assert.equal(changed.status,200);assert.notEqual(changed.headers.get('etag'),etag);assert.equal(await changed.text(),'B');
 });
+
+test('versioned comment images are reusable locally, and obsolete versions remain validated',async t=>{
+ const f=fixture(t),{comment}=await (await f.create(targets.cell('board','cell'))).json();
+ const edited=await (await f.call('PATCH',{authorId:'author',imageData:'data:image/png;base64,QQ=='},comment.id)).json();const version=edited.comment.image_version;assert.ok(version);
+ const cached=await handleComments(new Request('https://test/image?v='+encodeURIComponent(version)),f.env,'board',comment.id,'image');assert.match(cached.headers.get('cache-control'),/immutable/);
+ const unknown=await handleComments(new Request('https://test/image?v=old'),f.env,'board',comment.id,'image');assert.match(unknown.headers.get('cache-control'),/no-cache/);
+});

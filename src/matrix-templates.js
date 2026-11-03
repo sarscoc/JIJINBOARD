@@ -70,7 +70,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const row=await env.DB.prepare('SELECT template_image_key FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
     if(!row?.template_image_key)return new Response('Not found',{status:404});
     const object=await env.LOGS.get(row.template_image_key);if(!object)return new Response('Not found',{status:404});
-    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, max-age=86400'}});
+    return new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':new URL(request.url).searchParams.get('v')===row.template_image_key?'private, max-age=31536000, immutable':'private, no-cache'}});
   }
   if(!logId||!await validMatrixScope(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 

@@ -51,6 +51,11 @@
   window.openQuestionPopup=function(item,...args){current=item;popup.dataset.answerPresentation=state.layout.questionPresentations?.[item.key]||'bubble';const result=raw.call(this,item,...args);decorate();return result};
 
 
+  window.addEventListener('jijinboard-local-image-updated',event=>{
+    if(event.detail?.partId!=='question-portrait')return;
+    if(current&&popup.classList.contains('show'))decorate();
+    if(typeof characterDesignEditingId!=='undefined'&&String(characterDesignEditingId)===String(event.detail.charId))preview();
+  });
   const settings=document.getElementById('characterDesignModal');
   const section=document.createElement('section');section.className='question-portrait-settings';
   section.innerHTML="<b>質問回答用のキャラ画像</b><label class=\"question-portrait-upload\"><span class=\"question-portrait-upload-preview\"><img alt=\"登録画像\" hidden><span data-portrait-empty aria-hidden=\"true\">＋</span></span><span class=\"question-portrait-upload-copy\"><strong>回答に添えるアイコン</strong><span>画像を選ぶ</span></span><input type=\"file\" accept=\"image/*\" aria-label=\"質問回答用のキャラ画像を選ぶ\"></label><button class=\"question-portrait-remove\" type=\"button\" hidden>この画像を削除</button><span role=\"status\" aria-live=\"polite\"></span>";

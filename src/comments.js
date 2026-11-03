@@ -25,7 +25,7 @@ export function serializeComment(board, c) {
     text_color:c.author_character_id?(c.character_text_color||''):(c.pl_text_color||''),
     persona_icon:playerIconUrl(board,c.character_icon_key||c.pl_icon_key),
     color:isLog?(c.marker_color||'yellow'):`${c.character_color||c.pl_color||'#ffe66b'}|${c.character_color_dark||c.pl_color_dark||'#ffe66b'}`,
-    body:c.comment_body,created_at:c.created_at,updated_at:c.updated_at,has_image:c.comment_image_key?1:0,
+    body:c.comment_body,created_at:c.created_at,updated_at:c.updated_at,has_image:c.comment_image_key?1:0,image_version:c.comment_image_key?String(c.comment_image_key).split('/').pop():'',
     like_count:Number(c.like_count)||0,liked_by_me:!!c.liked_by_me,
     // Read-only compatibility fields. New callers use target; stored IDs do not change.
     target_id:c.comment_target_id,cell_id:c.comment_target_type==='spreadsheet_cell'?c.comment_target_id:'',
@@ -160,7 +160,7 @@ export async function handleComments(request,env,board,id='',action='',execution
     if(!row||!match(row))fail('コメントが見つかりません',404);
     const target=targets.fromStorage(board,row),logId=row.comment_target_type==='log_range'?row.comment_target_id:'';
     if(method==='GET'&&action==='image'){
-      const etag='"'+String(row.comment_image_key||'').split('/').pop()+'"',headers={'cache-control':'private, no-cache','etag':etag};
+      const imageVersion=String(row.comment_image_key||'').split('/').pop(),etag='"'+imageVersion+'"',headers={'cache-control':row.comment_image_key&&url.searchParams.get('v')===imageVersion?'private, max-age=31536000, immutable':'private, no-cache','etag':etag};
       if(row.comment_image_key&&request.headers.get('if-none-match')===etag)return new Response(null,{status:304,headers});
       const object=row.comment_image_key?await env.LOGS.get(row.comment_image_key):null;
       return object?new Response(object.body,{headers:{...headers,'content-type':object.httpMetadata?.contentType||'image/webp'}}):new Response('Not found',{status:404});
