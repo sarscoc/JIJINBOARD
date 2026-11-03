@@ -5,7 +5,7 @@ import {JSDOM} from 'jsdom';
 const source=readFileSync(new URL('../public/matrix/matrix-pc.js',import.meta.url),'utf8');
 const tick=()=>new Promise(setImmediate);
 test('MATRIX cannot restore deleted PCs from cached profiles or write them back on load',async t=>{
- const dom=new JSDOM('<div id="matrixPcStrip"></div>',{url:'https://test/matrix/?board=board&room=log',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.structuredClone=structuredClone;w.requestAnimationFrame=fn=>w.setTimeout(fn,0);
+ const dom=new JSDOM('<div id="matrixPcStrip"></div>',{url:'https://test/matrix/?board=board&room=log',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.structuredClone=structuredClone;w.requestAnimationFrame=fn=>w.setTimeout(fn,0);w.cancelAnimationFrame=id=>w.clearTimeout(id);
  w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'p',plName:'PL'}));w.localStorage.setItem('personas:log',JSON.stringify([{id:'old',name:'Old PC',type:'PC'}]));
  w.eval(`var items=[],saved={items:{'participant:p:pc':{placed:true,x:45,y:32}},display:{}};function appState(){return saved}function saveState(s){saved=s}function currentTemplateId(){return 'tpl'}function templateStates(){return {tpl:saved}}function makeLocalItemState(){return {placed:false}}function renderLibrary(){}function renderPlaced(){};window.shown=()=>items;`);
  let list=[{authorId:'p',personaId:'pc',plName:'PL',name:'Saved PC',icon:'/saved.png'}];const writes=[];

@@ -21,7 +21,7 @@ test('player writes notify after persistence; failed auth and reads do not notif
  try{assert.equal((await handleRoomPlayers(req('PUT',{plName:'Saved'},made.accessToken),f.env,'one',['p'])).status,200)}finally{console.warn=oldWarn}
 });
 
-test('another device receives names, colors and an empty PC list without reloading',async t=>{
+test('another tab receives names, colors and an empty PC list without reloading',async t=>{
  const f=roomFixture(t),sockets=[];
  const made=await (await handleRoomPlayers(req('POST',{playerId:'p',plName:'PL'}),f.env,'one')).json();
  f.env.ROOMS={idFromName:id=>id,get:()=>({fetch:async(url,options)=>{const data=JSON.parse(options.body);for(const socket of sockets)socket.dispatchEvent(new socket.w.MessageEvent('message',{data:JSON.stringify({type:'refresh',...data})}));return new Response('{}')}})};
@@ -33,15 +33,17 @@ test('another device receives names, colors and an empty PC list without reloadi
   class Socket extends w.EventTarget{readyState=1;constructor(){super();this.w=w;sockets.push(this);w.setTimeout(()=>this.dispatchEvent(new w.Event('open')),0)}close(){this.readyState=3}}
   w.WebSocket=Socket;w.AbortSignal=AbortSignal;w.AbortController=AbortController;
   w.fetch=async(path,options={})=>{const parts=new URL(path,'https://test').pathname.split('/').slice(5);return handleRoomPlayers(new Request('https://test'+path,options),f.env,'one',parts)};
-  w.eval(source('shared/player-master.js'));return w;
+  w.eval(source('shared/data-sync.js'));w.eval(source('shared/player-master.js'));return w;
  }
  const a=client(),b=client();await Promise.all([a.JIJINPlayerMaster.bootstrap(),b.JIJINPlayerMaster.bootstrap()]);
  for(let i=0;i<30&&sockets.length<2;i++)await new Promise(r=>setTimeout(r,5));
  assert.equal(sockets.length,2);
+ const received=(predicate)=>new Promise((resolve,reject)=>{const cleanup=()=>{clearTimeout(timer);b.removeEventListener('jijinboard-player-master-updated',check)};const check=()=>{if(predicate()){cleanup();resolve()}};const timer=setTimeout(()=>{cleanup();reject(Error('PL update was not received'))},5000);b.addEventListener('jijinboard-player-master-updated',check);check()});
+ const renamed=received(()=>b.view().plName==='Renamed'&&b.view().personas.length===1);
  await a.JIJINPlayerMaster.updateProfile({plName:'Renamed',plColor:'#112233',plColorDark:'#334455',characters:[{id:'pc',type:'PC',name:'New PC',color:'#aabbcc'}]});
- for(let i=0;i<15&&b.view().personas.length!==1;i++)await tick();
+ await renamed;
  assert.equal(b.view().plName,'Renamed');assert.equal(b.view().plColorDark,'#334455');assert.equal(b.view().personas[0].name,'New PC');
- await a.JIJINPlayerMaster.deleteCharacter('pc');for(let i=0;i<15&&b.view().personas.length;i++)await tick();
+ const cleared=received(()=>b.view().personas.length===0);await a.JIJINPlayerMaster.deleteCharacter('pc');await cleared;
  assert.deepEqual(JSON.parse(JSON.stringify(b.view().personas)),[]);assert.deepEqual(JSON.parse(b.localStorage.getItem('personas:log-one')),[]);
 });
 
