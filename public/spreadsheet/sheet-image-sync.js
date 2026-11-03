@@ -9,10 +9,10 @@
   if(typeof window.saveImageBlob!=='function'||window.saveImageBlob.__jijinRemoteImageSync)return;
 
   const rawSave=window.saveImageBlob,rawLoad=window.loadImageBlob,rawDelete=window.deleteImageBlob;
-  const checked=new Set(),pending=new Map(),memory=new Map(),revisions=new Map();let epoch=0;
+  const checked=new Set(),pending=new Map(),memory=new Map(),revisions=new Map(),uploading=new Map();let epoch=0;
   const stamp=key=>`${epoch}:${revisions.get(key)||0}`;
   const mutate=key=>revisions.set(key,(revisions.get(key)||0)+1);
-  const invalidate=()=>{epoch++;checked.clear();memory.clear()};
+  const invalidate=()=>{epoch++;checked.clear()};
   const persist=(fn,...args)=>{Promise.resolve().then(()=>fn(...args)).catch(error=>console.warn('Spreadsheet image cache write skipped',error))};
   const remoteKey=(partId,charId)=>`${partId}::${charId}`;
   function mapTarget(partId,charId){
@@ -63,9 +63,9 @@
 
   const syncedSave=async function(partId,charId,file){
     const compressed=await compressImage(file),key=remoteKey(partId,charId);
-    mutate(key);memory.set(key,compressed);
+    mutate(key);memory.set(key,compressed);const upload={file:compressed,revision:revisions.get(key)};uploading.set(key,upload);
     persist(rawSave.bind(this),partId,charId,compressed);
-    try{await uploadRemote(partId,charId,compressed);checked.add(key)}catch(error){console.warn('Spreadsheet image upload failed',error)}
+    try{await uploadRemote(partId,charId,compressed);checked.add(key)}catch(error){console.warn('Spreadsheet image upload failed',error);throw error}finally{if(uploading.get(key)===upload)uploading.delete(key)}
   };
   syncedSave.__jijinRemoteImageSync=true;
   syncedSave.__jijinRaw=rawSave;
@@ -79,30 +79,49 @@
     const x=new Uint8Array(left),y=new Uint8Array(right);
     return x.length===y.length&&x.every((value,index)=>value===y[index]);
   }
-  async function verifyImage(partId,charId,started){
-    const key=remoteKey(partId,charId),remote=await fetchRemote(partId,charId);
-    if(started!==stamp(key))return window.loadImageBlob(partId,charId);
-    checked.add(key);memory.set(key,remote);
-    if(remote)persist(rawSave,partId,charId,remote);
-    else persist(rawDelete,partId,charId);
-    return remote;
+  const validating=new Map(),previews=new Map();
+  function previewUrl(partId,charId,blob=memory.get(remoteKey(partId,charId))){
+    const key=remoteKey(partId,charId);if(!blob)return '';
+    const old=previews.get(key);if(old?.blob===blob)return old.url;
+    const url=URL.createObjectURL(blob);previews.set(key,{blob,url});
+    if(old)requestAnimationFrame(()=>URL.revokeObjectURL(old.url));
+    return url;
+  }
+  window.JijinSheetImageCache={peek:(partId,charId)=>memory.get(remoteKey(partId,charId)),url:previewUrl};
+  function verifyImage(partId,charId,started){
+    const key=remoteKey(partId,charId),flight=started+':'+key;
+    if(uploading.get(key)?.revision===revisions.get(key)&&uploading.has(key))return Promise.resolve(uploading.get(key).file);
+    if(validating.has(flight))return validating.get(flight);
+    const task=(async()=>{
+      const remote=await fetchRemote(partId,charId);
+      if(started!==stamp(key))return window.loadImageBlob(partId,charId);
+      const existed=memory.has(key),previous=memory.get(key),unchanged=existed&&await sameImage(previous,remote);
+      if(started!==stamp(key))return window.loadImageBlob(partId,charId);
+      checked.add(key);memory.set(key,unchanged?previous:remote);
+      if(!unchanged){if(remote)persist(rawSave,partId,charId,remote);else persist(rawDelete,partId,charId)}
+      if(existed&&!unchanged){
+        const detail={partId,charId};
+        window.dispatchEvent(new CustomEvent('jijinboard-local-image-updated',{detail}));
+        refreshVisibleImages(detail);
+      }
+      return memory.get(key);
+    })().finally(()=>validating.delete(flight));
+    validating.set(flight,task);return task;
   }
   window.loadImageBlob=async function(partId,charId){
-    const key=remoteKey(partId,charId);
-    if(memory.has(key))return memory.get(key);
-    const started=stamp(key);let timer,local=null;
+    const key=remoteKey(partId,charId),started=stamp(key);
+    if(memory.has(key)){
+      if(!checked.has(key))verifyImage(partId,charId,started).catch(error=>console.warn('Spreadsheet image verification deferred',error));
+      return memory.get(key);
+    }
+    let timer,local=null;
     try{
       local=await Promise.race([rawLoad.call(this,partId,charId),new Promise(resolve=>timer=setTimeout(()=>resolve(null),40))]);
     }catch{}finally{clearTimeout(timer)}
     if(started!==stamp(key))return window.loadImageBlob(partId,charId);
     if(local){
       memory.set(key,local);
-      // Show durable local bytes now; validate once in the background.
-      verifyImage(partId,charId,started).then(async remote=>{
-        if(started!==stamp(key)||await sameImage(local,remote))return;
-        window.dispatchEvent(new CustomEvent('jijinboard-local-image-updated',{detail:{partId,charId}}));
-        refreshVisibleImages();
-      }).catch(error=>console.warn('Spreadsheet image verification deferred',error));
+      verifyImage(partId,charId,started).catch(error=>console.warn('Spreadsheet image verification deferred',error));
       return local;
     }
     try{return await verifyImage(partId,charId,started)}
@@ -114,12 +133,12 @@
     try{const response=await fetch(endpoint(partId,charId),{method:'DELETE'});if(!response.ok&&response.status!==404)throw new Error(`画像削除エラー (${response.status})`)}catch(error){console.warn('Spreadsheet image delete failed',error)}
   };
 
-  async function refreshVisibleImages(){
-    try{await window.applyGlobalBackgroundImage?.()}catch(error){console.warn('Spreadsheet background refresh failed',error)}
-    try{window.syncAllVisibleCharacterDesigns?.()}catch(error){console.warn('Spreadsheet character background refresh failed',error)}
-    try{window.renderDataTable?.()}catch(error){console.warn('Spreadsheet image table refresh failed',error)}
-    try{if(window.state?.currentView==='character')window.renderCharacterView?.()}catch(error){console.warn('Spreadsheet character image refresh failed',error)}
-    try{if(window.state?.currentView==='question')window.renderQuestionView?.()}catch(error){console.warn('Spreadsheet question image refresh failed',error)}
+  function refreshVisibleImages(changed=null){
+    // Never rebuild the table for an image refresh. Keep visible bytes until replaced.
+    if(!changed||changed.partId==='background')Promise.resolve(window.applyGlobalBackgroundImage?.()).catch(console.warn);
+    if(!changed||changed.partId==='character-background')try{window.syncAllVisibleCharacterDesigns?.()}catch(error){console.warn(error)}
+    const roots=changed?[...document.querySelectorAll('[data-image-host]')].filter(host=>host.dataset.imageHost===changed.partId&&host.dataset.imageChar===String(changed.charId)):[document];
+    for(const root of roots)Promise.resolve(window.hydrateImageParts?.(root)).catch(console.warn);
   }
   window.addEventListener('jijinboard-spreadsheet-reconnected',()=>{invalidate();refreshVisibleImages()});
   window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{

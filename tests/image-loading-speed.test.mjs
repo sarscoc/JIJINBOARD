@@ -13,7 +13,7 @@ test('downloaded Sheets images display without waiting for a blocked local datab
  assert.equal(await Promise.race([w.loadImageBlob('question-portrait','pc'),deadline()]),blob);
  assert.equal(await Promise.race([w.loadImageBlob('question-portrait','pc'),deadline()]),blob);assert.equal(gets,1);
  missing=true;w.dispatchEvent(new w.CustomEvent('jijinboard-spreadsheet-remote-change',{detail:{action:'spreadsheet-image'}}));
- assert.equal(await w.loadImageBlob('question-portrait','pc'),null);assert.equal(gets,2);
+ assert.equal(await w.loadImageBlob('question-portrait','pc'),blob);await tick();assert.equal(await w.loadImageBlob('question-portrait','pc'),null);assert.equal(gets,2);
 });
 test('an image download begun before deletion cannot restore that image',async t=>{
  const dom=new JSDOM('',{url:'https://test/spreadsheet/?board=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;let release;

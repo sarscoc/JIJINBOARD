@@ -29,3 +29,7 @@
  .topbar>.app-tabs{right:45px;width:270px}
  .board-brand-stack{display:none}
 }
+
+.presence-person[data-presence-cached]::after{background:#c8bfce;box-shadow:none;animation:none}
+.topbar>.presence-bar{min-height:28px;align-self:center}
+.presence-person img,.presence-person i{flex-shrink:0}

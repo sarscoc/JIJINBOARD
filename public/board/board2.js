@@ -67,7 +67,31 @@ function setLogActive(frame,active){try{const win=frame?.contentWindow;if(!win)r
 function setToolFrameLoading(frame){if(!frame)return;frame.dataset.ready="";frame.style.visibility="hidden";const stamp=String(Date.now())+Math.random();frame.dataset.loadStamp=stamp;setTimeout(()=>{if(frame.id!=="logFrame"&&frame.dataset.loadStamp===stamp&&frame.dataset.ready!=="1")frame.style.visibility=""},8000)}
 function setToolFrameReady(frame){if(!frame)return;frame.dataset.ready="1";frame.style.visibility=""}
 async function summary(roomId){if(!state.summaries[roomId])state.summaries[roomId]=await api(`/api/rooms/${encodeURIComponent(roomId)}?summary=1`);return state.summaries[roomId]}
-function renderLogs(){const logs=state.board.logs||[],owner=!!adminToken();$("#emptyLogs").hidden=logs.length>0;$("#logList").innerHTML=logs.map((item,index)=>{const known=state.opened[item.roomId],active=item.roomId===state.activeRoom,title=item.scenarioTitle||item.title||state.summaries[item.roomId]?.title||known||"ログ";return `<div class="log-entry"><button class="log-item ${item.spoiler&&!known?"unopened":""} ${active?"active":""}" data-room="${esc(item.roomId)}"><span>LOG ${String(index+1).padStart(2,"0")}</span><strong>${esc(title)}</strong></button>${owner?`<button class="log-edit" data-edit-log="${esc(item.roomId)}" title="ログの編集">✎</button>`:""}</div>`}).join("");$("#logList").querySelectorAll("[data-room]").forEach(button=>button.onclick=()=>requestOpen(button.dataset.room));$("#logList").querySelectorAll("[data-edit-log]").forEach(button=>button.onclick=event=>{event.stopPropagation();openLogEdit(button.dataset.editLog)})}
+function navigationKey(){return `board:${encodeURIComponent(boardId)}:navigation`}
+function saveNavigation(){
+ try{if(!state.board?.id)return;const data={id:state.board.id,name:state.board.name,logs:state.board.logs||[]},saved={generation:localStorage.getItem('jijin.dataset.generation.v1'),data};const value=JSON.stringify(saved);if(localStorage.getItem(navigationKey())!==value)localStorage.setItem(navigationKey(),value)}catch{}
+}
+function restoreNavigation(){
+ try{const saved=JSON.parse(localStorage.getItem(navigationKey())||'null');if(saved?.generation!==localStorage.getItem('jijin.dataset.generation.v1')||saved?.data?.id!==boardId||!Array.isArray(saved.data.logs))return false;state.board=saved.data;showBoardTitle(saved.data.name);renderLogs();return true}catch{return false}
+}
+function renderLogs(){
+ const logs=state.board?.logs||[],owner=!!adminToken(),list=$("#logList");if(!list)return;
+ $("#emptyLogs").hidden=logs.length>0;
+ const existing=new Map([...list.children].map(row=>[row.dataset.logId,row]));
+ const keep=new Set(logs.map(item=>String(item.roomId)));
+ for(const row of [...list.children])if(!keep.has(row.dataset.logId))row.remove();
+ logs.forEach((item,index)=>{
+   const id=String(item.roomId),known=state.opened[id],active=id===state.activeRoom,title=item.scenarioTitle||item.title||known||"ログ";
+   let row=existing.get(id);
+   if(!row){row=document.createElement('div');row.className='log-entry';row.dataset.logId=id;const button=document.createElement('button');button.className='log-item';button.dataset.room=id;button.append(document.createElement('strong'));button.onclick=()=>requestOpen(id);row.append(button)}
+   const button=row.querySelector('[data-room]');button.classList.toggle('unopened',!!item.spoiler&&!known);button.classList.toggle('active',active);
+   const label=button.querySelector('strong');if(label.textContent!==title)label.textContent=title;
+   let edit=row.querySelector('[data-edit-log]');
+   if(owner&&!edit){edit=document.createElement('button');edit.className='log-edit';edit.dataset.editLog=id;edit.title='ログの編集';edit.textContent='✎';edit.onclick=event=>{event.stopPropagation();openLogEdit(id)};row.append(edit)}else if(!owner)edit?.remove();
+   if(list.children[index]!==row)list.insertBefore(row,list.children[index]||null);
+ });
+ saveNavigation();
+}
 function closeSpoiler(){const dialog=$("#spoilerDialog");if(dialog.open)dialog.close();state.pendingRoom=""}
 function requestOpen(roomId){const item=state.board.logs.find(item=>item.roomId===roomId);if(!item)return;if(!item.spoiler||state.opened[roomId])return openLog(roomId);const index=state.board.logs.indexOf(item);state.pendingRoom=roomId;$("#spoilerLabel").textContent=`LOG ${String(index+1).padStart(2,"0")}`;$("#spoilerTitle").textContent=item.scenarioTitle||item.title||"LOG";const people=$("#spoilerParticipants");people.textContent=item.scenarioParticipants?`参加PC：${item.scenarioParticipants}`:"";people.classList.toggle("hidden",!item.scenarioParticipants);const dialog=$("#spoilerDialog");if(!dialog.open)dialog.show()}
 async function openLog(roomId,title=""){if($("#spoilerDialog").open)closeSpoiler();const item=state.board.logs.find(item=>item.roomId===roomId);if(title)state.opened[roomId]=title;else if(!state.opened[roomId])state.opened[roomId]=item?.title||(await summary(roomId)).title;saveOpened();state.activeRoom=roomId;state.profile=null;hydrateProfile(roomId);renderLogs();const url=new URL(location.href);url.searchParams.set("id",boardId);url.searchParams.set("room",roomId);history.replaceState(null,"",url.pathname+url.search);$("#welcome").classList.add("hidden");const frame=$("#logFrame"),src=`/log/?room=${encodeURIComponent(roomId)}&embedded=1&board=${encodeURIComponent(boardId)}`;if(frame.dataset.room!==roomId){setToolFrameLoading(frame);frame.dataset.room=roomId;frame.src=src}selectTool("log")}
@@ -96,7 +120,7 @@ async function attachRoom(message){const token=adminToken();if(!token)return;awa
 function openLogEdit(roomId){closeSpoiler();const item=state.board.logs.find(log=>log.roomId===roomId);if(!item)return;state.editingRoom=roomId;$("#logSpoilerInput").checked=!!item.spoiler;$("#logScenarioTitle").value=item.scenarioTitle||"";$("#logScenarioParticipants").value=item.scenarioParticipants||"";$("#logEditDialog").showModal()}
 async function saveLogEdit(event){event.preventDefault();const roomId=state.editingRoom;if(!roomId)return;const spoiler=$("#logSpoilerInput").checked;try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`,{method:"PATCH",headers:{"x-board-admin-token":adminToken()},body:JSON.stringify({spoiler,scenarioTitle:$("#logScenarioTitle").value,scenarioParticipants:$("#logScenarioParticipants").value})});state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);if(spoiler){delete state.opened[roomId];saveOpened()}renderLogs();$("#logEditDialog").close();if(spoiler&&state.activeRoom===roomId)requestOpen(roomId)}catch(error){alert(error.message)}}
 async function removeLog(){const roomId=state.editingRoom;if(!roomId||!confirm("このログを完全に削除しますか？\nログ本文・感想・MATRIXの配置とコメントも元に戻せません。"))return;try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`,{method:"DELETE",headers:{"x-board-admin-token":adminToken()}});["admin:","personas:","mainTab:","hiddenTabs:","theme:"].forEach(prefix=>localStorage.removeItem(prefix+roomId));delete state.opened[roomId];saveOpened();state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);if(state.activeRoom===roomId){state.activeRoom="";state.profile=null;const frame=$("#logFrame");logBridge()?.destroy?.();setLogActive(frame,false);frame.removeAttribute("src");delete frame.dataset.room;frame.dataset.ready="";frame.style.visibility="";$("#welcome").classList.remove("hidden")}$("#logEditDialog").close();renderLogs()}catch(error){alert(error.message)}}
-async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{const pendingBoard=loadBoard();pendingBoard.catch(()=>{});await loadBoardTitle();await window.JijinBoardReady?.image;state.opened=loadOpened();state.board=await pendingBoard;showBoardTitle(state.board.name);const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);renderLogs();const url=new URL(location.href);if(url.searchParams.has("room")){url.searchParams.delete("room");history.replaceState(null,"",url.pathname+url.search)}}catch(error){document.body.innerHTML=`<div role="alert" style="margin:40px auto;padding:24px;max-width:400px;border:1px solid #eadfec;border-radius:16px;background:#fff;color:#88728e"><p>${esc(error.message)}</p><button type="button" id="boardStartupReload" class="quiet">再読み込み</button></div>`;document.getElementById("boardStartupReload").onclick=()=>location.reload()}}
+async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{state.opened=loadOpened();restoreNavigation();const pendingBoard=loadBoard();pendingBoard.catch(()=>{});await loadBoardTitle();await window.JijinBoardReady?.image;state.opened=loadOpened();state.board=await pendingBoard;showBoardTitle(state.board.name);const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);renderLogs();const url=new URL(location.href);if(url.searchParams.has("room")){url.searchParams.delete("room");history.replaceState(null,"",url.pathname+url.search)}}catch(error){document.body.innerHTML=`<div role="alert" style="margin:40px auto;padding:24px;max-width:400px;border:1px solid #eadfec;border-radius:16px;background:#fff;color:#88728e"><p>${esc(error.message)}</p><button type="button" id="boardStartupReload" class="quiet">再読み込み</button></div>`;document.getElementById("boardStartupReload").onclick=()=>location.reload()}}
 
 document.querySelectorAll("[data-tool]").forEach(button=>button.onclick=()=>selectTool(button.dataset.tool));
 $("#confirmOpen").onclick=async()=>{const room=state.pendingRoom,title=$("#spoilerTitle").textContent;closeSpoiler();if(room)await openLog(room,title)};
@@ -128,10 +152,26 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
     if(!p?.id||!name)return;
     socket.send(JSON.stringify({type,clientId,authorId:p.id,plName:name,plTextColor:p.plTextColor||'',plIcon:p.plIcon||'',isTyping:false}));
   }
-  function draw(people){
+  const rosterKey=`board:${encodeURIComponent(boardId)}:presence`;
+  let rosterOrder=[];
+  function draw(people,cached=false){
     const bar=document.querySelector('#presenceBar');if(!bar)return;
-    bar.innerHTML=(people||[]).filter(person=>String(person.pl_name||'').trim()&&!String(person.author_id||'').startsWith('visitor:')).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||'?').slice(0,1))}</i>`}<b style="color:${/^#[0-9a-f]{6}$/i.test(person.text_color||'')?person.text_color:'inherit'}">${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':''}</span>`).join('');
+    const valid=(people||[]).filter(person=>String(person.pl_name||'').trim()&&!String(person.author_id||'').startsWith('visitor:'));
+    const byId=new Map(valid.map(person=>[String(person.author_id||person.pl_name),person]));
+    const ids=[...rosterOrder.filter(id=>byId.has(id)),...[...byId.keys()].filter(id=>!rosterOrder.includes(id))];rosterOrder=ids;
+    const existing=new Map([...bar.children].map(node=>[node.dataset.authorId,node]));
+    for(const node of [...bar.children])if(!byId.has(node.dataset.authorId))node.remove();
+    ids.forEach((id,index)=>{
+      const person=byId.get(id);let node=existing.get(id);
+      if(!node){node=document.createElement('span');node.className='presence-person';node.dataset.authorId=id;bar.append(node)}
+      node.toggleAttribute('data-presence-cached',cached);node.title=cached?'入室状況を確認中':person.pl_name;
+      const visual=JSON.stringify([person.pl_name,person.pl_icon||'',person.text_color||'',!!person.is_typing]);
+      if(node.dataset.visual!==visual){node.dataset.visual=visual;node.innerHTML=`${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||'?').slice(0,1))}</i>`}<b style="color:${/^#[0-9a-f]{6}$/i.test(person.text_color||'')?person.text_color:'inherit'}">${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':''}`}
+      if(bar.children[index]!==node)bar.insertBefore(node,bar.children[index]||null);
+    });
+    if(!cached)try{localStorage.setItem(rosterKey,JSON.stringify({generation:localStorage.getItem('jijin.dataset.generation.v1'),people:ids.map(id=>{const p=byId.get(id);return {author_id:p.author_id,pl_name:p.pl_name,pl_icon:p.pl_icon||'',text_color:p.text_color||''}})}))}catch{}
   }
+  try{const saved=JSON.parse(localStorage.getItem(rosterKey)||'null');if(saved?.generation===localStorage.getItem('jijin.dataset.generation.v1'))draw(saved.people,true)}catch{}
   async function connect(){
     if(stopped||connecting||window.JijinDeviceSession?.blocked||socket&&socket.readyState<2)return;
     connecting=true;let address=`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`;
@@ -140,7 +180,7 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
     const ws=new WebSocket(address);window.JijinDeviceSession?.attach(ws);
     socket=ws;
     ws.addEventListener('open',()=>{if(socket===ws){attempt=0;publish('join');window.dispatchEvent(new Event('jijinboard-reconnected'))}});
-    ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence')draw(data.presence);else if(data.type==='refresh')window.dispatchEvent(new CustomEvent('jijinboard-resource-change',{detail:{action:data.action,data:data.data}}))});
+    ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence'){const own=currentProfile();if(!own?.id||!String(own.plName||'').trim()||(data.presence||[]).some(person=>String(person.author_id)===String(own.id)))draw(data.presence)}else if(data.type==='refresh')window.dispatchEvent(new CustomEvent('jijinboard-resource-change',{detail:{action:data.action,data:data.data}}))});
     ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped&&!window.JijinDeviceSession?.blocked){clearTimeout(reconnectTimer);reconnectTimer=setTimeout(connect,Math.min(30000,1000*2**attempt++))}});
     ws.addEventListener('error',()=>ws.close());
   }

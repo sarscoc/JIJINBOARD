@@ -7784,10 +7784,10 @@ function setImageCaption(partId,charId,value){
   saveState();
 }
 function renderImagePart(part,itemMap,ch,mode='table'){
-  const emptyText='画像なし';
+  const emptyText='画像なし',savedUrl=window.JijinSheetImageCache?.url(part.id,ch.id)||'';
   return `<div class="image-part image-mode-${mode}" data-image-host="${esc(part.id)}" data-image-char="${ch.id}">
     <div class="image-part-frame" data-image-drop="${esc(part.id)}" data-image-char="${ch.id}">
-      <div class="image-part-empty">${emptyText}</div>
+      ${savedUrl?`<img src="${esc(savedUrl)}" alt="">`:`<div class="image-part-empty">${emptyText}</div>`}
     </div>
     <div class="image-part-actions">
       <button class="image-part-btn" type="button" data-image-pick="${esc(part.id)}" data-image-char="${ch.id}">画像を選択</button>
@@ -7798,25 +7798,27 @@ function renderImagePart(part,itemMap,ch,mode='table'){
   </div>`;
 }
 async function hydrateImageParts(root=document){
-  const hosts=[...root.querySelectorAll('[data-image-host]')];
+  const hosts=[...(root.matches?.('[data-image-host]')?[root]:[]),...root.querySelectorAll('[data-image-host]')];
   await Promise.all(hosts.map(async host=>{
-    const partId=host.dataset.imageHost;
-    const charId=host.dataset.imageChar;
-    const frame=host.querySelector('.image-part-frame');
+    const partId=host.dataset.imageHost,charId=host.dataset.imageChar,frame=host.querySelector('.image-part-frame');
     if(!frame)return;
+    const sequence=String((Number(frame.dataset.hydration)||0)+1);frame.dataset.hydration=sequence;
     try{
       const blob=await loadImageBlob(partId,charId);
+      if(!host.isConnected||frame.dataset.hydration!==sequence)return;
       if(!blob){
         if(frame.querySelector('.image-part-empty')?.textContent!=='画像なし')frame.innerHTML='<div class="image-part-empty">画像なし</div>';
         return;
       }
-      if(!host.isConnected)return;
-      const url=URL.createObjectURL(blob);
-      frame.innerHTML=`<img src="${url}" alt="">`;
-      const img=frame.querySelector('img');
-      img.addEventListener('load',()=>URL.revokeObjectURL(url),{once:true});
-    }catch(e){
-      frame.innerHTML='<div class="image-part-empty">画像を読み込めませんでした</div>';
+      const cached=window.JijinSheetImageCache?.url(partId,charId,blob);
+      const url=cached||URL.createObjectURL(blob),existing=frame.querySelector('img');
+      if(existing?.getAttribute('src')===url)return;
+      const img=new Image();img.alt='';
+      img.onload=()=>{if(frame.dataset.hydration===sequence&&host.isConnected)frame.replaceChildren(img);if(!cached)URL.revokeObjectURL(url)};
+      img.onerror=()=>{if(!cached)URL.revokeObjectURL(url)};
+      img.src=url;
+    }catch(error){
+      if(frame.dataset.hydration===sequence&&!frame.querySelector('img'))frame.innerHTML='<div class="image-part-empty">画像を読み込めませんでした</div>';
     }
   }));
 }
@@ -10682,7 +10684,7 @@ document.addEventListener('keydown',e=>{
 <script src="sheet-character-fit.js?v=20261102-room1"></script>
 <script src="question-presentation.js?v=20261103-alllocalimages1"></script>
 <script src="sheet-sync.js?v=20261103-unified1"></script>
-<script src="sheet-image-sync.js?v=20261103-alllocalimages1"></script>
+<script src="sheet-image-sync.js?v=20261103-stableimages2"></script>
 <div id="toast" class="toast-mini"></div>
 </body>
 </html>
