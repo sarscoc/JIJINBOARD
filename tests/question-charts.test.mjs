@@ -14,7 +14,7 @@ test('text and mixed answers count exact responses without extracting incidental
 });
 test('all chart types render safely and invalid pie values show an explanation',t=>{
  const charts=fixture(t),entries=[{label:'<img onerror=bad>',text:'200（ヒール込み）'},{label:'B',text:'181（全長2m）'}];
- for(const mode of ['bar-vertical','bar-horizontal','pie']){const view=charts.render(entries,mode);assert.ok(view.querySelector('svg'));assert.equal(view.querySelector('img'),null);assert.match(view.textContent,/200/)}
+ for(const mode of ['bar-vertical','bar-horizontal','pie']){const view=charts.render(entries,mode);assert.ok(view.querySelector('svg'));assert.ok(view.querySelector('svg').textContent.includes('<img onerror=bad>'));assert.equal(view.querySelector('.question-chart-legend'),null);assert.equal(view.querySelector('img'),null);assert.match(view.textContent,/200/)}
  assert.equal(charts.render([{label:'A',text:'-1'}],'pie').querySelector('svg'),null);
  assert.equal(charts.render([],'pie').querySelector('svg'),null);
 });
