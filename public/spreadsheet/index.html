@@ -7784,7 +7784,7 @@ function setImageCaption(partId,charId,value){
   saveState();
 }
 function renderImagePart(part,itemMap,ch,mode='table'){
-  const emptyText=mode==='table'?'クリック / ドロップ':'クリックまたはドラッグ＆ドロップ';
+  const emptyText='画像なし';
   return `<div class="image-part image-mode-${mode}" data-image-host="${esc(part.id)}" data-image-char="${ch.id}">
     <div class="image-part-frame" data-image-drop="${esc(part.id)}" data-image-char="${ch.id}">
       <div class="image-part-empty">${emptyText}</div>
@@ -7807,7 +7807,7 @@ async function hydrateImageParts(root=document){
     try{
       const blob=await loadImageBlob(partId,charId);
       if(!blob){
-        frame.innerHTML='<div class="image-part-empty">画像なし</div>';
+        if(frame.querySelector('.image-part-empty')?.textContent!=='画像なし')frame.innerHTML='<div class="image-part-empty">画像なし</div>';
         continue;
       }
       const url=URL.createObjectURL(blob);
@@ -9638,7 +9638,7 @@ function openQuestionPopup(item){
       inp.addEventListener('input',()=>autoGrowQuestionTextareas());
       inp.addEventListener('change',()=>{setUnifiedValue(item,inp.dataset.popupChar,inp.value);renderQuestionView();showToast('保存しました')});
     });
-    requestAnimationFrame(()=>autoGrowQuestionTextareas());
+    if(!document.getElementById('questionPresentation'))requestAnimationFrame(()=>autoGrowQuestionTextareas());
     return;
   }
   const part=visualPartForItem(item);
@@ -10679,7 +10679,7 @@ document.addEventListener('keydown',e=>{
 <script src="sheet-layout-six-grid.js?v=20261102-room1"></script>
 <script src="sheet-display-settings.js?v=20261102-room1"></script>
 <script src="sheet-character-fit.js?v=20261102-room1"></script>
-<script src="question-presentation.js?v=20261102-room1"></script>
+<script src="question-presentation.js?v=20261103-square1"></script>
 <script src="sheet-sync.js?v=20261103-unified1"></script>
 <script src="sheet-image-sync.js?v=20261103-unified1"></script>
 <div id="toast" class="toast-mini"></div>
