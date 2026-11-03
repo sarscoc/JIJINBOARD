@@ -3586,58 +3586,52 @@ async function charImgGetAllKeys(){
     r.onerror=()=>no(r.error);
   });
 }
+function paintCachedItemImage(it){
+  const source=displayImage(it);if(!source)return;
+  document.querySelectorAll('img[data-matrix-image-id]').forEach(image=>{
+    if(image.dataset.matrixImageId!==it.id||image.getAttribute('src')===source)return;
+    image.style.display='';image.src=source;
+  });
+}
 async function ensureItemImageCached(it,{force=false}={}){
   if(!it?.id)return false;
-  const direct=String(it.baseImage||'').trim();
-  const sig=String(it.imageSignature||stableRemoteImageKey(direct)||'').trim();
-
+  const direct=String(it.baseImage||'').trim(),sig=String(it.imageSignature||stableRemoteImageKey(direct)||'').trim();
   if(!direct){
-    revokeItemImageUrl(it.id);
-    imageCacheMeta.delete(it.id);
-    await charImgDeleteRecord(it.id).catch(()=>{});
-    return false;
+    revokeItemImageUrl(it.id);imageCacheMeta.delete(it.id);
+    Promise.resolve().then(()=>charImgDeleteRecord(it.id)).catch(()=>{});return false;
   }
   if(direct.startsWith('data:')){
-    imageBlobUrls.set(it.id,direct);
-    imageCacheMeta.set(it.id,{signature:sig,inline:true});
-    return true;
+    imageBlobUrls.set(it.id,direct);imageCacheMeta.set(it.id,{signature:sig,inline:true});paintCachedItemImage(it);return true;
   }
   const memo=imageCacheMeta.get(it.id);
-  if(!force && memo?.signature===sig && imageBlobUrls.get(it.id))return true;
-
-  if(imageCachePromises.has(it.id) && !force)return imageCachePromises.get(it.id);
-
+  if(!force&&memo?.signature===sig&&imageBlobUrls.get(it.id)){paintCachedItemImage(it);return true}
+  const flight=JSON.stringify([it.id,sig]);
+  if(imageCachePromises.has(flight)&&!force)return imageCachePromises.get(flight);
+  const current=()=>{
+    const live=items.find(item=>item.id===it.id);
+    return !!live&&String(live.imageSignature||stableRemoteImageKey(live.baseImage)||'').trim()===sig;
+  };
   const task=(async()=>{
-    const record=await charImgGetRecord(it.id).catch(()=>null);
-    if(!force && record?.blob && record?.signature===sig){
-      setItemImageUrl(it.id,record.blob);
-      imageCacheMeta.set(it.id,{signature:sig,cached:true});
-      return true;
+    let timer,record;
+    try{record=await Promise.race([charImgGetRecord(it.id).catch(()=>null),new Promise(resolve=>timer=setTimeout(()=>resolve(null),40))])}finally{clearTimeout(timer)}
+    if(!current())return false;
+    if(!force&&record?.blob&&record.signature===sig){
+      setItemImageUrl(it.id,record.blob);imageCacheMeta.set(it.id,{signature:sig,cached:true});paintCachedItemImage(it);return true;
     }
-
     try{
-      const blob=await fetchCharacterImageBlob(direct);
-      await charImgSetRecord(it.id,{blob,signature:sig,savedAt:Date.now(),name:it.name||'',sourceKey:stableRemoteImageKey(direct)});
-      setItemImageUrl(it.id,blob);
-      imageCacheMeta.set(it.id,{signature:sig,cached:true});
+      const blob=await fetchCharacterImageBlob(direct);if(!current())return false;
+      setItemImageUrl(it.id,blob);imageCacheMeta.set(it.id,{signature:sig,cached:true});paintCachedItemImage(it);
+      Promise.resolve().then(()=>charImgSetRecord(it.id,{blob,signature:sig,savedAt:Date.now(),name:it.name||'',sourceKey:stableRemoteImageKey(direct)})).catch(error=>console.warn('Icon cache write deferred',error));
       return true;
-    }catch(err){
-      if(record?.blob){
-        setItemImageUrl(it.id,record.blob);
-        imageCacheMeta.set(it.id,{signature:record.signature||sig,cached:true,stale:true});
-        return true;
+    }catch(error){
+      if(record?.blob&&record.signature===sig&&current()){
+        setItemImageUrl(it.id,record.blob);imageCacheMeta.set(it.id,{signature:sig,cached:true});paintCachedItemImage(it);return true;
       }
-      revokeItemImageUrl(it.id);
-      throw err;
+      throw error;
     }
   })();
-
-  imageCachePromises.set(it.id,task);
-  try{
-    return await task;
-  }finally{
-    imageCachePromises.delete(it.id);
-  }
+  imageCachePromises.set(flight,task);
+  try{return await task}finally{if(imageCachePromises.get(flight)===task)imageCachePromises.delete(flight)}
 }
 async function warmImageCacheForItems(list,{force=false,renderOnEach=false}={}){
   const queue=(list||[]).filter(Boolean);
@@ -3674,9 +3668,9 @@ async function syncCharacterImageCache(currentItems){
   }));
 }
 async function hydrateCharacterImages(currentItems){
-  await warmImageCacheForItems(currentItems,{force:false,renderOnEach:false});
-  renderLibrary();
-  renderPlaced();
+  const state=appState();
+  const ordered=[...(currentItems||[])].sort((a,b)=>Number(!!state.items?.[b.id]?.placed)-Number(!!state.items?.[a.id]?.placed));
+  await warmImageCacheForItems(ordered,{force:false,renderOnEach:false});
 }
 function displayImage(it){
   return imageBlobUrls.get(it.id) || it.baseImage || '';
@@ -4242,7 +4236,7 @@ function openLeftCropEditor(id){
 
   const img=$('#leftCropImg');
   img.onload=()=>updateLeftCropPreview();
-  img.src=displayImage(it)||'';
+  img.dataset.matrixImageId=it.id;img.src=displayImage(it)||'';
 
   $('#leftCropEditor').hidden=false;
   syncLeftCropGuide();
@@ -4381,7 +4375,7 @@ function renderMobilePlacementTray(){
     applyIconFrameStyle(av,it,display);
     const img=document.createElement('img');
     img.draggable=false;
-    img.src=displayImage(it)||'';
+    img.dataset.matrixImageId=it.id;img.src=displayImage(it)||'';
     img.onerror=()=>img.style.display='none';
     bindIconImage(img,local.crop,currentIconShape());
     av.appendChild(img);
@@ -4631,10 +4625,10 @@ function renderLibrary(){
 
     const im=document.createElement('img');
     im.draggable=false;
-    im.loading='lazy';
+    im.loading='eager';
     im.decoding='async';
     try{im.fetchPriority='low'}catch{}
-    im.src=displayImage(it)||'';
+    im.dataset.matrixImageId=it.id;im.src=displayImage(it)||'';
     im.onerror=()=>im.style.display='none';
     bindIconImage(im,l.crop,currentIconShape());
     av.append(im);
@@ -4679,7 +4673,7 @@ function startLibraryDrag(e,it,card){
     applyIconFrameStyle(ghost,it,appState().display||{});
     const gi=document.createElement('img');
     gi.draggable=false;
-    gi.src=displayImage(it)||'';
+    gi.dataset.matrixImageId=it.id;gi.src=displayImage(it)||'';
     const local=appState().items?.[it.id]||{};
     bindIconImage(gi,local.crop,currentIconShape());
     ghost.appendChild(gi);
@@ -5339,7 +5333,7 @@ function renderPlaced(){
     im.draggable=false;
     im.loading='lazy';
     im.decoding='async';
-    im.src=displayImage(it)||'';
+    im.dataset.matrixImageId=it.id;im.src=displayImage(it)||'';
     im.onerror=()=>im.style.display='none';
     bindIconImage(im,l.crop,currentIconShape());
     av.appendChild(im);
@@ -6789,7 +6783,7 @@ if(!new URL(location.href).searchParams.has('board')){
 
 </script>
 <script src="board-integration.js?v=20261103-connection1"></script>
-<script src="matrix-pc.js?v=20261103-settings1"></script>
+<script src="matrix-pc.js?v=20261103-localpcimages1"></script>
 <script src="matrix-icon-comments.js?v=20261103-localcomments1"></script>
 <script src="matrix-template-sync.js?v=20261103-unified1" data-matrix-template-sync="1"></script>
 <script src="../log/log-select-menu.js?v=20261103-pretty1"></script>

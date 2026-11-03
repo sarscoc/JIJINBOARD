@@ -50,6 +50,13 @@
     person?.authorId||"",person?.plName||"",person?.personaId||"",person?.name||"",preferredImage(person),fallbackImage(person),person?.color||"",person?.textColor||""
   ].join("\u001f")).sort().join("\u001e");
 
+  const participantCacheKey=room=>`board:${encodeURIComponent(boardId)}:matrix-pcs:${encodeURIComponent(room||boardId)}`;
+  function saveParticipants(){
+    try{localStorage.setItem(participantCacheKey(activeRoom),JSON.stringify({generation:localStorage.getItem('jijin.dataset.generation.v1'),participants,revision:participantRevision}))}catch{}
+  }
+  function restoreParticipants(room){
+    try{const saved=JSON.parse(localStorage.getItem(participantCacheKey(room))||'null');if(saved?.generation!==localStorage.getItem('jijin.dataset.generation.v1')||!Array.isArray(saved.participants))return false;setParticipants(saved.participants,{forcePaint:true});return true}catch{return false}
+  }
   function setupBoardUi(){
     document.querySelector("#exportIconsBtn")?.remove();
     const settingsBody=document.querySelector("#displaySettingsBody");
@@ -132,6 +139,8 @@
     });
     if(stateChanged)saveState(state);
     paintParticipants();
+    if(typeof hydrateCharacterImages==='function')hydrateCharacterImages(items).catch(error=>console.warn('PC image hydration failed',error));
+    saveParticipants();
     return true;
   }
 
@@ -160,8 +169,8 @@
   }
 
   function sourceHtml(person){
-    const image=preferredImage(person),fallback=fallbackImage(person),id=`participant:${person.authorId}:${person.personaId}`,name=person.name||"PC";
-    return `<span class="matrix-pc-source" draggable="true" data-matrix-pc-id="${escHtml(id)}" title="${escHtml(name)}をドラッグして配置" aria-label="${escHtml(name)}をドラッグして配置">${image?`<img src="${escHtml(image)}" data-fallback-src="${escHtml(fallback)}" alt="" draggable="false">`:'<span class="matrix-pc-empty">PC</span>'}</span>`;
+    const id=`participant:${person.authorId}:${person.personaId}`,item=items.find(item=>item.id===id),image=item&&typeof displayImage==="function"?displayImage(item):preferredImage(person),fallback=fallbackImage(person),name=person.name||"PC";
+    return `<span class="matrix-pc-source" draggable="true" data-matrix-pc-id="${escHtml(id)}" title="${escHtml(name)}をドラッグして配置" aria-label="${escHtml(name)}をドラッグして配置">${image?`<img data-matrix-image-id="${escHtml(id)}" src="${escHtml(image)}" data-fallback-src="${escHtml(fallback)}" alt="" draggable="false">`:'<span class="matrix-pc-empty">PC</span>'}</span>`;
   }
 
   function renderPcSources(){
@@ -286,11 +295,11 @@
   setupPcControls();
 
   items=[];
-  setParticipants([],{forcePaint:true});
+  if(!restoreParticipants(activeRoom))setParticipants([],{forcePaint:true});
 
   window.addEventListener("matrix-board-room",event=>{
     activeRoom=event.detail?.roomId||boardId;
-    setParticipants([],{forcePaint:true});
+    restoreParticipants(activeRoom);
     load(activeRoom,true).catch(console.warn);
   });
   window.addEventListener("matrix-board-participants-changed",event=>{
