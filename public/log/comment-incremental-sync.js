@@ -11,16 +11,16 @@
   if(shared){
     const refresh=shared.loader(async()=>{
       const roomId=state.roomId;
-      if(!roomId||!state.room)return null;
+      if(!roomId)return null;
       const data=await api(`/api/rooms/${encodeURIComponent(roomId)}/annotations?authorId=${encodeURIComponent(state.profile.id)}`,{cache:'no-store'});
       return {roomId,data};
     },result=>{
       if(!result||result.roomId!==state.roomId)return;
       const next=result.data.annotations||result.data.comments||[];
       const markers=list=>JSON.stringify(list.map(a=>[a.id,a.message_id,a.end_message_id,a.start_offset,a.end_offset,a.color]));
-      const changed=markers(next)!==markers(state.annotations),anchor=typeof currentReadingTime==='function'?currentReadingTime():'';
+      const changed=markers(next)!==markers(state.annotations);
       changes?.snapshot(result.data.version);state.annotations=next;setVersion(result.data.version);
-      renderComments();if(changed&&typeof renderLog==='function')renderLog(anchor);
+      if(state.room){renderComments();if(changed)refreshMarkerView()}
     });
     refreshLoader=refresh;
     refreshAnnotations=function(){return logActive?refresh():Promise.resolve()};
@@ -42,7 +42,7 @@
   }
 
   function updateCount(){const el=document.getElementById('commentCount');if(el)el.textContent=state.annotations.length}
-  function refreshMarkerView(){if(typeof renderLog!=='function')return;const anchor=typeof currentReadingTime==='function'?currentReadingTime():'';requestAnimationFrame(()=>renderLog(anchor))}
+  function refreshMarkerView(){if(window.JijinLogMarkers?.refresh())return;if(typeof renderLog!=='function')return;const anchor=typeof currentReadingTime==='function'?currentReadingTime():'';requestAnimationFrame(()=>renderLog(anchor))}
 
   function insertAnnotation(annotation){
     if(!annotation?.id||state.annotations.some(a=>a.id===annotation.id))return;

@@ -1,0 +1,18 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
+const source=readFileSync(new URL('../public/log/log-fast-first-paint.js',import.meta.url),'utf8');
+test('marker changes reuse visible log rows and update offscreen virtual rows',t=>{
+ const dom=new JSDOM('<div id="logPane"><section class="log-page"><div class="page-scroll"><div class="log-message" data-message="m1"><span class="message-text">First</span></div><div class="log-message" data-message="m2"><span class="message-text">Second</span></div></div></section></div>',{runScripts:'outside-only',url:'https://test/log/?room=log'});t.after(()=>dom.window.close());const w=dom.window,d=w.document;
+ w.eval(`var state={roomId:'log',annotations:[],room:{messages:[{id:'m1',text:'First',tab:'main'},{id:'m2',text:'Second',tab:'main'}]},virtualPanels:new Map([['offscreen',{grouped:{}}]])};function groupAnnotations(){}function markedText(){};function annotationMarkerColor(){return '#ffff00'};window.JijinLogFormat={render(text,segments){return segments?.some(s=>s.winner)?'<mark>'+text+'</mark>':text}};window.setAnnotations=value=>state.annotations=value;window.offscreen=()=>state.virtualPanels.get('offscreen');`);
+ w.eval(source);const scroll=d.querySelector('.page-scroll'),row=d.querySelector('.log-message');scroll.scrollTop=27;
+ w.setAnnotations([{id:'a',message_id:'m1',end_message_id:'m2',start_offset:0,end_offset:6}]);assert.equal(w.JijinLogMarkers.refresh(),true);
+ assert.equal(d.querySelector('.page-scroll'),scroll);assert.equal(d.querySelector('.log-message'),row);assert.equal(scroll.scrollTop,27);assert.equal(d.querySelectorAll('mark').length,2);assert.equal(w.offscreen().grouped.m2[0].id,'a');assert.equal(row.querySelector('.annotation-count').dataset.messageComments,'m1');
+ w.setAnnotations([]);w.JijinLogMarkers.refresh();assert.equal(d.querySelectorAll('mark,.annotation-count').length,0);assert.equal(w.offscreen().grouped.m1,undefined);
+});
+test('opening a log starts marker loading before the room response and paints them on the first log render',async t=>{
+ const dom=new JSDOM('<div id="homeView"></div><div id="roomView"></div><button id="profileBtn"></button><div id="roomStatus"></div><div id="roomTitle"></div><select id="tabFilter"></select>',{runScripts:'outside-only',url:'https://test/log/?room=log'});t.after(()=>dom.window.close());const w=dom.window;
+ w.eval(`var state={annotations:[],profile:{plName:'PL'}},calls=[],paints=[];var $=s=>document.querySelector(s);function esc(value){return value}function applyTheme(){}function loadRoomPersonas(){}function rememberRecentRoom(){}function connectRealtime(){}function openProfile(){}function renderComments(){}function renderLog(){paints.push(state.annotations.length)}var logTextCache={read:async()=>null,write(){}};function api(){calls.push('room');return new Promise(resolve=>window.resolveRoom=resolve)}function refreshAnnotations(){calls.push('markers');return new Promise(resolve=>window.resolveMarkers=()=>{state.annotations=[{id:'a'}];resolve()})}window.calls=calls;window.paints=paints;`);
+ const app=readFileSync(new URL('../public/log/app.js',import.meta.url),'utf8'),start=app.indexOf('async function openRoom(id)'),end=app.indexOf('function openArchiveData(',start);w.eval(app.slice(start,end));const opening=w.openRoom('log');assert.deepEqual([...w.calls],['markers','room']);w.resolveMarkers();w.resolveRoom({id:'log',title:'Log',tabs:['main'],messages:[]});await opening;assert.equal(w.paints[0],1);
+});

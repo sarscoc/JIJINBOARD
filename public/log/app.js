@@ -124,6 +124,7 @@ async function openRoom(id) {
   state.roomId = id;applyTheme(localStorage.getItem(`theme:${id}`)||"light"); loadRoomPersonas(id); $("#homeView").classList.add("hidden"); $("#roomView").classList.remove("hidden"); $("#profileBtn").classList.remove("hidden");
   $("#roomStatus").textContent = "ログを読み込んでいます…";
   try {
+    const comments=refreshAnnotations().catch(error=>console.warn("Comment loading failed",error));
     const fresh=api(`/api/rooms/${encodeURIComponent(id)}`);
     // A blocked browser database must never delay the network path.
     const cached=await Promise.race([logTextCache.read(id),fresh.then(()=>null,()=>null),new Promise(resolve=>setTimeout(()=>resolve(null),80))]);
@@ -137,14 +138,13 @@ async function openRoom(id) {
     $("#tabFilter").innerHTML='';
     state.room.tabs.forEach(tab => $("#tabFilter").insertAdjacentHTML("beforeend", `<option>${esc(tab)}</option>`));
     const savedMain=localStorage.getItem(`mainTab:${id}`);state.mainTab=state.room.tabs.includes(savedMain)?savedMain:(state.room.tabs.find(tab=>/^メイン$/i.test(tab))||state.room.tabs[0]||"");$("#tabFilter").value=state.mainTab;
-    renderLog(); $("#roomStatus").textContent = "";
+    renderLog(); renderComments(); $("#roomStatus").textContent = "";
     };
     paintRoom(cached||await fresh);
     fresh.then(room=>{
       logTextCache.write(id,room);
       if(cached&&state.roomId===id&&JSON.stringify(cached)!==JSON.stringify(room))paintRoom(room);
     }).catch(error=>{if(state.roomId===id)$("#roomStatus").textContent=error.message});
-    refreshAnnotations().catch(error=>{console.warn("Comment loading failed",error)});
     connectRealtime();
     if (!state.profile.plName) openProfile();
   } catch (e) { $("#roomStatus").textContent = e.message; }

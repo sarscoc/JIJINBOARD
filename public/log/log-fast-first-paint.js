@@ -75,6 +75,28 @@
     };
   }
 
+  // Reuse the visible rows; keep virtual off-screen rows on the same marker snapshot.
+  window.JijinLogMarkers={
+    refresh(){
+      if(!state.room||typeof groupAnnotations!=='function')return false;
+      const grouped=groupAnnotations();
+      for(const meta of state.virtualPanels?.values?.()||[])meta.grouped=grouped;
+      ensureIndexes();
+      document.querySelectorAll('#logPane .log-message[data-message]').forEach(node=>{
+        const id=node.dataset.message,message=state.room.messages[messageIndex.get(id)],text=node.querySelector('.message-text');
+        if(!message||!text)return;
+        const annotations=grouped[id]||[],html=markedText(message,annotations);
+        if(text.innerHTML!==html)text.innerHTML=html;
+        let count=node.querySelector('.annotation-count');
+        if(annotations.length){
+          if(!count){count=document.createElement('button');count.type='button';count.className='annotation-count';count.dataset.messageComments=id;node.append(count)}
+          count.textContent=String(annotations.length);
+        }else count?.remove();
+      });
+      return true;
+    }
+  };
+
   function applyInitialAnnotations(payload){
     if(!payload?.data||payload.roomId!==state.roomId)return;
     const data=payload.data;
@@ -85,7 +107,7 @@
     state.annotations=data.annotations||[];
     state.annotationVersion=Number(data.version)||0;
     if(state.room)renderComments();
-    if(markersChanged&&state.room&&document.querySelector("#logPane .log-page"))renderLog(currentReadingTime());
+    if(markersChanged&&state.room&&document.querySelector("#logPane .log-page"))window.JijinLogMarkers.refresh();
   }
 
   window.addEventListener("jijinboard-initial-annotations",event=>applyInitialAnnotations(event.detail));
