@@ -121,7 +121,10 @@ test('compact name cards open detail with independent name and MATRIX previews',
  w.document.querySelector('[data-open-person="pc"]').click();
  assert.match(w.document.querySelector('[data-speaker-detail]').textContent,/MAGIA MATRIX用の画像/);assert.ok(w.document.querySelector('.speaker-delete'));
  const ink=w.document.querySelector('[data-field="textColor"]');ink.value='#abcdef';ink.dispatchEvent(new w.Event('input',{bubbles:true}));
- assert.equal(w.document.querySelector('[data-preview-ink]').style.color,'rgb(171, 205, 239)');assert.equal(w.document.querySelector('[data-preview-matrix]').style.color,'rgb(171, 205, 239)');assert.equal(w.document.querySelector('.speaker-preview p').style.color,'');
+ assert.equal(w.document.querySelector('[data-preview-ink]').style.color,'rgb(171, 205, 239)');assert.equal(w.document.querySelector('[data-preview-matrix]').style.color,'rgb(171, 205, 239)');assert.equal(w.document.querySelector('.speaker-preview p'),null);
+ assert.ok(w.document.querySelector('.speaker-previews').compareDocumentPosition(w.document.querySelector('.speaker-colors'))&w.Node.DOCUMENT_POSITION_FOLLOWING);
+ assert.equal(w.document.querySelector('.speaker-upload small'),null);
+ assert.equal(w.document.querySelector('[data-auto-color]'),null);
  await editor.flush();assert.equal(master.characters[0].textColor,'#abcdef');assert.equal(master.characters[0].color,'#ffe66b');
  w.document.querySelector('.speaker-back').click();w.document.querySelector('[data-open-person="PL"]').click();assert.equal(w.document.querySelector('.speaker-delete'),null);
 });

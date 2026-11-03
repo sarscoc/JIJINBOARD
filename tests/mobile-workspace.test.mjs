@@ -5,13 +5,13 @@ import {JSDOM} from 'jsdom';
 import {parse} from 'css-tree';
 const source=name=>readFileSync(new URL('../public/board/'+name,import.meta.url),'utf8');
 const tick=()=>new Promise(setImmediate);
-function fixture(t,tool='log'){
+function fixture(t,tool='log',mobile=true){
   const dom=new JSDOM(`<iframe src="https://test/${tool}/?embedded=1&board=one"></iframe>`,{url:'https://test/board/?id=one',runScripts:'outside-only'});
   t.after(()=>dom.window.close());
   const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;
   const panel=tool==='matrix'?'matrixIconComments':'commentsPane';
   d.open();d.write(`<body><main><section id="roomView"><aside class="room-tools"><div class="filters"></div></aside><div id="logPane"><p class="log-message" data-message="m1"><span class="message-text">Test passage</span></p></div></section></main><div class="app"><div class="placed" data-id="pc1"></div></div><aside id="${panel}"><div class="comments-head"></div><section class="comments-list"><div class="comment-thread"><div class="comment-card" data-target="m1"></div></div><div class="comment-thread"><div class="comment-card" data-target="m2"></div></div></section></aside><dialog id="commentDialog"><form><textarea></textarea></form></dialog></body>`);d.close();
-  const callbacks=[];const mq={matches:true,addEventListener(type,fn){callbacks.push(fn)}};w.matchMedia=()=>mq;
+  const callbacks=[];const mq={matches:mobile,addEventListener(type,fn){callbacks.push(fn)}};w.matchMedia=()=>mq;
   w.state={mainTab:'main',room:{messages:[{id:'m1',tab:'main'},{id:'m2',tab:'other'}]}};
   let holds=[];const realTimeout=w.setTimeout.bind(w),realClear=w.clearTimeout.bind(w);
   w.setTimeout=(fn,ms)=>{if(ms===500){const token={fn};holds.push(token);return token}return realTimeout(fn,ms)};
@@ -94,4 +94,18 @@ test('phone long press blocks the legacy context menu editor without changing de
   const el=f.d.querySelector('.placed');
   el.dispatchEvent(new f.w.MouseEvent('contextmenu',{bubbles:true,cancelable:true}));assert.equal(legacyOpens,0);
   f.desktop();el.dispatchEvent(new f.w.MouseEvent('contextmenu',{bubbles:true,cancelable:true}));assert.equal(legacyOpens,1);
+});
+
+test('desktop comment controls are hidden before the phone stylesheet loads',t=>{
+ const f=fixture(t,'log',false);
+ assert.equal(f.d.querySelector('.phone-dock-head').hidden,true);
+ assert.equal(f.d.querySelector('.phone-composer-actions').hidden,true);
+ assert.equal(f.d.querySelectorAll('.comment-thread[hidden]').length,0);
+});
+test('leaving the phone breakpoint hides the injected dock and composer controls',t=>{
+ const f=fixture(t);
+ assert.equal(f.d.querySelector('.phone-dock-head').hidden,false);
+ f.desktop();
+ assert.equal(f.d.querySelector('.phone-dock-head').hidden,true);
+ assert.equal(f.d.querySelector('.phone-composer-actions').hidden,true);
 });

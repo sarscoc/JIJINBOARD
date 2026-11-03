@@ -1,4 +1,5 @@
 .phone-dock-head,.phone-composer-actions,.phone-filter-empty{display:none}
+.phone-dock-head[hidden],.phone-composer-actions[hidden]{display:none!important}
 @media(max-width:760px){
   html[data-mobile-workspace]{--phone-dock-height:28%;height:var(--phone-visible-height,100%)!important;min-height:0!important;overflow:hidden!important}
   html[data-mobile-workspace].phone-comments-expanded{--phone-dock-height:46%}

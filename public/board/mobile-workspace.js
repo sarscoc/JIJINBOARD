@@ -4,7 +4,7 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261103-mobile2';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261103-pccompact1';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
   const panel=document.querySelector(tool==='matrix'?'#matrixIconComments':tool==='sheets'?'#sheetComments':'#commentsPane');
   if(!panel)return;
@@ -12,7 +12,8 @@
   function announceDock(){parent.postMessage({type:'jijin-phone-docked',visible:mq.matches&&(tool!=='log'||!document.getElementById('roomView')?.classList.contains('hidden'))},location.origin)}
   if(tool==='log'&&document.getElementById('roomView'))new MutationObserver(announceDock).observe(document.getElementById('roomView'),{attributes:true,attributeFilter:['class']});
   mq.addEventListener('change',announceDock);announceDock();
-  const head=document.createElement('div');head.className='phone-dock-head';
+  const head=document.createElement('div');head.className='phone-dock-head';head.hidden=!mq.matches;
+  mq.addEventListener('change',()=>{head.hidden=!mq.matches});
   head.innerHTML='<button type="button" class="phone-dock-grip" aria-label="コメント欄を広げる" aria-expanded="false"><i></i><span>コメント</span></button><select aria-label="コメントの絞り込み"><option value="page">このページ</option><option value="target">選択した箇所</option><option value="all">すべて</option></select><button type="button" class="phone-dock-menu" aria-label="ページ・PL・PC設定メニュー">☰</button>';
   panel.prepend(head);
   const grip=head.querySelector('.phone-dock-grip'),filter=head.querySelector('select');
@@ -57,7 +58,8 @@
   function attachComposer(dialog){
     if(dialog.dataset.phoneComposer)return;
     dialog.dataset.phoneComposer='1';
-    const actions=document.createElement('div');actions.className='phone-composer-actions';
+    const actions=document.createElement('div');actions.className='phone-composer-actions';actions.hidden=!mq.matches;
+    mq.addEventListener('change',()=>{actions.hidden=!mq.matches});
     const cancel=document.createElement('button');cancel.type='button';cancel.textContent='閉じる';cancel.onclick=()=>dialog.close();
     const send=document.createElement('button');send.type='button';send.textContent='送信';send.onclick=()=>dialog.querySelector('form')?.requestSubmit();
     actions.append(cancel,send);dialog.append(actions);

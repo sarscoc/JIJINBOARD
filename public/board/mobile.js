@@ -51,13 +51,15 @@
   sidebar.addEventListener('pointercancel',()=>{start=null});
   for(const frame of frames){
     const install=()=>{
+      if(!mq.matches)return;
       try{
         const doc=frame.contentDocument;
         if(!doc?.head||!frame.getAttribute('src')||doc.getElementById('mobileWorkspaceScript'))return;
-        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261103-mobile2';doc.head.append(script);
+        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261103-pccompact1';doc.head.append(script);
       }catch{}
     };
     frame.addEventListener('load',install);
+    mq.addEventListener('change',install);
     if(frame.contentDocument?.readyState==='complete')install();
   }
 })();
