@@ -99,3 +99,10 @@ test('comment connections do not wait on retired device admission',async t=>{
  const live=core.live({board:'room',refresh:()=>{}});live.setActive(true);await tick();
  assert.equal(sockets.length,1);assert.equal(sockets[0].url,'wss://test/api/boards/room/realtime');live.setActive(false);
 });
+
+test('comment request releases a stalled response body with a visible timeout error',async t=>{
+ const {w,core}=fixture(t);let expire;
+ const raw=w.setTimeout;w.setTimeout=(fn,ms)=>ms===15000?(expire=fn,123):raw(fn,ms);
+ w.fetch=async()=>({ok:true,json:()=>new Promise(()=>{})});
+ const request=core.request('room','',{method:'POST',body:'{}'});await tick();expire();await assert.rejects(request,/タイムアウト/);
+});

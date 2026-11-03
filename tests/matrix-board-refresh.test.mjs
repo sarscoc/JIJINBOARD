@@ -8,7 +8,7 @@ function fixture(options={}){
   let state={items:{},display:{}},socket;const listeners=new Map(),events=[],requests=[];
   const saved={items:{pc:{placed:true,x:73,y:21}},display:{color:'template-color'}};
   class Socket{static OPEN=1;static CONNECTING=0;readyState=0;listeners=new Map();constructor(){socket=this}addEventListener(n,f){this.listeners.set(n,f)}close(){}send(){}}
-  const context={URL,crypto,console,queueMicrotask,CustomEvent,dispatchEvent:event=>events.push(event),WebSocket:Socket,location:{href:options.url||'https://test/matrix/?board=board&room=log',origin:'https://test',protocol:'https:',host:'test'},
+  const context={URL,crypto,console,AbortController,queueMicrotask,CustomEvent,dispatchEvent:event=>events.push(event),WebSocket:Socket,location:{href:options.url||'https://test/matrix/?board=board&room=log',origin:'https://test',protocol:'https:',host:'test'},
     localStorage:{getItem:()=>options.profile?JSON.stringify(options.profile):null},fetch:async(path,init={})=>{requests.push({path,...init});if(options.fetch){const response=await options.fetch(path,init);if(response)return response}return {ok:true,json:async()=>({state:{items:{},display:{color:'room-default'}}})}},
     parent:{postMessage(){}},requestIdleCallback(){},requestAnimationFrame:fn=>fn(),setTimeout,clearTimeout,
     document:{querySelector:()=>null,querySelectorAll:()=>[],addEventListener(){}},addEventListener:(name,fn)=>listeners.set(name,fn),
@@ -71,4 +71,12 @@ test('first placement persists coordinates even when it also initializes comment
 
 test('a delayed room settings response cannot erase template placements before template hydration finishes',async()=>{
  const f=fixture({hydrated:false});await tick();assert.equal(f.state().items.pc.placed,true);assert.equal(f.state().items.pc.x,73);
+});
+
+test('editing only a supplement does not enqueue whole-board or placement writes',async()=>{
+ const f=fixture({profile:{id:'pl',plName:'PL'}});await tick();const before=f.requests.length;
+ f.state().items.pc={placed:true,x:24,y:37,comment:'before',commentPosition:'top'};
+ f.context.mutate(s=>{s.items.pc.comment='after'});await tick();
+ assert.equal(f.requests.slice(before).filter(r=>['POST','PATCH'].includes(r.method)).length,0);
+ assert.equal(f.saved.items.pc.comment,'after');
 });

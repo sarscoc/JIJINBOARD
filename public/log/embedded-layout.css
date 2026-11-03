@@ -216,3 +216,9 @@ html.embedded body .comment-card:hover{border-color:var(--comment-marker,var(--m
   html.embedded #exportRoomBtn{width:72px!important;flex:0 0 72px!important}
 }
 
+
+/* A selected comment is visible as a whole card, including its reply chain. */
+html.embedded body .comment-card.focused,.comment-card.focused{background:color-mix(in srgb,var(--comment-marker,var(--mark)) 22%,var(--paper,#fff))!important;border-color:var(--comment-marker,var(--mark))!important;box-shadow:-5px 0 0 var(--comment-marker,var(--mark))!important;transform:translateX(-3px)}
+#commentsList{padding-left:14px!important}
+#commentsList>.typing-status-stack{position:sticky;top:0;z-index:5;flex-shrink:0;background:var(--paper,#fff)!important}
+.comment-body{white-space:pre-wrap;line-height:1.55!important;margin-block:4px 0!important}

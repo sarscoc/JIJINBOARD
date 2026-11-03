@@ -10,9 +10,9 @@
   let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
   const saveTimers=new Map(),pendingSaves=new Map(),savingIds=new Set(),revisions=new Map();
   let editSeq=0;
-  const acknowledged=new Map();
+  const acknowledged=new Map(),latestEdits=new Map();
   function editable(record,state){
-    const pointFields=new Set(['placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment','commentPosition']);
+    const pointFields=new Set(['placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment','commentPosition','zOrder']);
     const items={};
     for(const [id,item] of Object.entries(state?.items||{}))items[id]=Object.fromEntries(Object.entries(item||{}).filter(([key])=>!pointFields.has(key)));
     return {record:{name:record?.name||'',dataUrl:record?.dataUrl||'',imageName:record?.imageName||''},state:{...state,savedAt:undefined,items}};
@@ -138,7 +138,7 @@
   }
 
   function refreshWhenIdle(){
-    if(!rehydrateQueued||saveTimers.size||pendingSaves.size||savingIds.size)return;
+    if(!rehydrateQueued||saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing"))return;
     rehydrateQueued=false;
     hydrate(currentLogId(),true).catch(()=>{});
   }
@@ -168,7 +168,7 @@
           if(newer.record.dataUrl===record.dataUrl)newer.record.dataUrl=result.record.dataUrl;
         }
         // A response for an older save must not replace a newer local image/name.
-        if(!newer&&seq===editSeq){
+        if(!newer&&seq===latestEdits.get(timerKey)){
           applying=true;
           try{await rawSet(id,{...record,...result.record})}
           finally{applying=false}
@@ -199,7 +199,8 @@
     if(applying||window.matrixBoardContext?.isApplyingRemote?.()||!hydrated||hydratedLogId!==logId||!key||!record||!logId)return;
     const timerKey=`${logId}:${key}`;
     if(JSON.stringify(editable(record,state))===JSON.stringify(acknowledged.get(key)))return;
-    pendingSaves.set(timerKey,{logId,id:key,record:clone(record),templateState:clone(state),baseRevision:revisions.get(key)??null,seq:++editSeq,base:clone(acknowledged.get(key))});
+    const seq=++editSeq;latestEdits.set(timerKey,seq);
+    pendingSaves.set(timerKey,{logId,id:key,record:clone(record),templateState:clone(state),baseRevision:revisions.get(key)??null,seq,base:clone(acknowledged.get(key))});
     clearTimeout(saveTimers.get(timerKey));
     saveTimers.set(timerKey,setTimeout(()=>{saveTimers.delete(timerKey);putRemote(timerKey)},delay));
   }
@@ -246,7 +247,7 @@
   async function hydrate(logId=currentLogId(),force=false){
     const target=String(logId||"");
     if(!target)return false;
-    if(saveTimers.size||pendingSaves.size||savingIds.size){rehydrateQueued=true;return false}
+    if(saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){rehydrateQueued=true;return false}
     if(!force&&hydrated&&hydratedLogId===target&&!hydratePromise)return true;
     if(hydratePromise){rehydrateQueued=true;if(target!==hydratingLogId)hydrateSeq++;return hydratePromise}
     const seq=++hydrateSeq;hydratingLogId=target;
@@ -254,7 +255,7 @@
       try{
         const result=await api(endpoint(target,""),{cache:"reload"});
         if(seq!==hydrateSeq||target!==currentLogId())return false;
-        if(saveTimers.size||pendingSaves.size||savingIds.size){rehydrateQueued=true;return false}
+        if(saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){rehydrateQueued=true;return false}
         const remote=Array.isArray(result?.templates)?result.templates.filter(t=>!isDeleted(t.id||t.record?.id)):[];
         await pruneLocalTemplates(remote);
         if(seq!==hydrateSeq||target!==currentLogId())return false;
@@ -327,6 +328,7 @@
     if(["matrix-template-state","matrix-change"].includes(event.detail?.action)){rehydrateQueued=true;refreshWhenIdle()}
   });
 
+  window.addEventListener("matrix-editor-finished",refreshWhenIdle);
   window.addEventListener("pagehide",()=>{
     for(const [key,timer] of saveTimers){clearTimeout(timer);saveTimers.delete(key);putRemote(key)}
   });

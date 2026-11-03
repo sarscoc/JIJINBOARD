@@ -11,7 +11,7 @@ test('presence refresh preserves unchanged comment threads and loaded images',as
  w.eval(source('log/comment-window-loader.js'));await new Promise(r=>setTimeout(r,20));w.renderComments();
  const thread=w.document.querySelector('.comment-thread'),image=w.document.querySelector('.comment-image');
  w.state.presence=[{id:'other',is_typing:true,typing_message_id:'m',pl_name:'Other'}];w.renderComments();
- assert.equal(w.document.querySelector('.comment-thread'),thread);assert.equal(w.document.querySelector('.comment-image'),image);assert.equal(w.document.querySelectorAll('.typing-comment').length,1);
+ assert.equal(w.document.querySelector('.comment-thread'),thread);assert.equal(w.document.querySelector('.comment-image'),image);assert.equal(w.document.querySelectorAll('.typing-comment').length,1);assert.equal(w.document.querySelector('#commentsList').firstElementChild.className,'typing-status-stack');
  w.state.annotations[0].body='Updated';w.renderComments();assert.match(w.document.querySelector('.comment-body').textContent,/Updated/);
  w.state.presence=[];w.renderComments();assert.equal(w.document.querySelectorAll('.typing-comment').length,0);
 });

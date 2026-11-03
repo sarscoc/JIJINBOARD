@@ -72,3 +72,10 @@ test('dice blank lines are visually collapsed without changing stored text or so
  const result=host.querySelector('[data-log-hidden]').nextElementSibling;assert.equal(w.JijinLogFormat.sourceOffset(host,result.firstChild,0),source.indexOf('Cthulhu'));
  host.innerHTML=w.JijinLogFormat.render(source);assert.equal(host.querySelector('[data-log-hidden]'),null,'non-dice paragraphs retain intentional blank lines');
 });
+
+test('comments collapse excessive pasted paragraph spacing while preserving a blank line and markup',t=>{
+ const w=fixture(t);w.esc=s=>String(s);w.state={archiveImages:{}};w.isImageUrl=()=>false;
+ const app=source('log/app.js'),start=app.indexOf('function commentBodyHtml('),end=app.indexOf('\n',start);
+ w.eval(app.slice(start,end));const host=w.document.createElement('div');host.innerHTML=w.commentBodyHtml('first\r\n\r\n\r\n\r\n**second**');
+ assert.equal(host.textContent,'first\n\nsecond');assert.equal(host.querySelector('strong').textContent,'second');
+});

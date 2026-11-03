@@ -58,10 +58,13 @@
   const pendingActions=new Map(),pointRequests=new Map(),pointChains=new Map();
   const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
-    const response=await fetch(path,{headers:{"content-type":"application/json","x-realtime-client":realtimeClientId,...(options.headers||{})},...options});
-    const body=await response.json().catch(()=>({}));
-    if(!response.ok)throw Object.assign(new Error(body.error||`通信エラー (${response.status})`),{status:response.status,code:body.code});
-    return body;
+    const controller=new AbortController();let timer;
+    try{
+      return await Promise.race([
+        (async()=>{const response=await fetch(path,{...options,signal:options.signal||controller.signal,headers:{"content-type":"application/json","x-realtime-client":realtimeClientId,...(options.headers||{})}});const body=await response.json().catch(()=>({}));if(!response.ok)throw Object.assign(new Error(body.error||`通信エラー (${response.status})`),{status:response.status,code:body.code,point:body.point});return body})(),
+        new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('MATRIXの通信がタイムアウトしました。編集内容はこの端末に残っています。'))},15000)})
+      ]);
+    }finally{clearTimeout(timer)}
   };
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const matrixPath=()=>`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(roomId)}`;
@@ -118,13 +121,13 @@
     const state=appState();state.items||={};
     const item=state.items[itemId]||(state.items[itemId]=typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{});
     for(const key of ['comment','commentPosition'])if(data?.[key]!==undefined)item[key]=String(data[key]);
-    for(const key of pointKeys){if(data?.[key]!==undefined)item[key]=key==="placed"?!!data[key]:Number(data[key])}
+    for(const key of pointKeys){if(["comment","commentPosition"].includes(key))continue;if(data?.[key]!==undefined)item[key]=key==="placed"?!!data[key]:Number(data[key])}
     applyingRemote=true;
     try{
       saveJSON(STATE,state);
       saveCurrentTemplateState(state);
       const live=items?.find?.(entry=>entry.id===itemId);if(live)live.local=item;
-      if(data?.comment!==undefined){if(typeof renderPlaced==="function")renderPlaced()}
+      if(data?.comment!==undefined){if(!document.querySelector(".placed.comment-editing")&&typeof renderPlaced==="function")renderPlaced()}
       else if(!updatePlacedPoint(itemId,item)&&typeof renderPlaced==="function")renderPlaced();
     }finally{applyingRemote=false}
   }
@@ -379,6 +382,12 @@
       for(const path of changes){
         if(path.length!==3||path[0]!=="items"||!pointKeys.has(path[2])){pointOnly=false;break}
         if(!itemId)itemId=path[1];else if(itemId!==path[1]){pointOnly=false;break}
+      }
+      const noteOnly=changes.length>0&&changes.every(path=>path.length===3&&path[0]==='items'&&['comment','commentPosition'].includes(path[2]));
+      if(noteOnly){
+        saveJSON(STATE,state);applyingRemote=true;
+        try{saveCurrentTemplateState(state)}finally{applyingRemote=false}
+        return;
       }
       if(pointOnly&&itemId&&state.items?.[itemId]){
         saveJSON(STATE,state);

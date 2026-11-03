@@ -54,11 +54,12 @@
   }
   function renderTyping(){
     const list=document.querySelector('#matrixIconCommentList');if(!list)return;
-    list.querySelectorAll('.matrix-typing').forEach(node=>node.remove());
+    list.querySelector('.matrix-typing-stack')?.remove();
+    const stack=document.createElement('div');stack.className='matrix-typing-stack';list.prepend(stack);
     const tid=typeof currentTemplateId==='function'?currentTemplateId():'';
     for(const peer of typingPeers.values())if(peer.templateId===tid){
       const node=document.createElement('div');node.className='matrix-typing';
-      node.innerHTML=`${peer.icon?`<img src="${esc(peer.icon)}" alt="">`:''}<b>${esc(peer.name)}</b><em>入力中</em><i></i><i></i><i></i>`;list.append(node);
+      node.innerHTML=`${peer.icon?`<img src="${esc(peer.icon)}" alt="">`:''}<b>${esc(peer.name)}</b><em>入力中…</em><i></i><i></i><i></i>`;stack.append(node);
     }
   }
   window.addEventListener('matrix-board-typing',event=>{

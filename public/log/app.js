@@ -5,7 +5,7 @@ const integrationParams=new URL(location.href).searchParams,integrationBoardId=i
 state.realtimeClientId=uid();
 const esc = value => String(value ?? "").replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 function isImageUrl(url){return /\.(?:png|jpe?g|gif|webp|avif)(?:[?#]|$)/i.test(url)||/[?&]format=(?:png|jpe?g|gif|webp|avif)(?:&|$)/i.test(url)||/(?:i\.imgur\.com|cdn\.discordapp\.com|media\.discordapp\.net|pbs\.twimg\.com|files\.catbox\.moe|oaiusercontent\.com)/i.test(url)}
-function commentBodyHtml(value){const urlPattern=/(https:\/\/[^\s<>"']+)/g;return String(value||"").split(urlPattern).map(part=>{if(!/^https:\/\//.test(part))return JijinLogFormat.render(part);const safe=esc(part),embedded=state.archiveImages?.[part];return isImageUrl(part)?`<img class="comment-image url-image" data-expand-image src="${esc(embedded||part)}" alt="引用画像" loading="lazy" referrerpolicy="no-referrer">`:`<a class="comment-link" href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`}).join("")}
+function commentBodyHtml(value){const urlPattern=/(https:\/\/[^\s<>"']+)/g;return String(value||"").replace(/\r\n?/g,"\n").replace(/\n[ \t]*\n(?:[ \t]*\n)+/g,"\n\n").split(urlPattern).map(part=>{if(!/^https:\/\//.test(part))return JijinLogFormat.render(part);const safe=esc(part),embedded=state.archiveImages?.[part];return isImageUrl(part)?`<img class="comment-image url-image" data-expand-image src="${esc(embedded||part)}" alt="引用画像" loading="lazy" referrerpolicy="no-referrer">`:`<a class="comment-link" href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`}).join("")}
 state.archiveMode=false;state.deleteTarget=null;state.archiveImages={};
 const safeFilename=value=>(String(value||"TRPGログ").replace(/[\\/:*?"<>|]/g,"_").trim()||"TRPGログ").slice(0,80);
 function archiveData(room,annotations,personas=[]){return{format:"trpg-log-marker",version:2,exportedAt:new Date().toISOString(),theme:document.documentElement.classList.contains("dark")?"dark":"light",room:{title:room.title||"TRPG LOG",createdAt:room.createdAt||"",tabs:room.tabs||[],messages:room.messages||[]},annotations:(annotations||[]).map(({liked_by_me,...item})=>item),personas}}
@@ -581,3 +581,15 @@ function updateSearchCount(){
 $("#searchInput").oninput=()=>{state.lastSearchMessage=null;updateSearchCount()};
 const navigateSearch=$("#searchInput").onkeydown;
 $("#searchInput").onkeydown=event=>{navigateSearch(event);updateSearchCount()};
+
+// Clipboard paragraph spacing is normalized only for new pasted comments.
+document.getElementById('commentBody')?.addEventListener('paste',event=>{
+ const text=event.clipboardData?.getData('text/plain');if(!text)return;
+ const normalized=text.replace(/\r\n?/g,'\n').replace(/\n[ \t]*\n(?:[ \t]*\n)+/g,'\n\n');
+ if(text===normalized)return;event.preventDefault();const field=event.currentTarget;field.setRangeText(normalized,field.selectionStart,field.selectionEnd,'end');field.dispatchEvent(new Event('input',{bubbles:true}));
+});
+document.addEventListener('dblclick',event=>{
+ const tab=event.target.closest('[data-tab-index]');if(!tab)return;
+ const index=Number(tab.dataset.tabIndex),name=state.room?.tabs?.[index];if(!name||state.hiddenTabs.has(name))return;
+ const anchor=state.readingAnchor||currentReadingTime();state.isSliding=false;state.slideQueue=0;state.activeTabIndex=index;renderLog(anchor);
+});

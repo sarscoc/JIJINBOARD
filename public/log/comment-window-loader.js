@@ -44,7 +44,7 @@
       });
       const roots=annotations.filter(annotation=>!annotation.parent_id||!annotationIds.has(annotation.parent_id));
       const typing=state.presence.filter(person=>person.is_typing&&person.typing_message_id).map(person=>({typing:true,message_id:person.typing_message_id,person}));
-      const items=[...roots.map(annotation=>({annotation,message_id:annotation.message_id})),...typing].sort((a,b)=>(order.get(a.message_id)??Infinity)-(order.get(b.message_id)??Infinity));
+      const items=[...typing,...roots.map(annotation=>({annotation,message_id:annotation.message_id}))];
       return{items,children,messageTabs};
     }
 
@@ -89,6 +89,8 @@
         key:item.typing?`typing:${item.person.id||item.person.pl_name}:${item.message_id}`:`comment:${item.annotation.id}`,
         html:item.typing?typingHtml(item):cardHtml(item.annotation,children,messageTabs)
       })):[{key:'empty',html:'<p class="empty">マーカーされた感想がここに並びます。</p>'}];
+      const typingEntries=entries.filter(entry=>entry.key.startsWith('typing:'));
+      if(typingEntries.length){const rest=entries.filter(entry=>!entry.key.startsWith('typing:'));entries.splice(0,entries.length,{key:'typing-status',html:'<div class="typing-status-stack">'+typingEntries.map(entry=>entry.html).join('')+'</div>'},...rest)}
       let cursor=list.firstElementChild;
       for(const entry of entries){
         let node=existing.get(entry.key);

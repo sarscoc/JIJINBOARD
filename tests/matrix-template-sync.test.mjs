@@ -81,3 +81,10 @@ test('disjoint concurrent display changes rebase using the new revision',async()
  assert.equal(f.puts()[1].templateState.display.color,'red');assert.equal(f.puts()[1].templateState.display.other,'remote');assert.equal(f.alerts.length,0);
 });
 
+
+test('local stacking changes do not increment the shared template revision',async()=>{
+ const f=fixture();await tick();
+ const saved=f.context.templateStates().tpl;saved.items.pc.zOrder=99;f.setLive(saved);
+ f.context.saveCurrentTemplateState();await tick();await f.flush();
+ assert.equal(f.puts().length,0);
+});

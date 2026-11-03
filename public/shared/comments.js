@@ -4,13 +4,17 @@
   const target = globalThis.JijinCommentTarget;
   const clientId = crypto.randomUUID();
   async function request(board, suffix = '', options = {}) {
-    const response = await fetch(`/api/boards/${encodeURIComponent(board)}/comments${suffix}`, {
-      ...options, cache:'no-store', headers:{'content-type':'application/json', 'x-realtime-client':clientId, ...(options.headers || {})}
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw Object.assign(Error(data.error || 'コメントの通信に失敗しました'), {status:response.status});
-    return data;
+    const controller=new AbortController();let timer;
+    try{return await Promise.race([
+      (async()=>{
+        const response=await fetch(`/api/boards/${encodeURIComponent(board)}/comments${suffix}`,{...options,signal:options.signal||controller.signal,cache:'no-store',headers:{'content-type':'application/json','x-realtime-client':clientId,...(options.headers||{})}});
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok)throw Object.assign(Error(data.error||'コメントの通信に失敗しました'),{status:response.status,point:data.point});return data;
+      })(),
+      new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('コメントの通信がタイムアウトしました。入力内容はそのまま残しています。'))},15000)})
+    ])}finally{clearTimeout(timer)}
   }
+
   // Thin compatibility at the view boundary. Renderers can keep their current
   // selection fields while every request uses the common API and address codec.
   function adapter(board, fallback) {
