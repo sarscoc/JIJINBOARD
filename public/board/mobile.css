@@ -1,0 +1,47 @@
+/* One mobile shell. Saved room data and desktop tools are shared. */
+.mobile-only,.mobile-logs-backdrop{display:none}
+@media(max-width:760px){
+  :root{--mobile-top:58px;--mobile-bottom:0px}
+  html,body{height:100%;height:100dvh;overscroll-behavior:none}
+  .topbar{height:var(--mobile-top);padding:0 max(12px,env(safe-area-inset-right)) 0 max(14px,env(safe-area-inset-left));gap:12px}
+  .topbar .board-brand-stack{display:grid;max-width:44%;flex:0 1 auto;gap:3px}
+  .topbar .board-brand-kicker{font-size:7px}
+  .topbar .board-brand-title{font-size:14px}
+  .topbar>.app-tabs,.topbar>.top-actions,.mobile-logs-button{display:none!important}
+  .topbar>.presence-bar{display:flex!important;flex:1;min-width:0;max-width:none;margin-left:0!important;gap:9px;padding:7px 4px;overflow-x:auto}
+  .topbar .presence-person{position:relative;padding:0;border:0;background:transparent;box-shadow:none;flex:0 0 30px;width:30px;height:30px;overflow:visible}
+  .topbar .presence-person img,.topbar .presence-person i{width:30px;height:30px;border:2px solid #fff;border-radius:50%;outline:1px solid #7fd6b0;box-shadow:0 0 9px #72d8ac99;background:#eef5f1;font-size:11px}
+  .topbar .presence-person::after,.topbar .presence-person b,.topbar .presence-person em{display:none!important}
+  :root .board-layout{inset:var(--mobile-top) 0 0;grid-template-columns:minmax(0,1fr)!important}
+  :root .board-layout #logSidebar{display:none}
+  :root body.mobile-logs-open .board-layout #logSidebar{display:flex;position:fixed;inset:var(--mobile-top) auto 0 0;width:min(340px,88vw);height:auto;z-index:42;padding:16px 12px;box-shadow:10px 0 40px #20203018;border:0;overflow:hidden}
+  .mobile-logs-open .mobile-logs-backdrop:not([hidden]){display:block;position:fixed;inset:var(--mobile-top) 0 0;z-index:41;width:100%;border:0;background:#24212e45;backdrop-filter:blur(2px);cursor:pointer}
+  #logSidebar .log-list-head{padding:0 8px 16px}
+  #logSidebar .log-list-head>span{font-size:11px}
+  #logSidebar .log-list-head>button{width:44px;height:44px;background:var(--soft);border-radius:12px}
+  #logSidebar .log-list{overflow-y:auto;gap:8px;padding:2px;overscroll-behavior:contain;touch-action:pan-y}
+  #logSidebar .log-entry{border:1px solid var(--line);border-radius:12px;overflow:hidden;flex-shrink:0}
+  #logSidebar .log-item{min-height:52px;padding:14px 50px 14px 14px;border-left-width:3px}
+  #logSidebar .log-item strong{font-size:13px;white-space:normal;overflow-wrap:anywhere}
+  #logSidebar .log-edit{right:2px;top:4px;width:44px;height:44px;font-size:17px}
+  .mobile-menu-button{display:grid;place-items:center;position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:45;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:22px;box-shadow:0 4px 20px #30203c12}
+  body.phone-frame-docked>.mobile-menu-button{display:none}
+  #mobileMenu{position:fixed;inset:auto 8px calc(8px + env(safe-area-inset-bottom));width:calc(100% - 16px);max-width:none;max-height:80dvh;margin:0;padding:18px;border:1px solid #eadfec;border-radius:22px;background:#fff;overflow:auto}
+  #mobileMenu::backdrop{background:#29233455;backdrop-filter:blur(3px)}
+  .mobile-menu-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;color:var(--jijin-pre-color1,var(--ink))}
+  .mobile-menu-head>button{width:44px;height:44px;border:0;border-radius:12px;background:var(--soft);font-size:23px}
+  .mobile-app-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .mobile-app-tabs button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;min-height:76px;padding:8px 0;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--muted);font-size:12px;cursor:pointer}
+  .mobile-app-tabs button>span{font-size:25px;line-height:28px}
+  .mobile-app-tabs button.active{border-color:var(--jijin-pre-color1,#88728e);background:color-mix(in srgb,var(--jijin-pre-color1,#88728e) 7%,white);color:var(--jijin-pre-color1,var(--ink))}
+  .mobile-menu-actions{display:grid;gap:8px;margin-top:14px}
+  .mobile-menu-actions button{min-height:48px;padding:12px 14px;text-align:left;border:1px solid var(--line);border-radius:12px;background:#faf9fc;font-size:13px;cursor:pointer}
+  :root #spoilerDialog{inset:var(--mobile-top) 0 0;width:100%;height:auto}
+  #spoilerDialog .spoiler-card{width:calc(100% - 36px)}
+  .board-home{padding:12px}.board-home-upload{bottom:16px;right:68px;padding:10px;font-size:10px}
+  #boardProfileDialog .board-profile-card{padding:24px;gap:16px}
+  #boardProfileDialog input{min-height:46px;font-size:16px}
+  #boardProfileDialog .primary{min-height:46px;font-size:14px}
+  #boardSettingsOverlay .board-settings-panel{top:66px!important;right:8px!important;width:calc(100vw - 16px)!important;max-width:none!important;height:calc(100dvh - 74px - env(safe-area-inset-bottom))!important}
+  button:focus-visible{outline:2px solid var(--jijin-pre-color1,var(--ink));outline-offset:2px}
+}

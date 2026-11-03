@@ -65,9 +65,11 @@
   </script>
 
 <link rel="stylesheet" href="/board/speaker-editor.css?v=20261103-settings1">
+<link rel="stylesheet" href="mobile.css?v=20261103-mobile1">
 </head>
 <body>
   <header class="topbar">
+    <button id="mobileLogsButton" class="mobile-only mobile-logs-button" type="button" aria-controls="logSidebar" aria-expanded="false" aria-label="ログ一覧を開く">☰</button>
     <div class="board-brand-stack">
       <a id="ownerTopLink" class="board-brand-kicker hidden" href="/">JIJIN BORD</a><span id="guestBrand" class="board-brand-kicker">JIJIN BORD</span>
       <strong id="boardName" class="board-brand-title">読み込み中…</strong>
@@ -98,6 +100,15 @@
       <iframe id="spreadsheetFrame" class="tool-frame hidden" title="SPREADSHEET" style="visibility:hidden"></iframe>
     </main>
   </div>
+  <button id="mobileLogsBackdrop" class="mobile-logs-backdrop" type="button" aria-label="ログ一覧を閉じる" hidden></button>
+  <button id="mobileMenuButton" class="mobile-only mobile-menu-button" type="button" aria-label="メニューを開く">☰</button>
+  <dialog id="mobileMenu" class="mobile-menu"><div class="mobile-menu-head"><strong>メニュー</strong><button type="button" id="mobileMenuClose" aria-label="メニューを閉じる">×</button></div>
+  <nav class="mobile-app-tabs" aria-label="ページ切り替え">
+    <button type="button" data-tool="log" class="active" aria-current="page"><span aria-hidden="true">▤</span>ログ</button>
+    <button type="button" data-tool="matrix"><span aria-hidden="true">◈</span>マトリクス</button>
+    <button type="button" data-tool="spreadsheet"><span aria-hidden="true">▦</span>sheets</button>
+  </nav>
+  <div class="mobile-menu-actions"><button type="button" id="mobileMenuLogs">ログ一覧</button><button type="button" id="mobileMenuOptions">表示・絞り込み設定</button><button type="button" data-phone-action="new-template" hidden>新しいテンプレート</button><button type="button" data-phone-action="export-matrix" hidden>完成画像を保存</button><button type="button" id="mobileMenuPeople">PL・PC／共通設定</button></div></dialog>
   <dialog id="spoilerDialog"><div class="spoiler-card"><p>UNOPENED LOG</p><span id="spoilerLabel" class="hidden">LOG</span><h2 id="spoilerTitle"></h2><small id="spoilerParticipants" class="hidden"></small><strong>この先にはシナリオのネタバレを含みます。</strong><div><button id="confirmOpen" class="primary">ログを開く</button></div></div></dialog>
   <dialog id="logEditDialog"><form id="logEditForm" class="log-edit-card"><div><span></span><button type="button" id="closeLogEdit" class="log-edit-close">×</button></div><label class="log-spoiler-edit"><input id="logSpoilerInput" type="checkbox"><span>このログをネタバレ有りにする</span></label><label>シナリオタイトル<input id="logScenarioTitle" maxlength="120"></label><label>参加キャラ<input id="logScenarioParticipants" maxlength="300"></label><div><button type="submit" class="primary">保存</button><button type="button" id="deleteLogButton" class="log-delete-text">ログを削除する</button></div></form></dialog>
   <dialog id="boardProfileDialog"><form id="boardProfileForm" class="board-profile-card"><p>PL SETUP</p><h2 id="boardProfileTitle">この部屋に入る</h2><label>あなたのPL名（必須）<input id="boardPlName" maxlength="80" autocomplete="nickname" required></label><button class="primary" type="submit">この部屋に入る</button></form></dialog>
@@ -124,6 +135,7 @@
   <script src="theme-scoped.js?v=20261103-settings1"></script>
   <script src="log-no-shadows.js?v=20261103-layout1"></script>
   <script src="group-row-colors.js?v=20261103-settings1"></script>
+  <script src="mobile.js?v=20261103-mobile1"></script>
   <script>
     const __spreadsheetFrame=document.getElementById('spreadsheetFrame');
     function __forceSpreadsheetCommentsVisible(){
