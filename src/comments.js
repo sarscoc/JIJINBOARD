@@ -160,8 +160,10 @@ export async function handleComments(request,env,board,id='',action='',execution
     if(!row||!match(row))fail('コメントが見つかりません',404);
     const target=targets.fromStorage(board,row),logId=row.comment_target_type==='log_range'?row.comment_target_id:'';
     if(method==='GET'&&action==='image'){
+      const etag='"'+String(row.comment_image_key||'').split('/').pop()+'"',headers={'cache-control':'private, no-cache','etag':etag};
+      if(row.comment_image_key&&request.headers.get('if-none-match')===etag)return new Response(null,{status:304,headers});
       const object=row.comment_image_key?await env.LOGS.get(row.comment_image_key):null;
-      return object?new Response(object.body,{headers:{'content-type':object.httpMetadata?.contentType||'image/webp','cache-control':'private, no-store'}}):new Response('Not found',{status:404});
+      return object?new Response(object.body,{headers:{...headers,'content-type':object.httpMetadata?.contentType||'image/webp'}}):new Response('Not found',{status:404});
     }
     if(method==='GET')return json({comment:item(board,row)});
     const b=await bodyOf(request),rawAuthor=clean(b.authorId,120),author=rawAuthor?playerKey(board,rawAuthor):'';

@@ -9,7 +9,11 @@
   if(typeof window.saveImageBlob!=='function'||window.saveImageBlob.__jijinRemoteImageSync)return;
 
   const rawSave=window.saveImageBlob,rawLoad=window.loadImageBlob,rawDelete=window.deleteImageBlob;
-  const checked=new Set(),pending=new Map();
+  const checked=new Set(),pending=new Map(),memory=new Map(),revisions=new Map();let epoch=0;
+  const stamp=key=>`${epoch}:${revisions.get(key)||0}`;
+  const mutate=key=>revisions.set(key,(revisions.get(key)||0)+1);
+  const invalidate=()=>{epoch++;checked.clear();memory.clear()};
+  const persist=(fn,...args)=>{Promise.resolve().then(()=>fn(...args)).catch(error=>console.warn('Spreadsheet image cache write skipped',error))};
   const remoteKey=(partId,charId)=>`${partId}::${charId}`;
   function mapTarget(partId,charId){
     if(partId==='background'&&charId==='global')return{type:'global_background',target:'global'};
@@ -47,7 +51,7 @@
     if(!response.ok){const body=await response.json().catch(()=>({}));throw new Error(body.error||`画像同期エラー (${response.status})`)}
   }
   async function fetchRemote(partId,charId){
-    const key=remoteKey(partId,charId);if(pending.has(key))return pending.get(key);
+    const key=stamp(remoteKey(partId,charId))+':'+remoteKey(partId,charId);if(pending.has(key))return pending.get(key);
     const task=(async()=>{
       const response=await fetch(endpoint(partId,charId),{cache:'no-store'});
       if(response.status===404)return null;
@@ -59,7 +63,8 @@
 
   const syncedSave=async function(partId,charId,file){
     const compressed=await compressImage(file),key=remoteKey(partId,charId);
-    await rawSave.call(this,partId,charId,compressed);
+    mutate(key);memory.set(key,compressed);
+    persist(rawSave.bind(this),partId,charId,compressed);
     try{await uploadRemote(partId,charId,compressed);checked.add(key)}catch(error){console.warn('Spreadsheet image upload failed',error)}
   };
   syncedSave.__jijinRemoteImageSync=true;
@@ -68,19 +73,23 @@
 
   window.loadImageBlob=async function(partId,charId){
     const key=remoteKey(partId,charId);
+    if(memory.has(key))return memory.get(key);
     if(!checked.has(key)){
+      const started=stamp(key);
       try{
-        const remote=await fetchRemote(partId,charId);checked.add(key);
-        if(remote){await rawSave.call(this,partId,charId,remote);return remote}
-        await rawDelete.call(this,partId,charId);
-        return null;
+        const remote=await fetchRemote(partId,charId);
+        if(started!==stamp(key))return window.loadImageBlob(partId,charId);
+        checked.add(key);memory.set(key,remote);
+        if(remote)persist(rawSave.bind(this),partId,charId,remote);
+        else persist(rawDelete.bind(this),partId,charId);
+        return remote;
       }catch(error){console.warn('Spreadsheet image download failed',error)}
     }
     return rawLoad.call(this,partId,charId);
   };
 
   window.deleteImageBlob=async function(partId,charId){
-    const key=remoteKey(partId,charId);await rawDelete.call(this,partId,charId);checked.add(key);
+    const key=remoteKey(partId,charId);mutate(key);memory.set(key,null);persist(rawDelete.bind(this),partId,charId);checked.add(key);
     try{const response=await fetch(endpoint(partId,charId),{method:'DELETE'});if(!response.ok&&response.status!==404)throw new Error(`画像削除エラー (${response.status})`)}catch(error){console.warn('Spreadsheet image delete failed',error)}
   };
 
@@ -91,10 +100,10 @@
     try{if(window.state?.currentView==='character')window.renderCharacterView?.()}catch(error){console.warn('Spreadsheet character image refresh failed',error)}
     try{if(window.state?.currentView==='question')window.renderQuestionView?.()}catch(error){console.warn('Spreadsheet question image refresh failed',error)}
   }
-  window.addEventListener('jijinboard-spreadsheet-reconnected',()=>{checked.clear();refreshVisibleImages()});
+  window.addEventListener('jijinboard-spreadsheet-reconnected',()=>{invalidate();refreshVisibleImages()});
   window.addEventListener('jijinboard-spreadsheet-remote-change',event=>{
     if(event.detail?.action!=='spreadsheet-image')return;
-    checked.clear();
+    invalidate();
     setTimeout(()=>refreshVisibleImages(),0);
   });
 })();

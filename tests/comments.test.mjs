@@ -106,3 +106,13 @@ test('scoped target reads and writes cannot escape their parent address',async t
   const response=await f.call('GET',null,'','','?scope='+encodeURIComponent(targets.matrix('board'))+'&target='+encodeURIComponent(cell));
   assert.equal(response.status,400);
 });
+
+test('comment image validation avoids downloading unchanged bytes and detects replacements',async t=>{
+ const f=fixture(t),{comment}=await (await f.create(targets.cell('board','cell'))).json();
+ await f.call('PATCH',{authorId:'author',imageData:'data:image/png;base64,QQ=='},comment.id);
+ let reads=0;const get=f.env.LOGS.get;f.env.LOGS.get=async key=>{reads++;return get(key)};
+ const first=await f.call('GET',null,comment.id,'image'),etag=first.headers.get('etag');assert.ok(etag);assert.equal(reads,1);
+ const cached=await handleComments(new Request('https://test/api',{headers:{'if-none-match':etag}}),f.env,'board',comment.id,'image');assert.equal(cached.status,304);assert.equal(reads,1);
+ await f.call('PATCH',{authorId:'author',imageData:'data:image/png;base64,Qg=='},comment.id);
+ const changed=await handleComments(new Request('https://test/api',{headers:{'if-none-match':etag}}),f.env,'board',comment.id,'image');assert.equal(changed.status,200);assert.notEqual(changed.headers.get('etag'),etag);assert.equal(await changed.text(),'B');
+});

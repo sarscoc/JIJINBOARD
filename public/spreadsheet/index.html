@@ -7799,17 +7799,18 @@ function renderImagePart(part,itemMap,ch,mode='table'){
 }
 async function hydrateImageParts(root=document){
   const hosts=[...root.querySelectorAll('[data-image-host]')];
-  for(const host of hosts){
+  await Promise.all(hosts.map(async host=>{
     const partId=host.dataset.imageHost;
     const charId=host.dataset.imageChar;
     const frame=host.querySelector('.image-part-frame');
-    if(!frame)continue;
+    if(!frame)return;
     try{
       const blob=await loadImageBlob(partId,charId);
       if(!blob){
         if(frame.querySelector('.image-part-empty')?.textContent!=='画像なし')frame.innerHTML='<div class="image-part-empty">画像なし</div>';
-        continue;
+        return;
       }
+      if(!host.isConnected)return;
       const url=URL.createObjectURL(blob);
       frame.innerHTML=`<img src="${url}" alt="">`;
       const img=frame.querySelector('img');
@@ -7817,7 +7818,7 @@ async function hydrateImageParts(root=document){
     }catch(e){
       frame.innerHTML='<div class="image-part-empty">画像を読み込めませんでした</div>';
     }
-  }
+  }));
 }
 function bindImagePartControls(root,refresh){
   async function acceptImage(partId,charId,file){
@@ -10679,9 +10680,9 @@ document.addEventListener('keydown',e=>{
 <script src="sheet-layout-six-grid.js?v=20261102-room1"></script>
 <script src="sheet-display-settings.js?v=20261102-room1"></script>
 <script src="sheet-character-fit.js?v=20261102-room1"></script>
-<script src="question-presentation.js?v=20261103-centeredgrid1"></script>
+<script src="question-presentation.js?v=20261103-softgrid1"></script>
 <script src="sheet-sync.js?v=20261103-unified1"></script>
-<script src="sheet-image-sync.js?v=20261103-unified1"></script>
+<script src="sheet-image-sync.js?v=20261103-imagefast1"></script>
 <div id="toast" class="toast-mini"></div>
 </body>
 </html>
