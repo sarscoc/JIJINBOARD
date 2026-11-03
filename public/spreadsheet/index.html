@@ -6084,6 +6084,7 @@ html[data-db-alternate="1"] .data-sheet tbody tr:not(.group-row) .item-col{
 (()=>{if(parent===window)return;try{parent.JIJINBOARD_APPLY_FRAME_THEME?.(document,"spreadsheet")}catch{}})();
 </script>
 <link rel="stylesheet" href="/shared/comment-layout.css?v=20261103-settings1">
+<link rel="stylesheet" href="character-settings.css?v=20261103-cute1">
 </head>
 <body>
 
@@ -6532,27 +6533,27 @@ html[data-db-alternate="1"] .data-sheet tbody tr:not(.group-row) .item-col{
 <div class="modal-backdrop character-design-modal" id="characterDesignModal">
   <div class="modal">
     <div class="modal-head">
-      <b>Characterデザイン</b>
-      <button class="icon-btn" id="characterDesignCloseBtn">×</button>
+      <b>キャラクターのデザイン</b>
+      <button class="icon-btn" id="characterDesignCloseBtn" aria-label="設定を閉じる">×</button>
     </div>
     <div class="modal-body">
-      <div class="character-design-note">変更した項目だけこのCharacter専用になります。未変更の項目は「基本のページデザイン」を引き継ぎます。</div>
+      <div class="character-design-note">このキャラクターだけの色や背景を選べます。変えていない項目は、共通のページデザインを引き継ぎます。</div>
       <div class="design-grid">
         <label class="design-color-field"><span>アクセント</span><input type="color" id="characterDesignAccent"></label>
         <label class="design-color-field"><span>背景色</span><input type="color" id="characterDesignBg"></label>
-        <label class="design-color-field"><span>質問文字</span><input type="color" id="characterDesignQuestionText"></label>
-        <label class="design-color-field"><span>回答文字</span><input type="color" id="characterDesignAnswerText"></label>
+        <label class="design-color-field"><span>質問の文字色</span><input type="color" id="characterDesignQuestionText"></label>
+        <label class="design-color-field"><span>回答の文字色</span><input type="color" id="characterDesignAnswerText"></label>
       </div>
 
       <label class="character-mirror-setting">
         <input type="checkbox" id="characterDesignMirror">
-        <span><b>左右の配置を反転</b><small>このCharacterだけ、左↔右を入れ替えます。幅の比率も 3:1 → 1:3 のように反転します。</small></span>
+        <span><b>左右の配置を反転</b><small>このキャラクターだけ、左と右を入れ替えます。幅の比率も 3:1 → 1:3 のように反転します。</small></span>
       </label>
 
       <div class="design-photo-row">
         <div>
-          <b>背景写真</b>
-          <div class="mini">このCharacterページだけに表示。</div>
+          <b>このキャラクターの背景画像</b>
+          <div class="mini">キャラクターの個別ページに表示する画像です。</div>
         </div>
         <label class="btn design-file-btn" for="characterBackgroundFile">画像を選択</label>
         <input type="file" id="characterBackgroundFile" accept="image/*" class="hidden">

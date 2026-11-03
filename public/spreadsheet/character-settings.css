@@ -1,0 +1,30 @@
+/* Character design uses the same soft cards and controls as board settings. */
+#characterDesignModal{background:rgba(68,48,75,.16);backdrop-filter:blur(3px)}
+#characterDesignModal .modal{width:min(460px,calc(100vw - 24px))!important;max-height:calc(100dvh - 28px);border:1px solid #eadfec!important;border-radius:16px!important;background:#fff!important;color:#45404b;box-shadow:0 15px 42px #5d3c6626;overflow:hidden;display:flex;flex-direction:column}
+#characterDesignModal .modal-head{flex-shrink:0;min-height:44px;padding:10px 15px!important;border-bottom:1px solid #f0e7f2!important;background:#fdf9fe!important;color:#88728e;box-sizing:border-box}
+#characterDesignModal .modal-head>b{font-size:12px;font-weight:650;letter-spacing:.04em}
+#characterDesignModal .modal-head .icon-btn{border:0!important;background:none!important;color:#a18aa8!important;font-size:20px;width:28px;height:28px;border-radius:8px!important}
+#characterDesignModal .modal-head .icon-btn:hover{background:#f4ecf6!important}
+#characterDesignModal .modal-body{padding:14px!important;overflow:auto;min-height:0;font-size:11px;line-height:1.65}
+#characterDesignModal .character-design-note{margin:0 0 12px;padding:10px 12px;border:1px solid #eee4f0;border-radius:11px;background:#fcf8fd;color:#968a99;font-size:10px;line-height:1.7}
+#characterDesignModal .design-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+#characterDesignModal .design-color-field{grid-template-columns:minmax(0,1fr) 36px;min-height:42px;padding:7px 10px;border:1px solid #eee5ef;border-radius:11px;background:#fdfafe;box-sizing:border-box}
+#characterDesignModal .design-color-field>span{font-size:10px;color:#918292}
+#characterDesignModal .design-color-field input[type=color]{width:36px!important;height:28px!important;border:1px solid #e2d6e6!important;border-radius:8px!important;padding:2px!important;cursor:pointer}
+#characterDesignModal .character-mirror-setting{display:flex;align-items:flex-start;gap:9px;margin:12px 0;padding:11px 12px;border:1px solid #eee5ef;border-radius:11px;background:#fff;cursor:pointer}
+#characterDesignModal .character-mirror-setting input{width:15px;height:15px;margin:3px 0 0;accent-color:#ac8cac;flex-shrink:0}
+#characterDesignModal .character-mirror-setting b{display:block;font-size:10px;font-weight:650;color:#817085}
+#characterDesignModal .character-mirror-setting small{display:block;margin-top:3px;font-size:9px;line-height:1.65;color:#a091a3}
+#characterDesignModal .design-photo-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin:0;padding:12px;border:1px solid #eee4f0;border-radius:12px;background:#fcf8fd}
+#characterDesignModal .design-photo-row>div:first-child{grid-column:1/-1}
+#characterDesignModal .design-photo-row b{font-size:10px;font-weight:650;color:#817085}
+#characterDesignModal .design-photo-row .mini{font-size:9px;color:#a091a3;line-height:1.7;margin-top:3px}
+#characterDesignModal .btn,#characterDesignModal select{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;min-width:0;min-height:32px;margin:0;padding:7px 10px;border:1px solid #e2d6e6!important;border-radius:9px!important;background:#fff!important;box-shadow:none!important;color:#8f7697!important;font:inherit;font-size:10px;cursor:pointer}
+#characterDesignModal select{width:100%;appearance:auto}
+#characterDesignModal .design-file-btn:hover{background:#f5edf8!important}
+#characterDesignModal .design-opacity-field{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:9px;color:#968a99;min-width:0}
+#characterDesignModal .design-opacity-field input{min-width:0;flex:1;accent-color:#ac8cac}
+#characterDesignModal #characterBackgroundRemove{grid-column:1/-1;justify-self:end;min-height:24px;padding:2px 0;border:0!important;background:none!important;color:#ad8b9b!important;font-size:9px;text-decoration:underline;text-underline-offset:3px}
+#characterDesignModal .design-actions{justify-content:center;margin-top:14px}
+#characterDesignModal #characterDesignReset{min-height:28px;border:0!important;background:none!important;color:#a091a3!important;font-size:9px}
+#characterDesignModal :is(button,input,select,label[for]):focus-visible{outline:2px solid #bc9ac8;outline-offset:3px}
