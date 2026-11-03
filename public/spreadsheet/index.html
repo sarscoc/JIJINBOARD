@@ -4635,33 +4635,14 @@ body{
 }
 
 /* Design tool */
-.design-tool-modal .modal{
-  width:min(720px,calc(100vw - 28px))!important;
-}
+
 .character-design-modal .modal{
   width:min(620px,calc(100vw - 28px))!important;
 }
-.design-tool-tabs{
-  display:flex;
-  border-bottom:1px solid var(--line);
-  padding:0 10px;
-}
-.design-tool-tab{
-  border:0;
-  border-bottom:2px solid transparent;
-  background:transparent;
-  padding:7px 9px 6px;
-  font-size:8px;
-  color:#7c8490;
-}
-.design-tool-tab.on{
-  border-bottom-color:var(--user-accent);
-  color:#252a32;
-  font-weight:900;
-}
-.design-tool-panel.hidden{
-  display:none!important;
-}
+
+
+
+
 .design-grid{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
@@ -5732,9 +5713,9 @@ html[data-db-alternate="1"] .data-sheet tbody tr:not(.group-row):nth-child(even)
 .data-sheet .sheet-input{color:var(--db-text)!important;-webkit-text-fill-color:var(--db-text)!important;}
 
 /* Design editor is one continuous page, no tab switching. */
-.design-tool-modal .modal{width:min(820px,calc(100vw - 28px))!important;}
-.design-tool-page{display:grid;gap:16px!important;}
-.design-tool-tabs{display:none!important;}
+
+
+
 .design-section{display:grid;gap:8px;padding:0 0 14px;border-bottom:1px solid var(--line);}
 .design-section:last-child{border-bottom:0;padding-bottom:0;}
 .design-section-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;}
@@ -6111,7 +6092,6 @@ html[data-db-alternate="1"] .data-sheet tbody tr:not(.group-row) .item-col{
         <button class="btn" id="characterManageBtn">Character</button>
         <button class="btn" id="organizeBtn">項目整理</button>
         <button class="btn" id="sheetLayoutBtn">キャラシート配置</button>
-        <button class="btn" id="designToolBtn">デザイン</button>
         <button class="btn" id="addPartBtn" style="display:none">＋ 表示パーツ</button>
       </div>
     </div>
@@ -6464,71 +6444,6 @@ html[data-db-alternate="1"] .data-sheet tbody tr:not(.group-row) .item-col{
   </div>
 </div>
 
-
-<div class="modal-backdrop design-tool-modal" id="designToolModal">
-  <div class="modal">
-    <div class="modal-head">
-      <b>デザイン</b>
-      <button class="icon-btn" id="designToolCloseBtn">×</button>
-    </div>
-    <div class="modal-body design-tool-page">
-      <section class="design-section">
-        <div class="design-section-head">
-          <b>一番外側</b>
-          <span>画面の端に見える背景と、UI全体の角の形です。</span>
-        </div>
-        <div class="design-grid design-outer-grid">
-          <label class="design-color-field"><span>背景色</span><input type="color" id="designOuterBgColor"></label>
-          <label class="design-select-field"><span>角</span><select id="designCornerMode"><option value="square">角</option><option value="rounded">角丸</option></select></label>
-        </div>
-      </section>
-
-      <section class="design-section">
-        <div class="design-section-head">
-          <b>スプシのデザイン</b>
-          <span>スプレッドシート表示だけに反映されます。</span>
-        </div>
-        <div class="design-grid database-design-grid">
-          <label class="design-color-field"><span>ヘッダー</span><input type="color" id="designTableHeaderColor"></label>
-          <label class="design-color-field"><span>グループ</span><input type="color" id="designTableGroupColor"></label>
-          <label class="design-color-field"><span>名前・項目</span><input type="color" id="designTableAxisColor"></label>
-          <label class="design-color-field design-cell-color-field"><span>通常セル</span><input type="color" id="designTableCellColor"></label>
-          <label class="design-switch design-inline-switch"><input type="checkbox" id="designTableAlternate"><span>交互</span></label>
-          <label class="design-color-field"><span>交互色A</span><input type="color" id="designTableRowAColor"></label>
-          <label class="design-color-field"><span>交互色B</span><input type="color" id="designTableRowBColor"></label>
-          <label class="design-color-field"><span>罫線</span><input type="color" id="designTableGridColor"></label>
-          <label class="design-color-field"><span>文字</span><input type="color" id="designTableTextColor"></label>
-        </div>
-        <div class="design-actions"><button type="button" class="btn" id="designDatabaseReset">スプシ色を初期化</button></div>
-      </section>
-
-      <section class="design-section">
-        <div class="design-section-head">
-          <b>基本のページデザイン</b>
-          <span>個別デザインをしていないCharacterページは、ここで設定した色をそのまま使います。</span>
-        </div>
-        <div class="design-grid">
-          <label class="design-color-field"><span>アクセント</span><input type="color" id="designAccentColor"></label>
-          <label class="design-color-field"><span>背景色</span><input type="color" id="designPageBgColor"></label>
-          <label class="design-color-field"><span>質問文字</span><input type="color" id="designQuestionTextColor"></label>
-          <label class="design-color-field"><span>回答文字</span><input type="color" id="designAnswerTextColor"></label>
-        </div>
-        <div class="design-photo-row">
-          <div>
-            <b>基本ページの背景画像</b>
-            <div class="mini">個別の背景画像がないCharacterページに使います。</div>
-          </div>
-          <label class="btn design-file-btn" for="globalBackgroundFile">画像を選択</label>
-          <input type="file" id="globalBackgroundFile" accept="image/*" class="hidden">
-          <select id="globalBackgroundFit" title="背景画像の表示"><option value="cover">全面</option><option value="contain">全体表示</option></select>
-          <label class="design-opacity-field" title="背景画像の透明度"><span>濃さ</span><input type="range" id="globalBackgroundOpacity" min="0" max="100" step="5" value="100"><b id="globalBackgroundOpacityValue">100%</b></label>
-          <button type="button" class="btn" id="globalBackgroundRemove">削除</button>
-        </div>
-        <div class="design-actions"><button type="button" class="btn" id="designGlobalReset">外側・基本ページを初期化</button></div>
-      </section>
-    </div>
-  </div>
-</div>
 
 <div class="modal-backdrop character-design-modal" id="characterDesignModal">
   <div class="modal">
@@ -9533,140 +9448,6 @@ document.querySelectorAll('[data-question-style]').forEach(btn=>{
   };
 });
 
-
-function syncDesignToolInputs(){
-  const d=state.layout.design;
-  const db=d.database;
-  $('designOuterBgColor').value=normalizeHexColor(d.outerBg,'#f5f6f8');
-  $('designCornerMode').value=['square','rounded'].includes(d.corners)?d.corners:'rounded';
-
-  $('designAccentColor').value=getGlobalThemeColor();
-  $('designPageBgColor').value=normalizeHexColor(d.pageBg,'#ffffff');
-  $('designQuestionTextColor').value=normalizeHexColor(d.questionTextColor,normalizeHexColor(d.textColor,'#20252d'));
-  $('designAnswerTextColor').value=normalizeHexColor(d.answerTextColor,normalizeHexColor(d.textColor,'#20252d'));
-  $('globalBackgroundFit').value=d.backgroundFit||'cover';
-  const globalOpacity=Math.round((Number.isFinite(Number(d.backgroundOpacity))?Number(d.backgroundOpacity):1)*100);
-  $('globalBackgroundOpacity').value=globalOpacity;
-  $('globalBackgroundOpacityValue').textContent=globalOpacity+'%';
-
-  $('designTableAlternate').checked=!!db.alternate;
-  $('designTableHeaderColor').value=normalizeHexColor(db.header,'#f7f9fc');
-  $('designTableGroupColor').value=normalizeHexColor(db.group,'#eef2f7');
-  $('designTableAxisColor').value=normalizeHexColor(db.axis,db.item||db.column||db.heading||'#f7f9fc');
-  $('designTableCellColor').value=normalizeHexColor(db.cell,'#ffffff');
-  $('designTableRowAColor').value=normalizeHexColor(db.rowA,'#ffffff');
-  $('designTableRowBColor').value=normalizeHexColor(db.rowB,'#f8fafc');
-  $('designTableGridColor').value=normalizeHexColor(db.grid,'#e2e6ec');
-  $('designTableTextColor').value=normalizeHexColor(db.text,'#3f4752');
-}
-
-function updateGlobalDesign(){
-  const d=state.layout.design;
-  d.outerBg=$('designOuterBgColor').value;
-  d.corners=$('designCornerMode').value;
-  state.layout.themeColor=$('designAccentColor').value;
-  d.pageBg=$('designPageBgColor').value;
-  d.questionTextColor=$('designQuestionTextColor').value;
-  d.answerTextColor=$('designAnswerTextColor').value;
-  d.textColor=d.answerTextColor;
-  d.backgroundFit=$('globalBackgroundFit').value;
-  d.backgroundOpacity=Number($('globalBackgroundOpacity').value)/100;
-  $('globalBackgroundOpacityValue').textContent=$('globalBackgroundOpacity').value+'%';
-
-  const db=d.database;
-  db.alternate=$('designTableAlternate').checked;
-  db.header=$('designTableHeaderColor').value;
-  db.group=$('designTableGroupColor').value;
-  db.axis=$('designTableAxisColor').value;
-  /* keep old saved fields synchronized for backwards-compatible CSS/data */
-  db.heading=db.axis;
-  db.item=db.axis;
-  db.column=db.axis;
-  db.cell=$('designTableCellColor').value;
-  db.rowA=$('designTableRowAColor').value;
-  db.rowB=$('designTableRowBColor').value;
-  db.grid=$('designTableGridColor').value;
-  db.text=$('designTableTextColor').value;
-
-  saveState();
-  applyGlobalTheme();
-  syncAllVisibleCharacterDesigns();
-}
-
-[
-  'designOuterBgColor','designAccentColor','designPageBgColor','designQuestionTextColor','designAnswerTextColor',
-  'designTableHeaderColor','designTableGroupColor','designTableAxisColor','designTableCellColor',
-  'designTableRowAColor','designTableRowBColor','designTableGridColor','designTableTextColor'
-].forEach(id=>{$(id).oninput=updateGlobalDesign;});
-$('designCornerMode').onchange=updateGlobalDesign;
-$('globalBackgroundFit').onchange=updateGlobalDesign;
-$('globalBackgroundOpacity').oninput=updateGlobalDesign;
-$('designTableAlternate').onchange=updateGlobalDesign;
-
-$('globalBackgroundFile').onchange=async()=>{
-  const file=$('globalBackgroundFile').files?.[0];
-  if(!file)return;
-  await saveImageBlob('background','global',file);
-  await applyGlobalBackgroundImage();
-  $('globalBackgroundFile').value='';
-  showToast('背景写真を保存しました');
-};
-$('globalBackgroundRemove').onclick=async()=>{
-  await deleteImageBlob('background','global');
-  await applyGlobalBackgroundImage();
-  showToast('背景写真を削除しました');
-};
-
-$('designGlobalReset').onclick=async()=>{
-  state.layout.themeColor='#8da8ff';
-  state.layout.design.outerBg='#f5f6f8';
-  state.layout.design.pageBg='#ffffff';
-  state.layout.design.questionTextColor='#20252d';
-  state.layout.design.answerTextColor='#20252d';
-  state.layout.design.textColor='#20252d';
-  state.layout.design.corners='rounded';
-  state.layout.design.backgroundFit='cover';
-  state.layout.design.backgroundOpacity=1;
-  await deleteImageBlob('background','global');
-  saveState();
-  applyGlobalTheme();
-  await applyGlobalBackgroundImage();
-  syncAllVisibleCharacterDesigns();
-  syncDesignToolInputs();
-};
-
-$('designDatabaseReset').onclick=()=>{
-  state.layout.design.database={
-    header:'#f7f9fc',
-    group:'#eef2f7',
-    axis:'#f7f9fc',
-    heading:'#f7f9fc',
-    item:'#f7f9fc',
-    column:'#f7f9fc',
-    cell:'#ffffff',
-    rowA:'#ffffff',
-    rowB:'#f8fafc',
-    alternate:false,
-    grid:'#e2e6ec',
-    text:'#3f4752'
-  };
-  saveState();
-  applyGlobalTheme();
-  syncDesignToolInputs();
-};
-
-function openDesignTool(){
-  syncDesignToolInputs();
-  openModalById('designToolModal');
-}
-function closeDesignTool(){
-  closeModalById('designToolModal');
-}
-$('designToolBtn').onclick=openDesignTool;
-$('designToolCloseBtn').onclick=closeDesignTool;
-$('designToolModal').addEventListener('click',e=>{
-  if(e.target===$('designToolModal'))closeDesignTool();
-});
 
 let characterDesignEditingId='';
 
