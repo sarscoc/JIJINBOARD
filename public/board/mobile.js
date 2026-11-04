@@ -33,7 +33,9 @@
     document.querySelectorAll('[data-tool]').forEach(tab=>{if(tab.classList.contains('active'))tab.setAttribute('aria-current','page');else tab.removeAttribute('aria-current')});
     const collection=document.getElementById('mobileMenuLogs'),frame=activeFrame();
     collection.textContent=frame?.id==='matrixFrame'?'テンプレ一覧':'ログ一覧';collection.hidden=frame?.id==='spreadsheetFrame';
-    menu.querySelectorAll('[data-phone-action]').forEach(button=>button.hidden=frame?.id!=='matrixFrame');
+    menu.querySelectorAll('[data-phone-action]').forEach(button=>button.hidden=frame?.id!=='matrixFrame'||button.dataset.phoneAction==='new-template');
+    document.getElementById('mobileMenuOptions').hidden=frame?.id==='matrixFrame';
+    document.getElementById('mobileMenuPeople').textContent='PL・PC設定';
     document.body.classList.toggle('phone-frame-docked',frame?.dataset.phoneDocked==='1');
   }
   new MutationObserver(syncTabs).observe(document.querySelector('.app-tabs'),{subtree:true,attributes:true,attributeFilter:['class']});
@@ -49,13 +51,18 @@
   sidebar.addEventListener('pointerdown',event=>{if(event.pointerType!=='mouse')start={x:event.clientX,y:event.clientY}});
   sidebar.addEventListener('pointerup',event=>{if(start&&event.clientX-start.x<-70&&Math.abs(event.clientY-start.y)<45)showLogs(false);start=null});
   sidebar.addEventListener('pointercancel',()=>{start=null});
+  let homeStart=null;
+  const home=document.getElementById('welcome');
+  home?.addEventListener('pointerdown',event=>{if(mq.matches&&!event.target.closest('input,button,label,a'))homeStart={x:event.clientX,y:event.clientY}});
+  home?.addEventListener('pointerup',event=>{if(homeStart&&Math.abs(event.clientX-homeStart.x)>75&&Math.abs(event.clientY-homeStart.y)<40)showLogs(true);homeStart=null});
+  home?.addEventListener('pointercancel',()=>{homeStart=null});
   for(const frame of frames){
     const install=()=>{
       if(!mq.matches)return;
       try{
         const doc=frame.contentDocument;
         if(!doc?.head||!frame.getAttribute('src')||doc.getElementById('mobileWorkspaceScript'))return;
-        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261103-pccompact1';doc.head.append(script);
+        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261104-display2';doc.head.append(script);
       }catch{}
     };
     frame.addEventListener('load',install);

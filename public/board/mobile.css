@@ -25,7 +25,6 @@
   #logSidebar .log-item strong{font-size:13px;white-space:normal;overflow-wrap:anywhere}
   #logSidebar .log-edit{right:2px;top:4px;width:44px;height:44px;font-size:17px}
   .mobile-menu-button{display:grid;place-items:center;position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:45;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:22px;box-shadow:0 4px 20px #30203c12}
-  body.phone-frame-docked>.mobile-menu-button{display:none}
   #mobileMenu{position:fixed;inset:auto 8px calc(8px + env(safe-area-inset-bottom));width:calc(100% - 16px);max-width:none;max-height:80dvh;margin:0;padding:18px;border:1px solid #eadfec;border-radius:22px;background:#fff;overflow:auto}
   #mobileMenu::backdrop{background:#29233455;backdrop-filter:blur(3px)}
   .mobile-menu-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;color:var(--jijin-pre-color1,var(--ink))}
@@ -38,7 +37,14 @@
   .mobile-menu-actions button{min-height:48px;padding:12px 14px;text-align:left;border:1px solid var(--line);border-radius:12px;background:#faf9fc;font-size:13px;cursor:pointer}
   :root #spoilerDialog{inset:var(--mobile-top) 0 0;width:100%;height:auto}
   #spoilerDialog .spoiler-card{width:calc(100% - 36px)}
-  .board-home{padding:12px}.board-home-upload{bottom:16px;right:68px;padding:10px;font-size:10px}
+  .board-home{padding:12px;touch-action:pan-y}
+  #boardHomeUpload,#addLogButton.hidden,#addLogButton,#logSidebar .log-edit,#boardSettingsOverlay .board-common-settings-link{display:none!important}
+  /* Keep the spoiler confirmation legible; do not present a blurred reader as its background. */
+  :root #spoilerDialog{background:#f8f7fb;color:#4b4b4b;backdrop-filter:none;-webkit-backdrop-filter:none}
+  #spoilerDialog .spoiler-card{text-shadow:none}
+  #spoilerDialog .spoiler-card p,#spoilerDialog .spoiler-card small{color:#817888}
+  #spoilerDialog .spoiler-card>strong{border-color:#ddd7e3}
+  #spoilerDialog .primary{background:#88728e;color:#fff;border-color:transparent}
   #boardProfileDialog .board-profile-card{padding:24px;gap:16px}
   #boardProfileDialog input{min-height:46px;font-size:16px}
   #boardProfileDialog .primary{min-height:46px;font-size:14px}

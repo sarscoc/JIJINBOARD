@@ -4,10 +4,11 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261103-pccompact1';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261104-display2';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
+  function installWorkspace(){
   const panel=document.querySelector(tool==='matrix'?'#matrixIconComments':tool==='sheets'?'#sheetComments':'#commentsPane');
-  if(!panel)return;
+  if(!panel)return false;
   const list=panel.querySelector(':scope>section,.comments-list');
   function announceDock(){parent.postMessage({type:'jijin-phone-docked',visible:mq.matches&&(tool!=='log'||!document.getElementById('roomView')?.classList.contains('hidden'))},location.origin)}
   if(tool==='log'&&document.getElementById('roomView'))new MutationObserver(announceDock).observe(document.getElementById('roomView'),{attributes:true,attributeFilter:['class']});
@@ -18,7 +19,7 @@
   panel.prepend(head);
   const grip=head.querySelector('.phone-dock-grip'),filter=head.querySelector('select');
   head.querySelector('.phone-dock-menu').onclick=()=>parent.postMessage({type:'jijin-phone-menu'},location.origin);
-  let expanded=false,target='',hold=null,press=null,suppressClick=false,filterTimer=0;
+  let expanded=false,target='',hold=null,press=null,suppressClick=false,filterTimer=0,cancellingPlacement=false;
   function expand(value){expanded=!!value;root.classList.toggle('phone-comments-expanded',expanded);grip.setAttribute('aria-expanded',String(expanded));grip.setAttribute('aria-label',expanded?'コメント欄を小さくする':'コメント欄を広げる')}
   grip.onclick=()=>expand(!expanded);
   let drag=null;
@@ -96,9 +97,12 @@
     filter.value='target';applyFilter();
   }
   window.addEventListener('pointerdown',event=>{
-    if(!mq.matches||event.button>0||event.target.closest('input,textarea,select,button,dialog,.phone-dock-head'))return;
+    if(!mq.matches||event.button>0||event.target.closest('input,textarea,select,dialog,.phone-dock-head,#commentsPane,#matrixIconComments,#sheetComments'))return;
+    if(tool!=='matrix'&&event.target.closest('button'))return;
     const el=event.target.closest(tool==='matrix'?'.placed[data-id]':tool==='log'?'.log-message[data-message]':'[data-sheet-cell]');
-    press={x:event.clientX,y:event.clientY,el,time:Date.now(),id:event.pointerId};
+    press={x:event.clientX,y:event.clientY,el,time:Date.now(),id:event.pointerId,down:event};
+    // Decide the touch direction before handing an icon to its existing drag handler.
+    if(tool==='matrix'&&el)event.stopPropagation();
     if(el&&tool!=='sheets')hold=setTimeout(()=>{
       hold=null;
       // Cancel the legacy 540ms placement-note gesture before opening the shared composer.
@@ -106,14 +110,27 @@
       suppressClick=true;beginComment(el);
     },500);
   },true);
-  window.addEventListener('pointermove',event=>{if(press&&Math.hypot(event.clientX-press.x,event.clientY-press.y)>10)clearHold()},true);
-  window.addEventListener('pointercancel',()=>{clearHold();press=null;suppressClick=false},true);
+  window.addEventListener('pointermove',event=>{
+    if(!press)return;
+    const dx=event.clientX-press.x,dy=event.clientY-press.y;
+    if(Math.hypot(dx,dy)>10)clearHold();
+    if(tool==='matrix'&&press.el&&!press.swiping&&!press.dragging&&Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)*1.5){
+      press.dragging=true;
+      if(typeof startPlacedDrag==='function')startPlacedDrag(press.down,press.el.dataset.id,press.el);
+    }
+    if(tool==='matrix'&&!press.dragging&&!press.swiping&&Math.abs(dx)>14&&Math.abs(dx)>Math.abs(dy)*1.5){
+      press.swiping=true;suppressClick=true;
+      // A horizontal page gesture must not also move or save the placed icon.
+      if(press.el){cancellingPlacement=true;try{press.el.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,pointerId:press.id||1}))}finally{cancellingPlacement=false}}
+    }
+  },true);
+  window.addEventListener('pointercancel',()=>{if(cancellingPlacement)return;clearHold();press=null;suppressClick=false},true);
   window.addEventListener('pointerup',event=>{
     clearHold();
     if(mq.matches&&press){
       const dx=event.clientX-press.x,dy=event.clientY-press.y;
-      if(Math.abs(dx)>75&&Math.abs(dy)<40&&(tool==='log'||!press.el)&&!event.target.closest('dialog,#sheetComments,#commentsPane,#matrixIconComments')){
-        if(tool==='log'&&dx>0&&press.x<32){suppressClick=true;parent.postMessage({type:'jijin-phone-log-list'},location.origin)}
+      if(!press.dragging&&Math.abs(dx)>75&&Math.abs(dy)<40&&!event.target.closest('dialog,#sheetComments,#commentsPane,#matrixIconComments')){
+        if(tool==='log'){suppressClick=true;parent.postMessage({type:'jijin-phone-log-list'},location.origin)}
         if(tool==='matrix'&&typeof setMobileMainView==='function'){suppressClick=true;setMobileMainView(dx>0?'icons':'stage',false)}
       }
     }
@@ -128,7 +145,10 @@
   if(tool==='matrix'){
     const resetView=()=>{if(mq.matches&&typeof setMobileMainView==='function')setMobileMainView('stage',false)};
     resetView();
-    document.getElementById('templateTabs')?.addEventListener('click',event=>{if(event.target.closest('.template-tab'))resetView()});
+    let selectingTemplate=false;
+    // The template's own click handler stops bubbling and loads asynchronously.
+    document.getElementById('templateTabs')?.addEventListener('click',event=>{if(mq.matches&&event.target.closest('.template-tab'))selectingTemplate=true},true);
+    addEventListener('matrix-template-selected',()=>{if(selectingTemplate){selectingTemplate=false;requestAnimationFrame(resetView)}});
   }
   addEventListener('message',event=>{
     if(event.origin!==location.origin||event.source!==parent||event.data?.type!=='jijin-phone-options'||!mq.matches)return;
@@ -141,4 +161,12 @@
     if(event.origin!==location.origin||event.source!==parent||!mq.matches||tool!=='matrix'||event.data?.type!=='jijin-phone-action')return;
     const controls={'new-template':'newTemplateBtn','export-matrix':'exportImageBtn'},id=controls[event.data.action];if(id)document.getElementById(id)?.click();
   });
+  return true;
+  }
+  // Sheets may create its comment panel only after the first remote snapshot arrives.
+  if(!installWorkspace()){
+    const waiting=new MutationObserver(()=>{if(installWorkspace())waiting.disconnect()});
+    waiting.observe(document.body,{childList:true,subtree:true});
+    addEventListener('pagehide',()=>waiting.disconnect(),{once:true});
+  }
 })();

@@ -109,3 +109,47 @@ test('leaving the phone breakpoint hides the injected dock and composer controls
  assert.equal(f.d.querySelector('.phone-dock-head').hidden,true);
  assert.equal(f.d.querySelector('.phone-composer-actions').hidden,true);
 });
+
+test('MATRIX horizontal swipes work over an icon and leave the comments pane alone',t=>{
+ const f=fixture(t,'matrix'),views=[];f.w.setMobileMainView=view=>views.push(view);
+ let cancelled=0;const icon=f.d.querySelector('.placed');icon.addEventListener('pointercancel',()=>cancelled++);
+ f.pointer(icon,'pointerdown',80,100);f.pointer(icon,'pointermove',180,105);f.pointer(icon,'pointerup',180,105);
+ assert.deepEqual(views,['icons']);assert.equal(cancelled,1);
+ const comments=f.d.getElementById('matrixIconComments');f.pointer(comments,'pointerdown',80,300);f.pointer(comments,'pointermove',180,300);f.pointer(comments,'pointerup',180,300);
+ assert.deepEqual(views,['icons']);
+});
+test('a template selection switches to its content after the existing loader announces success',t=>{
+ const dom=new JSDOM('<iframe src="https://test/matrix/?embedded=1"></iframe>',{url:'https://test/board/',runScripts:'outside-only'});t.after(()=>dom.window.close());
+ const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;
+ d.open();d.write('<body><div id="templateTabs"><button class="template-tab">one</button></div><aside id="matrixIconComments"><section></section></aside></body>');d.close();
+ w.matchMedia=()=>({matches:true,addEventListener(){}});w.requestAnimationFrame=fn=>fn();
+ const views=[];w.setMobileMainView=view=>views.push(view);w.eval(source('mobile-workspace.js'));views.length=0;
+ d.querySelector('.template-tab').onclick=event=>event.stopPropagation();
+ d.querySelector('.template-tab').click();assert.deepEqual(views,[]);
+ w.dispatchEvent(new w.CustomEvent('matrix-template-selected',{detail:{templateId:'one'}}));assert.deepEqual(views,['stage']);
+});
+test('swiping the initial screenshot opens the log list without navigating or saving',t=>{
+ const f=shell(t),home=f.d.getElementById('welcome');
+ const pointer=(type,x)=>home.dispatchEvent(new f.w.MouseEvent(type,{bubbles:true,clientX:x,clientY:100}));
+ pointer('pointerdown',240);pointer('pointerup',100);
+ assert.equal(f.d.body.classList.contains('mobile-logs-open'),true);
+ assert.equal(f.d.querySelector('.tool-stage').inert,true);
+});
+test('horizontal page gestures never start the placement writer; vertical drags reuse it once',t=>{
+ const f=fixture(t,'matrix'),icon=f.d.querySelector('.placed');let starts=0,legacyDowns=0;
+ f.w.startPlacedDrag=()=>starts++;icon.addEventListener('pointerdown',()=>legacyDowns++);
+ f.pointer(icon,'pointerdown',40,100);f.pointer(icon,'pointermove',48,101);f.pointer(icon,'pointermove',130,102);f.pointer(icon,'pointerup',130,102);
+ assert.equal(starts,0);assert.equal(legacyDowns,0);
+ f.pointer(icon,'pointerdown',40,100);f.pointer(icon,'pointermove',41,130);f.pointer(icon,'pointermove',41,150);
+ assert.equal(starts,1);
+});
+test('Sheets initializes its phone controls when the comments panel arrives after the page',async t=>{
+ const dom=new JSDOM('<iframe src="https://test/spreadsheet/?embedded=1&board=one"></iframe>',{url:'https://test/board/',runScripts:'outside-only'});t.after(()=>dom.window.close());
+ const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;
+ d.open();d.write('<body><div class="app"><section id="tablePanel"></section></div></body>');d.close();
+ w.matchMedia=()=>({matches:true,addEventListener(){}});w.eval(source('mobile-workspace.js'));
+ assert.equal(d.querySelector('.phone-dock-head'),null);
+ const panel=d.createElement('aside');panel.id='sheetComments';panel.innerHTML='<section class="comments-list"></section>';d.body.append(panel);await tick();
+ assert.equal(d.querySelectorAll('.phone-dock-head').length,1);
+ d.body.append(d.createElement('p'));await tick();assert.equal(d.querySelectorAll('.phone-dock-head').length,1);
+});
