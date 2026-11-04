@@ -4,7 +4,7 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261104-display5';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261105-display6';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
   function installWorkspace(){
   const panel=document.querySelector(tool==='matrix'?'#matrixIconComments':tool==='sheets'?'#sheetComments':'#commentsPane');
@@ -137,6 +137,45 @@
   if(tool==='log')for(const type of ['mouseup','touchend'])window.addEventListener(type,event=>{
     if(mq.matches&&event.target.closest('.log-message[data-message]'))event.stopImmediatePropagation();
   },true);
+  if(tool==='sheets'){
+    let sheetZoom=1,sheetPinch=null,consumingPinch=false;
+    const hostFor=node=>node?.closest?.('#sheetWrap,#fullCharacterPages');
+    const pair=touches=>{
+      const [a,b]=Array.from(touches);
+      return {x:(a.clientX+b.clientX)/2,y:(a.clientY+b.clientY)/2,distance:Math.max(1,Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY))};
+    };
+    window.addEventListener('touchstart',event=>{
+      if(!mq.matches||event.touches.length!==2)return;
+      const touches=Array.from(event.touches),host=hostFor(touches[0].target);
+      if(!host||hostFor(touches[1].target)!==host)return;
+      const mid=pair(touches),rect=host.getBoundingClientRect();
+      sheetPinch={host,distance:mid.distance,zoom:sheetZoom,x:(host.scrollLeft+mid.x-rect.left)/sheetZoom,y:(host.scrollTop+mid.y-rect.top)/sheetZoom};
+      consumingPinch=true;clearHold();press=null;suppressClick=true;
+      event.preventDefault();event.stopImmediatePropagation();
+    },{capture:true,passive:false});
+    window.addEventListener('touchmove',event=>{
+      if(!mq.matches||!consumingPinch)return;
+      event.preventDefault();event.stopImmediatePropagation();
+      if(!sheetPinch||event.touches.length!==2)return;
+      const mid=pair(event.touches),{host}=sheetPinch,rect=host.getBoundingClientRect();
+      sheetZoom=Math.max(.5,Math.min(3,sheetPinch.zoom*mid.distance/sheetPinch.distance));
+      root.style.setProperty('--phone-sheet-zoom',String(sheetZoom));
+      host.scrollLeft=sheetPinch.x*sheetZoom-(mid.x-rect.left);
+      host.scrollTop=sheetPinch.y*sheetZoom-(mid.y-rect.top);
+    },{capture:true,passive:false});
+    function endSheetPinch(event){
+      if(!consumingPinch)return;
+      event.preventDefault();event.stopImmediatePropagation();sheetPinch=null;
+      if(!event.touches.length){consumingPinch=false;press=null;setTimeout(()=>suppressClick=false,400)}
+    }
+    window.addEventListener('touchend',endSheetPinch,{capture:true,passive:false});
+    window.addEventListener('touchcancel',endSheetPinch,{capture:true,passive:false});
+    // Leave ordinary one-finger scrolling and cell taps with the original controls.
+    for(const type of ['pointermove','pointerup','pointercancel'])window.addEventListener(type,event=>{
+      if(mq.matches&&consumingPinch)event.stopImmediatePropagation();
+    },true);
+    mq.addEventListener('change',()=>{sheetPinch=null;consumingPinch=false;sheetZoom=1;root.style.removeProperty('--phone-sheet-zoom')});
+  }
   if(tool==='matrix'){
     const canvas=document.getElementById('canvas'),stage=canvas?.parentElement;
     if(canvas&&stage){

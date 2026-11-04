@@ -227,3 +227,41 @@ test('typing and unrelated comment-list renders do not remeasure an unchanged fi
  const replacement=first.cloneNode(true);replacement.getBoundingClientRect=()=>({height:90});first.replaceWith(replacement);await tick();
  assert.equal(f.d.documentElement.style.getPropertyValue('--phone-dock-size'),'134px');
 });
+
+function sheetsZoomFixture(t){
+ const dom=new JSDOM('<iframe src="https://test/spreadsheet/?embedded=1&board=one"></iframe>',{url:'https://test/board/',runScripts:'outside-only'});t.after(()=>dom.window.close());
+ const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;
+ d.open();d.write('<body><div class="app"><div id="sheetWrap"><div id="dataTableRoot"><div data-sheet-cell="c1">value</div></div></div><div id="fullCharacterPages"><article class="full-character-page"><textarea>draft</textarea></article></div></div><aside id="sheetComments"><section><div class="comment-card">comment</div></section></aside></body>');d.close();
+ const callbacks=[],mq={matches:true,addEventListener(type,fn){callbacks.push(fn)}};w.matchMedia=()=>mq;
+ w.localStorage.setItem('sheetLocalZoom','1.2');w.eval(source('mobile-workspace.js'));
+ const touch=(target,type,points)=>{const event=new w.Event(type,{bubbles:true,cancelable:true});Object.defineProperty(event,'touches',{value:points.map(([x,y])=>({clientX:x,clientY:y,target}))});target.dispatchEvent(event);return event};
+ return {w,d,touch,desktop(){mq.matches=false;callbacks.forEach(fn=>fn())}};
+}
+test('Sheets pinch zooms tables and character pages around the fingers without saving content',t=>{
+ const f=sheetsZoomFixture(t),root=f.d.documentElement,table=f.d.getElementById('sheetWrap'),pages=f.d.getElementById('fullCharacterPages');
+ table.scrollLeft=40;table.scrollTop=60;
+ f.touch(table,'touchstart',[[100,100],[200,100]]);f.touch(table,'touchmove',[[50,100],[250,100]]);
+ assert.equal(root.style.getPropertyValue('--phone-sheet-zoom'),'2');assert.equal(table.scrollLeft,230);assert.equal(table.scrollTop,220);
+ f.touch(table,'touchend',[]);
+ f.touch(pages,'touchstart',[[100,100],[300,100]]);f.touch(pages,'touchmove',[[150,100],[250,100]]);f.touch(pages,'touchend',[]);
+ assert.equal(root.style.getPropertyValue('--phone-sheet-zoom'),'1');assert.equal(f.d.querySelector('textarea').value,'draft');
+ assert.equal(f.w.localStorage.getItem('sheetLocalZoom'),'1.2');
+});
+test('Sheets pinch clamps both directions, ignores comments, and restores desktop presentation',t=>{
+ const f=sheetsZoomFixture(t),root=f.d.documentElement,table=f.d.getElementById('sheetWrap'),comment=f.d.querySelector('#sheetComments .comment-card');
+ f.touch(table,'touchstart',[[100,100],[200,100]]);f.touch(table,'touchmove',[[0,100],[800,100]]);
+ assert.equal(root.style.getPropertyValue('--phone-sheet-zoom'),'3');f.touch(table,'touchcancel',[]);
+ f.touch(table,'touchstart',[[0,100],[800,100]]);f.touch(table,'touchmove',[[100,100],[101,100]]);f.touch(table,'touchend',[]);
+ assert.equal(root.style.getPropertyValue('--phone-sheet-zoom'),'0.5');
+ assert.equal(f.touch(comment,'touchstart',[[100,100],[200,100]]).defaultPrevented,false);
+ f.desktop();assert.equal(root.style.getPropertyValue('--phone-sheet-zoom'),'');
+ assert.equal(f.touch(table,'touchstart',[[100,100],[200,100]]).defaultPrevented,false);
+});
+test('one-finger Sheets scrolling and cell taps remain native; pinches do not trigger a cell click',t=>{
+ const f=sheetsZoomFixture(t),cell=f.d.querySelector('[data-sheet-cell]');let clicks=0;f.d.addEventListener('click',()=>clicks++);
+ assert.equal(f.touch(cell,'touchstart',[[100,100]]).defaultPrevented,false);
+ assert.equal(f.touch(cell,'touchmove',[[100,140]]).defaultPrevented,false);
+ assert.equal(f.touch(cell,'touchend',[]).defaultPrevented,false);cell.click();assert.equal(clicks,1);
+ f.touch(cell,'touchstart',[[100,100],[200,100]]);f.touch(cell,'touchmove',[[50,100],[250,100]]);f.touch(cell,'touchend',[]);
+ cell.click();assert.equal(clicks,1);
+});
