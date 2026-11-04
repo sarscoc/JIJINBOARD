@@ -5,6 +5,9 @@
   const sidebar=document.getElementById('logSidebar'),backdrop=document.getElementById('mobileLogsBackdrop');
   const stage=document.querySelector('.tool-stage');
   if(!menu||!sidebar||!backdrop||!stage)return;
+  // The fixed board layout creates a stacking context. Keep the scrim inside it,
+  // behind the drawer, so it cannot cover the log buttons on the phone.
+  sidebar.parentElement.insertBefore(backdrop,sidebar);
   const frames=[...document.querySelectorAll('.tool-frame')];
   const activeFrame=()=>frames.find(frame=>!frame.classList.contains('hidden'));
   let listOpen=false;
@@ -62,7 +65,7 @@
       try{
         const doc=frame.contentDocument;
         if(!doc?.head||!frame.getAttribute('src')||doc.getElementById('mobileWorkspaceScript'))return;
-        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261104-display2';doc.head.append(script);
+        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261104-display3';doc.head.append(script);
       }catch{}
     };
     frame.addEventListener('load',install);

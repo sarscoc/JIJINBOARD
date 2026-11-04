@@ -4,7 +4,7 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261104-display2';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261104-display3';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
   function installWorkspace(){
   const panel=document.querySelector(tool==='matrix'?'#matrixIconComments':tool==='sheets'?'#sheetComments':'#commentsPane');
@@ -15,11 +15,23 @@
   mq.addEventListener('change',announceDock);announceDock();
   const head=document.createElement('div');head.className='phone-dock-head';head.hidden=!mq.matches;
   mq.addEventListener('change',()=>{head.hidden=!mq.matches});
-  head.innerHTML='<button type="button" class="phone-dock-grip" aria-label="コメント欄を広げる" aria-expanded="false"><i></i><span>コメント</span></button><select aria-label="コメントの絞り込み"><option value="page">このページ</option><option value="target">選択した箇所</option><option value="all">すべて</option></select><button type="button" class="phone-dock-menu" aria-label="ページ・PL・PC設定メニュー">☰</button>';
+  head.innerHTML='<button type="button" class="phone-dock-grip" aria-label="コメント欄を広げる" aria-expanded="false"><i></i><span>コメント</span></button>';
   panel.prepend(head);
-  const grip=head.querySelector('.phone-dock-grip'),filter=head.querySelector('select');
-  head.querySelector('.phone-dock-menu').onclick=()=>parent.postMessage({type:'jijin-phone-menu'},location.origin);
-  let expanded=false,target='',hold=null,press=null,suppressClick=false,filterTimer=0,cancellingPlacement=false;
+  const grip=head.querySelector('.phone-dock-grip');
+  function syncHeaderTheme(){
+    try{
+      const color=parent.getComputedStyle(parent.document.documentElement).getPropertyValue('--jijin-pre-color1').trim()||'#88728e';
+      root.style.setProperty('--phone-theme',color);
+      const hex=/^#[0-9a-f]{6}$/i.test(color)?color.slice(1):'88728e';
+      const rgb=[0,2,4].map(at=>parseInt(hex.slice(at,at+2),16)/255).map(v=>v<=.04045?v/12.92:((v+.055)/1.055)**2.4);
+      root.style.setProperty('--phone-theme-ink',rgb[0]*.2126+rgb[1]*.7152+rgb[2]*.0722>.179?'#22252b':'#fff');
+    }catch{}
+  }
+  syncHeaderTheme();
+  const themeObserver=new MutationObserver(syncHeaderTheme);
+  try{themeObserver.observe(parent.document.documentElement,{attributes:true,attributeFilter:['style','class']})}catch{}
+  addEventListener('pagehide',()=>themeObserver.disconnect(),{once:true});
+  let expanded=false,hold=null,press=null,suppressClick=false,filterTimer=0,cancellingPlacement=false;
   function expand(value){expanded=!!value;root.classList.toggle('phone-comments-expanded',expanded);grip.setAttribute('aria-expanded',String(expanded));grip.setAttribute('aria-label',expanded?'コメント欄を小さくする':'コメント欄を広げる')}
   grip.onclick=()=>expand(!expanded);
   let drag=null;
@@ -27,7 +39,7 @@
   grip.addEventListener('pointerup',event=>{if(!drag)return;const dy=event.clientY-drag.y;if(Math.abs(dy)>24){expand(dy<0);suppressClick=true;setTimeout(()=>suppressClick=false,0)}drag=null});
   grip.addEventListener('click',event=>{if(suppressClick){event.preventDefault();event.stopImmediatePropagation()}},true);
   grip.addEventListener('pointercancel',()=>drag=null);
-  const noMatches=document.createElement('p');noMatches.className='phone-filter-empty';noMatches.textContent='この箇所のコメントはまだありません。';noMatches.hidden=true;panel.append(noMatches);
+  const noMatches=document.createElement('p');noMatches.className='phone-filter-empty';noMatches.textContent='コメントはまだありません。';noMatches.hidden=true;panel.append(noMatches);
   function applyFilter(){
     if(!list)return;
     const rows=[...list.children].filter(el=>el.matches('.comment-thread,.matrix-comment-thread'));
@@ -37,8 +49,7 @@
       let show=true;
       if(mq.matches&&card){
         const id=card.dataset.target||card.dataset.commentTarget||card.dataset.cell||'';
-        if(filter.value==='target'&&target)show=id===target||id.endsWith('/'+encodeURIComponent(target))||id.endsWith('/'+target)||id.endsWith('@@matrix-template@@'+target);
-        else if(filter.value==='page'&&tool==='log'&&typeof state!=='undefined'&&state.room){
+        if(tool==='log'&&typeof state!=='undefined'&&state.room){
           const tab=typeof activeTabName==='function'?activeTabName():state.mainTab;
           show=state.room.messages.some(message=>message.id===id&&message.tab===tab);
         }
@@ -52,7 +63,6 @@
     if(noMatches.hidden===empty)noMatches.hidden=!empty;
   }
   function scheduleFilter(){clearTimeout(filterTimer);filterTimer=setTimeout(applyFilter,0)}
-  filter.onchange=applyFilter;
   if(list)new MutationObserver(scheduleFilter).observe(list,{childList:true,subtree:true});
   document.addEventListener('click',scheduleFilter);
   const logPane=document.getElementById('logPane');if(logPane)new MutationObserver(scheduleFilter).observe(logPane,{subtree:true,childList:true,attributes:true,attributeFilter:['class']});
@@ -86,15 +96,15 @@
   function clearHold(){clearTimeout(hold);hold=null}
   function beginComment(el){
     if(tool==='matrix'){
-      target=el.dataset.id||'';window.openMatrixIconComment?.(target);
+      window.openMatrixIconComment?.(el.dataset.id||'');
     }else if(tool==='log'){
       const text=el.querySelector('.message-text');if(!text)return;
       const selection=getSelection(),range=document.createRange();range.selectNodeContents(text);selection.removeAllRanges();selection.addRange(range);
       if(typeof selectionInfo==='function'&&typeof state!=='undefined'&&typeof openCommentDialog==='function'){
-        const info=selectionInfo();if(info?.quote?.trim()){target=info.messageId;state.selection=info;openCommentDialog()}
+        const info=selectionInfo();if(info?.quote?.trim()){state.selection=info;openCommentDialog()}
       }
     }
-    filter.value='target';applyFilter();
+    applyFilter();
   }
   window.addEventListener('pointerdown',event=>{
     if(!mq.matches||event.button>0||event.target.closest('input,textarea,select,dialog,.phone-dock-head,#commentsPane,#matrixIconComments,#sheetComments'))return;

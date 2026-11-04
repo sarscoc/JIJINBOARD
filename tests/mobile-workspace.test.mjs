@@ -24,9 +24,10 @@ function fixture(t,tool='log',mobile=true){
 test('mobile comments are filtered to the current log tab, including after remote render',async t=>{
   const f=fixture(t),rows=f.d.querySelectorAll('.comment-thread');
   assert.equal(rows[0].hidden,false);assert.equal(rows[1].hidden,true);
-  f.d.querySelector('select[aria-label="コメントの絞り込み"]').value='all';
-  f.d.querySelector('select').dispatchEvent(new f.w.Event('change'));
-  assert.equal(rows[1].hidden,false);
+  assert.equal(f.d.querySelector('.phone-dock-head select'),null);
+  f.w.state.mainTab='other';f.d.dispatchEvent(new f.w.Event('click'));
+  await new Promise(resolve=>setTimeout(resolve,10));
+  assert.equal(rows[0].hidden,true);assert.equal(rows[1].hidden,false);
   f.desktop();await tick();assert.equal(rows[1].hidden,false);
 });
 test('a stationary long press opens the original log composer and retains its selection',t=>{
@@ -34,7 +35,7 @@ test('a stationary long press opens the original log composer and retains its se
   f.w.selectionInfo=()=>({messageId:'m1',quote:'Test passage'});f.w.openCommentDialog=()=>opens++;
   f.pointer(f.d.querySelector('.log-message'),'pointerdown');f.fireHold();
   assert.equal(opens,1);assert.equal(f.w.state.selection.messageId,'m1');
-  assert.equal(f.d.querySelector('select').value,'target');
+  assert.equal(f.d.querySelector('.phone-dock-head select'),null);
 });
 test('scroll movement and pointer cancellation never open a composer',t=>{
   const f=fixture(t);let opens=0;f.w.openCommentDialog=()=>opens++;
@@ -79,6 +80,7 @@ test('the bottom menu opens the existing PL/PC editor and isolates the log drawe
   f.d.getElementById('mobileMenuButton').click();assert.equal(f.menu.open,true);
   f.d.getElementById('mobileMenuPeople').click();assert.equal(f.menu.open,false);assert.equal(opens,1);
   f.d.getElementById('mobileMenuLogs').click();assert.equal(f.d.body.classList.contains('mobile-logs-open'),true);assert.equal(f.d.querySelector('.tool-stage').inert,true);
+  assert.equal(f.d.getElementById('mobileLogsBackdrop').parentElement,f.d.getElementById('logSidebar').parentElement);
   f.d.getElementById('mobileLogsBackdrop').click();assert.equal(f.d.body.classList.contains('mobile-logs-open'),false);assert.equal(f.d.querySelector('.tool-stage').inert,false);
 });
 test('only the active same-origin frame can open the mobile menu',t=>{
@@ -152,4 +154,13 @@ test('Sheets initializes its phone controls when the comments panel arrives afte
  const panel=d.createElement('aside');panel.id='sheetComments';panel.innerHTML='<section class="comments-list"></section>';d.body.append(panel);await tick();
  assert.equal(d.querySelectorAll('.phone-dock-head').length,1);
  d.body.append(d.createElement('p'));await tick();assert.equal(d.querySelectorAll('.phone-dock-head').length,1);
+});
+test('the compact comment heading follows the room theme as it changes',async t=>{
+ const f=fixture(t),parentRoot=f.w.parent.document.documentElement;
+ parentRoot.style.setProperty('--jijin-pre-color1','#e76bc0');await tick();
+ assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme'),'#e76bc0');
+ assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme-ink'),'#22252b');
+ parentRoot.style.setProperty('--jijin-pre-color1','#171a20');await tick();
+ assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme'),'#171a20');
+ assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme-ink'),'#fff');
 });
