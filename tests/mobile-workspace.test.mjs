@@ -35,9 +35,14 @@ test('phone log comments stay together across tabs and remote renders, with no c
 });
 test('a stationary long press opens the original log composer and retains its selection',t=>{
   const f=fixture(t);let opens=0;
-  f.w.selectionInfo=()=>({messageId:'m1',quote:'Test passage'});f.w.openCommentDialog=()=>opens++;
+  f.d.querySelector('.message-text').innerHTML='First <b>formatted</b> sentence.<br>Second sentence.';
+  f.w.selectionInfo=()=>({messageId:'m1',quote:f.w.getSelection().toString()});f.w.openCommentDialog=()=>opens++;
   f.pointer(f.d.querySelector('.log-message'),'pointerdown');f.fireHold();
   assert.equal(opens,1);assert.equal(f.w.state.selection.messageId,'m1');
+  assert.equal(f.w.state.selection.quote,'First formatted sentence.Second sentence.');
+  let native=0;f.d.addEventListener('touchend',()=>native++);
+  f.d.querySelector('.message-text').dispatchEvent(new f.w.Event('touchend',{bubbles:true}));assert.equal(native,0);
+  f.desktop();f.d.querySelector('.message-text').dispatchEvent(new f.w.Event('touchend',{bubbles:true}));assert.equal(native,1);
   assert.equal(f.d.querySelector('.phone-dock-head select'),null);
 });
 test('scroll movement and pointer cancellation never open a composer',t=>{
@@ -50,10 +55,28 @@ test('matrix long press cancels the legacy gesture and opens the shared composer
   const el=f.d.querySelector('.placed');el.addEventListener('pointercancel',()=>cancels++);f.w.openMatrixIconComment=id=>{assert.equal(id,'pc1');opens++};
   f.pointer(el,'pointerdown');f.fireHold();assert.equal(cancels,1);assert.equal(opens,1);
 });
-test('the comment handle expands with swipe and collapses with a tap',t=>{
-  const f=fixture(t),grip=f.d.querySelector('.phone-dock-grip');
-  f.pointer(grip,'pointerdown',50,200);f.pointer(grip,'pointerup',50,130);
-  assert.equal(grip.getAttribute('aria-expanded'),'true');assert.equal(f.d.documentElement.classList.contains('phone-comments-expanded'),true);
+test('the comment handle follows a drag and snaps through all four sizes',t=>{
+  const f=fixture(t),grip=f.d.querySelector('.phone-dock-grip'),root=f.d.documentElement;
+  assert.equal(root.dataset.phoneDock,'1');
+  const drag=(from,to)=>{f.pointer(grip,'pointerdown',50,from);f.pointer(grip,'pointermove',50,to);f.pointer(grip,'pointerup',50,to)};
+  f.pointer(grip,'pointerdown',50,650);f.pointer(grip,'pointermove',50,450);
+  assert.equal(root.style.getPropertyValue('--phone-dock-size'),'340px');
+  f.pointer(grip,'pointerup',50,450);assert.equal(root.dataset.phoneDock,'2');
+  drag(400,0);assert.equal(root.dataset.phoneDock,'3');assert.equal(grip.getAttribute('aria-valuetext'),'全面');
+  drag(0,400);assert.equal(root.dataset.phoneDock,'2');
+  drag(400,650);assert.equal(root.dataset.phoneDock,'1');
+  drag(650,780);assert.equal(root.dataset.phoneDock,'0');assert.equal(grip.getAttribute('aria-expanded'),'false');
+  assert.equal(f.d.querySelector('.comments-list').inert,true);
+  drag(760,650);assert.equal(root.dataset.phoneDock,'1');assert.equal(f.d.querySelector('.comments-list').inert,false);
+});
+test('cancelled dock gestures restore the settled size and keyboard controls cover every size',t=>{
+  const f=fixture(t),grip=f.d.querySelector('.phone-dock-grip'),root=f.d.documentElement;
+  f.pointer(grip,'pointerdown',50,600);f.pointer(grip,'pointermove',50,100);f.pointer(grip,'pointercancel',50,100);
+  assert.equal(root.dataset.phoneDock,'1');
+  for(const [key,level] of [['End','3'],['ArrowDown','2'],['Home','0'],['ArrowUp','1']]){
+    grip.dispatchEvent(new f.w.KeyboardEvent('keydown',{key,bubbles:true}));assert.equal(root.dataset.phoneDock,level);
+  }
+  f.desktop();assert.equal(root.style.getPropertyValue('--phone-dock-size'),'');assert.equal(f.d.querySelector('.comments-list').inert,false);
 });
 test('mobile send submits the existing form, preserving its save controller',async t=>{
   const f=fixture(t),dialog=f.d.getElementById('commentDialog');let submits=0;
@@ -164,4 +187,43 @@ test('the compact comment heading follows the room theme as it changes',async t=
  assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme'),'#e76bc0');
  parentRoot.style.setProperty('--jijin-pre-color1','#171a20');await tick();
  assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme'),'#171a20');
+});
+
+function zoomFixture(t){
+ const dom=new JSDOM('<iframe src="https://test/matrix/?embedded=1"></iframe>',{url:'https://test/board/',runScripts:'outside-only'});t.after(()=>dom.window.close());
+ const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;
+ d.open();d.write('<body><div class="app"><div id="stage"><div id="canvas"><div class="placed" data-id="pc1"></div></div></div></div><aside id="matrixIconComments"><section></section></aside></body>');d.close();
+ const viewport=d.getElementById('stage');Object.defineProperty(viewport,'clientWidth',{value:300});Object.defineProperty(viewport,'clientHeight',{value:400});
+ w.matchMedia=()=>({matches:true,addEventListener(){}});w.PointerEvent=w.MouseEvent;
+ const views=[];let starts=0,saves=0;w.setMobileMainView=view=>views.push(view);w.startPlacedDrag=()=>starts++;w.mutate=()=>saves++;w.saveState=()=>saves++;
+ w.eval(source('mobile-workspace.js'));views.length=0;
+ const pointer=(target,type,id,x,y)=>{const event=new w.MouseEvent(type,{bubbles:true,cancelable:true,clientX:x,clientY:y});Object.defineProperties(event,{pointerId:{value:id},pointerType:{value:'touch'}});target.dispatchEvent(event)};
+ return {w,d,canvas:d.getElementById('canvas'),icon:d.querySelector('.placed'),pointer,views,counts:()=>({starts,saves})};
+}
+test('MATRIX pinch scales the view around the fingers, clamps it, and never starts a placement save',t=>{
+ const f=zoomFixture(t),c=f.canvas;
+ f.pointer(f.icon,'pointerdown',1,100,150);f.pointer(c,'pointerdown',2,200,150);
+ f.pointer(c,'pointermove',2,300,150);
+ assert.equal(c.style.getPropertyValue('--phone-canvas-width'),'600px');assert.equal(c.style.getPropertyValue('--phone-canvas-x'),'-100px');
+ f.pointer(c,'pointermove',2,800,150);assert.equal(c.style.getPropertyValue('--phone-canvas-width'),'1200px');
+ f.pointer(c,'pointerup',2,800,150);f.pointer(c,'pointermove',1,250,350);f.pointer(c,'pointerup',1,250,350);
+ assert.deepEqual(f.counts(),{starts:0,saves:0});assert.deepEqual(f.views,[]);
+ f.w.dispatchEvent(new f.w.Event('matrix-template-selected'));assert.equal(c.style.getPropertyValue('--phone-canvas-width'),'');assert.equal(c.style.getPropertyValue('--phone-canvas-x'),'');
+});
+test('a zoomed MATRIX pans on empty canvas and a cancelled pinch leaves no stuck page gesture',t=>{
+ const f=zoomFixture(t),c=f.canvas;
+ f.pointer(c,'pointerdown',1,100,150);f.pointer(c,'pointerdown',2,200,150);f.pointer(c,'pointermove',2,300,150);
+ f.pointer(c,'pointercancel',2,300,150);f.pointer(c,'pointerup',1,100,150);
+ f.pointer(c,'pointerdown',3,100,150);f.pointer(c,'pointermove',3,50,100);f.pointer(c,'pointerup',3,50,100);
+ assert.equal(c.style.getPropertyValue('--phone-canvas-x'),'-150px');assert.equal(c.style.getPropertyValue('--phone-canvas-y'),'-200px');
+ assert.deepEqual(f.counts(),{starts:0,saves:0});assert.deepEqual(f.views,[]);
+});
+
+test('typing and unrelated comment-list renders do not remeasure an unchanged first card',async t=>{
+ const f=fixture(t,'matrix'),list=f.d.querySelector('.comments-list'),first=list.firstElementChild;
+ let measures=0;first.getBoundingClientRect=()=>{measures++;return {height:90}};
+ const typing=f.d.createElement('div');typing.className='matrix-typing-stack';list.prepend(typing);await tick();
+ typing.textContent='入力中';await tick();assert.equal(measures,0);
+ const replacement=first.cloneNode(true);replacement.getBoundingClientRect=()=>({height:90});first.replaceWith(replacement);await tick();
+ assert.equal(f.d.documentElement.style.getPropertyValue('--phone-dock-size'),'134px');
 });
