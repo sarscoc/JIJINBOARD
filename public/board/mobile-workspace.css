@@ -1,4 +1,4 @@
-.phone-dock-head,.phone-composer-actions,.phone-filter-empty{display:none}
+.phone-dock-head,.phone-composer-actions{display:none}
 .phone-dock-head[hidden],.phone-composer-actions[hidden]{display:none!important}
 @media(max-width:760px){
   html[data-mobile-workspace]{--phone-dock-height:28%;height:var(--phone-visible-height,100%)!important;min-height:0!important;overflow:hidden!important}
@@ -9,12 +9,11 @@
   html[data-mobile-workspace] input:not([type=range]):not([type=color]):not([type=checkbox]),html[data-mobile-workspace] select,html[data-mobile-workspace] textarea{font-size:16px!important}
   html[data-mobile-workspace] body :is(#commentsPane,#matrixIconComments,#sheetComments){display:flex!important;flex-direction:column!important;position:fixed!important;inset:auto 0 0!important;width:100%!important;height:var(--phone-dock-height)!important;min-height:0!important;max-height:none!important;margin:0!important;padding:0 0 env(safe-area-inset-bottom)!important;z-index:150!important;border:1px solid var(--line,#e6e1ea)!important;border-bottom:0!important;border-radius:18px 18px 0 0!important;overflow:hidden!important;background:var(--paper,#fff)!important;box-shadow:0 -5px 20px #2923340a!important;backdrop-filter:none!important;visibility:visible!important;pointer-events:auto!important}
   html[data-mobile-workspace] body :is(.comments-head,.matrix-comment-head,.sheet-comments-head){display:none!important}
-  html[data-mobile-workspace] body .phone-dock-head{display:flex!important;align-items:center;flex:0 0 28px;height:28px;padding:0 10px;border:0;color:var(--phone-theme-ink,#fff);background:var(--phone-theme,#88728e)}
+  html[data-mobile-workspace] body .phone-dock-head{display:flex!important;align-items:center;flex:0 0 28px;height:28px;padding:0 10px;border:0;border-top:3px solid var(--phone-theme,#88728e);color:var(--ink,#4b4b4b);background:var(--paper,#fff);box-sizing:border-box}
   .phone-dock-head button{border:0;background:transparent!important;color:inherit!important;cursor:pointer}
-  .phone-dock-grip{position:relative;display:flex;align-items:center;flex:1;min-width:0;height:28px;padding:5px 0 0;font:650 10.5px system-ui;text-align:left;touch-action:none}
+  .phone-dock-grip{position:relative;display:flex;align-items:center;flex:1;min-width:0;height:25px;padding:3px 0 0;font:650 10.5px system-ui;text-align:left;touch-action:none}
   .phone-dock-grip i{position:absolute;top:3px;left:calc(50% - 12px);width:26px;height:2px;border-radius:3px;background:currentColor;opacity:.65}
   html[data-mobile-workspace] body :is(#commentsList,#matrixIconCommentList,#sheetComments>section){max-height:none!important;min-height:0!important;flex:1 1 auto!important;overflow-y:auto!important;overscroll-behavior:contain;padding:8px 8px calc(68px + env(safe-area-inset-bottom))!important;touch-action:pan-y}
-  html[data-mobile-workspace] .phone-filter-empty:not([hidden]){display:block;flex:0 0 auto;padding:12px;color:var(--muted,#94869b);font-size:12px;text-align:center}
   html[data-mobile-workspace] :is(.typing-comment,.matrix-typing){display:none!important}
   /* A draft occupies the same lower area as the filtered comment list. */
   html[data-mobile-workspace].phone-composing body :is(#commentsPane,#matrixIconComments,#sheetComments){visibility:hidden!important;pointer-events:none!important}

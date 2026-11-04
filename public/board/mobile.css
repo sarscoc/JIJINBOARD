@@ -14,16 +14,17 @@
   .topbar .presence-person::after,.topbar .presence-person b,.topbar .presence-person em{display:none!important}
   :root .board-layout{inset:var(--mobile-top) 0 0;grid-template-columns:minmax(0,1fr)!important}
   :root .board-layout #logSidebar{display:none}
-  :root body.mobile-logs-open .board-layout #logSidebar{display:flex;position:fixed;inset:var(--mobile-top) auto 0 0;width:min(340px,88vw);height:auto;z-index:42;padding:16px 12px;box-shadow:10px 0 40px #20203018;border:0;overflow:hidden}
+  :root body.mobile-logs-open .board-layout #logSidebar{display:flex;position:fixed;inset:var(--mobile-top) auto 0 0;width:min(340px,88vw);height:auto;z-index:42;padding:10px 10px;box-shadow:10px 0 40px #20203018;border:0;overflow:hidden}
   .mobile-logs-open .mobile-logs-backdrop:not([hidden]){display:block;position:fixed;inset:var(--mobile-top) 0 0;z-index:41;width:100%;border:0;background:#24212e45;backdrop-filter:blur(2px);cursor:pointer}
-  #logSidebar .log-list-head{padding:0 8px 16px}
-  #logSidebar .log-list-head>span{font-size:11px}
-  #logSidebar .log-list-head>button{width:44px;height:44px;background:var(--soft);border-radius:12px}
-  #logSidebar .log-list{overflow-y:auto;gap:8px;padding:2px;overscroll-behavior:contain;touch-action:pan-y}
-  #logSidebar .log-entry{border:1px solid var(--line);border-radius:12px;overflow:hidden;flex-shrink:0}
-  #logSidebar .log-item{min-height:52px;padding:14px 50px 14px 14px;border-left-width:3px}
-  #logSidebar .log-item strong{font-size:13px;white-space:normal;overflow-wrap:anywhere}
-  #logSidebar .log-edit{right:2px;top:4px;width:44px;height:44px;font-size:17px}
+  #logSidebar .log-list-head{height:30px;min-height:30px;flex:0 0 30px;padding:0 10px 8px}
+  #logSidebar .log-list-head>span{font-size:10px}
+  #logSidebar .log-list{display:flex;flex-direction:column;overflow-y:auto;gap:0;padding:0;overscroll-behavior:contain;touch-action:pan-y}
+  #logSidebar .log-entry{border:0;border-radius:0;overflow:hidden;flex-shrink:0}
+  #logSidebar .log-entry+.log-entry{border-top:1px solid var(--line)}
+  #logSidebar .log-entry .log-item{min-height:36px;padding:8px 10px;border-left-width:2px;border-radius:0;background:transparent;gap:0;line-height:20px}
+  #logSidebar .log-entry .log-item.active{background:var(--soft)}
+  #logSidebar .log-entry .log-item:hover{background:var(--soft)}
+  #logSidebar .log-item strong{font-size:12px;white-space:normal;overflow-wrap:anywhere}
   .mobile-menu-button{display:grid;place-items:center;position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:45;width:44px;height:44px;border:1px solid var(--line);border-radius:14px;background:#fff;font-size:22px;box-shadow:0 4px 20px #30203c12}
   #mobileMenu{position:fixed;inset:auto 8px calc(8px + env(safe-area-inset-bottom));width:calc(100% - 16px);max-width:none;max-height:80dvh;margin:0;padding:18px;border:1px solid #eadfec;border-radius:22px;background:#fff;overflow:auto}
   #mobileMenu::backdrop{background:#29233455;backdrop-filter:blur(3px)}

@@ -21,13 +21,16 @@ function fixture(t,tool='log',mobile=true){
   w.eval(source('mobile-workspace.js'));
   return {w,d,mq,pointer,fireHold(){const pending=holds;holds=[];pending.forEach(x=>x.fn())},desktop(){mq.matches=false;callbacks.forEach(fn=>fn())}};
 }
-test('mobile comments are filtered to the current log tab, including after remote render',async t=>{
+test('phone log comments stay together across tabs and remote renders, with no count or filter',async t=>{
   const f=fixture(t),rows=f.d.querySelectorAll('.comment-thread');
-  assert.equal(rows[0].hidden,false);assert.equal(rows[1].hidden,true);
+  assert.equal(rows[0].hidden,false);assert.equal(rows[1].hidden,false);
   assert.equal(f.d.querySelector('.phone-dock-head select'),null);
   f.w.state.mainTab='other';f.d.dispatchEvent(new f.w.Event('click'));
   await new Promise(resolve=>setTimeout(resolve,10));
-  assert.equal(rows[0].hidden,true);assert.equal(rows[1].hidden,false);
+  assert.equal(rows[0].hidden,false);assert.equal(rows[1].hidden,false);
+  const row=rows[1].cloneNode(true);f.d.querySelector('.comments-list').append(row);await tick();
+  assert.equal(row.hidden,false);
+  assert.equal(f.d.querySelector('.phone-dock-grip span').textContent,'コメント');
   f.desktop();await tick();assert.equal(rows[1].hidden,false);
 });
 test('a stationary long press opens the original log composer and retains its selection',t=>{
@@ -159,8 +162,6 @@ test('the compact comment heading follows the room theme as it changes',async t=
  const f=fixture(t),parentRoot=f.w.parent.document.documentElement;
  parentRoot.style.setProperty('--jijin-pre-color1','#e76bc0');await tick();
  assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme'),'#e76bc0');
- assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme-ink'),'#22252b');
  parentRoot.style.setProperty('--jijin-pre-color1','#171a20');await tick();
  assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme'),'#171a20');
- assert.equal(f.d.documentElement.style.getPropertyValue('--phone-theme-ink'),'#fff');
 });
