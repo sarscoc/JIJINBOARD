@@ -34,15 +34,18 @@
       const order=new Map(messages.map((message,index)=>[message.id,index]));
       const messageTabs=new Map(messages.map(message=>[message.id,message.tab]));
       const annotationIds=new Set(state.annotations.map(annotation=>annotation.id));
-      const annotations=[...state.annotations].sort(window.JijinDesktop?window.JijinDesktop.newest:(a,b)=>(order.get(a.message_id)??Infinity)-(order.get(b.message_id)??Infinity)||a.start_offset-b.start_offset||String(a.created_at).localeCompare(String(b.created_at)));
+      const allowed=annotation=>{if(!window.JijinDesktop)return true;const tab=messageTabs.get(annotation.message_id)||annotation.tab||annotation.tab_name;return tab?(!state.hiddenTabs?.has(tab)&&state.room?.tabs?.includes(tab)):!state.hiddenTabs?.size&&!(state.room?.stream?.tabStreams||[]).some(info=>info.hidden)};
+      const annotations=state.annotations.filter(allowed).sort(window.JijinDesktop?window.JijinDesktop.newest:(a,b)=>(order.get(a.message_id)??Infinity)-(order.get(b.message_id)??Infinity)||a.start_offset-b.start_offset||String(a.created_at).localeCompare(String(b.created_at)));
       const children=new Map();
       annotations.forEach(annotation=>{
-        if(window.JijinDesktop||!annotation.parent_id)return;
+        if(!annotation.parent_id)return;
         const items=children.get(annotation.parent_id)||[];
         items.push(annotation);
         children.set(annotation.parent_id,items);
       });
-      const roots=window.JijinDesktop?annotations:annotations.filter(annotation=>!annotation.parent_id||!annotationIds.has(annotation.parent_id));
+      if(window.JijinDesktop)for(const rows of children.values())rows.sort((a,b)=>-window.JijinDesktop.newest(a,b));
+      const visibleIds=new Set(annotations.map(a=>a.id));
+      const roots=annotations.filter(annotation=>!annotation.parent_id||!visibleIds.has(annotation.parent_id));
       const typing=state.presence.filter(person=>person.is_typing&&person.typing_message_id).map(person=>({typing:true,message_id:person.typing_message_id,person}));
       const items=[...typing,...roots.map(annotation=>({annotation,message_id:annotation.message_id}))];
       return{items,children,messageTabs};
@@ -90,7 +93,7 @@
         html:item.typing?typingHtml(item):cardHtml(item.annotation,children,messageTabs)
       })):[{key:'empty',html:'<p class="empty">マーカーされた感想がここに並びます。</p>'}];
       const typingEntries=entries.filter(entry=>entry.key.startsWith('typing:'));
-      if(typingEntries.length){const rest=entries.filter(entry=>!entry.key.startsWith('typing:'));entries.splice(0,entries.length,{key:'typing-status',html:'<div class="typing-status-stack">'+(window.JijinDesktop?'<span class="desktop-typing-summary">'+[...new Set(state.presence.filter(person=>person.is_typing&&person.typing_message_id).map(person=>person.typing_name||person.pl_name))].map(esc).join('と')+'が入力中……</span>':typingEntries.map(entry=>entry.html).join(''))+'</div>'},...rest)}
+      if(typingEntries.length){const rest=entries.filter(entry=>!entry.key.startsWith('typing:'));entries.splice(0,entries.length,{key:'typing-status',html:'<div class="typing-status-stack">'+typingEntries.map(entry=>entry.html).join('')+'</div>'},...rest)}
       let cursor=list.firstElementChild;
       for(const entry of entries){
         let node=existing.get(entry.key);

@@ -22,6 +22,11 @@
  html.jijin-desktop .inline-comment-editor textarea{border-radius:9px!important;border:1px solid var(--line,#e8dfea)!important;padding:7px!important}
  html.jijin-desktop :is(#sheetComments .comment-card,.matrix-comment-card).focused{background:color-mix(in srgb,var(--comment-marker,var(--mark,#edbadb)) 22%,var(--paper,#fff))!important;border-color:var(--comment-marker,var(--mark))!important;box-shadow:-5px 0 0 var(--comment-marker,var(--mark))!important;transform:translateX(-3px)}
  html.jijin-desktop .desktop-typing-summary{display:block;padding:8px 10px;font:11px/1.5 system-ui;color:var(--muted,#9a869f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+ html.jijin-desktop :is(.typing-status-stack,.matrix-typing-stack,.desktop-typing-summary){display:flex!important;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto}
+ html.jijin-desktop :is(.typing-comment,.matrix-typing,.desktop-typing-person){flex:0 0 auto;display:flex;align-items:center;gap:4px;padding:6px 8px;border:1px solid var(--line,#eadfec);border-radius:12px;background:var(--paper,#fff);font:10px/1.5 system-ui;color:var(--muted,#9a869f)}
+ html.jijin-desktop .desktop-typing-person em{font-style:normal;font-size:9px}
+ html.jijin-desktop #logNavigationStatus:not(:empty){padding:7px 10px;border:1px solid var(--line,#eadfec)}
  `;document.head.append(style);
  const clearFocus=event=>{if(event.target.closest?.('.comment-card,.matrix-comment-card,mark[data-ann],[data-message-comments],[data-sheet-cell],.placed,[data-comment-target]'))return;document.querySelectorAll('.comment-card.focused,.matrix-comment-card.focused').forEach(card=>card.classList.remove('focused'))};
  document.addEventListener('click',clearFocus);try{if(parent!==window)parent.document.addEventListener('click',clearFocus)}catch{}

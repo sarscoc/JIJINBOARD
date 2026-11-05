@@ -57,7 +57,7 @@
     list.querySelector('.matrix-typing-stack')?.remove();
     const stack=document.createElement('div');stack.className='matrix-typing-stack';list.prepend(stack);
     const tid=typeof currentTemplateId==='function'?currentTemplateId():'';
-    if(window.JijinDesktop){const names=[...new Set([...typingPeers.values()].filter(peer=>peer.templateId===tid).map(peer=>peer.name))];if(names.length){const summary=document.createElement('span');summary.className='desktop-typing-summary';summary.textContent=names.join('と')+'が入力中……';stack.append(summary)}return}
+
     for(const peer of typingPeers.values())if(peer.templateId===tid){
       const node=document.createElement('div');node.className='matrix-typing';
       node.innerHTML=`${peer.icon?`<img src="${esc(peer.icon)}" alt="">`:''}<b>${esc(peer.name)}</b><em>入力中…</em><i></i><i></i><i></i>`;stack.append(node);
@@ -184,7 +184,7 @@
       if(target.templateId)return target.templateId===tid;
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
-const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(!window.JijinDesktop&&c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=window.JijinDesktop?visibleComments.slice().sort(window.JijinDesktop.newest):visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,window.JijinDesktop&&c.parent_id?1:0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
+const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});if(window.JijinDesktop)for(const rows of children.values())rows.sort((a,b)=>-window.JijinDesktop.newest(a,b));const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));if(window.JijinDesktop)roots.sort(window.JijinDesktop.newest);count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
   const changes=JijinSync.ledger();let cacheVersion=0;
   const load=JijinComments.loader(async()=>{
     const c=ctx();if(!c||!commentRoom())return null;

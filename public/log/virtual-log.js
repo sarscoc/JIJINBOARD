@@ -177,7 +177,7 @@
     if (state.hiddenTabs.has(message.tab)) {
       state.hiddenTabs.delete(message.tab); localStorage.setItem(`hiddenTabs:${state.roomId}`, JSON.stringify([...state.hiddenTabs])); state.activeTabIndex = index; renderLog(message.time);
     } else if (index !== state.activeTabIndex) {
-      state.isSliding=false;state.slideQueue=0;state.activeTabIndex=index;renderLog(message.time);
+      if(typeof window!=="undefined"&&window.JijinDesktop&&index>=0&&typeof goToTab==="function")goToTab(index);else{state.isSliding=false;state.slideQueue=0;state.activeTabIndex=index;renderLog(message.time);}
     }
     const panel = document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`), meta = metaFor(panel);
     if (meta) {

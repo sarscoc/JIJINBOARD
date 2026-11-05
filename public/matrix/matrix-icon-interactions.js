@@ -104,7 +104,7 @@
   function keepInlineEditorVisible(placed) {
     if (!placed) return;
     const editor = placed.querySelector(".inline-comment-editor") || document.querySelector(".inline-comment-editor");
-    if (!editor) return;
+    if (!editor || editor.dataset.desktopPortal) return;
     const bounds = document.querySelector(".canvas")?.getBoundingClientRect() || document.querySelector(".stage")?.getBoundingClientRect();
     if (!bounds) return;
 

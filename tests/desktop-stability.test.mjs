@@ -10,11 +10,11 @@ test('PC supplement can retry after failure, survive repaint requests and reopen
  let state={items:{pc:{comment:'old',commentPosition:'top',x:31}}},draws=0,writes=0,fail=true;
  w.appState=()=>structuredClone(state);w.saveJSON=(_,value)=>{state=structuredClone(value)};w.STATE='s';w.saveCurrentTemplateState=()=>{};w.currentTemplateId=()=> 'tpl';w.activeCommentEditor={box:w.document.createElement('div')};w.items=[{id:'pc'}];w.renderPlaced=()=>draws++;w.openInlineCommentEditor=()=>{throw Error('retired editor must not run')};
  w.matrixBoardContext={boardId:'b',async savePoint(id,item,note){writes++;assert.equal(note,true);assert.equal(item.baseComment,'old');if(fail)throw Error('offline');return true}};
- w.eval(source('matrix/desktop-notes.js'));const el=w.document.querySelector('.placed');w.openInlineCommentEditor('pc',el);let field=el.querySelector('textarea');assert.equal(el.querySelector('select').hidden,true);assert.equal(el.querySelectorAll('.comment-direction-btn').length,4);el.querySelector('.dir-left').click();assert.equal(el.querySelector('select').value,'left');assert.equal(el.querySelector('.dir-left').hidden,true);field.value='new';field.dispatchEvent(new w.Event('input'));
- w.renderPlaced();assert.equal(draws,0);assert.ok(field.isConnected);w.openInlineCommentEditor('pc',el);assert.equal(el.querySelector('textarea'),field);
- field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await tick();assert.equal(field.disabled,false);assert.ok(field.isConnected);assert.match(el.querySelector('[role=status]').textContent,/offline/);assert.equal(state.items.pc.comment,'old');
- fail=false;field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await tick();assert.equal(writes,2);assert.equal(state.items.pc.comment,'new');assert.equal(state.items.pc.x,31);assert.equal(el.querySelector('textarea'),null);assert.equal(w.activeCommentEditor,null);
- w.openInlineCommentEditor('pc',el);assert.equal(el.querySelector('textarea').value,'new');
+ w.eval(source('matrix/desktop-notes.js'));const el=w.document.querySelector('.placed');w.openInlineCommentEditor('pc',el);let field=w.document.querySelector('textarea');assert.equal(w.document.querySelector('select').hidden,true);assert.equal(w.document.querySelectorAll('.comment-direction-btn').length,4);w.document.querySelector('.dir-left').click();assert.equal(w.document.querySelector('select').value,'left');assert.equal(w.document.querySelector('.dir-left').hidden,true);field.value='new';field.dispatchEvent(new w.Event('input'));
+ w.renderPlaced();assert.equal(draws,0);assert.ok(field.isConnected);w.openInlineCommentEditor('pc',el);assert.equal(w.document.querySelector('textarea'),field);
+ field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await tick();assert.equal(field.disabled,false);assert.ok(field.isConnected);assert.match(w.document.querySelector('[role=status]').textContent,/offline/);assert.equal(state.items.pc.comment,'old');
+ fail=false;field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await tick();assert.equal(writes,2);assert.equal(state.items.pc.comment,'new');assert.equal(state.items.pc.x,31);assert.equal(w.document.querySelector('textarea'),null);assert.equal(w.activeCommentEditor,null);
+ w.openInlineCommentEditor('pc',el);assert.equal(w.document.querySelector('textarea').value,'new');
 });
 test('PC image updates prefer MATRIX image over the old placement and fallback image',async t=>{
  const w=page(t,'<div id="matrixPcStrip"></div>');w.eval(source('shared/desktop-ui.js'));w.eval(`var items=[],saved={items:{'participant:p:pc':{placed:true,placedImage:'/old.png'}},display:{}};function appState(){return saved}function saveState(s){saved=s}function currentTemplateId(){return 'tpl'}function templateStates(){return {tpl:saved}}function makeLocalItemState(){return {}}function renderLibrary(){}function renderPlaced(){};window.shown=()=>items;`);
@@ -31,10 +31,10 @@ test('PC sheet view stays personal across a remote update and is never published
  remote['charaHub.layoutV1'].mainMode='database';w.dispatchEvent(new w.CustomEvent('jijinboard-spreadsheet-remote-change',{detail:{action:'spreadsheet-state',data:{baseRevision:'r1',revision:'r2',state:remote}}}));await tick();assert.equal(w.state.layout.mainMode,'characters');
  w.localStorage.setItem('charaHub.characters',JSON.stringify([{id:'pc',name:'PC'}]));await sleep(180);assert.equal(posts.length,1);assert.equal(posts[0].state['charaHub.layoutV1'].mainMode,'database');assert.equal(posts[0].baseRevision,'r2');
 });
-test('PC chronology uses creation time including replies; phone rendering keeps its own policy',async t=>{
+test('PC roots are newest first and replies stay below their parent',async t=>{
  const w=page(t,'<div id="commentsList"></div><span id="commentCount"></span>','https://test/log/?room=r');w.eval(source('shared/desktop-ui.js'));w.renderComments=()=>{};w.jumpToComment=()=>{};w.esc=v=>String(v??'');w.markerColor=v=>v;w.formatCommentDate=()=>'';w.commentBodyHtml=v=>v;
- w.state={roomId:'r',room:{messages:[{id:'m1',tab:'Main'},{id:'m2',tab:'Other'}]},annotations:[{id:'old',message_id:'m1',body:'old',created_at:'2026-11-03 22:37:00'},{id:'reply',parent_id:'old',message_id:'m1',body:'reply',created_at:'2026-11-05 10:00:00'},{id:'new',message_id:'m2',body:'new',created_at:'2026-11-04 22:48:00'}],presence:[],profile:{id:'p'}};
- w.eval(source('log/comment-window-loader.js'));await sleep(25);w.renderComments();assert.deepEqual(Array.from(w.document.querySelectorAll('.comment-card'),el=>el.id),['comment-reply','comment-new','comment-old']);
+ w.state={roomId:'r',room:{tabs:['Main','Other'],messages:[{id:'m1',tab:'Main'},{id:'m2',tab:'Other'}]},annotations:[{id:'old',message_id:'m1',body:'old',created_at:'2026-11-03 22:37:00'},{id:'reply',parent_id:'old',message_id:'m1',body:'reply',created_at:'2026-11-05 10:00:00'},{id:'early-reply',parent_id:'old',message_id:'m1',body:'early',created_at:'2026-11-04 10:00:00'},{id:'new',message_id:'m2',body:'new',created_at:'2026-11-04 22:48:00'}],presence:[],profile:{id:'p'}};
+ w.eval(source('log/comment-window-loader.js'));await sleep(25);w.renderComments();assert.deepEqual(Array.from(w.document.querySelectorAll('.comment-card'),el=>el.id),['comment-new','comment-old','comment-early-reply','comment-reply']);w.state.hiddenTabs=new Set(['Other']);w.renderComments();assert.equal(w.document.getElementById('comment-new'),null);
 });
 
 test('PC supplement conflict keeps the draft and requires checking the latest note before changing its base',async t=>{
@@ -75,15 +75,21 @@ test('desktop MATRIX note and comment composers switch exclusively and retain th
  w.appState=()=>({items:{pc:{comment:'saved',commentPosition:'top'}}});w.currentTemplateId=()=> 'tpl';w.renderPlaced=()=>{};w.openInlineCommentEditor=()=>{};w.items=[];
  let commentOpen=true,blocked=false;w.jijinSuspendMatrixComment=()=>{if(blocked)return false;commentOpen=false;return true};
  w.eval(source('matrix/desktop-notes.js'));const el=w.document.querySelector('.placed');el.dataset.id='pc';w.eval(source('matrix/matrix-icon-interactions.js'));el.dispatchEvent(new w.MouseEvent('contextmenu',{bubbles:true,cancelable:true}));assert.equal(commentOpen,false);
- const field=el.querySelector('textarea');field.value='draft';field.dispatchEvent(new w.Event('input'));assert.equal(w.jijinSuspendMatrixNote(),true);assert.equal(el.querySelector('textarea'),null);
- commentOpen=true;blocked=true;w.openInlineCommentEditor('pc',el);assert.equal(el.querySelector('textarea'),null);
- blocked=false;w.openInlineCommentEditor('pc',el);assert.equal(commentOpen,false);assert.equal(el.querySelector('textarea').value,'draft');
+ const field=w.document.querySelector('textarea');field.value='draft';field.dispatchEvent(new w.Event('input'));assert.equal(w.jijinSuspendMatrixNote(),true);assert.equal(w.document.querySelector('textarea'),null);
+ commentOpen=true;blocked=true;w.openInlineCommentEditor('pc',el);assert.equal(w.document.querySelector('textarea'),null);
+ blocked=false;w.openInlineCommentEditor('pc',el);assert.equal(commentOpen,false);assert.equal(w.document.querySelector('textarea').value,'draft');
 });
 
 test('desktop MATRIX replies remain indented in newest-first order and use marker rather than text colors',t=>{
  const w=page(t,'<section id="list"></section><span id="count"></span>');w.eval(source('shared/desktop-ui.js'));
  w.eval(`var comments=[{id:'parent',created_at:'2026-11-04',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'parent'},{id:'reply',parent_id:'parent',created_at:'2026-11-05',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'reply'}];function profile(){return {id:'me'}}function ctx(){return {boardId:'b'}}function pcList(){return [{id:'pc',name:'PC',type:'PC',color:'#aabbcc',colorDark:'#334455'}]}function esc(v){return String(v||'')}function targetImage(){return ''}function targetName(){return 'PC'}function targetParts(){return {templateId:'tpl',itemId:'pc'}}function currentTemplateId(){return 'tpl'}function formatCommentDate(){return ''}function renderTyping(){}function panel(){return {querySelector:s=>document.querySelector(s==='section'?'#list':'#count')}}`);
  const code=source('matrix/matrix-icon-comments.js');w.eval(code.slice(code.indexOf('  function commentColor('),code.indexOf('  const changes='))+';window.paint=render;');
- w.paint();let rows=w.document.querySelectorAll('.matrix-comment-thread');assert.equal(rows.length,2);assert.equal(rows[0].classList.contains('matrix-reply'),true);assert.match(rows[0].textContent,/reply/);assert.equal(rows[0].querySelector('article').style.getPropertyValue('--comment-marker'),'#aabbcc');
+ w.paint();let rows=w.document.querySelectorAll('.matrix-comment-thread');assert.equal(rows.length,2);assert.equal(rows[1].classList.contains('matrix-reply'),true);assert.equal(rows[1].parentElement,rows[0]);assert.match(rows[1].textContent,/reply/);assert.equal(rows[0].querySelector('article').style.getPropertyValue('--comment-marker'),'#aabbcc');
  w.document.documentElement.classList.add('dark');w.paint();assert.equal(w.document.querySelector('article').style.getPropertyValue('--comment-marker'),'#334455');
+});
+
+test('PC supplement is outside the canvas clipping hierarchy and remains within the viewport',t=>{
+ const w=page(t,'<div class="canvas" style="overflow:hidden"><div class="placed"></div></div>');w.eval(source('shared/desktop-ui.js'));const el=w.document.querySelector('.placed');el.getBoundingClientRect=()=>({left:1000,right:1040,top:740,bottom:780,width:40,height:40});
+ w.appState=()=>({items:{pc:{comment:'note',commentPosition:'right'}}});w.currentTemplateId=()=> 'tpl';w.renderPlaced=()=>{};w.openInlineCommentEditor=()=>{};w.items=[];w.eval(source('matrix/desktop-notes.js'));w.openInlineCommentEditor('pc',el);
+ const box=w.document.querySelector('.inline-comment-editor');assert.equal(box.parentElement,w.document.body);assert.equal(box.style.position,'fixed');assert.ok(parseFloat(box.style.left)+242<=w.innerWidth);assert.ok(parseFloat(box.style.top)+140<=w.innerHeight);
 });

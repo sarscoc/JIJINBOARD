@@ -56,6 +56,7 @@
 
     const anchor = typeof currentReadingTime === "function" ? currentReadingTime() : "";
     if (typeof renderLog === "function") renderLog(anchor);
+    if(window.JijinDesktop&&typeof renderComments==="function")renderComments();
   }
 
   function requestFreshSettings() {
