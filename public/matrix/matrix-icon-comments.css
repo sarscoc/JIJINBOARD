@@ -358,3 +358,14 @@ html body #matrixIconComments .matrix-comment-head b{font:inherit!important;font
 .matrix-typing-stack{position:sticky;top:0;z-index:5;background:var(--matrix-glass-strong)}.matrix-typing-stack:empty{display:none}
 .placed:has(> .placed-comment){z-index:100000!important}
 .placed.comment-editing{z-index:2147483000!important}
+
+/* Desktop marker accents and a single reply rail, independent of chronological order. */
+html.jijin-desktop body #matrixIconComments .matrix-comment-card{
+ border-left-color:var(--comment-marker,var(--matrix-line))!important;
+}
+html.jijin-desktop body #matrixIconComments .matrix-comment-card:is(:hover,.focused){
+ border-color:var(--comment-marker,var(--matrix-line))!important;
+ background:color-mix(in srgb,var(--comment-marker) 22%,var(--matrix-glass-strong))!important;
+}
+html.jijin-desktop body #matrixIconComments>.matrix-comments-list>.matrix-reply,
+html.jijin-desktop body #matrixIconCommentList>.matrix-reply{margin-left:24px!important}

@@ -18,7 +18,7 @@ test('PC supplement can retry after failure, survive repaint requests and reopen
 });
 test('PC image updates prefer MATRIX image over the old placement and fallback image',async t=>{
  const w=page(t,'<div id="matrixPcStrip"></div>');w.eval(source('shared/desktop-ui.js'));w.eval(`var items=[],saved={items:{'participant:p:pc':{placed:true,placedImage:'/old.png'}},display:{}};function appState(){return saved}function saveState(s){saved=s}function currentTemplateId(){return 'tpl'}function templateStates(){return {tpl:saved}}function makeLocalItemState(){return {}}function renderLibrary(){}function renderPlaced(){};window.shown=()=>items;`);
- let icon='/matrix1.png';w.fetch=async()=>({ok:true,json:async()=>({participants:[{authorId:'p',personaId:'pc',name:'PC',matrixIcon:icon,icon:'/base.png',serverIcon:'/base.png'}]})});w.eval(source('matrix/matrix-pc.js'));await tick();await tick();assert.equal(w.shown()[0].baseImage,'/matrix1.png');assert.equal(w.shown()[0].placementImage,'/matrix1.png');
+ let icon='/matrix1.png';w.fetch=async()=>({ok:true,json:async()=>({participants:[{authorId:'p',personaId:'pc',name:'PC',textColor:'#112233',color:'#aabbcc',colorDark:'#334455',matrixIcon:icon,icon:'/base.png',serverIcon:'/base.png'}]})});w.eval(source('matrix/matrix-pc.js'));await tick();await tick();assert.equal(w.shown()[0].baseImage,'/matrix1.png');assert.equal(w.shown()[0].placementImage,'/matrix1.png');assert.equal(w.shown()[0].color,'#112233');assert.equal(w.shown()[0].markerColor,'#aabbcc');assert.equal(w.shown()[0].markerColorDark,'#334455');
  icon='/matrix2.png';w.dispatchEvent(new w.Event('matrix-board-participants-changed'));await tick();await tick();assert.equal(w.shown()[0].baseImage,'/matrix2.png');assert.equal(w.shown()[0].local.placed,true);
 });
 test('PC sheet view stays personal across a remote update and is never published as another viewers mode',async t=>{
@@ -78,4 +78,12 @@ test('desktop MATRIX note and comment composers switch exclusively and retain th
  const field=el.querySelector('textarea');field.value='draft';field.dispatchEvent(new w.Event('input'));assert.equal(w.jijinSuspendMatrixNote(),true);assert.equal(el.querySelector('textarea'),null);
  commentOpen=true;blocked=true;w.openInlineCommentEditor('pc',el);assert.equal(el.querySelector('textarea'),null);
  blocked=false;w.openInlineCommentEditor('pc',el);assert.equal(commentOpen,false);assert.equal(el.querySelector('textarea').value,'draft');
+});
+
+test('desktop MATRIX replies remain indented in newest-first order and use marker rather than text colors',t=>{
+ const w=page(t,'<section id="list"></section><span id="count"></span>');w.eval(source('shared/desktop-ui.js'));
+ w.eval(`var comments=[{id:'parent',created_at:'2026-11-04',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'parent'},{id:'reply',parent_id:'parent',created_at:'2026-11-05',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'reply'}];function profile(){return {id:'me'}}function ctx(){return {boardId:'b'}}function pcList(){return [{id:'pc',name:'PC',type:'PC',color:'#aabbcc',colorDark:'#334455'}]}function esc(v){return String(v||'')}function targetImage(){return ''}function targetName(){return 'PC'}function targetParts(){return {templateId:'tpl',itemId:'pc'}}function currentTemplateId(){return 'tpl'}function formatCommentDate(){return ''}function renderTyping(){}function panel(){return {querySelector:s=>document.querySelector(s==='section'?'#list':'#count')}}`);
+ const code=source('matrix/matrix-icon-comments.js');w.eval(code.slice(code.indexOf('  function commentColor('),code.indexOf('  const changes='))+';window.paint=render;');
+ w.paint();let rows=w.document.querySelectorAll('.matrix-comment-thread');assert.equal(rows.length,2);assert.equal(rows[0].classList.contains('matrix-reply'),true);assert.match(rows[0].textContent,/reply/);assert.equal(rows[0].querySelector('article').style.getPropertyValue('--comment-marker'),'#aabbcc');
+ w.document.documentElement.classList.add('dark');w.paint();assert.equal(w.document.querySelector('article').style.getPropertyValue('--comment-marker'),'#334455');
 });
