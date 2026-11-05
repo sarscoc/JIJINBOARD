@@ -293,7 +293,7 @@ for(const tool of ['log','matrix','sheets']){
  test(`${tool}: editing replaces that comment in place and survives an incoming list render`,async t=>{
   const f=inlineFixture(t,tool);f.list.querySelector(`[${f.attribute}="c2"]`).click();await tick();
   let card=f.list.querySelector('[data-id="c2"]');assert.equal(f.dialog.nextElementSibling,card);assert.equal(f.dialog.parentElement,card.parentElement);
-  assert.equal(card.classList.contains('phone-comment-editing'),true);assert.equal(f.dialog.querySelector('.phone-composer-actions button:last-child').textContent,'保存');
+  assert.equal(card.classList.contains('phone-comment-editing'),true);assert.equal(f.dialog.querySelector('.phone-composer-actions button:last-child').getAttribute('aria-label'),'変更を保存');
   f.textarea.value='kept draft';f.textarea.focus();const originalForm=f.form;
   f.list.innerHTML=f.rows();await tick();
   card=f.list.querySelector('[data-id="c2"]');assert.equal(f.dialog.nextElementSibling,card);
@@ -332,4 +332,36 @@ test('only the same-origin MATRIX frame can report a ready layout and navigation
  send(f.w.location.origin,f.frame.contentWindow);assert.equal(matrix.dataset.phoneReady,undefined);
  send(f.w.location.origin,matrix.contentWindow);assert.equal(matrix.dataset.phoneReady,'1');
  matrix.setAttribute('src','https://test/matrix/?embedded=1');await tick();assert.equal(matrix.dataset.phoneReady,undefined);
+});
+
+for(const tool of ['log','matrix','sheets'])test(`${tool}: compact phone input grows with text and keeps hidden comments intact`,async t=>{
+ const f=inlineFixture(t,tool);let contentHeight=36;Object.defineProperty(f.textarea,'scrollHeight',{get:()=>contentHeight});
+ f.dialog.show();await tick();assert.equal(f.dialog.querySelector('.phone-composer-actions button:first-child').getAttribute('aria-label'),'入力を閉じる');
+ assert.equal(f.dialog.querySelector('.phone-composer-actions button:last-child').textContent,'↑');
+ contentHeight=90;f.textarea.value='multiline draft';f.textarea.dispatchEvent(new f.w.Event('input',{bubbles:true}));
+ assert.equal(f.textarea.style.getPropertyValue('--phone-input-height'),'90px');
+ contentHeight=400;f.textarea.dispatchEvent(new f.w.Event('input',{bubbles:true}));assert.equal(f.textarea.style.getPropertyValue('--phone-input-height'),'140px');
+ assert.equal(f.list.querySelectorAll('[data-id]').length,2);assert.equal(f.submits(),0);
+ f.dialog.close();await tick();assert.equal(f.d.documentElement.classList.contains('phone-composing'),false);assert.equal(f.list.querySelectorAll('[data-id]').length,2);
+});
+test('LOG waits for the phone stylesheet before telling the parent to reveal its frame',t=>{
+ const f=fixture(t),messages=[];f.w.parent.postMessage=data=>messages.push(data.type);
+ const link=f.d.querySelector('link');Object.defineProperty(link,'sheet',{value:{},configurable:true});link.dispatchEvent(new f.w.Event('load'));
+ assert.ok(messages.includes('jijin-phone-log-ready'));
+});
+test('the LOG reveal signal is source checked and reset on navigation',async t=>{
+ const f=shell(t),log=f.frame,matrix=f.d.getElementById('matrixFrame');
+ const send=(origin,source)=>f.w.dispatchEvent(new f.w.MessageEvent('message',{origin,source,data:{type:'jijin-phone-log-ready'}}));
+ send('https://untrusted.test',log.contentWindow);send(f.w.location.origin,matrix.contentWindow);assert.equal(log.dataset.phoneReady,undefined);
+ send(f.w.location.origin,log.contentWindow);assert.equal(log.dataset.phoneReady,'1');
+ log.setAttribute('src','https://test/log/?embedded=1&room=two');await tick();assert.equal(log.dataset.phoneReady,undefined);
+});
+
+test('phone composer clears native popup geometry and restores it for desktop',async t=>{
+ const f=fixture(t),dialog=f.d.querySelector('dialog');
+ dialog.style.setProperty('width','374px','important');dialog.style.setProperty('left','8px','important');dialog.style.setProperty('top','500px','important');
+ dialog.setAttribute('open','');await tick();
+ assert.equal(dialog.style.width,'');assert.equal(dialog.style.left,'');assert.equal(dialog.style.top,'');
+ dialog.style.setProperty('top','600px','important');await tick();assert.equal(dialog.style.top,'');
+ f.desktop();await tick();assert.equal(dialog.style.width,'374px');assert.equal(dialog.style.left,'8px');assert.equal(dialog.style.top,'500px');
 });

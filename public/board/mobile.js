@@ -46,6 +46,8 @@
   addEventListener('message',event=>{
     const matrix=document.getElementById('matrixFrame');
     if(event.origin===location.origin&&event.source===matrix?.contentWindow&&event.data?.type==='jijin-phone-matrix-ready')matrix.dataset.phoneReady='1';
+    const log=document.getElementById('logFrame');
+    if(event.origin===location.origin&&event.source===log?.contentWindow&&event.data?.type==='jijin-phone-log-ready')log.dataset.phoneReady='1';
     if(event.origin!==location.origin||event.source!==activeFrame()?.contentWindow||!mq.matches)return;
     if(event.data?.type==='jijin-phone-menu')openMenu();
     if(event.data?.type==='jijin-phone-log-list')showLogs(true);
@@ -67,11 +69,14 @@
       try{
         const doc=frame.contentDocument;
         if(!doc?.head||!frame.getAttribute('src')||doc.getElementById('mobileWorkspaceScript'))return;
-        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261105-display7';doc.head.append(script);
+        if(frame.id==='logFrame'){
+          const style=doc.createElement('style');style.textContent='@media(max-width:760px){body>.topbar{display:none!important}}';doc.head.append(style);
+        }
+        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261105-display8';doc.head.append(script);
       }catch{}
     };
-    frame.addEventListener('load',()=>{if(frame.id==='matrixFrame')delete frame.dataset.phoneReady;install()});
-    if(frame.id==='matrixFrame')new MutationObserver(()=>{delete frame.dataset.phoneReady}).observe(frame,{attributes:true,attributeFilter:['src']});
+    frame.addEventListener('load',()=>{if(['matrixFrame','logFrame'].includes(frame.id))delete frame.dataset.phoneReady;install()});
+    if(['matrixFrame','logFrame'].includes(frame.id))new MutationObserver(()=>{delete frame.dataset.phoneReady}).observe(frame,{attributes:true,attributeFilter:['src']});
     mq.addEventListener('change',install);
     if(frame.contentDocument?.readyState==='complete')install();
   }

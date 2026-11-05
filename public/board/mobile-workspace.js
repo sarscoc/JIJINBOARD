@@ -4,9 +4,15 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261105-display7';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261105-display8';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
   let workspaceInstalled=false,settleMatrix=()=>{};
+  function revealLog(){
+    if(tool!=='log'||!workspaceInstalled||!mq.matches||!link.sheet)return;
+    const ready=()=>parent.postMessage({type:'jijin-phone-log-ready'},location.origin);
+    if(typeof requestAnimationFrame==='function')requestAnimationFrame(ready);else ready();
+  }
+  link.addEventListener('load',revealLog);mq.addEventListener('change',revealLog);
   if(tool==='matrix'){
     let stylesReady=!!link.sheet,sequence=0,frameReadySent=false;
     root.dataset.phoneMatrixSizing='1';
@@ -152,13 +158,38 @@
     const home=document.createComment('phone composer home');dialog.before(home);
     const actions=document.createElement('div');actions.className='phone-composer-actions';actions.hidden=!mq.matches;
     mq.addEventListener('change',()=>{actions.hidden=!mq.matches});
-    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='キャンセル';cancel.onclick=()=>dialog.close();
-    const send=document.createElement('button');send.type='button';send.textContent='送信';send.onclick=()=>dialog.querySelector('form')?.requestSubmit();
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='×';cancel.setAttribute('aria-label','入力を閉じる');cancel.onclick=()=>dialog.close();
+    const send=document.createElement('button');send.type='button';send.textContent='↑';send.setAttribute('aria-label','送信');send.onclick=()=>dialog.querySelector('form')?.requestSubmit();
     actions.append(cancel,send);dialog.append(actions);
-    const record={home,card:null,wasComposing:false,focused:null};composers.set(dialog,record);
+    const record={home,card:null,wasComposing:false,focused:null,geometry:null};composers.set(dialog,record);
+    const textarea=dialog.querySelector('textarea');
+    function measureComposer(){
+      if(!mq.matches||!dialog.open)return;
+      const height=Math.ceil(dialog.getBoundingClientRect().height||108)+12;
+      if(root.style.getPropertyValue('--phone-composer-height')!==height+'px')root.style.setProperty('--phone-composer-height',height+'px');
+    }
+    function resizeInput(){
+      if(!mq.matches||!textarea)return;
+      textarea.style.setProperty('--phone-input-height','36px');
+      textarea.style.setProperty('--phone-input-height',Math.min(140,Math.max(36,textarea.scrollHeight))+'px');
+      measureComposer();
+    }
+    textarea?.addEventListener('input',resizeInput);
+    const composerResize=typeof ResizeObserver==='function'?new ResizeObserver(measureComposer):null;
+    composerResize?.observe(dialog);
+    addEventListener('pagehide',()=>composerResize?.disconnect(),{once:true});
     dialog.addEventListener('focusin',event=>{record.focused=event.target});
     function update(){
       const composing=mq.matches&&dialog.open;
+      // The native LOG positioner writes important inline coordinates; the phone form flows in its list.
+      const geometry=['width','left','right','top','bottom'];
+      if(composing){
+        if(!record.geometry)record.geometry=geometry.map(name=>[name,dialog.style.getPropertyValue(name),dialog.style.getPropertyPriority(name)]);
+        for(const name of geometry)if(dialog.style.getPropertyValue(name))dialog.style.removeProperty(name);
+      }else if(record.geometry){
+        const saved=record.geometry;record.geometry=null;
+        for(const [name,value,priority] of saved)if(value)dialog.style.setProperty(name,value,priority);
+      }
       if(record.card&&!record.card.isConnected)record.card=null;
       let reference=requestedEdit;
       if(tool==='log'&&typeof state!=='undefined'&&state.editingCommentId!==undefined)reference=state.editingCommentId||null;
@@ -172,12 +203,12 @@
         if(card){if(dialog.parentNode!==card.parentNode||dialog.nextSibling!==card)card.before(dialog)}
         else if(list.firstElementChild!==dialog)list.prepend(dialog);
       }else if(home.isConnected&&home.nextSibling!==dialog)home.after(dialog);
-      if(send.textContent!==(card?'保存':'送信'))send.textContent=card?'保存':'送信';
+      const action=card?'変更を保存':'送信';if(send.getAttribute('aria-label')!==action)send.setAttribute('aria-label',action);
       const anyOpen=[...composers.keys()].some(item=>mq.matches&&item.open);
       if(root.classList.contains('phone-composing')!==anyOpen)root.classList.toggle('phone-composing',anyOpen);
       if(composing&&!record.wasComposing){
         if(dockLevel<2)setDock(2);
-        if(!card&&list)list.scrollTop=0;
+        resizeInput();if(list)list.scrollTop=0;
         if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>{
           if(!dialog.open||!list)return;
           const bounds=list.getBoundingClientRect(),rect=dialog.getBoundingClientRect();
@@ -189,7 +220,7 @@
       record.wasComposing=composing;
     }
     record.update=update;
-    new MutationObserver(update).observe(dialog,{attributes:true,attributeFilter:['open']});
+    new MutationObserver(update).observe(dialog,{attributes:true,attributeFilter:['open','style']});
     dialog.addEventListener('close',()=>{requestedEdit=null;update()});mq.addEventListener('change',update);update();
   }
   function findComposer(){
@@ -376,7 +407,7 @@
     if(event.origin!==location.origin||event.source!==parent||!mq.matches||tool!=='matrix'||event.data?.type!=='jijin-phone-action')return;
     const controls={'new-template':'newTemplateBtn','export-matrix':'exportImageBtn'},id=controls[event.data.action];if(id)document.getElementById(id)?.click();
   });
-  workspaceInstalled=true;settleMatrix();
+  workspaceInstalled=true;settleMatrix();revealLog();
   return true;
   }
   // Sheets may create its comment panel only after the first remote snapshot arrives.
