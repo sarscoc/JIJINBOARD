@@ -87,3 +87,6 @@ html body #sheetComments .sheet-comments-head strong{font-weight:700!important}
 #sheetCommentDialog .sheet-comment-status{margin:0;font-size:11px;color:#c44}
 #sheetCommentDialog .sheet-comment-status:empty{display:none}
 
+
+html.jijin-desktop body #sheetComments .comment-card{border-left-color:var(--comment-marker,var(--sheet-line))!important}
+html.jijin-desktop body #sheetComments .comment-card:is(:hover,.focused){border-color:var(--comment-marker,var(--sheet-line))!important;background:color-mix(in srgb,var(--comment-marker) 22%,var(--paper,#fff))!important}
