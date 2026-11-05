@@ -69,3 +69,13 @@ test('PC comment emphasis closes outside cards and markers',t=>{
  w.document.querySelector('.comment-card').click();assert.ok(w.document.querySelector('.comment-card').classList.contains('focused'));
  w.document.getElementById('outside').click();assert.equal(w.document.querySelector('.focused'),null);
 });
+
+test('desktop MATRIX note and comment composers switch exclusively and retain the note draft',t=>{
+ const w=page(t,'<div class="placed"></div>');w.eval(source('shared/desktop-ui.js'));
+ w.appState=()=>({items:{pc:{comment:'saved',commentPosition:'top'}}});w.currentTemplateId=()=> 'tpl';w.renderPlaced=()=>{};w.openInlineCommentEditor=()=>{};w.items=[];
+ let commentOpen=true,blocked=false;w.jijinSuspendMatrixComment=()=>{if(blocked)return false;commentOpen=false;return true};
+ w.eval(source('matrix/desktop-notes.js'));const el=w.document.querySelector('.placed');el.dataset.id='pc';w.eval(source('matrix/matrix-icon-interactions.js'));el.dispatchEvent(new w.MouseEvent('contextmenu',{bubbles:true,cancelable:true}));assert.equal(commentOpen,false);
+ const field=el.querySelector('textarea');field.value='draft';field.dispatchEvent(new w.Event('input'));assert.equal(w.jijinSuspendMatrixNote(),true);assert.equal(el.querySelector('textarea'),null);
+ commentOpen=true;blocked=true;w.openInlineCommentEditor('pc',el);assert.equal(el.querySelector('textarea'),null);
+ blocked=false;w.openInlineCommentEditor('pc',el);assert.equal(commentOpen,false);assert.equal(el.querySelector('textarea').value,'draft');
+});

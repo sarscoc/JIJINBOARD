@@ -156,7 +156,8 @@
     const mine = !ownerId || ownerId === myId;
 
     if (mine) {
-      if (typeof window.openDrawer === "function") window.openDrawer(id);
+      if (window.JijinDesktop && typeof window.openInlineCommentEditor === "function") window.openInlineCommentEditor(id, placed);
+      else if (typeof window.openDrawer === "function") window.openDrawer(id);
       else if (typeof window.openInlineCommentEditor === "function") window.openInlineCommentEditor(id, placed);
       raiseInlineEditorSoon(placed);
       return;

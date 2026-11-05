@@ -29,3 +29,12 @@ test('stalled cache cleanup cannot prevent generation isolation and startup reco
  const timeout=w.setTimeout.bind(w);w.setTimeout=(fn,ms)=>timeout(fn,ms===1000?5:ms);w.caches={keys:()=>new Promise(()=>{})};w.fetch=async()=>({ok:true,status:200,json:async()=>({generation:'new'})});
  w.eval(source('shared/dataset-guard.js'));await assert.rejects(w.JijinDataset.ready,/読み直し/);assert.equal(w.localStorage.getItem('jijin.dataset.generation.v1'),'new');assert.equal(w.JijinDataset.blocked,true);
 });
+
+test('desktop failed startup refresh keeps the room shell and locally rendered logs',async t=>{
+ const dom=new JSDOM(source('board/index.html'),{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.JijinDesktop={};
+ const data={id:'one',name:'Room',logs:[{roomId:'log',title:'Saved log'}]};
+ w.JijinBoardReady={title:Promise.resolve(data),image:Promise.resolve(true),boardData:Promise.resolve(data)};
+ const code=source('board/board2.js'),end=code.indexOf('\ndocument.querySelectorAll("[data-tool]").forEach(button=>button.onclick=');
+ w.eval(code.slice(0,end)+';window.boot=init;window.failRefresh=()=>{loadBoard=async()=>{throw Error("timeout")}};');await w.boot();const shell=w.document.getElementById('logList');
+ w.failRefresh();await w.boot();assert.equal(w.document.getElementById('logList'),shell);assert.equal(shell.querySelectorAll('[data-room]').length,1);assert.ok(w.document.getElementById('boardConnectionIssue'));assert.equal(w.document.getElementById('boardStartupReload'),null);
+});

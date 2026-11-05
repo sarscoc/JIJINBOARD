@@ -206,8 +206,18 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
   commentLive.setActive(!!ctx()?.isActive?.());
 
 
+  const desktopDrafts=new Map();
+  const desktopDraftKey=(id,reply,edit)=>JSON.stringify([id,reply,edit]);
+  window.jijinSuspendMatrixComment=()=>{
+    if(!window.JijinDesktop)return true;
+    const d=document.querySelector('#matrixIconCommentDialog');if(!d?.open)return true;
+    if(posting){d.querySelector('textarea')?.focus();return false}
+    desktopDrafts.set(desktopDraftKey(targetId,replyTo,editingId),{body:d.querySelector('#matrixCommentBody')?.value||'',persona:d.querySelector('#matrixCommentPersona')?.value||'0'});
+    d.close();sendTyping(false);return true;
+  };
   async function open(id,reply="",edit="",anchor=null){
     if(!id||posting)return;
+    if(window.JijinDesktop&&window.jijinSuspendMatrixNote?.()===false)return;
     const existing=document.querySelector('#matrixIconCommentDialog');
     if(window.JijinCommentComposer?.keep(existing))return;
     if(existing?.open&&existing.querySelector('textarea')?.value.trim()){
@@ -232,6 +242,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
       d.querySelector("#matrixCommentBody").value="";
       d.querySelector("#matrixCommentDelete").hidden=true;
     }
+    if(window.JijinDesktop){const draft=desktopDrafts.get(desktopDraftKey(id,reply,edit));if(draft){d.querySelector('#matrixCommentBody').value=draft.body;select.value=draft.persona}}
     syncDialogAvatar(d);
     if(!d.open)d.show();
     positionDialog(d);
@@ -261,7 +272,7 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     try{
       let result;if(editingId)result=await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"PATCH",body:JSON.stringify({authorId:p.id,body})});
       else result=await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments`,{method:"POST",body:JSON.stringify({target:storedTarget(targetId),parentId:replyTo,authorId:p.id,authorName:p.plName,characterId:person.id||"",personaName:person.name,personaType:person.type||"PC",personaIcon:person.icon||"",body})});
-      d.close();if(!applyChange(editingId?'comment:edit':'comment:create',{...result,target:result.comment?.target||result.annotation?.target},true))load().catch(console.warn);
+      if(window.JijinDesktop)desktopDrafts.delete(desktopDraftKey(targetId,replyTo,editingId));d.close();if(!applyChange(editingId?'comment:edit':'comment:create',{...result,target:result.comment?.target||result.annotation?.target},true))load().catch(console.warn);
     }catch(error){status.textContent="保存できませんでした："+error.message;}finally{posting=false;delete d.dataset.submitting}
   }
   async function remove(){const c=ctx(),p=profile();if(posting||!editingId||!confirm("このコメントを削除しますか？\n返信もまとめて削除されます。"))return;posting=true;try{await commentApi(`/api/boards/${encodeURIComponent(c.boardId)}/matrix/${encodeURIComponent(commentRoom())}/comments/${encodeURIComponent(editingId)}`,{method:"DELETE",body:JSON.stringify({authorId:p.id})});dialog().close();await load(true)}catch(error){alert(error.message)}finally{posting=false}}

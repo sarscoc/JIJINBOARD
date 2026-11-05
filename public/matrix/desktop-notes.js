@@ -3,6 +3,7 @@
  if(!window.JijinDesktop)return;
  const originalOpen=window.openInlineCommentEditor,originalRender=window.renderPlaced;
  let editor=null,redraw=false;
+ window.jijinSuspendMatrixNote=()=>{if(editor?.busy){editor.field.focus();return false}if(editor)close({keep:true});return true};
  const draftKey=(tid,id)=>`desktop-note:${window.matrixBoardContext?.boardId||''}:${tid}:${id}`;
  function close({keep=false}={}){
   if(!editor)return;const e=editor;editor=null;
@@ -16,6 +17,7 @@
  window.renderPlaced=function(...args){if(editor?.box.isConnected){redraw=true;return}return originalRender.apply(this,args)};
  window.openInlineCommentEditor=function(id,el){
   if(!window.JijinDesktop)return originalOpen.apply(this,arguments);
+  if(window.jijinSuspendMatrixComment?.()===false)return;
   if(editor?.id===id&&editor.box.isConnected){editor.field.focus();return}
   if(editor)close({keep:true});
   // Dispose detached references left by an earlier remote repaint without saving them.
