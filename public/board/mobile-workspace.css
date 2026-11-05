@@ -5,7 +5,6 @@
   html[data-mobile-workspace][data-phone-dock="0"] body :is(#commentsList,#matrixIconCommentList,#sheetComments>section){visibility:hidden!important;pointer-events:none!important}
   html[data-mobile-workspace][data-phone-dock="0"] body :is(#commentsPane,#matrixIconComments,#sheetComments){padding-bottom:0!important}
   html[data-mobile-workspace][data-phone-dock="1"] body :is(#commentsList,#matrixIconCommentList,#sheetComments>section){padding-right:64px!important;padding-bottom:8px!important}
-  html[data-mobile-workspace].phone-composing{--phone-dock-height:42%}
   html[data-mobile-workspace] body{height:100%!important;min-height:0!important;overflow:hidden!important}
   html[data-mobile-workspace] body>main,html[data-mobile-workspace] body>.app{height:calc(100% - var(--phone-dock-height))!important;min-height:0!important;padding:0!important;margin:0!important;overflow:hidden!important}
   html[data-mobile-workspace] input:not([type=range]):not([type=color]):not([type=checkbox]),html[data-mobile-workspace] select,html[data-mobile-workspace] textarea{font-size:16px!important}
@@ -17,14 +16,15 @@
   .phone-dock-grip i{position:absolute;top:3px;left:calc(50% - 12px);width:26px;height:2px;border-radius:3px;background:currentColor;opacity:.65}
   html[data-mobile-workspace] body :is(#commentsList,#matrixIconCommentList,#sheetComments>section){max-height:none!important;min-height:0!important;flex:1 1 auto!important;overflow-y:auto!important;overscroll-behavior:contain;padding:8px 8px calc(68px + env(safe-area-inset-bottom))!important;touch-action:pan-y}
   html[data-mobile-workspace] :is(.typing-comment,.matrix-typing){display:none!important}
-  /* A draft occupies the same lower area as the filtered comment list. */
-  html[data-mobile-workspace].phone-composing body :is(#commentsPane,#matrixIconComments,#sheetComments){visibility:hidden!important;pointer-events:none!important}
-  html[data-mobile-workspace] body :is(#commentDialog,#matrixIconCommentDialog,#sheetCommentDialog)[open]{position:fixed!important;inset:auto 0 0!important;width:100%!important;height:var(--phone-dock-height)!important;min-height:0!important;max-height:none!important;margin:0!important;border-radius:18px 18px 0 0!important;border:1px solid var(--line,#e6e1ea)!important;z-index:160!important;padding:0!important;display:flex!important;flex-direction:column!important;overflow:hidden!important;box-sizing:border-box!important;background:var(--paper,#fff)!important;backdrop-filter:none!important}
-  html[data-mobile-workspace] body :is(#commentDialog,#matrixIconCommentDialog,#sheetCommentDialog)>form{flex:1 1 auto!important;min-height:0!important;padding:10px 12px 4px!important;gap:6px!important;overflow:auto!important;display:flex!important;flex-direction:column!important}
-  html[data-mobile-workspace] body :is(#commentDialog,#matrixIconCommentDialog,#sheetCommentDialog) textarea{flex:1 1 auto!important;min-height:40px!important;height:auto!important;max-height:none!important;resize:none!important;width:100%!important;padding:8px!important;font-size:16px!important}
-  html[data-mobile-workspace] body .phone-composer-actions{display:flex!important;justify-content:space-between;flex:0 0 auto;gap:10px;padding:5px 72px calc(7px + env(safe-area-inset-bottom)) 12px;background:var(--paper,#fff)}
-  .phone-composer-actions button{min-height:36px;padding:5px 17px;border:1px solid var(--line,#e6e1ea);border-radius:10px;background:var(--paper,#fff);font:600 13px system-ui;color:var(--ink,#4b4b4b)}
-  .phone-composer-actions button:last-child{background:var(--jijin-pre-color1,#88728e);border-color:transparent;color:#fff}
+  /* A phone draft is a comment-sized card in the existing scrollable list. */
+  html[data-mobile-workspace] .phone-comment-editing{display:none!important}
+  html[data-mobile-workspace].phone-composing body :is(#commentsList,#matrixIconCommentList,#sheetComments>section){padding-right:8px!important;padding-bottom:calc(68px + env(safe-area-inset-bottom))!important}
+  html[data-mobile-workspace] body :is(#commentDialog,#matrixIconCommentDialog,#sheetCommentDialog)[open]{position:static!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;max-height:none!important;flex:0 0 auto!important;margin:0 0 8px!important;border-radius:10px!important;border:1px solid var(--line,#e6e1ea)!important;border-left:3px solid var(--phone-theme,#88728e)!important;z-index:auto!important;padding:0!important;display:flex!important;flex-direction:column!important;overflow:visible!important;box-sizing:border-box!important;background:var(--paper,#fff)!important;backdrop-filter:none!important;box-shadow:none!important}
+  html[data-mobile-workspace] body :is(#commentDialog,#matrixIconCommentDialog,#sheetCommentDialog)>form{min-width:0!important;min-height:0!important;padding:8px 10px 0!important;gap:5px!important;overflow:visible!important;display:flex!important;flex-direction:column!important}
+  html[data-mobile-workspace] body :is(#commentDialog,#matrixIconCommentDialog,#sheetCommentDialog) textarea{flex:0 0 auto!important;min-height:44px!important;height:58px!important;max-height:160px!important;resize:vertical!important;width:100%!important;padding:6px!important;font-size:16px!important;box-sizing:border-box!important}
+  html[data-mobile-workspace] body .phone-composer-actions{display:flex!important;justify-content:flex-end;flex:0 0 auto;gap:8px;padding:5px 10px 8px;background:transparent}
+  .phone-composer-actions button{min-height:28px;padding:3px 10px;border:1px solid var(--line,#e6e1ea);border-radius:7px;background:var(--paper,#fff);font:600 11px system-ui;color:var(--ink,#4b4b4b)}
+  .phone-composer-actions button:last-child{background:var(--phone-theme,#88728e);border-color:transparent;color:#fff}
   html[data-mobile-workspace] :is(#matrixCommentSubmit,#sheetCommentSubmit){display:none!important}
   /* LOG: keep only the content in the upper pane. Filters open from the menu. */
   html[data-mobile-workspace=log] #roomView:not(.hidden){display:flex!important;flex-direction:column;height:100%!important;min-height:0!important;max-width:none;padding:0!important;overflow:hidden}
@@ -47,6 +47,7 @@
   html[data-mobile-workspace=log] .page-track{will-change:auto}
   html[data-mobile-workspace=log] .log-page{content-visibility:visible;backface-visibility:visible}
   /* MATRIX: swipe between the list and canvas; remove the previous bottom tabs. */
+  html[data-mobile-workspace=matrix][data-phone-matrix-sizing] #canvas{visibility:hidden!important}
   html[data-mobile-workspace=matrix] #mobileBottomNav{display:none!important}
   html[data-mobile-workspace=matrix] .mobile-placement-tray:not(:has(.mobile-tray-item)){display:none!important}
   html[data-mobile-workspace=matrix] .workspace{flex:1 1 auto!important;position:relative!important;height:auto!important;min-height:0!important;touch-action:pan-y}

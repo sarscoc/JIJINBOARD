@@ -265,3 +265,71 @@ test('one-finger Sheets scrolling and cell taps remain native; pinches do not tr
  f.touch(cell,'touchstart',[[100,100],[200,100]]);f.touch(cell,'touchmove',[[50,100],[250,100]]);f.touch(cell,'touchend',[]);
  cell.click();assert.equal(clicks,1);
 });
+
+function inlineFixture(t,tool){
+ const panelId={log:'commentsPane',matrix:'matrixIconComments',sheets:'sheetComments'}[tool],dialogId={log:'commentDialog',matrix:'matrixIconCommentDialog',sheets:'sheetCommentDialog'}[tool],attribute={log:'data-edit-comment',matrix:'data-matrix-edit',sheets:'data-edit'}[tool];
+ const dom=new JSDOM(`<iframe src="https://test/${tool==='sheets'?'spreadsheet':tool}/?embedded=1"></iframe>`,{url:'https://test/board/',runScripts:'outside-only'});t.after(()=>dom.window.close());
+ const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;
+ const threadClass=tool==='matrix'?'matrix-comment-thread':'comment-thread',cardClass=tool==='matrix'?'matrix-comment-card':'comment-card';
+ const rows=()=>['c1','c2'].map(id=>`<div class="${threadClass}"><article class="${cardClass}" data-id="${id}"><p>comment ${id}</p><button ${attribute}="${id}">編集</button></article></div>`).join('');
+ d.open();d.write(`<body><main></main><aside id="${panelId}"><section class="comments-list">${rows()}</section></aside><dialog id="${dialogId}"><form><select><option>PL</option></select><textarea></textarea></form></dialog></body>`);d.close();
+ const callbacks=[],mq={matches:true,addEventListener(type,fn){callbacks.push(fn)}};w.matchMedia=()=>mq;w.requestAnimationFrame=fn=>fn();
+ w.state={editingCommentId:null};const dialog=d.getElementById(dialogId),form=dialog.querySelector('form'),textarea=form.querySelector('textarea'),list=d.querySelector('.comments-list');
+ dialog.show=()=>dialog.setAttribute('open','');dialog.close=()=>{dialog.removeAttribute('open');dialog.dispatchEvent(new w.Event('close'))};
+ list.addEventListener('click',event=>{const button=event.target.closest(`[${attribute}]`);if(!button)return;w.state.editingCommentId=button.getAttribute(attribute);textarea.value='old body';dialog.show()});
+ let submits=0;form.addEventListener('submit',event=>{event.preventDefault();submits++;dialog.close()});
+ w.eval(source('mobile-workspace.js'));
+ return {w,d,list,dialog,form,textarea,rows,attribute,cardClass,submits:()=>submits,desktop(){mq.matches=false;callbacks.forEach(fn=>fn())}};
+}
+for(const tool of ['log','matrix','sheets']){
+ test(`${tool}: a new phone draft sits at the top of the comments and reuses the original submit`,async t=>{
+  const f=inlineFixture(t,tool);f.dialog.show();await tick();
+  assert.equal(f.list.firstElementChild,f.dialog);assert.equal(f.d.documentElement.dataset.phoneDock,'2');
+  assert.equal(f.d.documentElement.classList.contains('phone-composing'),true);
+  f.textarea.value='new draft';f.dialog.querySelector('.phone-composer-actions button:last-child').click();await tick();
+  assert.equal(f.submits(),1);assert.equal(f.dialog.parentElement,f.d.body);assert.equal(f.dialog.open,false);
+  assert.equal(f.d.querySelectorAll('.phone-comment-editing').length,0);
+ });
+ test(`${tool}: editing replaces that comment in place and survives an incoming list render`,async t=>{
+  const f=inlineFixture(t,tool);f.list.querySelector(`[${f.attribute}="c2"]`).click();await tick();
+  let card=f.list.querySelector('[data-id="c2"]');assert.equal(f.dialog.nextElementSibling,card);assert.equal(f.dialog.parentElement,card.parentElement);
+  assert.equal(card.classList.contains('phone-comment-editing'),true);assert.equal(f.dialog.querySelector('.phone-composer-actions button:last-child').textContent,'保存');
+  f.textarea.value='kept draft';f.textarea.focus();const originalForm=f.form;
+  f.list.innerHTML=f.rows();await tick();
+  card=f.list.querySelector('[data-id="c2"]');assert.equal(f.dialog.nextElementSibling,card);
+  assert.equal(f.dialog.querySelector('form'),originalForm);assert.equal(f.textarea.value,'kept draft');assert.equal(f.dialog.open,true);
+  assert.equal(f.d.activeElement,f.textarea);
+  f.dialog.querySelector('.phone-composer-actions button:first-child').click();await tick();
+  assert.equal(card.classList.contains('phone-comment-editing'),false);assert.equal(f.submits(),0);
+ });
+ test(`${tool}: leaving the phone layout restores the original popup without losing a draft`,async t=>{
+  const f=inlineFixture(t,tool);f.list.querySelector(`[${f.attribute}="c1"]`).click();await tick();f.textarea.value='desktop draft';
+  f.desktop();await tick();assert.equal(f.dialog.parentElement,f.d.body);assert.equal(f.textarea.value,'desktop draft');assert.equal(f.dialog.open,true);
+  assert.equal(f.d.querySelectorAll('.phone-comment-editing').length,0);assert.equal(f.dialog.querySelector('.phone-composer-actions').hidden,true);
+ });
+}
+
+test('MATRIX waits for its phone styles, stable dimensions and image before revealing the canvas',async t=>{
+ const dom=new JSDOM('<iframe src="https://test/matrix/?embedded=1"></iframe>',{url:'https://test/board/',runScripts:'outside-only'});t.after(()=>dom.window.close());
+ const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;d.open();d.write('<body><div class="app"><div id="canvas"><img id="templateImg" src="one.png"><div class="placed"></div></div></div><aside id="matrixIconComments"><section></section></aside></body>');d.close();
+ w.matchMedia=()=>({matches:true,addEventListener(){}});let frames=[],iconSize=200,loaded=false;
+ w.requestAnimationFrame=fn=>frames.push(fn);w.PointerEvent=w.MouseEvent;
+ const image=d.getElementById('templateImg');Object.defineProperty(image,'complete',{get:()=>loaded});
+ d.getElementById('canvas').getBoundingClientRect=()=>({width:300,height:400});d.querySelector('.placed').getBoundingClientRect=()=>({width:iconSize,height:iconSize});
+ w.eval(source('mobile-workspace.js'));
+ const frame=()=>{const pending=frames;frames=[];pending.forEach(fn=>fn())};
+ frame();frame();frame();assert.equal(d.documentElement.dataset.phoneMatrixSizing,'1');
+ d.querySelector('link').dispatchEvent(new w.Event('load'));frame();frame();iconSize=40;frame();frame();frame();
+ assert.equal(d.documentElement.dataset.phoneMatrixSizing,'1');
+ loaded=true;image.dispatchEvent(new w.Event('load'));frame();frame();frame();
+ assert.equal(d.documentElement.hasAttribute('data-phone-matrix-sizing'),false);
+ image.src='two.png';loaded=false;await tick();assert.equal(d.documentElement.dataset.phoneMatrixSizing,'1');
+});
+test('only the same-origin MATRIX frame can report a ready layout and navigation hides it again',async t=>{
+ const f=shell(t),matrix=f.d.getElementById('matrixFrame');
+ const send=(origin,source)=>f.w.dispatchEvent(new f.w.MessageEvent('message',{origin,source,data:{type:'jijin-phone-matrix-ready'}}));
+ send('https://untrusted.test',matrix.contentWindow);assert.equal(matrix.dataset.phoneReady,undefined);
+ send(f.w.location.origin,f.frame.contentWindow);assert.equal(matrix.dataset.phoneReady,undefined);
+ send(f.w.location.origin,matrix.contentWindow);assert.equal(matrix.dataset.phoneReady,'1');
+ matrix.setAttribute('src','https://test/matrix/?embedded=1');await tick();assert.equal(matrix.dataset.phoneReady,undefined);
+});

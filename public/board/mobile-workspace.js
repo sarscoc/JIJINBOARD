@@ -4,8 +4,42 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261105-display6';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261105-display7';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
+  let workspaceInstalled=false,settleMatrix=()=>{};
+  if(tool==='matrix'){
+    let stylesReady=!!link.sheet,sequence=0,frameReadySent=false;
+    root.dataset.phoneMatrixSizing='1';
+    settleMatrix=()=>{
+      if(!mq.matches){delete root.dataset.phoneMatrixSizing;return}
+      if(typeof requestAnimationFrame!=='function')return;
+      root.dataset.phoneMatrixSizing='1';
+      const current=++sequence;let previous='',stable=0,attempts=0;
+      function measure(){
+        if(current!==sequence||!mq.matches)return;
+        const canvas=document.getElementById('canvas'),image=document.getElementById('templateImg');
+        const rect=canvas?.getBoundingClientRect();
+        const signature=[canvas,document.getElementById('templateOverlay'),canvas?.querySelector('.placed')].filter(Boolean).map(node=>{
+          const r=node.getBoundingClientRect();return [r.width,r.height].map(value=>Math.round(value*10)).join(',');
+        }).join('|');
+        stable=signature===previous?stable+1:0;previous=signature;
+        if(stylesReady&&workspaceInstalled&&rect?.width>0&&rect?.height>0&&stable>=2){
+          if(!frameReadySent){parent.postMessage({type:'jijin-phone-matrix-ready'},location.origin);frameReadySent=true}
+          if(!image?.getAttribute('src')||image.complete){delete root.dataset.phoneMatrixSizing;return}
+        }
+        if(++attempts<120)requestAnimationFrame(measure);
+      }
+      requestAnimationFrame(measure);
+    };
+    link.addEventListener('load',()=>{stylesReady=true;settleMatrix()});
+    link.addEventListener('error',()=>{stylesReady=true;settleMatrix()});
+    document.addEventListener('load',event=>{if(event.target.id==='templateImg')settleMatrix()},true);
+    document.addEventListener('error',event=>{if(event.target.id==='templateImg')settleMatrix()},true);
+    const image=document.getElementById('templateImg');
+    if(image)new MutationObserver(settleMatrix).observe(image,{attributes:true,attributeFilter:['src']});
+    addEventListener('matrix-template-selected',settleMatrix);addEventListener('matrix-board-active',settleMatrix);
+    mq.addEventListener('change',settleMatrix);document.fonts?.ready.then(settleMatrix);
+  }
   function installWorkspace(){
   const panel=document.querySelector(tool==='matrix'?'#matrixIconComments':tool==='sheets'?'#sheetComments':'#commentsPane');
   if(!panel)return false;
@@ -94,25 +128,75 @@
   }
   if(list)new MutationObserver(observeFirstCard).observe(list,{childList:true,subtree:true});
   observeFirstCard();setDock(1);
+  const composerSelector=tool==='matrix'?'#matrixIconCommentDialog':tool==='sheets'?'#sheetCommentDialog':'#commentDialog';
+  const editAttribute=tool==='matrix'?'data-matrix-edit':tool==='sheets'?'data-edit':'data-edit-comment';
+  let requestedEdit=null;
+  const composers=new Map();
+  function editCard(reference){
+    if(!reference||!list)return null;
+    return [...list.querySelectorAll(`[${editAttribute}]`)].find(button=>button.getAttribute(editAttribute)===reference)?.closest('.comment-card,.matrix-comment-card')||null;
+  }
+  // Capture intent before the original controller opens or fills its form.
+  window.addEventListener('click',event=>{
+    if(!mq.matches||!event.target.closest||event.target.closest(composerSelector))return;
+    const dialog=document.querySelector(composerSelector);
+    if(dialog?.open&&dialog.querySelector('textarea')?.value.trim())return;
+    const edit=event.target.closest(`[${editAttribute}]`);
+    if(edit&&list?.contains(edit))requestedEdit=edit.getAttribute(editAttribute);
+    else if(event.target.closest('[data-reply-comment],[data-matrix-reply],[data-reply],[data-sheet-cell],.placed,.log-message'))requestedEdit=null;
+    queueMicrotask(findComposer);
+  },true);
   function attachComposer(dialog){
-    if(dialog.dataset.phoneComposer)return;
+    if(composers.has(dialog))return;
     dialog.dataset.phoneComposer='1';
+    const home=document.createComment('phone composer home');dialog.before(home);
     const actions=document.createElement('div');actions.className='phone-composer-actions';actions.hidden=!mq.matches;
     mq.addEventListener('change',()=>{actions.hidden=!mq.matches});
-    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='閉じる';cancel.onclick=()=>dialog.close();
+    const cancel=document.createElement('button');cancel.type='button';cancel.textContent='キャンセル';cancel.onclick=()=>dialog.close();
     const send=document.createElement('button');send.type='button';send.textContent='送信';send.onclick=()=>dialog.querySelector('form')?.requestSubmit();
     actions.append(cancel,send);dialog.append(actions);
-    const update=()=>{
+    const record={home,card:null,wasComposing:false,focused:null};composers.set(dialog,record);
+    dialog.addEventListener('focusin',event=>{record.focused=event.target});
+    function update(){
       const composing=mq.matches&&dialog.open;
-      if(root.classList.contains('phone-composing')!==composing)root.classList.toggle('phone-composing',composing);
-      if(composing){window.visualViewport?.addEventListener('resize',viewport)}
-      else window.visualViewport?.removeEventListener('resize',viewport);
-    };
-    new MutationObserver(update).observe(dialog,{attributes:true,attributeFilter:['open']});dialog.addEventListener('close',update);update();
+      if(record.card&&!record.card.isConnected)record.card=null;
+      let reference=requestedEdit;
+      if(tool==='log'&&typeof state!=='undefined'&&state.editingCommentId!==undefined)reference=state.editingCommentId||null;
+      const card=composing?editCard(reference):null;
+      if(record.card&&record.card!==card)record.card.classList.remove('phone-comment-editing');
+      record.card=card;
+      if(card&&!card.classList.contains('phone-comment-editing'))card.classList.add('phone-comment-editing');
+      const detached=!dialog.isConnected;
+      if(composing&&list){
+        // Keep the same live form and its draft when a remote render replaces the list.
+        if(card){if(dialog.parentNode!==card.parentNode||dialog.nextSibling!==card)card.before(dialog)}
+        else if(list.firstElementChild!==dialog)list.prepend(dialog);
+      }else if(home.isConnected&&home.nextSibling!==dialog)home.after(dialog);
+      if(send.textContent!==(card?'保存':'送信'))send.textContent=card?'保存':'送信';
+      const anyOpen=[...composers.keys()].some(item=>mq.matches&&item.open);
+      if(root.classList.contains('phone-composing')!==anyOpen)root.classList.toggle('phone-composing',anyOpen);
+      if(composing&&!record.wasComposing){
+        if(dockLevel<2)setDock(2);
+        if(!card&&list)list.scrollTop=0;
+        if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>{
+          if(!dialog.open||!list)return;
+          const bounds=list.getBoundingClientRect(),rect=dialog.getBoundingClientRect();
+          if(rect.top<bounds.top)list.scrollTop+=rect.top-bounds.top;
+          else if(rect.bottom>bounds.bottom)list.scrollTop+=rect.bottom-bounds.bottom;
+        });
+      }
+      if(composing&&detached&&record.focused&&document.activeElement===document.body)record.focused.focus({preventScroll:true});
+      record.wasComposing=composing;
+    }
+    record.update=update;
+    new MutationObserver(update).observe(dialog,{attributes:true,attributeFilter:['open']});
+    dialog.addEventListener('close',()=>{requestedEdit=null;update()});mq.addEventListener('change',update);update();
   }
-  const composerSelector=tool==='matrix'?'#matrixIconCommentDialog':tool==='sheets'?'#sheetCommentDialog':'#commentDialog';
-  function findComposer(){const dialog=document.querySelector(composerSelector);if(dialog)attachComposer(dialog)}
-  new MutationObserver(findComposer).observe(document.body,{childList:true});findComposer();
+  function findComposer(){
+    const dialog=document.querySelector(composerSelector);if(dialog)attachComposer(dialog);
+    for(const record of composers.values())record.update();
+  }
+  new MutationObserver(findComposer).observe(document.body,{childList:true,subtree:true});findComposer();
   function viewport(){
     if(!mq.matches){root.style.removeProperty('--phone-visible-height');return}
     const height=Math.round(window.visualViewport?.height||innerHeight);
@@ -124,6 +208,7 @@
   // Observe a stationary press, cancel on scroll/drag; never synthesize a save.
   function clearHold(){clearTimeout(hold);hold=null}
   function beginComment(el){
+    if(!document.querySelector(composerSelector)?.open)requestedEdit=null;
     if(tool==='matrix'){
       window.openMatrixIconComment?.(el.dataset.id||'');
     }else if(tool==='log'){
@@ -291,6 +376,7 @@
     if(event.origin!==location.origin||event.source!==parent||!mq.matches||tool!=='matrix'||event.data?.type!=='jijin-phone-action')return;
     const controls={'new-template':'newTemplateBtn','export-matrix':'exportImageBtn'},id=controls[event.data.action];if(id)document.getElementById(id)?.click();
   });
+  workspaceInstalled=true;settleMatrix();
   return true;
   }
   // Sheets may create its comment panel only after the first remote snapshot arrives.
