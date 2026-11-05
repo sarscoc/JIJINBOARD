@@ -57,6 +57,7 @@
     list.querySelector('.matrix-typing-stack')?.remove();
     const stack=document.createElement('div');stack.className='matrix-typing-stack';list.prepend(stack);
     const tid=typeof currentTemplateId==='function'?currentTemplateId():'';
+    if(window.JijinDesktop){const names=[...new Set([...typingPeers.values()].filter(peer=>peer.templateId===tid).map(peer=>peer.name))];if(names.length){const summary=document.createElement('span');summary.className='desktop-typing-summary';summary.textContent=names.join('と')+'が入力中……';stack.append(summary)}return}
     for(const peer of typingPeers.values())if(peer.templateId===tid){
       const node=document.createElement('div');node.className='matrix-typing';
       node.innerHTML=`${peer.icon?`<img src="${esc(peer.icon)}" alt="">`:''}<b>${esc(peer.name)}</b><em>入力中…</em><i></i><i></i><i></i>`;stack.append(node);

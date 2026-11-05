@@ -90,7 +90,7 @@
         html:item.typing?typingHtml(item):cardHtml(item.annotation,children,messageTabs)
       })):[{key:'empty',html:'<p class="empty">マーカーされた感想がここに並びます。</p>'}];
       const typingEntries=entries.filter(entry=>entry.key.startsWith('typing:'));
-      if(typingEntries.length){const rest=entries.filter(entry=>!entry.key.startsWith('typing:'));entries.splice(0,entries.length,{key:'typing-status',html:'<div class="typing-status-stack">'+typingEntries.map(entry=>entry.html).join('')+'</div>'},...rest)}
+      if(typingEntries.length){const rest=entries.filter(entry=>!entry.key.startsWith('typing:'));entries.splice(0,entries.length,{key:'typing-status',html:'<div class="typing-status-stack">'+(window.JijinDesktop?'<span class="desktop-typing-summary">'+[...new Set(state.presence.filter(person=>person.is_typing&&person.typing_message_id).map(person=>person.typing_name||person.pl_name))].map(esc).join('と')+'が入力中……</span>':typingEntries.map(entry=>entry.html).join(''))+'</div>'},...rest)}
       let cursor=list.firstElementChild;
       for(const entry of entries){
         let node=existing.get(entry.key);

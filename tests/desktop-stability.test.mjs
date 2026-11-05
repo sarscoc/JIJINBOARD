@@ -10,7 +10,7 @@ test('PC supplement can retry after failure, survive repaint requests and reopen
  let state={items:{pc:{comment:'old',commentPosition:'top',x:31}}},draws=0,writes=0,fail=true;
  w.appState=()=>structuredClone(state);w.saveJSON=(_,value)=>{state=structuredClone(value)};w.STATE='s';w.saveCurrentTemplateState=()=>{};w.currentTemplateId=()=> 'tpl';w.activeCommentEditor={box:w.document.createElement('div')};w.items=[{id:'pc'}];w.renderPlaced=()=>draws++;w.openInlineCommentEditor=()=>{throw Error('retired editor must not run')};
  w.matrixBoardContext={boardId:'b',async savePoint(id,item,note){writes++;assert.equal(note,true);assert.equal(item.baseComment,'old');if(fail)throw Error('offline');return true}};
- w.eval(source('matrix/desktop-notes.js'));const el=w.document.querySelector('.placed');w.openInlineCommentEditor('pc',el);let field=el.querySelector('textarea');field.value='new';field.dispatchEvent(new w.Event('input'));
+ w.eval(source('matrix/desktop-notes.js'));const el=w.document.querySelector('.placed');w.openInlineCommentEditor('pc',el);let field=el.querySelector('textarea');assert.equal(el.querySelector('select').hidden,true);assert.equal(el.querySelectorAll('.comment-direction-btn').length,4);el.querySelector('.dir-left').click();assert.equal(el.querySelector('select').value,'left');assert.equal(el.querySelector('.dir-left').hidden,true);field.value='new';field.dispatchEvent(new w.Event('input'));
  w.renderPlaced();assert.equal(draws,0);assert.ok(field.isConnected);w.openInlineCommentEditor('pc',el);assert.equal(el.querySelector('textarea'),field);
  field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await tick();assert.equal(field.disabled,false);assert.ok(field.isConnected);assert.match(el.querySelector('[role=status]').textContent,/offline/);assert.equal(state.items.pc.comment,'old');
  fail=false;field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));await tick();assert.equal(writes,2);assert.equal(state.items.pc.comment,'new');assert.equal(state.items.pc.x,31);assert.equal(el.querySelector('textarea'),null);assert.equal(w.activeCommentEditor,null);
@@ -42,7 +42,7 @@ test('PC supplement conflict keeps the draft and requires checking the latest no
  w.appState=()=>structuredClone(state);w.saveJSON=(_,s)=>state=structuredClone(s);w.STATE='s';w.saveCurrentTemplateState=()=>{};w.currentTemplateId=()=> 't';w.renderPlaced=()=>{};w.openInlineCommentEditor=()=>{};w.items=[];
  w.matrixBoardContext={async savePoint(id,item){if(conflict)throw Object.assign(Error('updated'),{status:409,point:{comment:'remote',commentPosition:'left'}});assert.equal(item.baseComment,'remote');return true}};
  w.eval(source('matrix/desktop-notes.js'));w.openInlineCommentEditor('pc',w.document.querySelector('.placed'));const field=w.document.querySelector('textarea');field.value='draft';field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await tick();assert.equal(field.value,'draft');assert.equal(field.disabled,false);assert.equal(state.items.pc.comment,'old');
- w.document.querySelector('button').click();assert.equal(field.value,'remote');assert.equal(state.items.pc.comment,'remote');conflict=false;field.value='my next edit';field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await tick();assert.equal(state.items.pc.comment,'my next edit');assert.equal(w.document.querySelector('textarea'),null);
+ w.document.querySelector('.note-conflict-latest').click();assert.equal(field.value,'remote');assert.equal(state.items.pc.comment,'remote');conflict=false;field.value='my next edit';field.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true}));await tick();assert.equal(state.items.pc.comment,'my next edit');assert.equal(w.document.querySelector('textarea'),null);
 });
 
 test('PC presence order survives a peer disconnect and rejoin without swapping other people',async t=>{
@@ -61,4 +61,11 @@ test('PC display never presents a cached icon from an older image signature',t=>
  const w=page(t);w.eval(source('shared/desktop-ui.js'));w.imageBlobUrls=new Map([['pc','blob:old']]);w.imageCacheMeta=new Map([['pc',{signature:'old'}]]);w.stableRemoteImageKey=s=>s;
  const code=source('matrix/index.html'),start=code.indexOf('function displayImage(it){'),end=code.indexOf('\n}',start)+2;w.eval(code.slice(start,end));
  assert.equal(w.displayImage({id:'pc',imageSignature:'new',baseImage:'/new.png'}),'/new.png');w.imageCacheMeta.set('pc',{signature:'new'});w.imageBlobUrls.set('pc','blob:new');assert.equal(w.displayImage({id:'pc',imageSignature:'new',baseImage:'/new.png'}),'blob:new');
+});
+
+test('PC comment emphasis closes outside cards and markers',t=>{
+ const w=page(t,'<div class="comment-card focused">comment</div><mark data-ann="c">marker</mark><button id="outside">outside</button>');w.eval(source('shared/desktop-ui.js'));
+ w.document.querySelector('mark').click();assert.ok(w.document.querySelector('.comment-card').classList.contains('focused'));
+ w.document.querySelector('.comment-card').click();assert.ok(w.document.querySelector('.comment-card').classList.contains('focused'));
+ w.document.getElementById('outside').click();assert.equal(w.document.querySelector('.focused'),null);
 });
