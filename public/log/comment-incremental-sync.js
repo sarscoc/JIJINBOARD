@@ -47,6 +47,7 @@
   function insertAnnotation(annotation){
     if(!annotation?.id||state.annotations.some(a=>a.id===annotation.id))return;
     state.annotations.push(annotation);updateCount();
+    if(window.JijinDesktop){renderComments();refreshMarkerView();return}
     const list=commentsList();if(!list)return;
     list.querySelector(':scope > .empty')?.remove();
     if(annotation.parent_id){

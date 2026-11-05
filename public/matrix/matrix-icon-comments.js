@@ -183,7 +183,7 @@
       if(target.templateId)return target.templateId===tid;
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
-const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
+const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(!window.JijinDesktop&&c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});const roots=window.JijinDesktop?visibleComments.slice().sort(window.JijinDesktop.newest):visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
   const changes=JijinSync.ledger();let cacheVersion=0;
   const load=JijinComments.loader(async()=>{
     const c=ctx();if(!c||!commentRoom())return null;

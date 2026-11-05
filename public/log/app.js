@@ -186,7 +186,7 @@ function annotationMarkerColor(annotation){
   return markerColor(current.color);
 }
 function markedText(message, anns) {
-  if (!anns?.length) return JijinLogFormat.render(message.text,[],{compactBlankLines:!!message.diceroll});
+  if (!anns?.length) return JijinLogFormat.render(message.text,[],{compactBlankLines:!!message.diceroll||!!window.JijinDesktop});
   const indexes = new Map(state.room.messages.map((m,i)=>[m.id,i])), messageIndex=indexes.get(message.id);
   const ranges = [...anns].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(a => {
     const startIndex=indexes.get(a.message_id),endIndex=indexes.get(a.end_message_id||a.message_id)??startIndex;
@@ -202,7 +202,7 @@ function markedText(message, anns) {
         if(previous&&previous.winner?.id===winner?.id&&previous.end===start)previous.end=end;
         else segments.push({start,end,winner});
       }
-      return JijinLogFormat.render(message.text,segments,{compactBlankLines:!!message.diceroll});
+      return JijinLogFormat.render(message.text,segments,{compactBlankLines:!!message.diceroll||!!window.JijinDesktop});
 }
 function markerColor(value){const pair=String(value||"").split("|");value=pair[document.documentElement.classList.contains("dark")&&pair.length>1?1:0];return /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(value||"")?value:"#ffe66b"}
 function messageHtml(m, grouped) {

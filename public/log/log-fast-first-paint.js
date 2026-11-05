@@ -39,7 +39,7 @@
 
   if(typeof markedText==="function"){
     markedText=function(message,annotations){
-      if(!annotations?.length)return JijinLogFormat.render(message.text,[],{compactBlankLines:!!message.diceroll});
+      if(!annotations?.length)return JijinLogFormat.render(message.text,[],{compactBlankLines:!!message.diceroll||!!window.JijinDesktop});
       ensureIndexes();
       const current=messageIndex.get(message.id);
       const ranges=[...annotations].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(annotation=>{
@@ -61,7 +61,7 @@
         if(previous&&previous.winner?.id===winner?.id&&previous.end===start)previous.end=end;
         else segments.push({start,end,winner});
       }
-      return JijinLogFormat.render(message.text,segments,{compactBlankLines:!!message.diceroll});
+      return JijinLogFormat.render(message.text,segments,{compactBlankLines:!!message.diceroll||!!window.JijinDesktop});
     };
   }
 

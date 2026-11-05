@@ -34,15 +34,15 @@
       const order=new Map(messages.map((message,index)=>[message.id,index]));
       const messageTabs=new Map(messages.map(message=>[message.id,message.tab]));
       const annotationIds=new Set(state.annotations.map(annotation=>annotation.id));
-      const annotations=[...state.annotations].sort((a,b)=>(order.get(a.message_id)??Infinity)-(order.get(b.message_id)??Infinity)||a.start_offset-b.start_offset||String(a.created_at).localeCompare(String(b.created_at)));
+      const annotations=[...state.annotations].sort(window.JijinDesktop?window.JijinDesktop.newest:(a,b)=>(order.get(a.message_id)??Infinity)-(order.get(b.message_id)??Infinity)||a.start_offset-b.start_offset||String(a.created_at).localeCompare(String(b.created_at)));
       const children=new Map();
       annotations.forEach(annotation=>{
-        if(!annotation.parent_id)return;
+        if(window.JijinDesktop||!annotation.parent_id)return;
         const items=children.get(annotation.parent_id)||[];
         items.push(annotation);
         children.set(annotation.parent_id,items);
       });
-      const roots=annotations.filter(annotation=>!annotation.parent_id||!annotationIds.has(annotation.parent_id));
+      const roots=window.JijinDesktop?annotations:annotations.filter(annotation=>!annotation.parent_id||!annotationIds.has(annotation.parent_id));
       const typing=state.presence.filter(person=>person.is_typing&&person.typing_message_id).map(person=>({typing:true,message_id:person.typing_message_id,person}));
       const items=[...typing,...roots.map(annotation=>({annotation,message_id:annotation.message_id}))];
       return{items,children,messageTabs};

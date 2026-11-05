@@ -154,11 +154,12 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
   }
   const rosterKey=`board:${encodeURIComponent(boardId)}:presence`;
   let rosterOrder=[];
+  if(window.JijinDesktop)try{rosterOrder=JSON.parse(localStorage.getItem(rosterKey+':order')||'[]')}catch{}
   function draw(people,cached=false){
     const bar=document.querySelector('#presenceBar');if(!bar)return;
     const valid=(people||[]).filter(person=>String(person.pl_name||'').trim()&&!String(person.author_id||'').startsWith('visitor:'));
     const byId=new Map(valid.map(person=>[String(person.author_id||person.pl_name),person]));
-    const ids=[...rosterOrder.filter(id=>byId.has(id)),...[...byId.keys()].filter(id=>!rosterOrder.includes(id))];rosterOrder=ids;
+    const ids=[...rosterOrder.filter(id=>byId.has(id)),...[...byId.keys()].filter(id=>!rosterOrder.includes(id))];if(window.JijinDesktop){rosterOrder=[...new Set([...rosterOrder,...ids])];try{localStorage.setItem(rosterKey+':order',JSON.stringify(rosterOrder))}catch{}}else rosterOrder=ids;
     const existing=new Map([...bar.children].map(node=>[node.dataset.authorId,node]));
     for(const node of [...bar.children])if(!byId.has(node.dataset.authorId))node.remove();
     ids.forEach((id,index)=>{

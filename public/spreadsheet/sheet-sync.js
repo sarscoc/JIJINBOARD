@@ -2,6 +2,12 @@
   const pageParams=new URL(location.href).searchParams;
   const board=pageParams.get('board');if(!board)return;
   const embedded=pageParams.get('embedded')==='1';
+  const personalView=!!window.JijinDesktop,viewKey=`desktop-sheet-view:${encodeURIComponent(board)}`;
+  let sharedMainMode;
+  const readPersonalView=()=>{try{return localStorage.getItem(viewKey)||JSON.parse(localStorage.getItem('charaHub.layoutV1')||'{}').mainMode||'database'}catch{return 'database'}};
+  if(personalView&&!localStorage.getItem(viewKey))localStorage.setItem(viewKey,readPersonalView());
+  const rememberRemoteView=remote=>{if(personalView)sharedMainMode=remote?.['charaHub.layoutV1']?.mainMode};
+
   let boardActive=!embedded;
 
   const keys=['charaHub.characters','charaHub.sources','charaHub.layoutV1'];
@@ -30,6 +36,8 @@
       return next;
     });
     out['charaHub.layoutV1']=input?.['charaHub.layoutV1']??{};
+    if(personalView){out['charaHub.layoutV1']={...out['charaHub.layoutV1']};if(sharedMainMode===undefined)delete out['charaHub.layoutV1'].mainMode;else out['charaHub.layoutV1'].mainMode=sharedMainMode;}
+
     return out;
   }
 
@@ -91,6 +99,7 @@
   const rawSetItem=Storage.prototype.setItem;
   Storage.prototype.setItem=function(key,value){
     const name=String(key);
+    if(personalView&&!applyingRemote&&this===localStorage&&name==='charaHub.layoutV1'){const mode=parse(name,value)?.mainMode;if(['database','characters'].includes(mode))rawSetItem.call(localStorage,viewKey,mode)}
     if(this===localStorage&&name==='charaHub.layoutV1'&&window.sheetDisplaySettings?.isEditing?.()){
       value=JSON.stringify(window.sheetDisplaySettings.snapshotLayout(parse(name,value)));
     }
@@ -110,7 +119,9 @@
   };
 
   function applyRemote(remote){
-    const clean=sanitizeSnapshot(remote||{}),serial=JSON.stringify(clean);
+    rememberRemoteView(remote);
+    const clean=sanitizeSnapshot(remote||{}),serial=JSON.stringify(clean),localView=personalView?readPersonalView():null;
+    if(personalView)clean['charaHub.layoutV1']={...clean['charaHub.layoutV1'],mainMode:localView};
     applyingRemote=true;
     try{
       invalidateItemCache();
@@ -134,6 +145,7 @@
   const refreshState=JijinSync.loader(()=>api(endpoint,{cache:'no-store'}),result=>{
     if(!canApplyRemote())return;
     lastRemoteRevision=result.revision??null;
+    rememberRemoteView(result.state);
     const clean=sanitizeSnapshot(result.state||{}),serial=JSON.stringify(clean);
     if(serial!==lastRemoteSerial&&serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
     remoteDirty=false;
@@ -188,7 +200,7 @@
     let remote=null;
     try{
       const result=await pending;
-      remote=result.state;lastRemoteRevision=result.revision??null;
+      remote=result.state;rememberRemoteView(remote);lastRemoteRevision=result.revision??null;
       if(remote!==null&&(typeof remote!=='object'||Array.isArray(remote)))throw Error('保存データを読み込めませんでした');
       const cleanRemote=sanitizeSnapshot(remote||{});
       // Server absence and empty snapshots both discard cached data. Never migrate it back.

@@ -134,8 +134,8 @@
       const id=`participant:${person.authorId}:${person.personaId}`,image=preferredImage(person),fallback=fallbackImage(person);
       if(!state.items[id]){state.items[id]=clone(savedItemState(id))||makeLocalItemState(id);stateChanged=true}
       const placedImage=String(state.items[id]?.placedImage||"");
-      const displayImage=placedImage||image;
-      return{id,name:person.name,url:"",baseImage:displayImage,imageFallback:fallback||displayImage,placementImage:person.serverIcon||image||fallback,imageSignature:`participant:${person.personaId}:${displayImage}:${fallback}`,color:/^#[0-9a-f]{6}$/i.test(person.textColor||'')?person.textColor:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
+      const displayImage=window.JijinDesktop?image:placedImage||image;
+      return{id,name:person.name,url:"",baseImage:displayImage,imageFallback:fallback||displayImage,placementImage:window.JijinDesktop?(image||fallback):(person.serverIcon||image||fallback),imageSignature:`participant:${person.personaId}:${displayImage}:${fallback}`,color:/^#[0-9a-f]{6}$/i.test(person.textColor||'')?person.textColor:null,order:null,ownerId:person.authorId,personaId:person.personaId,local:state.items[id]};
     });
     if(stateChanged)saveState(state);
     paintParticipants();
