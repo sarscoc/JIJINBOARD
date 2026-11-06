@@ -90,3 +90,9 @@ html body #sheetComments .sheet-comments-head strong{font-weight:700!important}
 
 html.jijin-desktop body #sheetComments .comment-card{border-left-color:var(--comment-marker,var(--sheet-line))!important}
 html.jijin-desktop body #sheetComments .comment-card:is(:hover,.focused){border-color:var(--comment-marker,var(--sheet-line))!important;background:color-mix(in srgb,var(--comment-marker) 22%,var(--paper,#fff))!important}
+
+/* Phone comments use the same speaker marker as desktop, within the mobile layout. */
+@media(max-width:760px){
+  html body #sheetComments .comment-card{border-left-color:var(--comment-marker,var(--sheet-line))!important}
+  html body #sheetComments .comment-card:is(:hover,.focused){border-color:var(--comment-marker,var(--sheet-line))!important;background:color-mix(in srgb,var(--comment-marker) 22%,var(--paper,#fff))!important}
+}
