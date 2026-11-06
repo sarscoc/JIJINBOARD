@@ -5188,10 +5188,18 @@ function currentTemplateUiScale(state=appState()){
   const base=commonTemplateScaleBase(state,geom.visible.width);
   return Math.max(.05,Math.min(20,geom.visible.width/base));
 }
+function applyPlacedTextSizes(el,display,scale=1){
+  if(!window.JijinDesktop)return;
+  const divisor=Math.max(.05,Number(scale)||1);
+  const name=el.querySelector(':scope > .placed-name'),comment=el.querySelector(':scope > .placed-comment');
+  if(name)name.style.fontSize=((Number(display.nameFontSize)||13)/divisor)+'px';
+  if(comment)comment.style.fontSize=((Number(display.commentFontSize)||10)/divisor)+'px';
+}
 function updatePlacedTemplateScale(){
-  const scale=currentTemplateUiScale();
+  const scale=currentTemplateUiScale(),display=appState().display||{};
   document.querySelectorAll('#templateOverlay > .placed').forEach(el=>{
     el.style.transform=`translate(-50%,-50%) scale(${scale})`;
+    applyPlacedTextSizes(el,display,scale);
   });
 }
 let templateOverlaySyncRaf=0;
@@ -5362,6 +5370,7 @@ function renderPlaced(){
     el.addEventListener('pointerdown',e=>startPlacedDrag(e,it.id,el));
     setupPlacedClickBehavior(el,it.id);
 
+    applyPlacedTextSizes(el,d,uiScale);
     parent.appendChild(el);
   });
 
@@ -6066,9 +6075,9 @@ async function exportFinalImage(){
     const nameOutline={width:getNameOutlineWidth(d)*uiRenderScale,color:getNameOutlineColor(d)};
     const commentOutline={width:getCommentOutlineWidth(d)*uiRenderScale,color:getCommentOutlineColor(d)};
     const defaultIconSize=px(d.iconSize||72);
-    const nameFontSize=px(d.nameFontSize||13)*uiRenderScale;
+    const nameFontSize=px(d.nameFontSize||13)*(window.JijinDesktop?renderScale:uiRenderScale);
     const nameLineHeight=nameFontSize*1.2;
-    const commentFontSize=(px(d.commentFontSize||10))*uiRenderScale;
+    const commentFontSize=(px(d.commentFontSize||10))*(window.JijinDesktop?renderScale:uiRenderScale);
     /* v105: mirror the live .placed-comment CSS exactly enough that long text wraps in the same place. */
     const commentLineHeight=commentFontSize*1.15;
     const commentGap=0;
