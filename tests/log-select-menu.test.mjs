@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 const source=readFileSync(new URL('../public/log/log-select-menu.js',import.meta.url),'utf8');
 function fixture(t){
- const dom=new JSDOM('<div class="filters"><select id="viewMode"><option value="compact">通常</option><option value="timeline">共有時間軸モード</option></select><select id="tabFilter"><option>メイン</option><option>情報</option></select></div>',{url:'https://test/log/',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.eval(source);return w;
+ const dom=new JSDOM('<div class="filters"><select id="viewMode"><option value="compact">通常</option><option value="timeline">共有時間軸モード</option></select><select id="tabFilter" data-select-menu><option>メイン</option><option>情報</option></select></div>',{url:'https://test/log/',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.eval(source);return w;
 }
 test('custom log choices keep native change handlers and update options after shared tab changes',async t=>{
  const w=fixture(t),select=w.document.getElementById('tabFilter'),trigger=w.document.getElementById('tabFilterTrigger');let calls=0;select.onchange=()=>calls++;

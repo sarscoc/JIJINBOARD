@@ -3,7 +3,7 @@
 // the scrolling toolbar so its border and options cannot be clipped by it.
 (()=>{
  let active=null;
- for(const select of document.querySelectorAll('#viewMode,#tabFilter,[data-select-menu]')){
+ for(const select of document.querySelectorAll('#viewMode,[data-select-menu]')){
   if(select.dataset.prettySelect)continue;
   const id=select.id;
   select.dataset.prettySelect='1';select.hidden=true;

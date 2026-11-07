@@ -22,21 +22,14 @@
     throw failure;
   }
 
-  function preferredTab(roomId,tabs){
-    let saved='';try{saved=localStorage.getItem(`mainTab:${roomId}`)||''}catch{}
-    return tabs.includes(saved)?saved:(tabs.find(tab=>/^メイン$/i.test(tab))||tabs[0]||'');
-  }
-
   async function firstStreamedRoom(roomId){
     const cached=parentCache?.get(roomId);if(cached?.stream?.streamed&&Array.isArray(cached.stream.tabStreams)&&Array.isArray(cached.messages))return cached;
     try{
-      let savedTab='';
-      if(window.JijinDesktop){try{savedTab=localStorage.getItem(`mainTab:${roomId}`)||''}catch{}}
-      const metaQuery=window.JijinDesktop?`?${new URLSearchParams({firstTab:savedTab})}`:'';
+      const metaQuery=window.JijinDesktop?'?firstTab=':'';
       const metaResponse=await streamFetch(streamPath(roomId,'meta')+metaQuery);if(!metaResponse.ok)throw new Error('stream unavailable');
       const meta=await metaResponse.json();
       if(meta.chunkCount===0)return null;
-      const allTabs=Array.isArray(meta.tabs)?meta.tabs:[],hidden=new Set(window.JijinDesktop?(meta.tabStreams||[]).filter(info=>info.hidden).map(info=>info.tabName):[]),tabs=allTabs.filter(tab=>!hidden.has(tab)),tab=preferredTab(roomId,tabs),loadedByTab={};
+      const allTabs=Array.isArray(meta.tabs)?meta.tabs:[],hidden=new Set(window.JijinDesktop?(meta.tabStreams||[]).filter(info=>info.hidden).map(info=>info.tabName):[]),tabs=allTabs.filter(tab=>!hidden.has(tab)),tab=tabs.find(name=>name==="メイン")||tabs[0]||"",loadedByTab={};
       let messages=[];
       if(meta.first?.tab===tab){
         messages=meta.first.messages;loadedByTab[tab]=[0];
