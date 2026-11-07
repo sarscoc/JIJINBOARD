@@ -80,7 +80,7 @@ export async function createStreamRoom(request,env){
 }
 
 // An interrupted legacy upload could leave tab rows and files without a chunk index.
-async function unindexedMessages(env,roomId,logId,tabs){
+async function unindexedChunks(env,roomId,logId,tabs){
   const prefix=`rooms/${roomId}/logs/${logId}/tabs/`,names=new Map(tabs.map(tab=>[tab.tab_id,tab.tab_name]));
   const objects=[];
   let cursor;
@@ -89,18 +89,21 @@ async function unindexedMessages(env,roomId,logId,tabs){
     objects.push(...page.objects);
     cursor=page.truncated?page.cursor:undefined;
   }while(cursor);
-  const chunks=objects.flatMap(({key})=>{
+  return objects.flatMap(({key})=>{
     if(!key.startsWith(prefix))return [];
-    const match=key.slice(prefix.length).match(/^([^/]+)\/chunk-\d+\.json$/);
-    return match&&names.has(match[1])?[{chunk_r2_key:key,tab:names.get(match[1])}]:[];
+    const match=key.slice(prefix.length).match(/^([^/]+)\/chunk-(\d+)\.json$/);
+    return match&&names.has(match[1])&&Number(match[2])>0?[{chunk_r2_key:key,tabId:match[1],tab:names.get(match[1]),index:Number(match[2])-1}]:[];
   });
-  return (await mapConcurrent(chunks,IO_CONCURRENCY,chunk=>readChunk(env,chunk,chunk.tab))).flat();
 }
 
 async function directChunk(request,env,logId,index){
   const url=new URL(request.url),requestedTab=url.searchParams.get('tab')||'',requestedTabId=url.searchParams.get('tabId')||'';if(!requestedTab&&!requestedTabId)return json({error:'tab is required'},400);
   const where=requestedTabId?'t.tab_id=?':'t.tab_name=?',value=requestedTabId?requestedTabId:requestedTab;
-  const row=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,c.chunk_r2_key FROM log_tab t JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? AND ${where} AND c.chunk_index=? LIMIT 1`).bind(logId,value,index).first();
+  let row=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,c.chunk_r2_key FROM log_tab t JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? AND ${where} AND c.chunk_index=? LIMIT 1`).bind(logId,value,index).first();
+  if(!row&&url.searchParams.get('recovered')==='1'){
+    const tab=await env.DB.prepare(`SELECT l.room_id,t.tab_id,t.tab_name FROM log_tab t JOIN log l ON l.log_id=t.log_id WHERE t.log_id=? AND ${where} LIMIT 1`).bind(logId,value).first();
+    if(tab)row={...tab,chunk_r2_key:chunkKey(tab.room_id,logId,tab.tab_id,index)};
+  }
   if(!row)return json({index,tab:requestedTab,tabId:requestedTabId,messages:[]});
   const messages=await readChunk(env,row,row.tab_name),response=json({index,tab:row.tab_name,tabId:row.tab_id,messages});
   response.headers.set('cache-control','private, max-age=31536000, immutable');return response;
@@ -110,21 +113,42 @@ export async function handleLogStream(request,env,logId,action,arg){
   if(request.method!=='GET')return json({error:'Method not allowed'},405);
   if(action==='chunk'){const index=Math.max(0,Number.parseInt(arg,10)||0);return directChunk(request,env,logId,index)}
   const row=await logRow(env,logId);if(!row)return json({error:'部屋が見つかりません'},404);
-  if(action==='meta'){
-    const tabs=await tabRows(env,logId),items=tabs.map(tab=>({tabId:tab.tab_id,tabName:tab.tab_name,order:Number(tab.tab_sort_order)||0,hidden:!!tab.tab_hidden,chunkCount:Number(tab.chunk_count)||0,messageCount:null}));
-    return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs:items.map(item=>item.tabName),messageCount:null,chunkSize:CHUNK_SIZE,chunkCount:items.reduce((sum,item)=>sum+item.chunkCount,0),tabStreams:items,streamed:true});
-  }
   const tabs=await tabRows(env,logId);
+  const indexed=tabs.some(tab=>Number(tab.chunk_count)>0);
+  if(action==='meta'){
+    const items=tabs.map(tab=>({tabId:tab.tab_id,tabName:tab.tab_name,order:Number(tab.tab_sort_order)||0,hidden:!!tab.tab_hidden,chunkCount:Number(tab.chunk_count)||0,messageCount:null}));
+    const firstTab=new URL(request.url).searchParams.get('firstTab');
+    let first=null;
+    if(firstTab!==null){
+      if(!indexed){
+        const recovered=await unindexedChunks(env,row.room_id,logId,tabs);
+        for(const item of items){
+          item.recoveredIndexes=recovered.filter(chunk=>chunk.tabId===item.tabId).map(chunk=>chunk.index).sort((a,b)=>a-b);
+          item.chunkCount=item.recoveredIndexes.length;
+        }
+      }
+      const visible=items.filter(item=>!item.hidden);
+      const preferred=visible.find(item=>item.tabName===firstTab)||visible.find(item=>item.tabName==='メイン')||visible[0];
+      if(preferred){
+        const chunk=preferred.recoveredIndexes
+          ? (preferred.chunkCount?{chunk_r2_key:chunkKey(row.room_id,logId,preferred.tabId,preferred.recoveredIndexes[0])}:null)
+          : (await chunkRows(env,preferred.tabId))[0];
+        first={tab:preferred.tabName,messages:chunk?await readChunk(env,chunk,preferred.tabName):[]};
+      }
+    }
+    return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs:items.map(item=>item.tabName),messageCount:null,chunkSize:CHUNK_SIZE,chunkCount:items.reduce((sum,item)=>sum+item.chunkCount,0),tabStreams:items,streamed:true,first});
+  }
   if(action==='full'){
     let messages=[];
-    if(tabs.some(tab=>Number(tab.chunk_count)>0)){
+    if(indexed){
       for(const tab of tabs){
         const chunks=await chunkRows(env,tab.tab_id);
         const parts=await mapConcurrent(chunks,IO_CONCURRENCY,chunk=>readChunk(env,chunk,tab.tab_name));
         for(const part of parts)messages.push(...part);
       }
     }else{
-      messages=await unindexedMessages(env,row.room_id,logId,tabs);
+      const chunks=await unindexedChunks(env,row.room_id,logId,tabs);
+      messages=(await mapConcurrent(chunks,IO_CONCURRENCY,chunk=>readChunk(env,chunk,chunk.tab))).flat();
       if(!messages.length)return json({error:'このログの本文が保存先に見つかりません。元のファイルから追加し直してください。'},404);
     }
     messages.sort((a,b)=>(Number(a.sourceIndex)||0)-(Number(b.sourceIndex)||0));return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs:tabs.map(tab=>tab.tab_name),messages});

@@ -24,12 +24,17 @@
   async function firstStreamedRoom(roomId){
     const cached=parentCache?.get(roomId);if(cached?.stream?.streamed&&Array.isArray(cached.stream.tabStreams)&&Array.isArray(cached.messages))return cached;
     try{
-      const metaResponse=await streamFetch(streamPath(roomId,'meta'));if(!metaResponse.ok)throw new Error('stream unavailable');
+      let savedTab='';
+      if(window.JijinDesktop){try{savedTab=localStorage.getItem(`mainTab:${roomId}`)||''}catch{}}
+      const metaQuery=window.JijinDesktop?`?${new URLSearchParams({firstTab:savedTab})}`:'';
+      const metaResponse=await streamFetch(streamPath(roomId,'meta')+metaQuery);if(!metaResponse.ok)throw new Error('stream unavailable');
       const meta=await metaResponse.json();
       if(meta.chunkCount===0)return null;
       const allTabs=Array.isArray(meta.tabs)?meta.tabs:[],hidden=new Set(window.JijinDesktop?(meta.tabStreams||[]).filter(info=>info.hidden).map(info=>info.tabName):[]),tabs=allTabs.filter(tab=>!hidden.has(tab)),tab=preferredTab(roomId,tabs),loadedByTab={};
       let messages=[];
-      if(tab){
+      if(meta.first?.tab===tab){
+        messages=meta.first.messages;loadedByTab[tab]=[0];
+      }else if(tab){
         const response=await streamFetch(chunkUrl(roomId,0,tab));if(!response.ok)throw new Error('stream unavailable');
         const chunk=await response.json();messages=Array.isArray(chunk.messages)?chunk.messages:[];loadedByTab[tab]=[0];
       }
@@ -86,7 +91,9 @@
     const key=`${tab}\n${index}`;if(inFlight.has(key))return inFlight.get(key);
     const task=(async()=>{
       try{
-        const response=await streamFetch(chunkUrl(roomId,index,tab));if(!response.ok)return false;
+        const recovered=streamInfo(tab)?.recoveredIndexes;
+        const path=chunkUrl(roomId,recovered?.[index]??index,tab);
+        const response=await streamFetch(recovered?path+'&recovered=1':path);if(!response.ok)return false;
         const data=await response.json();if(!Array.isArray(data.messages))throw Error("ログの応答形式が正しくありません");const messages=data.messages;
         if(streamState()!==stream||String(state.roomId||startupRoom)!==String(roomId))return false;
         state.room.messages=mergeMessages(state.room.messages||[],messages);stream.loadedByTab||={};stream.loadedByTab[tab]=[...new Set([...loadedSet(tab),index])].sort((a,b)=>a-b);remember();
@@ -106,6 +113,7 @@
     button.addEventListener('click',()=>{button.remove();pump()});scroll.append(button);
   }
   function paintMore(){
+    if(window.JijinDesktop&&state.viewMode!=='timeline'&&window.JijinVirtualLog?.append())return;
     const scroll=activeScroll(),top=scroll?.scrollTop||0,tab=activeTab();
     let anchor=typeof currentReadingTime==='function'?currentReadingTime():'';
     if(state.viewMode==='timeline'&&anchor.startsWith('@slot:'))anchor=decodeURIComponent(anchor.slice(anchor.indexOf('|')+1));
@@ -143,7 +151,7 @@
     }
   }
   window.JijinLogWaitForFirstTab=function(){
-    if(!window.JijinDesktop||!streamState())return;
+    if(!window.JijinDesktop||!streamState()||(state.viewMode!=='timeline'&&window.JijinVirtualLog))return;
     const tab=activeTab();
     if(!tab||!streamInfo(tab))return;
     const pending=state.viewMode==='timeline'
@@ -162,7 +170,7 @@
     });
   };
 
-  async function ensureActiveTab(){if(window.JijinDesktop){const tab=activeTab();if(tab&&!loadedSet(tab).has(0)){await loadChunk(0,tab,{render:false});paintMore()}}return pump()}
+  async function ensureActiveTab(){if(window.JijinDesktop){const tab=activeTab();if(tab&&!loadedSet(tab).has(0)){await loadChunk(0,tab,{render:false});paintMore()}else if(state.viewMode!=='timeline')window.JijinVirtualLog?.append()}return pump()}
   async function loadNextIfNeeded(){return pump()}
   function bindScroll(){document.querySelectorAll('.log-page .page-scroll').forEach(scroll=>{if(scroll.dataset.jijinChunkStream)return;scroll.dataset.jijinChunkStream='1';scroll.addEventListener('scroll',()=>loadNextIfNeeded().catch(()=>{}),{passive:true})})}
 

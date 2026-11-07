@@ -143,12 +143,38 @@
     return result;
   };
 
+  const compactRows='<div class="virtual-spacer-top" aria-hidden="true"></div><div class="virtual-rows"></div><div class="virtual-spacer-bottom" aria-hidden="true"></div>';
+  window.JijinVirtualLog={
+    append(){
+      const panels=[...document.querySelectorAll('.log-page[data-virtual-key]')];
+      if(!panels.length)return false;
+      const updates=panels.map(panel=>{
+        const meta=metaFor(panel),scroll=panel.querySelector('.page-scroll');
+        if(meta?.mode!=='compact'||!scroll)return null;
+        const items=state.room.messages.filter(m=>m.tab===meta.tab&&matchesSearch(m,meta.search));
+        return {panel,meta,scroll,items};
+      });
+      if(updates.some(update=>!update||update.meta.items.some((message,index)=>message!==update.items[index])))return false;
+      for(const {panel,meta,scroll,items} of updates){
+        if(items.length===meta.items.length)continue;
+        meta.heights.push(...items.slice(meta.items.length).map(compactEstimate));
+        meta.items=items;
+        meta.prefix=null;
+        if(!scroll.querySelector('.virtual-rows'))scroll.innerHTML=compactRows;
+        mountPanel(panel);
+        updateSpacers(panel,meta);
+        scheduleWindow(panel);
+      }
+      return true;
+    }
+  };
+
   pagePanelHtml = function(tab, realIndex, trackIndex, grouped, search, clone = "") {
     if (state.archiveMode) return originalPagePanelHtml(tab, realIndex, trackIndex, grouped, search, clone);
     const items = state.room.messages.filter(m => m.tab === tab && matchesSearch(m, search));
     const key = `${state.virtualGeneration}:compact:${trackIndex}`;
     state.virtualPanels.set(key, { mode: "compact", tab, grouped, search, items, heights: items.map(compactEstimate), prefix: null, start: 0, end: 0, frame: 0 });
-    const body = items.length ? '<div class="virtual-spacer-top" aria-hidden="true"></div><div class="virtual-rows"></div><div class="virtual-spacer-bottom" aria-hidden="true"></div>' : tabPending(tab,search) ? '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>' : '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>';
+    const body = items.length ? compactRows : tabPending(tab,search) ? '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>' : '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>';
     return `<section class="log-page virtual-page" data-virtual-key="${key}" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll">${body}</div></section>`;
   };
 

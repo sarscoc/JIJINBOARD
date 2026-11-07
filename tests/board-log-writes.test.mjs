@@ -70,6 +70,10 @@ test('a log with no chunk index reads remaining files, and reports when none are
   async get(requested){assert.equal(requested,key);return {text:async()=>JSON.stringify({lines:[{line_id:'m1',message_body:'Hello'}]})}}
  }};
  const request=new Request('https://test/api/rooms/l');
+ const first=await handleLogStream(new Request(request.url+'?firstTab=Main'),env,'l','meta');
+ const meta=await first.json();
+ assert.deepEqual(meta.tabStreams[0].recoveredIndexes,[0]);
+ assert.deepEqual(meta.first.messages.map(message=>message.id),['m1']);
  const response=await handleLogStream(request,env,'l','full');
  assert.deepEqual((await response.json()).messages.map(message=>[message.id,message.tab,message.text]),[['m1','Main','Hello']]);
  exists=false;
