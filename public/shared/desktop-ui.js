@@ -23,7 +23,10 @@
  html.jijin-desktop :is(#sheetComments .comment-card,.matrix-comment-card).focused{background:color-mix(in srgb,var(--comment-marker,var(--mark,#edbadb)) 22%,var(--paper,#fff))!important;border-color:var(--comment-marker,var(--mark))!important;box-shadow:-5px 0 0 var(--comment-marker,var(--mark))!important;transform:translateX(-3px)}
  html.jijin-desktop .desktop-typing-summary{display:block;padding:8px 10px;font:11px/1.5 system-ui;color:var(--muted,#9a869f);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
- html.jijin-desktop :is(.typing-status-stack,.matrix-typing-stack,.desktop-typing-summary){display:flex!important;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto}
+ html.jijin-desktop :is(.typing-status-stack,.matrix-typing-stack):not(:empty){display:flex!important;flex-direction:column;align-items:stretch;gap:6px;min-width:0}
+ html.jijin-desktop .desktop-typing-summary{display:flex!important;align-items:center;gap:6px;flex-wrap:nowrap;overflow-x:auto}
+ html.jijin-desktop :is(.typing-comment,.matrix-typing)>b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ html.jijin-desktop :is(.typing-comment,.matrix-typing)>:is(em,i){flex:none;white-space:nowrap}
  html.jijin-desktop :is(.typing-comment,.matrix-typing,.desktop-typing-person){flex:0 0 auto;display:flex;align-items:center;gap:4px;padding:6px 8px;border:1px solid var(--line,#eadfec);border-radius:12px;background:var(--paper,#fff);font:10px/1.5 system-ui;color:var(--muted,#9a869f)}
  html.jijin-desktop .desktop-typing-person em{font-style:normal;font-size:9px}
  html.jijin-desktop #logNavigationStatus:not(:empty){padding:7px 10px;border:1px solid var(--line,#eadfec)}
