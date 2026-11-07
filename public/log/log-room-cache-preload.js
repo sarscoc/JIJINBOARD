@@ -123,6 +123,7 @@
         for(const nextTab of tabs){
           if(window.JijinDesktop){while(state.room===startRoom){const count=Number(streamInfo(nextTab)?.chunkCount)||0,missing=Array.from({length:count},(_,i)=>i).filter(i=>!loadedSet(nextTab).has(i)).slice(0,3);if(!missing.length)break;const results=await Promise.all(missing.map(i=>loadChunk(i,nextTab,{render:false})));if(state.room!==startRoom)return;if(results.some(Boolean)&&(activeTab()===nextTab||state.viewMode==='timeline'))changed=true;if(results.some(ok=>!ok))throw Error('ログの続きが取得できませんでした')}
             if(changed&&state.viewMode!=='timeline'){paintMore();changed=false}
+            if(nextTab===tab&&state.viewMode!=='timeline')dispatchEvent(new CustomEvent('jijin-log-tab-painted',{detail:tab}));
             continue}
           for(let next=nextChunkIndex(nextTab);next>=0;next=nextChunkIndex(nextTab)){
             if(state.room!==startRoom||(!needsAll&&activeTab()!==tab))return;
@@ -131,7 +132,7 @@
         }
       }catch(error){failed=true;console.warn('Log continuation failed',error)}
       finally{
-        if(state.room===startRoom){if(changed)paintMore();if(failed)showRetry()}
+        if(state.room===startRoom){if(changed)paintMore();if(failed)showRetry();if(window.JijinDesktop)dispatchEvent(new CustomEvent('jijin-log-tab-painted',{detail:tab}))}
       }
     })();pumping=task;
     try{await task}finally{
@@ -141,6 +142,26 @@
       if(restart)queueMicrotask(()=>pump(allNext));
     }
   }
+  window.JijinLogWaitForFirstTab=function(){
+    if(!window.JijinDesktop||!streamState())return;
+    const tab=activeTab();
+    if(!tab||!streamInfo(tab))return;
+    const pending=state.viewMode==='timeline'
+      ? streamState().tabStreams.some(info=>state.room.tabs.includes(info.tabName)&&!allLoaded(info.tabName))
+      : !allLoaded(tab);
+    if(!pending)return;
+    return new Promise(resolve=>{
+      const done=()=>{
+        clearTimeout(timer);
+        removeEventListener('jijin-log-tab-painted',onPaint);
+        resolve();
+      };
+      const onPaint=event=>{if(event.detail===tab)done()};
+      const timer=setTimeout(done,1800);
+      addEventListener('jijin-log-tab-painted',onPaint);
+    });
+  };
+
   async function ensureActiveTab(){if(window.JijinDesktop){const tab=activeTab();if(tab&&!loadedSet(tab).has(0)){await loadChunk(0,tab,{render:false});paintMore()}}return pump()}
   async function loadNextIfNeeded(){return pump()}
   function bindScroll(){document.querySelectorAll('.log-page .page-scroll').forEach(scroll=>{if(scroll.dataset.jijinChunkStream)return;scroll.dataset.jijinChunkStream='1';scroll.addEventListener('scroll',()=>loadNextIfNeeded().catch(()=>{}),{passive:true})})}

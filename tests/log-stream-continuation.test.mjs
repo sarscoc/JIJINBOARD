@@ -40,3 +40,23 @@ test('PC missing-message navigation uses chunk loading, reports failure and igno
 test('PC respects server-hidden tabs during the first paint and background loading',async t=>{
  const {w,requests}=await fixture(t,{desktop:true,hidden:true});assert.deepEqual([...w.state.room.tabs],['メイン']);assert.equal(w.state.room.messages.length,3);assert.ok(!requests.some(path=>path.includes('tab='+encodeURIComponent('情報'))));
 });
+
+test('desktop first paint waits for the opening tab without waiting for other tabs',async t=>{
+ const dom=new JSDOM('<div class="log-page" data-track-index="1" data-real-index="0"><div class="page-scroll"></div></div>',{url:'https://test/log/?room=log',runScripts:'outside-only'});
+ const w=dom.window;t.after(()=>w.close());
+ w.JijinDesktop={};w.Request=Request;w.Response=Response;
+ w.state={roomId:'log',room:{id:'log',tabs:['Main','Other'],messages:[],stream:{streamed:true,tabStreams:[{tabName:'Main',chunkCount:2},{tabName:'Other',chunkCount:1}],loadedByTab:{Main:[0]}}},carouselPosition:1,activeTabIndex:0,viewMode:'compact'};
+ let releaseMain,releaseOther,painted=0,ready=false;
+ const main=new Promise(resolve=>{releaseMain=resolve}),other=new Promise(resolve=>{releaseOther=resolve});
+ t.after(()=>{releaseMain();releaseOther()});
+ w.renderLog=()=>{painted++};
+ w.fetch=async url=>{await (String(url).includes('tab=Main')?main:other);return Response.json({messages:[]})};
+ w.eval(code);
+ const first=w.JijinLogWaitForFirstTab().then(()=>{ready=true});
+ w.dispatchEvent(new w.Event('DOMContentLoaded'));
+ await tick();assert.equal(ready,false);
+ releaseMain();await first;
+ assert.equal(painted,1);
+ assert.equal(w.state.room.stream.loadedByTab.Other,undefined);
+ releaseOther();await tick();
+});

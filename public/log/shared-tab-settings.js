@@ -5,7 +5,6 @@
 (() => {
   let pending = null;
   let retryTimer = null;
-  let lastSignature = "";
 
   function unique(values) {
     return [...new Set((values || []).map(value => String(value || "").trim()).filter(Boolean))];
@@ -43,9 +42,7 @@
     let visible = ordered.filter(tab => !hidden.has(tab));
     if (!visible.length && ordered.length) visible = [ordered[0]];
 
-    const signature = JSON.stringify([pending.roomId, visible, [...hidden]]);
-    if (signature === lastSignature && JSON.stringify(state.room.tabs || []) === JSON.stringify(visible)) return;
-    lastSignature = signature;
+    if (JSON.stringify(state.room.tabs || []) === JSON.stringify(visible)) return;
 
     const currentTab = state.room.tabs?.[state.activeTabIndex] || "";
     state.room.tabs = visible;

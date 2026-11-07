@@ -18,11 +18,11 @@
   function send(){
     if(sent||queued||!domReady||!themeReady||!contentReady())return;
     queued=true;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    Promise.resolve(window.JijinLogWaitForFirstTab?.()).then(()=>requestAnimationFrame(()=>requestAnimationFrame(()=>{
       queued=false;if(sent||!contentReady())return;
       sent=true;observer?.disconnect();
       parent.postMessage({type:'jijinboard-log-ready',roomId},location.origin);
-    }));
+    })));
   }
   addEventListener("jijinboard-log-theme-ready",()=>{themeReady=true;send()});
   function watch(){

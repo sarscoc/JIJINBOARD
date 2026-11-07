@@ -145,10 +145,14 @@ async function openRoom(id) {
     state.activeTabIndex=Math.max(0,room.tabs.indexOf(previousTab||loadedTab||state.mainTab));
     renderLog(); renderComments(); $("#roomStatus").textContent = "";
     };
-    paintRoom(cached||await fresh);
+    // An embedded desktop reader reveals one snapshot. Keep the local copy
+    // available if the current response cannot be fetched.
+    const stableStartup=!!window.JijinDesktop&&integrationEmbedded;
+    const initialRoom=stableStartup?await fresh.catch(error=>{if(cached)return cached;throw error}):cached||await fresh;
+    paintRoom(initialRoom);
     fresh.then(room=>{
       logTextCache.write(id,room);
-      if(cached&&state.roomId===id&&JSON.stringify(cached)!==JSON.stringify(room))paintRoom(room);
+      if(!stableStartup&&cached&&state.roomId===id&&JSON.stringify(cached)!==JSON.stringify(room))paintRoom(room);
     }).catch(error=>{if(state.roomId===id)$("#roomStatus").textContent=error.message});
     connectRealtime();
     if (!state.profile.plName) openProfile();
