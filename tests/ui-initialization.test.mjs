@@ -100,6 +100,16 @@ for(const tool of ['board','log','matrix','spreadsheet'])test(`${tool}: executin
     const timelineRows=w.document.querySelector('.log-page[data-track-index="1"]').querySelectorAll('.timeline-slot');
     assert.equal(timelineRows.length,2);assert.ok(timelineRows[1].classList.contains('empty-slot'));
     assert.ok(parseFloat(timelineRows[1].style.height)>110,'long messages in another tab need their full shared blank height');
+    w.eval("state.roomId='log';toggleTabVisibility(1)");
+    const dimmedTab=d.querySelector('.tab-rail [data-tab-index="1"]');
+    assert.ok(dimmedTab.classList.contains('tab-hidden'));
+    assert.equal(d.querySelector('.log-page[data-real-index="1"]'),null);
+    assert.deepEqual(JSON.parse(w.localStorage.getItem('hiddenTabs:log')),['info']);
+    dimmedTab.click();
+    assert.equal(w.eval('state.activeTabIndex'),0);
+    dimmedTab.dispatchEvent(new w.MouseEvent('dblclick',{bubbles:true}));
+    assert.ok(!d.querySelector('.tab-rail [data-tab-index="1"]').classList.contains('tab-hidden'));
+    assert.deepEqual(JSON.parse(w.localStorage.getItem('hiddenTabs:log')),[]);
   }
   assert.deepEqual(errors,[]);
 });
