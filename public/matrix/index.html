@@ -6233,37 +6233,45 @@ function applyPaneWidth(px){
   ws.style.setProperty('grid-template-columns',`${width}px 12px minmax(0,1fr)`,'important');
   scheduleTemplateOverlaySync();
 }
+const libraryWidthKey='magiaMatrix.libraryWidth.v1';
 function restorePaneWidth(){
-  applyPaneWidth(appState().libraryWidth||300);
+  if($("#splitter")?.classList.contains("dragging"))return;
+  applyPaneWidth(localStorage.getItem(libraryWidthKey)||300);
 }
 function setupSplitter(){
   const splitter=$('#splitter');
-  let active=false;
-  const move=e=>{
-    if(!active)return;
-    const ws=$('#workspace').getBoundingClientRect();
-    applyPaneWidth(e.clientX-ws.left);
-  };
-  const end=()=>{
-    if(!active)return;
-    active=false;
+  let drag=null;
+
+  splitter.addEventListener('pointerdown',e=>{
+    if(e.button!==0||drag)return;
+    e.preventDefault();
+    drag={id:e.pointerId,x:e.clientX,width:$('#workspace .library').getBoundingClientRect().width,moved:false};
+    splitter.setPointerCapture(e.pointerId);
+    splitter.classList.add('dragging');
+  });
+  splitter.addEventListener('pointermove',e=>{
+    if(e.pointerId!==drag?.id)return;
+    const delta=e.clientX-drag.x;
+    if(!drag.moved&&Math.abs(delta)<4)return;
+    drag.moved=true;
+    applyPaneWidth(drag.width+delta);
+  });
+
+  function finish(e,save){
+    if(e.pointerId!==drag?.id)return;
+    const {moved}=drag;
+    drag=null;
     splitter.classList.remove('dragging');
-    const cols=getComputedStyle($('#workspace')).gridTemplateColumns.split(' ');
-    const width=parseFloat(cols[0])||300;
-    mutate(s=>s.libraryWidth=width);
+    if(!moved)return;
+    if(save)localStorage.setItem(libraryWidthKey,String($('#workspace .library').getBoundingClientRect().width));
+    else restorePaneWidth();
     syncTemplateOverlayRect();
     updatePlacedTemplateScale();
     syncLegacyCoordsFromTemplate();
-    window.removeEventListener('pointermove',move);
-    window.removeEventListener('pointerup',end);
-  };
-  splitter.addEventListener('pointerdown',e=>{
-    e.preventDefault();
-    active=true;
-    splitter.classList.add('dragging');
-    window.addEventListener('pointermove',move);
-    window.addEventListener('pointerup',end);
-  });
+  }
+  splitter.addEventListener('pointerup',e=>finish(e,true));
+  splitter.addEventListener('pointercancel',e=>finish(e,false));
+  splitter.addEventListener('lostpointercapture',e=>finish(e,false));
 }
 
 /* display settings */
