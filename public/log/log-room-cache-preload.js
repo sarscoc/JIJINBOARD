@@ -4,6 +4,12 @@
   let parentCache=null;if(params.get('embedded')==='1'&&parent!==window){try{if(!(parent.__jijinLogRoomCache instanceof Map))parent.__jijinLogRoomCache=new Map();parentCache=parent.__jijinLogRoomCache}catch{}}
   const nativeFetch=window.fetch.bind(window),jsonResponse=data=>new Response(JSON.stringify(data),{status:200,headers:{'content-type':'application/json; charset=utf-8'}}),streamPath=(roomId,suffix)=>`/api/rooms/${encodeURIComponent(roomId)}/stream/${suffix}`;
   const inFlight=new Map();let installed=false,initialAnnotationsStarted=false;
+  let cacheDirty=false;
+  function persistProgress(room){
+    if(!cacheDirty||state.room!==room||typeof logTextCache==='undefined')return;
+    cacheDirty=false;
+    logTextCache.write(room.id,room);
+  }
   const chunkUrl=(roomId,index,tab)=>`${streamPath(roomId,`chunk/${index}`)}?tab=${encodeURIComponent(tab||'')}`;
 
   async function streamFetch(path){
@@ -96,7 +102,7 @@
         const response=await streamFetch(recovered?path+'&recovered=1':path);if(!response.ok)return false;
         const data=await response.json();if(!Array.isArray(data.messages))throw Error("ログの応答形式が正しくありません");const messages=data.messages;
         if(streamState()!==stream||String(state.roomId||startupRoom)!==String(roomId))return false;
-        state.room.messages=mergeMessages(state.room.messages||[],messages);stream.loadedByTab||={};stream.loadedByTab[tab]=[...new Set([...loadedSet(tab),index])].sort((a,b)=>a-b);remember();
+        state.room.messages=mergeMessages(state.room.messages||[],messages);stream.loadedByTab||={};stream.loadedByTab[tab]=[...new Set([...loadedSet(tab),index])].sort((a,b)=>a-b);cacheDirty=true;remember();
         if(window.JijinDesktop&&typeof renderComments==='function')renderComments();
         if(render&&activeTab()===tab&&typeof renderLog==='function')renderLog(typeof currentReadingTime==='function'?currentReadingTime():'');
         return true;
@@ -131,7 +137,10 @@
         for(const nextTab of tabs){
           if(window.JijinDesktop){while(state.room===startRoom){const count=Number(streamInfo(nextTab)?.chunkCount)||0,missing=Array.from({length:count},(_,i)=>i).filter(i=>!loadedSet(nextTab).has(i)).slice(0,3);if(!missing.length)break;const results=await Promise.all(missing.map(i=>loadChunk(i,nextTab,{render:false})));if(state.room!==startRoom)return;if(results.some(Boolean)&&(activeTab()===nextTab||state.viewMode==='timeline'))changed=true;if(results.some(ok=>!ok))throw Error('ログの続きが取得できませんでした')}
             if(changed&&state.viewMode!=='timeline'){paintMore();changed=false}
-            if(nextTab===tab&&state.viewMode!=='timeline')dispatchEvent(new CustomEvent('jijin-log-tab-painted',{detail:tab}));
+            if(nextTab===tab){
+              persistProgress(startRoom);
+              if(state.viewMode!=='timeline')dispatchEvent(new CustomEvent('jijin-log-tab-painted',{detail:tab}));
+            }
             continue}
           for(let next=nextChunkIndex(nextTab);next>=0;next=nextChunkIndex(nextTab)){
             if(state.room!==startRoom||(!needsAll&&activeTab()!==tab))return;
@@ -140,7 +149,7 @@
         }
       }catch(error){failed=true;console.warn('Log continuation failed',error)}
       finally{
-        if(state.room===startRoom){if(changed)paintMore();if(failed)showRetry();if(window.JijinDesktop)dispatchEvent(new CustomEvent('jijin-log-tab-painted',{detail:tab}))}
+        if(state.room===startRoom){persistProgress(startRoom);if(changed)paintMore();if(failed)showRetry();if(window.JijinDesktop)dispatchEvent(new CustomEvent('jijin-log-tab-painted',{detail:tab}))}
       }
     })();pumping=task;
     try{await task}finally{
@@ -170,7 +179,7 @@
     });
   };
 
-  async function ensureActiveTab(){if(window.JijinDesktop){const tab=activeTab();if(tab&&!loadedSet(tab).has(0)){await loadChunk(0,tab,{render:false});paintMore()}else if(state.viewMode!=='timeline')window.JijinVirtualLog?.append()}return pump()}
+  async function ensureActiveTab(){if(window.JijinDesktop){const tab=activeTab();if(tab&&!loadedSet(tab).has(0)){await loadChunk(0,tab,{render:false});persistProgress(state.room);paintMore()}else if(state.viewMode!=='timeline')window.JijinVirtualLog?.append()}return pump()}
   async function loadNextIfNeeded(){return pump()}
   function bindScroll(){document.querySelectorAll('.log-page .page-scroll').forEach(scroll=>{if(scroll.dataset.jijinChunkStream)return;scroll.dataset.jijinChunkStream='1';scroll.addEventListener('scroll',()=>loadNextIfNeeded().catch(()=>{}),{passive:true})})}
 

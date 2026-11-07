@@ -105,6 +105,7 @@ async function deleteOwnedRoom(id,title){if(!confirm(`「${title}」を完全に
 // Persistent browser cache for every opened log; shared comments remain server-backed.
 const logTextCache=(()=>{
   let opening;
+  const generation=()=>localStorage.getItem('jijin.dataset.generation.v1');
   function db(){return opening||=(new Promise((resolve,reject)=>{
     const request=indexedDB.open("jijinboard-log-text-v1",1);
     request.onupgradeneeded=()=>request.result.createObjectStore("logs",{keyPath:"id"});
@@ -112,12 +113,12 @@ const logTextCache=(()=>{
   })).catch(()=>null)}
   async function read(id){try{const database=await db();if(!database)return null;return await new Promise(resolve=>{
     const request=database.transaction("logs").objectStore("logs").get(id);
-    request.onsuccess=()=>resolve(request.result?.data||null);
+    request.onsuccess=()=>{const entry=request.result;resolve((entry?.generation??null)===generation()?entry?.data||null:null)};
     request.onerror=()=>resolve(null);
   })}catch{return null}}
   async function write(id,data){try{const database=await db();if(!database)return;
     const tx=database.transaction("logs","readwrite");
-    tx.objectStore("logs").put({id,data,savedAt:Date.now()});
+    tx.objectStore("logs").put({id,data,generation:generation(),savedAt:Date.now()});
   }catch{}}
   return {read,write};
 })();
@@ -127,9 +128,17 @@ async function openRoom(id) {
   $("#roomStatus").textContent = "ログを読み込んでいます…";
   try {
     const comments=refreshAnnotations().catch(error=>console.warn("Comment loading failed",error));
-    const fresh=api(`/api/rooms/${encodeURIComponent(id)}`);
-    // A blocked browser database must never delay the network path.
-    const cached=await Promise.race([logTextCache.read(id),fresh.then(()=>null,()=>null),new Promise(resolve=>setTimeout(()=>resolve(null),80))]);
+    const localFirst=!!window.JijinDesktop&&integrationEmbedded;
+    const readRoom=()=>api(`/api/rooms/${encodeURIComponent(id)}`);
+    let fresh=localFirst?null:readRoom();
+    // Bound the cache lookup so a blocked browser database cannot hold startup.
+    const cached=await Promise.race([
+      logTextCache.read(id),
+      ...(fresh?[fresh.then(()=>null,()=>null)]:[]),
+      new Promise(resolve=>setTimeout(()=>resolve(null),localFirst?180:80))
+    ]);
+    const localRoom=localFirst&&cached?.id===id&&cached.tabs?.length&&cached.messages?.length?cached:null;
+    if(!localRoom)fresh||=readRoom();
     const paintRoom=room=>{
     const previousTab=state.room?.tabs?.[state.activeTabIndex];
     state.room=room;
@@ -145,14 +154,10 @@ async function openRoom(id) {
     state.activeTabIndex=Math.max(0,room.tabs.indexOf(previousTab||loadedTab||state.mainTab));
     renderLog(); renderComments(); $("#roomStatus").textContent = "";
     };
-    // An embedded desktop reader reveals one snapshot. Keep the local copy
-    // available if the current response cannot be fetched.
-    const stableStartup=!!window.JijinDesktop&&integrationEmbedded;
-    const initialRoom=stableStartup?await fresh.catch(error=>{if(cached)return cached;throw error}):cached||await fresh;
-    paintRoom(initialRoom);
-    fresh.then(room=>{
+    paintRoom(localFirst?(localRoom||await fresh):cached||await fresh);
+    fresh?.then(room=>{
       logTextCache.write(id,room);
-      if(!stableStartup&&cached&&state.roomId===id&&JSON.stringify(cached)!==JSON.stringify(room))paintRoom(room);
+      if(!localFirst&&cached&&state.roomId===id&&JSON.stringify(cached)!==JSON.stringify(room))paintRoom(room);
     }).catch(error=>{if(state.roomId===id)$("#roomStatus").textContent=error.message});
     connectRealtime();
     if (!state.profile.plName) openProfile();

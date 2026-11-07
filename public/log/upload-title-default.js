@@ -47,6 +47,8 @@
 
   function applySharedMode(mode){
     mode=mode==="dark"?"dark":"light";
+    if(roomId&&window.JijinDesktop)try{localStorage.setItem(`theme:${roomId}`,mode)}catch{}
+    if(window.__jijinLogThemeReady&&document.documentElement.classList.contains("dark")===(mode==="dark"))return;
     if(typeof applyTheme==="function")applyTheme(mode);
     else document.documentElement.classList.toggle("dark",mode==="dark");
     window.__jijinLogThemeReady=true;
@@ -59,6 +61,8 @@
   });
 
   if(roomId){
+    const saved=window.JijinDesktop?localStorage.getItem(`theme:${roomId}`):null;
+    if(saved==="dark"||saved==="light")applySharedMode(saved);
     fetch(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}/display-mode`,{signal:AbortSignal.timeout(6000)})
       .then(response=>response.ok?response.json():null)
       .then(data=>applySharedMode(data?.displayMode||localStorage.getItem(`theme:${roomId}`)))
