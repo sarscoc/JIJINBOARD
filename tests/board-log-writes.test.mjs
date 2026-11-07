@@ -2,6 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {handleRoomLogMeta} from '../src/room-log-meta.js';
+import {createStreamRoom,handleLogStream} from "../src/log-stream.js";
 import {tokenHash} from "../src/data-model.js";
 
 const board = readFileSync(new URL('../public/board/board2.js',import.meta.url),'utf8');
@@ -43,4 +44,34 @@ test('log deletion commits before waiting for file cleanup',async()=>{
   assert.match(batches[0][1],/DELETE FROM log/);
   assert.equal(tasks.length,1);
  }finally{release({objects:[],truncated:false});await Promise.all(tasks)}
+});
+
+test('an upload publishes the log and its chunk index together after writing the files',async()=>{
+ const events=[];
+ const hash=await tokenHash('test-token');
+ const DB={
+  prepare(sql){return {sql,bind(){return this},async first(){
+   return sql.includes('room_admin_token_hash')?{room_admin_token_hash:hash}:{value:-1};
+  }}},
+  async batch(statements){events.push(statements.map(statement=>statement.sql.match(/INSERT INTO (\w+)/)[1]))}
+ };
+ const env={DB,LOGS:{async put(){events.push('body stored')}}};
+ const request=new Request('https://test/api/rooms',{method:'POST',headers:{'x-board-admin-token':'test-token'},body:JSON.stringify({boardId:'b',messages:[{id:'m1',text:'Hello'}]})});
+ assert.equal((await createStreamRoom(request,env)).status,201);
+ assert.deepEqual(events,['body stored',['log','log_tab','log_chunk']]);
+});
+
+test('a log with no chunk index reads remaining files, and reports when none are left',async()=>{
+ const key='rooms/b/logs/l/tabs/t/chunk-0001.json';
+ const DB={prepare(sql){return {bind(){return this},async first(){return {log_id:'l',room_id:'b'}},async all(){return {results:[{tab_id:'t',tab_name:'Main',chunk_count:0}]}}}}};
+ let exists=true;
+ const env={DB,LOGS:{
+  async list({prefix}){assert.equal(prefix,'rooms/b/logs/l/tabs/');return {objects:exists?[{key}]:[]}},
+  async get(requested){assert.equal(requested,key);return {text:async()=>JSON.stringify({lines:[{line_id:'m1',message_body:'Hello'}]})}}
+ }};
+ const request=new Request('https://test/api/rooms/l');
+ const response=await handleLogStream(request,env,'l','full');
+ assert.deepEqual((await response.json()).messages.map(message=>[message.id,message.tab,message.text]),[['m1','Main','Hello']]);
+ exists=false;
+ assert.equal((await handleLogStream(request,env,'l','full')).status,404);
 });

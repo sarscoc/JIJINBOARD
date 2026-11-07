@@ -59,10 +59,10 @@
   });
 
   if(roomId){
-    fetch(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}/display-mode`)
+    fetch(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}/display-mode`,{signal:AbortSignal.timeout(6000)})
       .then(response=>response.ok?response.json():null)
-      .then(data=>{if(data)applySharedMode(data.displayMode)})
-      .catch(()=>{});
+      .then(data=>applySharedMode(data?.displayMode||localStorage.getItem(`theme:${roomId}`)))
+      .catch(()=>{window.__jijinLogThemeReady=true;window.dispatchEvent(new Event("jijinboard-log-theme-ready"))});
   }else{
     const anchor=document.querySelector("#scenarioTitleInput")?.closest(".spoiler-details");
     if(anchor&&!document.getElementById("jijinRoomDisplayMode")){

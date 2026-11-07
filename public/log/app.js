@@ -131,6 +131,7 @@ async function openRoom(id) {
     // A blocked browser database must never delay the network path.
     const cached=await Promise.race([logTextCache.read(id),fresh.then(()=>null,()=>null),new Promise(resolve=>setTimeout(()=>resolve(null),80))]);
     const paintRoom=room=>{
+    const previousTab=state.room?.tabs?.[state.activeTabIndex];
     state.room=room;
     rememberRecentRoom(state.room);
     state.hiddenTabs=new Set(JSON.parse(localStorage.getItem(`hiddenTabs:${id}`)||"[]").filter(tab=>state.room.tabs.includes(tab)));
@@ -140,6 +141,8 @@ async function openRoom(id) {
     $("#tabFilter").innerHTML='';
     state.room.tabs.forEach(tab => $("#tabFilter").insertAdjacentHTML("beforeend", `<option>${esc(tab)}</option>`));
     const savedMain=localStorage.getItem(`mainTab:${id}`);state.mainTab=state.room.tabs.includes(savedMain)?savedMain:(state.room.tabs.find(tab=>/^メイン$/i.test(tab))||state.room.tabs[0]||"");$("#tabFilter").value=state.mainTab;
+    const loadedTab=Object.keys(room.stream?.loadedByTab||{})[0];
+    state.activeTabIndex=Math.max(0,room.tabs.indexOf(previousTab||loadedTab||state.mainTab));
     renderLog(); renderComments(); $("#roomStatus").textContent = "";
     };
     paintRoom(cached||await fresh);

@@ -3,7 +3,6 @@ import { randomToken,verifyRoomAdmin,deleteR2Prefix } from './data-model.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const CHUNK_SIZE=120;
 const IO_CONCURRENCY=8;
-const DB_BATCH_SIZE=50;
 const padChunk=index=>String(index+1).padStart(4,'0');
 const chunkKey=(roomId,logId,tabId,index)=>`rooms/${roomId}/logs/${logId}/tabs/${tabId}/chunk-${padChunk(index)}.json`;
 const originalKey=(roomId,logId)=>`rooms/${roomId}/logs/${logId}/original.html`;
@@ -25,10 +24,11 @@ const messageFromLine=(line,tabName)=>({
 async function mapConcurrent(items,limit,worker){
   const results=new Array(items.length);let cursor=0;
   async function run(){while(true){const index=cursor++;if(index>=items.length)return;results[index]=await worker(items[index],index)}}
-  await Promise.all(Array.from({length:Math.min(Math.max(1,limit),items.length)},run));
+  const workers=await Promise.allSettled(Array.from({length:Math.min(Math.max(1,limit),items.length)},run));
+  const failed=workers.find(result=>result.status==='rejected');
+  if(failed)throw failed.reason;
   return results;
 }
-async function runBatches(env,statements,size=DB_BATCH_SIZE){for(let i=0;i<statements.length;i+=size)await env.DB.batch(statements.slice(i,i+size))}
 async function logRow(env,logId){return env.DB.prepare('SELECT log_id,room_id,log_name,created_at FROM log WHERE log_id=?').bind(logId).first()}
 async function tabRows(env,logId){const result=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,t.tab_sort_order,t.tab_hidden,COUNT(c.chunk_id) AS chunk_count FROM log_tab t LEFT JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? GROUP BY t.tab_id ORDER BY t.tab_sort_order,t.created_at`).bind(logId).all();return result.results||[]}
 async function chunkRows(env,tabId){const result=await env.DB.prepare('SELECT chunk_id,chunk_index,chunk_r2_key FROM log_chunk WHERE tab_id=? ORDER BY chunk_index').bind(tabId).all();return result.results||[]}
@@ -60,19 +60,41 @@ export async function createStreamRoom(request,env){
   const last=await env.DB.prepare('SELECT COALESCE(MAX(log_sort_order),-1) AS value FROM log WHERE room_id=?').bind(parentRoomId).first();
   const html=typeof body.originalHtml==='string'?body.originalHtml:'',htmlKey=html?originalKey(parentRoomId,id):null;
   try{
-    await env.DB.prepare('INSERT INTO log(log_id,room_id,log_name,scenario_title,scenario_participants,spoiler_enabled,log_sort_order,log_display_mode,original_html_key) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,parentRoomId,title,scenarioTitle,scenarioParticipants,spoiler,Number(last?.value)+1,displayMode,htmlKey).run();
-    await runBatches(env,plannedTabs.map(tab=>env.DB.prepare('INSERT INTO log_tab(tab_id,log_id,tab_name,tab_sort_order) VALUES(?,?,?,?)').bind(tab.tabId,id,tab.tabName,tab.order)));
-
     const htmlUpload=html?env.LOGS.put(htmlKey,html,{httpMetadata:{contentType:'text/html; charset=utf-8'},customMetadata:{roomId:parentRoomId,logId:id}}):Promise.resolve();
     const chunkUpload=mapConcurrent(plannedChunks,IO_CONCURRENCY,async chunk=>{
       const lines=chunk.messages.map((message,offset)=>lineFromMessage(message,chunk.index*CHUNK_SIZE+offset)),key=chunkKey(parentRoomId,id,chunk.tabId,chunk.index),chunkId=randomToken(16);
       await env.LOGS.put(key,JSON.stringify({tab_id:chunk.tabId,tab_name:chunk.tabName,chunk_index:chunk.index,lines}),{httpMetadata:{contentType:'application/json; charset=utf-8'},customMetadata:{roomId:parentRoomId,logId:id,tabId:chunk.tabId,chunk:String(chunk.index),lineCount:String(lines.length)}});
       return env.DB.prepare('INSERT INTO log_chunk(chunk_id,tab_id,chunk_index,chunk_r2_key) VALUES(?,?,?,?)').bind(chunkId,chunk.tabId,chunk.index,key);
     });
-    const [,chunkStatements]=await Promise.all([htmlUpload,chunkUpload]);
-    if(chunkStatements.length)await runBatches(env,chunkStatements);
+    const [htmlResult,chunkResult]=await Promise.allSettled([htmlUpload,chunkUpload]);
+    if(htmlResult.status==='rejected')throw htmlResult.reason;
+    if(chunkResult.status==='rejected')throw chunkResult.reason;
+    const chunkStatements=chunkResult.value;
+    await env.DB.batch([
+      env.DB.prepare('INSERT INTO log(log_id,room_id,log_name,scenario_title,scenario_participants,spoiler_enabled,log_sort_order,log_display_mode,original_html_key) VALUES(?,?,?,?,?,?,?,?,?)').bind(id,parentRoomId,title,scenarioTitle,scenarioParticipants,spoiler,Number(last?.value)+1,displayMode,htmlKey),
+      ...plannedTabs.map(tab=>env.DB.prepare('INSERT INTO log_tab(tab_id,log_id,tab_name,tab_sort_order) VALUES(?,?,?,?)').bind(tab.tabId,id,tab.tabName,tab.order)),
+      ...chunkStatements
+    ]);
     return json({id,adminToken,title,roomId:parentRoomId},201);
   }catch(error){await deleteR2Prefix(env.LOGS,`rooms/${parentRoomId}/logs/${id}/`).catch(()=>{});await env.DB.prepare('DELETE FROM log WHERE log_id=?').bind(id).run().catch(()=>{});return json({error:`ログの保存に失敗しました: ${String(error?.message||error).slice(0,180)}`},500)}
+}
+
+// An interrupted legacy upload could leave tab rows and files without a chunk index.
+async function unindexedMessages(env,roomId,logId,tabs){
+  const prefix=`rooms/${roomId}/logs/${logId}/tabs/`,names=new Map(tabs.map(tab=>[tab.tab_id,tab.tab_name]));
+  const objects=[];
+  let cursor;
+  do{
+    const page=await env.LOGS.list({prefix,cursor});
+    objects.push(...page.objects);
+    cursor=page.truncated?page.cursor:undefined;
+  }while(cursor);
+  const chunks=objects.flatMap(({key})=>{
+    if(!key.startsWith(prefix))return [];
+    const match=key.slice(prefix.length).match(/^([^/]+)\/chunk-\d+\.json$/);
+    return match&&names.has(match[1])?[{chunk_r2_key:key,tab:names.get(match[1])}]:[];
+  });
+  return (await mapConcurrent(chunks,IO_CONCURRENCY,chunk=>readChunk(env,chunk,chunk.tab))).flat();
 }
 
 async function directChunk(request,env,logId,index){
@@ -94,7 +116,18 @@ export async function handleLogStream(request,env,logId,action,arg){
   }
   const tabs=await tabRows(env,logId);
   if(action==='full'){
-    const messages=[];for(const tab of tabs){const chunks=await chunkRows(env,tab.tab_id),parts=await mapConcurrent(chunks,IO_CONCURRENCY,chunk=>readChunk(env,chunk,tab.tab_name));for(const part of parts)messages.push(...part)}messages.sort((a,b)=>(Number(a.sourceIndex)||0)-(Number(b.sourceIndex)||0));return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs:tabs.map(tab=>tab.tab_name),messages});
+    let messages=[];
+    if(tabs.some(tab=>Number(tab.chunk_count)>0)){
+      for(const tab of tabs){
+        const chunks=await chunkRows(env,tab.tab_id);
+        const parts=await mapConcurrent(chunks,IO_CONCURRENCY,chunk=>readChunk(env,chunk,tab.tab_name));
+        for(const part of parts)messages.push(...part);
+      }
+    }else{
+      messages=await unindexedMessages(env,row.room_id,logId,tabs);
+      if(!messages.length)return json({error:'このログの本文が保存先に見つかりません。元のファイルから追加し直してください。'},404);
+    }
+    messages.sort((a,b)=>(Number(a.sourceIndex)||0)-(Number(b.sourceIndex)||0));return json({id:row.log_id,title:row.log_name,createdAt:row.created_at,tabs:tabs.map(tab=>tab.tab_name),messages});
   }
   if(action==='find'){
     const messageId=decodeURIComponent(String(arg||''));if(!messageId)return json({error:'message id is required'},400);let globalIndex=0;

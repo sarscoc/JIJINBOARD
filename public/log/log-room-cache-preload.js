@@ -25,7 +25,9 @@
     const cached=parentCache?.get(roomId);if(cached?.stream?.streamed&&Array.isArray(cached.stream.tabStreams)&&Array.isArray(cached.messages))return cached;
     try{
       const metaResponse=await streamFetch(streamPath(roomId,'meta'));if(!metaResponse.ok)throw new Error('stream unavailable');
-      const meta=await metaResponse.json(),allTabs=Array.isArray(meta.tabs)?meta.tabs:[],hidden=new Set(window.JijinDesktop?(meta.tabStreams||[]).filter(info=>info.hidden).map(info=>info.tabName):[]),tabs=allTabs.filter(tab=>!hidden.has(tab)),tab=preferredTab(roomId,tabs),loadedByTab={};
+      const meta=await metaResponse.json();
+      if(meta.chunkCount===0)return null;
+      const allTabs=Array.isArray(meta.tabs)?meta.tabs:[],hidden=new Set(window.JijinDesktop?(meta.tabStreams||[]).filter(info=>info.hidden).map(info=>info.tabName):[]),tabs=allTabs.filter(tab=>!hidden.has(tab)),tab=preferredTab(roomId,tabs),loadedByTab={};
       let messages=[];
       if(tab){
         const response=await streamFetch(chunkUrl(roomId,0,tab));if(!response.ok)throw new Error('stream unavailable');
@@ -35,7 +37,7 @@
       parentCache?.set(roomId,room);return room;
     }catch(error){
       console.warn('Chunked log fallback',error);
-      const response=await nativeFetch(`/api/rooms/${encodeURIComponent(roomId)}`);return response.ok?response.json():null;
+      return null;
     }
   }
 
@@ -59,7 +61,7 @@
     const annotationMatch=url.pathname.match(/^\/api\/rooms\/([^/]+)\/annotations$/);
     if(annotationMatch&&decodeURIComponent(annotationMatch[1])===startupRoom){const fast=deferInitialAnnotations(input,init,url,startupRoom);if(fast)return fast}
     const match=url.pathname.match(/^\/api\/rooms\/([^/]+)$/);
-    if(match&&!url.search){const roomId=decodeURIComponent(match[1]),room=await firstStreamedRoom(roomId);return room?jsonResponse(room):nativeFetch(input,init)}
+    if(match&&!url.search){const roomId=decodeURIComponent(match[1]),room=await firstStreamedRoom(roomId);return room?jsonResponse(room):nativeFetch(input,{...init,signal:init.signal||AbortSignal.timeout(20000)})}
     return nativeFetch(input,init);
   };
 
@@ -108,7 +110,7 @@
     let anchor=typeof currentReadingTime==='function'?currentReadingTime():'';
     if(state.viewMode==='timeline'&&anchor.startsWith('@slot:'))anchor=decodeURIComponent(anchor.slice(anchor.indexOf('|')+1));
     if(typeof renderLog==='function')renderLog(anchor);
-    if(state.viewMode!=='timeline')requestAnimationFrame(()=>requestAnimationFrame(()=>{if(activeTab()===tab&&activeScroll())activeScroll().scrollTop=top}));
+    if(state.viewMode!=='timeline')queueMicrotask(()=>{if(activeTab()===tab&&activeScroll())activeScroll().scrollTop=top});
   }
   async function pump(all=false){
     if(!streamState())return;
@@ -119,7 +121,9 @@
     const task=(async()=>{
       try{
         for(const nextTab of tabs){
-          if(window.JijinDesktop){while(state.room===startRoom){const count=Number(streamInfo(nextTab)?.chunkCount)||0,missing=Array.from({length:count},(_,i)=>i).filter(i=>!loadedSet(nextTab).has(i)).slice(0,3);if(!missing.length)break;const results=await Promise.all(missing.map(i=>loadChunk(i,nextTab,{render:false})));if(state.room!==startRoom)return;if(results.some(Boolean)){changed=true;if(activeTab()===nextTab)paintMore()}if(results.some(ok=>!ok))throw Error('ログの続きが取得できませんでした')}continue}
+          if(window.JijinDesktop){while(state.room===startRoom){const count=Number(streamInfo(nextTab)?.chunkCount)||0,missing=Array.from({length:count},(_,i)=>i).filter(i=>!loadedSet(nextTab).has(i)).slice(0,3);if(!missing.length)break;const results=await Promise.all(missing.map(i=>loadChunk(i,nextTab,{render:false})));if(state.room!==startRoom)return;if(results.some(Boolean)&&(activeTab()===nextTab||state.viewMode==='timeline'))changed=true;if(results.some(ok=>!ok))throw Error('ログの続きが取得できませんでした')}
+            if(changed&&state.viewMode!=='timeline'){paintMore();changed=false}
+            continue}
           for(let next=nextChunkIndex(nextTab);next>=0;next=nextChunkIndex(nextTab)){
             if(state.room!==startRoom||(!needsAll&&activeTab()!==tab))return;
             if(!await loadChunk(next,nextTab,{render:false}))throw Error('ログの続きが取得できませんでした');changed=true;
