@@ -31,7 +31,13 @@
       payload.logDisplayMode=document.querySelector('input[name="jijinRoomDisplayMode"]:checked')?.value==="dark"?"dark":"light";
       if(originalHtml&&payload.originalHtml==null)payload.originalHtml=originalHtml;
       const headers={...(options.headers||{})};
-      if(boardId)headers["x-board-admin-token"]=localStorage.getItem(`boardAdmin:${boardId}`)||"";
+      if(boardId){
+        let token=localStorage.getItem(`boardAdmin:${boardId}`);
+        if(!token){
+          try{token=JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken}catch{}
+        }
+        headers["x-board-admin-token"]=token||"";
+      }
       return baseApi(path,{...options,headers,body:JSON.stringify(payload)});
     }
     return baseApi(path,options);

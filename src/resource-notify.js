@@ -15,15 +15,19 @@ export function resourceAction(path){
 }
 export async function notifyResource(request,response,env,context,bodyRequest){
  if(!response?.ok||['GET','HEAD','OPTIONS'].includes(request.method)||!env.ROOMS)return response;
- const path=new URL(request.url).pathname.replace(/\/+$/,''),board=path.match(/^\/api\/boards\/([^/]+)/)?.[1],action=resourceAction(path);if(!board||!action)return response;
+ const path=new URL(request.url).pathname.replace(/\/+$/,''),isLogCreation=path==='/api/rooms'&&request.method==='POST';
+ const action=isLogCreation?'board-meta':resourceAction(path);
+ if(!action)return response;
  const task=(async()=>{
+  const board=isLogCreation?(await response.clone().json()).roomId:decodeURIComponent(path.match(/^\/api\/boards\/([^/]+)/)?.[1]||'');
+  if(!board)return;
   let data=null;
   if(action==='matrix-point')data=(await response.clone().json()).point||null;
   if(action==='spreadsheet-state'){
    const saved=await response.clone().json(),input=await bodyRequest.json();const payload={state:input.state,baseRevision:input.baseRevision,revision:saved.revision};
    if(JSON.stringify(payload).length<=5500)data=payload;
   }
-  await env.ROOMS.get(env.ROOMS.idFromName(decodeURIComponent(board))).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action,data,excludeClientId:request.headers.get('x-realtime-client')||''})});
+  await env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action,data,excludeClientId:request.headers.get('x-realtime-client')||''})});
  })().catch(error=>console.warn('Resource notification failed',error));
  if(context?.waitUntil)context.waitUntil(task);else await task;
  return response;

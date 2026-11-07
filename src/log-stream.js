@@ -104,6 +104,5 @@ export async function handleLogStream(request,env,logId,action,arg){
   return json({error:'Not found'},404);
 }
 
-export async function cleanupStreamChunks(env,logId){const row=await logRow(env,logId);if(row)await deleteR2Prefix(env.LOGS,`rooms/${row.room_id}/logs/${logId}/`)}
-export async function prepareStreamRoomDelete(request,env,logId){const row=await env.DB.prepare('SELECT l.log_id,l.room_id,r.room_admin_token_hash FROM log l JOIN room r ON r.room_id=l.room_id WHERE l.log_id=?').bind(logId).first();if(!row)return json({error:'部屋が見つかりません'},404);const token=request.headers.get('x-admin-token')||request.headers.get('x-board-admin-token')||'';if(!await verifyRoomAdmin(env.DB,row.room_id,token))return json({error:'部屋主だけが削除できます'},403);await cleanupStreamChunks(env,logId);return null}
+export async function prepareStreamRoomDelete(request,env,logId){const row=await env.DB.prepare('SELECT l.log_id,l.room_id,r.room_admin_token_hash FROM log l JOIN room r ON r.room_id=l.room_id WHERE l.log_id=?').bind(logId).first();if(!row)return json({error:'部屋が見つかりません'},404);const token=request.headers.get('x-admin-token')||request.headers.get('x-board-admin-token')||'';if(!await verifyRoomAdmin(env.DB,row.room_id,token))return json({error:'部屋主だけが削除できます'},403);return null}
 

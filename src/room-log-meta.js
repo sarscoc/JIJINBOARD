@@ -1,5 +1,5 @@
 import {playerKey,characterKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
-import { verifyRoomAdmin,deleteR2Prefix,bumpRoomRevision } from './data-model.js';
+import { verifyRoomAdmin,deleteR2Prefix } from './data-model.js';
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const safeBody=async request=>{try{return await request.json()}catch{return null}};
@@ -59,13 +59,18 @@ export async function handleRoomLogMeta(request,env,roomId,logId='',executionCon
     if(!await verifyRoomAdmin(env.DB,roomId,request.headers.get('x-board-admin-token')||''))return json({error:'この自陣を編集できるのは部屋主だけです'},403);
     const log=await logRow(env.DB,roomId,logId);if(!log)return json({error:'ログが見つかりません'},404);
     const images=(await env.DB.prepare("SELECT comment_image_key FROM comment WHERE room_id=? AND comment_target_type='log_range' AND comment_target_id=? AND comment_image_key IS NOT NULL AND comment_image_key<>''").bind(roomId,logId).all()).results||[];
-    await env.DB.prepare("DELETE FROM comment WHERE room_id=? AND comment_target_type='log_range' AND comment_target_id=?").bind(roomId,logId).run();
-    for(const row of images){
-      if(!await env.DB.prepare('SELECT 1 FROM comment WHERE comment_image_key=? LIMIT 1').bind(row.comment_image_key).first())await env.LOGS.delete(String(row.comment_image_key).replace(/^r2:/,'')).catch(()=>{});
-    }
-    await deleteR2Prefix(env.LOGS,`rooms/${roomId}/logs/${logId}/`).catch(()=>{});
-    await env.DB.prepare('DELETE FROM log WHERE room_id=? AND log_id=?').bind(roomId,logId).run();
-    await bumpRoomRevision(env.DB,roomId);
+    await env.DB.batch([
+      env.DB.prepare("DELETE FROM comment WHERE room_id=? AND comment_target_type='log_range' AND comment_target_id=?").bind(roomId,logId),
+      env.DB.prepare('DELETE FROM log WHERE room_id=? AND log_id=?').bind(roomId,logId),
+      env.DB.prepare('UPDATE room SET room_revision=room_revision+1,updated_at=CURRENT_TIMESTAMP WHERE room_id=?').bind(roomId)
+    ]);
+    const cleanup=(async()=>{
+      for(const key of new Set(images.map(row=>row.comment_image_key))){
+        if(!await env.DB.prepare('SELECT 1 FROM comment WHERE comment_image_key=? LIMIT 1').bind(key).first())await env.LOGS.delete(String(key).replace(/^r2:/,'')).catch(()=>{});
+      }
+      await deleteR2Prefix(env.LOGS,`rooms/${roomId}/logs/${logId}/`);
+    })().catch(error=>console.warn('Log file cleanup failed',error));
+    if(executionContext?.waitUntil)executionContext.waitUntil(cleanup);else await cleanup;
     await notifyDeleted(env,roomId,logId,executionContext);
     return json({ok:true});
   }

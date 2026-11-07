@@ -84,14 +84,6 @@
     saveDisplayMode(roomId,selectedEditMode());
   });
 
-  addEventListener("message",event=>{
-    if(event.origin!==location.origin||event.data?.type!=="jijinboard-room-created")return;
-    const roomId=event.data.roomId;if(!roomId)return;
-    let mode="light";
-    try{mode=$("#logFrame")?.contentDocument?.querySelector('input[name="jijinRoomDisplayMode"]:checked')?.value==="dark"?"dark":"light"}catch{}
-    saveDisplayMode(roomId,mode);
-  });
-
   $("#logFrame")?.addEventListener("load",()=>{
     const roomId=$("#logFrame")?.dataset.room;if(!roomId)return;
     loadDisplayMode(roomId).then(applyDisplayMode);

@@ -89,8 +89,10 @@ async function createRoom() {
   const btn = $("#createRoomBtn"); btn.disabled = true; btn.textContent = "作成中…";
   try {
     const result = await api("/api/rooms", { method: "POST",headers:{"x-site-owner-key":localStorage.getItem("trpgMarkerSiteOwnerKey")||""}, body: JSON.stringify({...state.parsed,creatorId:state.profile.id}) });
-    localStorage.setItem(`admin:${result.id}`, result.adminToken);
-    const owned=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}");owned[result.id]={title:state.parsed.title,createdAt:new Date().toISOString()};localStorage.setItem("trpgMarkerOwnedRooms",JSON.stringify(owned));
+    try{
+      localStorage.setItem(`admin:${result.id}`, result.adminToken);
+      const owned=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}");owned[result.id]={title:state.parsed.title,createdAt:new Date().toISOString()};localStorage.setItem("trpgMarkerOwnedRooms",JSON.stringify(owned));
+    }catch(error){console.warn("Log ownership cache could not be saved",error)}
     if(integrationEmbedded&&integrationBoardId&&parent!==window)parent.postMessage({type:"jijinboard-room-created",roomId:result.id,adminToken:result.adminToken,title:state.parsed.title,spoiler:!!$("#spoilerInput")?.checked,scenarioTitle:$("#scenarioTitleInput")?.value.trim()||"",scenarioParticipants:$("#scenarioParticipantsInput")?.value.trim()||""},location.origin);
     else location.href = `/log/?room=${encodeURIComponent(result.id)}`;
   } catch (e) { $("#homeStatus").textContent = e.message; btn.disabled = false; btn.textContent = "アップロードする"; }

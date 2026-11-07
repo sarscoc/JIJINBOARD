@@ -12,3 +12,11 @@ test('small committed sheet snapshots are sent directly; large snapshots invalid
  for(const text of ['short','x'.repeat(7000)]){const req=new Request('https://test/api/boards/b/spreadsheet/state',{method:'POST',body:JSON.stringify({state:{text},baseRevision:'before'})});await notifyResource(req,new Response(JSON.stringify({revision:'after'})),env,null,req.clone())}
  assert.equal(events[0].data.state.text,'short');assert.equal(events[0].data.revision,'after');assert.equal(events[1].data,null);
 });
+
+test('a completed log upload invalidates its parent board without a second write',async()=>{
+ const events=[],env={ROOMS:{idFromName:x=>x,get:board=>({fetch:async(url,init)=>events.push([board,JSON.parse(init.body).action])})}};
+ const request=new Request('https://test/api/rooms',{method:'POST'});
+ await notifyResource(request,new Response('{}',{status:403}),env);
+ await notifyResource(request,Response.json({id:'new-log',roomId:'parent-board'},{status:201}),env);
+ assert.deepEqual(events,[['parent-board','board-meta']]);
+});

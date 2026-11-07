@@ -116,10 +116,15 @@ function selectTool(tool){
   frames.matrix.contentWindow?.postMessage({type:"jijinboard-matrix-active",active:tool==="matrix"},location.origin);
   frames.spreadsheet.contentWindow?.postMessage({type:"jijinboard-spreadsheet-active",active:tool==="spreadsheet"},location.origin);
 }
-async function attachRoom(message){const token=adminToken();if(!token)return;await api(`/api/boards/${encodeURIComponent(boardId)}/logs`,{method:"POST",headers:{"x-board-admin-token":token},body:JSON.stringify({roomId:message.roomId,roomAdminToken:message.adminToken,spoiler:!!message.spoiler,scenarioTitle:message.scenarioTitle||"",scenarioParticipants:message.scenarioParticipants||""})});state.opened[message.roomId]=message.title||"LOG";saveOpened();state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);openLog(message.roomId,state.opened[message.roomId])}
+function attachRoom(message){
+ const {roomId,title="LOG",spoiler,scenarioTitle,scenarioParticipants}=message;
+ if(!roomId||!state.board)return;
+ patchBoardLogs(logs=>logs.some(item=>item.roomId===roomId)?logs:[...logs,{roomId,title,spoiler:!!spoiler,scenarioTitle,scenarioParticipants}]);
+ return openLog(roomId,title||"LOG");
+}
 function openLogEdit(roomId){closeSpoiler();const item=state.board.logs.find(log=>log.roomId===roomId);if(!item)return;state.editingRoom=roomId;$("#logSpoilerInput").checked=!!item.spoiler;$("#logScenarioTitle").value=item.scenarioTitle||"";$("#logScenarioParticipants").value=item.scenarioParticipants||"";$("#logEditDialog").showModal()}
 async function saveLogEdit(event){event.preventDefault();const roomId=state.editingRoom;if(!roomId)return;const spoiler=$("#logSpoilerInput").checked;try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`,{method:"PATCH",headers:{"x-board-admin-token":adminToken()},body:JSON.stringify({spoiler,scenarioTitle:$("#logScenarioTitle").value,scenarioParticipants:$("#logScenarioParticipants").value})});state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);if(spoiler){delete state.opened[roomId];saveOpened()}renderLogs();$("#logEditDialog").close();if(spoiler&&state.activeRoom===roomId)requestOpen(roomId)}catch(error){alert(error.message)}}
-async function removeLog(){const roomId=state.editingRoom;if(!roomId||!confirm("このログを完全に削除しますか？\nログ本文・感想・MATRIXの配置とコメントも元に戻せません。"))return;try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`,{method:"DELETE",headers:{"x-board-admin-token":adminToken()}});["admin:","personas:","mainTab:","hiddenTabs:","theme:"].forEach(prefix=>localStorage.removeItem(prefix+roomId));delete state.opened[roomId];saveOpened();state.board=await api(`/api/boards/${encodeURIComponent(boardId)}`);if(state.activeRoom===roomId){state.activeRoom="";state.profile=null;const frame=$("#logFrame");logBridge()?.destroy?.();setLogActive(frame,false);frame.removeAttribute("src");delete frame.dataset.room;frame.dataset.ready="";frame.style.visibility="";$("#welcome").classList.remove("hidden")}$("#logEditDialog").close();renderLogs()}catch(error){alert(error.message)}}
+async function removeLog(){const roomId=state.editingRoom;if(!roomId||!confirm("このログを完全に削除しますか？\nログ本文・感想・MATRIXの配置とコメントも元に戻せません。"))return;try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(roomId)}`,{method:"DELETE",headers:{"x-board-admin-token":adminToken()}});["admin:","personas:","mainTab:","hiddenTabs:","theme:"].forEach(prefix=>localStorage.removeItem(prefix+roomId));delete state.opened[roomId];saveOpened();patchBoardLogs(logs=>logs.filter(item=>item.roomId!==roomId));if(state.activeRoom===roomId){state.activeRoom="";state.profile=null;const frame=$("#logFrame");logBridge()?.destroy?.();setLogActive(frame,false);frame.removeAttribute("src");delete frame.dataset.room;frame.dataset.ready="";frame.style.visibility="";$("#welcome").classList.remove("hidden")}$("#logEditDialog").close();renderLogs()}catch(error){alert(error.message)}}
 function showBoardConnectionIssue(error){
  let notice=document.getElementById('boardConnectionIssue');if(!notice){notice=document.createElement('div');notice.id='boardConnectionIssue';notice.setAttribute('role','status');notice.style.cssText='position:fixed;bottom:12px;left:12px;z-index:250;max-width:380px;padding:10px 14px;border:1px solid #eadfec;border-radius:14px;background:#fff;color:#88728e;font:12px/1.5 system-ui;box-shadow:0 4px 16px #55446612';document.body.append(notice)}
  notice.replaceChildren();const text=document.createElement('span');text.textContent='部屋情報を取得できませんでした。表示と下書きはそのままです。 ';const retry=document.createElement('button');retry.type='button';retry.className='quiet';retry.textContent='再接続';retry.onclick=async()=>{retry.disabled=true;try{const data=await loadBoard();state.board=data;showBoardTitle(data.name);renderLogs();notice.remove()}catch(error){console.warn(error);retry.disabled=false}};notice.append(text,retry);console.warn(error);
@@ -135,7 +140,7 @@ $("#logFrame").addEventListener("load",()=>{const frame=$("#logFrame");hydratePr
 $("#matrixFrame").addEventListener("load",()=>{const frame=$("#matrixFrame");frame.contentWindow?.postMessage({type:"jijinboard-matrix-active",active:state.tool==="matrix"},location.origin)});
 $("#spreadsheetFrame").addEventListener("load",()=>$("#spreadsheetFrame").contentWindow?.postMessage({type:"jijinboard-spreadsheet-active",active:state.tool==="spreadsheet"},location.origin));
 addEventListener("storage",event=>{if(event.key===`personas:${state.activeRoom}`||event.key==="trpgMarkerProfile")hydrateProfile()});
-addEventListener("message",event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==="jijinboard-room-created")attachRoom(message).catch(error=>alert(error.message));if(message.type==="jijinboard-profile")acceptProfile(message);if(message.type==="jijinboard-presence"&&!window.__boardPresenceOwner)$("#presenceBar").innerHTML=(message.people||[]).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||"?").slice(0,1))}</i>`}<b style="color:${/^#[0-9a-f]{6}$/i.test(person.text_color||'')?person.text_color:'inherit'}">${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':""}</span>`).join("");if(message.type==="jijinboard-log-ready"&&event.source===$("#logFrame").contentWindow&&String(message.roomId||"")===String($("#logFrame").dataset.room||""))setToolFrameReady($("#logFrame"));if(message.type==="jijinboard-matrix-ready"&&event.source===$("#matrixFrame").contentWindow)setToolFrameReady($("#matrixFrame"));if(message.type==="jijinboard-spreadsheet-ready"&&event.source===$("#spreadsheetFrame").contentWindow)setToolFrameReady($("#spreadsheetFrame"))});
+addEventListener("message",event=>{if(event.origin!==location.origin)return;const message=event.data||{};if(message.type==="jijinboard-room-created"&&event.source===$("#logFrame").contentWindow)attachRoom(message)?.catch(error=>alert(error.message));if(message.type==="jijinboard-profile")acceptProfile(message);if(message.type==="jijinboard-presence"&&!window.__boardPresenceOwner)$("#presenceBar").innerHTML=(message.people||[]).map(person=>`<span class="presence-person">${person.pl_icon?`<img src="${esc(person.pl_icon)}" alt="">`:`<i>${esc((person.pl_name||"?").slice(0,1))}</i>`}<b style="color:${/^#[0-9a-f]{6}$/i.test(person.text_color||'')?person.text_color:'inherit'}">${esc(person.pl_name)}</b>${person.is_typing?'<em>入力中…</em>':""}</span>`).join("");if(message.type==="jijinboard-log-ready"&&event.source===$("#logFrame").contentWindow&&String(message.roomId||"")===String($("#logFrame").dataset.room||""))setToolFrameReady($("#logFrame"));if(message.type==="jijinboard-matrix-ready"&&event.source===$("#matrixFrame").contentWindow)setToolFrameReady($("#matrixFrame"));if(message.type==="jijinboard-spreadsheet-ready"&&event.source===$("#spreadsheetFrame").contentWindow)setToolFrameReady($("#spreadsheetFrame"))});
 
 init();
 addEventListener("message",event=>{if(event.origin!==location.origin||event.data?.type!=="jijinboard-participants-saved"||event.data.boardId!==boardId)return;$("#matrixFrame").contentWindow?.postMessage({type:"jijinboard-participants-saved"},location.origin)});
@@ -204,10 +209,15 @@ window.JIJINBOARD_LOG_TITLE=roomId=>{
   return item?.scenarioTitle||item?.title||state.opened[roomId]||"";
 };
 
+function patchBoardLogs(update){
+ const patch=()=>{state.board.logs=update(state.board.logs);renderLogs()};
+ if(refreshBoardMeta)refreshBoardMeta.patch(patch);
+ else patch();
+}
+
 // Room metadata updates have one coalesced catch-up path, without interval reads.
-(()=>{
- const refresh=window.JijinSync?.loader(()=>api(`/api/boards/${encodeURIComponent(boardId)}`,{cache:'no-store'}),data=>{state.board=data;showBoardTitle(data.name);renderLogs()});
- if(!refresh)return;
- window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='board-meta')refresh().catch(console.warn)});
- window.addEventListener('jijinboard-reconnected',()=>refresh().catch(console.warn));
-})();
+const refreshBoardMeta=window.JijinSync?.loader(()=>api(`/api/boards/${encodeURIComponent(boardId)}`,{cache:'no-store'}),data=>{state.board=data;showBoardTitle(data.name);renderLogs()});
+if(refreshBoardMeta){
+ window.addEventListener('jijinboard-resource-change',event=>{if(['board-meta','log-delete'].includes(event.detail?.action))refreshBoardMeta().catch(console.warn)});
+ window.addEventListener('jijinboard-reconnected',()=>refreshBoardMeta().catch(console.warn));
+}
