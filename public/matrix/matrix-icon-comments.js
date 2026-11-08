@@ -174,7 +174,7 @@
     const avatar=c.persona_icon?`<img class="matrix-comment-avatar" src="${esc(c.persona_icon)}" alt="">`:'<span class="matrix-comment-avatar"></span>';
     const target=targetImage(c.target||c.target_id),targetLabel=targetName(c.target||c.target_id),replies=children.get(c.id)||[];
     const targetIcon=target?`<img class="matrix-comment-target-icon" src="${esc(target)}" alt="" title="${esc(targetLabel)}">`:`<span class="matrix-comment-target-icon matrix-comment-target-empty" title="${esc(targetLabel)}"></span>`;
-    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))};--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-comment-target="${esc(c.target||c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em><span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
+    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}${c.pointNote?" matrix-point-note-thread":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))};--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-comment-target="${esc(c.target||c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${c.pointNote?"":`<span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}`}${!c.pointNote&&mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}${c.pointNote?"":`<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button>`}</div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
   let selectedPoint='',selectedTemplate='';
   const template=()=>typeof currentTemplateId==='function'?String(currentTemplateId()||''):'';
@@ -188,8 +188,20 @@
       const target=targetParts(comment.target||comment.target_id);
       return target.templateId===tid||(!target.templateId&&state.items?.[target.itemId]?.placed);
     }).map(comment=>targetParts(comment.target||comment.target_id).itemId));
+    const notes=[];
     for(const placed of document.querySelectorAll('.placed[data-id]')){
       const id=placed.dataset.id,note=pointNote(state,id);
+      const preview=note.replace(/\s+/g,' ');
+      if(preview)placed.title=preview.length>100?preview.slice(0,100)+'…':preview;
+      else placed.removeAttribute('title');
+      if(note&&(!selectedPoint||selectedPoint===id)){
+        const item=targetItem(id),address=`${tid}${TARGET_SEP}${id}`;
+        notes.push(commentHtml({
+          pointNote:true,target:address,body:note,persona_name:targetName(id),
+          persona_type:'コマの補足',persona_icon:targetImage(id),
+          color:item?.markerColor||item?.color,text_color:item?.color
+        }));
+      }
       let badge=placed.querySelector('.matrix-point-note-badge');
       if(!note&&!commented.has(id)){badge?.remove();continue}
       if(!badge){
@@ -201,15 +213,22 @@
         badge.addEventListener('click',event=>{event.stopPropagation();showPointComments(id)});
         placed.append(badge);
       }
-      const preview=note.replace(/\s+/g,' ');
-      badge.title=preview?(preview.length>100?preview.slice(0,100)+'…':preview):'コメントを表示';
       badge.setAttribute('aria-pressed',String(id===selectedPoint&&tid===selectedTemplate));
     }
-    const body=document.querySelector('.matrix-point-note-text');
-    if(body&&selectedTemplate===tid){
-      body.textContent=pointNote(state,selectedPoint);
-      body.parentElement.hidden=!body.textContent;
+    const p=panel(),list=p.querySelector('section');
+    const previous=[...list.querySelectorAll(':scope > .matrix-point-note-thread')];
+    if(previous.length===notes.length&&previous.every((node,index)=>node.matrixPointNoteHtml===notes[index]))return;
+    previous.forEach(node=>node.remove());
+    const anchor=list.querySelector(':scope > .matrix-comment-thread, :scope > .matrix-comment-empty');
+    for(const html of notes){
+      const fragment=document.createElement('template');fragment.innerHTML=html;
+      const card=fragment.content.firstElementChild;card.matrixPointNoteHtml=html;
+      list.insertBefore(card,anchor);
     }
+    const count=p.querySelector('#matrixIconCommentCount');
+    if(count)count.textContent=String(list.querySelectorAll('.matrix-comment-card').length);
+    const empty=list.querySelector('.matrix-comment-empty');
+    if(empty)empty.hidden=notes.length>0;
   }
 
   function showPointComments(id){
@@ -223,7 +242,7 @@
 
   function pointSummary(id){
     const header=document.createElement('div');header.className='matrix-point-summary';
-    header.innerHTML='<div class="matrix-point-summary-actions"><b></b><button type="button">すべて表示</button></div><div class="matrix-point-note"><strong>コマの補足</strong><p class="matrix-point-note-text"></p></div>';
+    header.innerHTML='<div class="matrix-point-summary-actions"><b></b><button type="button">すべて表示</button></div>';
     header.querySelector('b').textContent=targetName(id);
     header.querySelector('button').onclick=()=>showPointComments('');
     if(ctx()?.boardId){

@@ -69,6 +69,7 @@
     html.embedded .matrix-comment-head,html.embedded #matrixIconComments .matrix-comments-body{background:transparent!important;${noBlur}}
     html.embedded .stage-area-toolbar :is(button,.btn,.stage-area-label,.toolbar-scale-check),html.embedded .stage-area-toolbar :is(span,strong,label){color:${uiInk}!important}
     html.embedded .matrix-comment-head{color:${value.color1}!important}
+    html.embedded{--matrix-note-accent:${value.color1}}
     html.embedded .stage-area-toolbar :is(.btn,button),html.embedded .toolbar-scale-check{background:#fff!important}
     html.embedded .library,html.embedded #matrixIconComments>section,html.embedded .template-tabs{scrollbar-color:${value.color1} transparent!important}
     html.embedded .library::-webkit-scrollbar-thumb,html.embedded #matrixIconComments>section::-webkit-scrollbar-thumb,html.embedded .template-tabs::-webkit-scrollbar-thumb{background:${value.color1}!important;border-radius:999px!important}
