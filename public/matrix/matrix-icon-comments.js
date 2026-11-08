@@ -215,8 +215,7 @@
     const notes=[];
     for(const placed of document.querySelectorAll('.placed[data-id]')){
       const id=placed.dataset.id,note=pointNote(state,id);
-      const preview=note.replace(/\s+/g,' ');
-      if(preview)placed.dataset.notePreview=preview.length>100?preview.slice(0,100)+'…':preview;
+      if(note)placed.dataset.notePreview=note.length>100?note.slice(0,100)+'…':note;
       else delete placed.dataset.notePreview;
       if(note){
         const item=targetItem(id),address=`${tid}${TARGET_SEP}${id}`;

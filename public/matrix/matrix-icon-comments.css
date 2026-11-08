@@ -382,6 +382,6 @@ html.jijin-desktop body #matrixIconCommentList>.matrix-reply{margin-left:24px!im
  position:fixed;z-index:2147483600;pointer-events:none;
  width:max-content;max-width:min(260px,calc(100vw - 16px));
  padding:6px 9px;border:1px solid var(--matrix-line,#e3e7ed);border-radius:8px;
- background:var(--paper,#fff);color:var(--matrix-ink,#303641);font:12px/1.45 system-ui,sans-serif;
- overflow-wrap:anywhere;box-shadow:0 3px 10px #0002;
+ background:var(--paper,#fff);color:var(--matrix-ink,#303641);font:11px/1.45 system-ui,sans-serif;
+ white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 3px 10px #0002;
 }
