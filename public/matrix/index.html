@@ -915,6 +915,7 @@ button{cursor:pointer}
   flex:1 !important;
   min-height:0 !important;
   overflow:auto !important;
+  overflow-anchor:none;
   padding:7px !important;
 }
 
@@ -3879,13 +3880,13 @@ async function renderTemplateTabs(){
     return !!rec.dataUrl||hasData;
   });
 
-  box.innerHTML='';
   if(!meaningful.length){
     box.innerHTML='<div class="template-tab-empty">まだありません</div>';
     await updateCurrentTemplateDeleteButton();
     return;
   }
 
+  const cards=document.createDocumentFragment();
   meaningful.forEach(rec=>{
     const card=document.createElement('div');
     card.className='template-card'+(rec.id===current?' active':'');
@@ -3939,8 +3940,11 @@ async function renderTemplateTabs(){
       unplaced.append(mini);
     });
     card.append(open,unplaced);
-    box.appendChild(card);
+    cards.appendChild(card);
   });
+  const scrollTop=box.scrollTop;
+  box.replaceChildren(cards);
+  box.scrollTop=scrollTop;
   updateCurrentTemplateDeleteButton();
 }
 
