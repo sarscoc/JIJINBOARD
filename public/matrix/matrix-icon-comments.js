@@ -113,7 +113,6 @@
   function flash(id){
     const itemId=targetParts(id).itemId,el=document.querySelector(`.placed[data-id="${CSS.escape(itemId)}"]`);
     if(!el)return false;
-    const img=el.querySelector(".placed-avatar img");
     el.classList.remove("matrix-comment-flash");
     void el.offsetWidth;
     const token=`${Date.now()}-${Math.random()}`;
@@ -126,7 +125,6 @@
     el.addEventListener("animationend",clear,{once:true});
     el.classList.add("matrix-comment-flash");
     setTimeout(clear,1150);
-    el.scrollIntoView({behavior:"smooth",block:"center",inline:"center"});
     return true
   }
   async function revealTarget(id){
@@ -214,10 +212,6 @@
 
   function refreshPointNotes(){
     const state=typeof appState==="function"?appState():{},tid=template();
-    const commented=new Set(comments.filter(comment=>{
-      const target=targetParts(comment.target||comment.target_id);
-      return target.templateId===tid||(!target.templateId&&state.items?.[target.itemId]?.placed);
-    }).map(comment=>targetParts(comment.target||comment.target_id).itemId));
     const notes=[];
     for(const placed of document.querySelectorAll('.placed[data-id]')){
       const id=placed.dataset.id,note=pointNote(state,id);
@@ -233,7 +227,7 @@
         }));
       }
       let badge=placed.querySelector('.matrix-point-note-badge');
-      if(!note&&!commented.has(id)){badge?.remove();continue}
+      if(!note){badge?.remove();continue}
       if(!badge){
         badge=document.createElement('button');
         badge.type='button';badge.className='matrix-point-note-badge';
@@ -341,9 +335,10 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     }
     if(window.JijinDesktop){const draft=desktopDrafts.get(desktopDraftKey(id,reply,edit));if(draft){d.querySelector('#matrixCommentBody').value=draft.body;select.value=draft.persona}}
     syncDialogAvatar(d);
+    positionDialog(d);
     if(!d.open)d.show();
     positionDialog(d);
-    setTimeout(()=>d.querySelector("textarea")?.focus(),0);
+    setTimeout(()=>{if(d.open)d.querySelector("textarea")?.focus({preventScroll:true})},0);
     try{
       const data=await ctx().api(`/api/boards/${encodeURIComponent(ctx().boardId)}/participants`);
       if(!d.open||targetId!==sessionTarget||posting)return;

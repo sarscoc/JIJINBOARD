@@ -104,6 +104,10 @@ test('desktop MATRIX replies remain indented in newest-first order and use marke
  assert.ok(w.document.querySelector('#list > .matrix-point-note-thread .focused'));
  assert.equal(w.document.querySelectorAll('#list .matrix-comment-thread').length,3);
  assert.equal(w.document.querySelector('.matrix-point-summary'),null);
+ w.appState=()=>({items:{pc:{placed:true,comment:''}}});
+ w.paint();
+ assert.equal(w.document.querySelector('.matrix-point-note-badge'),null);
+ assert.equal(w.document.querySelectorAll('#list .matrix-comment-thread').length,2);
 });
 
 test('PC supplement is outside the canvas clipping hierarchy and remains within the viewport',t=>{

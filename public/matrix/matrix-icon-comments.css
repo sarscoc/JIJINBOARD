@@ -320,9 +320,8 @@ html .matrix-comment-card:focus-visible{
 .matrix-comment-flash .placed-comment{animation:none!important}
 @keyframes matrixBubblePop{0%,100%{scale:1}50%{scale:1.04}}
 
-/* Scale the positioned group as one block, preserving its translate transform. */
-.placed.matrix-comment-flash{animation:matrixGroupPop .24s ease-in-out!important;transform-origin:center}
-@keyframes matrixGroupPop{0%,100%{scale:1}50%{scale:1.02}}
+/* Indicate the target without moving or scaling the template or its token. */
+.placed.matrix-comment-flash .placed-avatar{outline:2px solid var(--matrix-note-accent,#dc70b7)!important;outline-offset:2px}
 
 /* Pointer emphasis ends when the pointer leaves, even after selecting a target. */
 html body .matrix-comment-card.focused:not(:hover){border-color:var(--matrix-line)!important;border-left-color:var(--matrix-line)!important}
