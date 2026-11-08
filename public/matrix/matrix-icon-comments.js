@@ -55,13 +55,20 @@
   function renderTyping(){
     const list=document.querySelector('#matrixIconCommentList');if(!list)return;
     list.querySelector('.matrix-typing-stack')?.remove();
-    const stack=document.createElement('div');stack.className='matrix-typing-stack';list.prepend(stack);
     const tid=typeof currentTemplateId==='function'?currentTemplateId():'';
-
-    for(const peer of typingPeers.values())if(peer.templateId===tid){
-      const node=document.createElement('div');node.className='matrix-typing';
-      node.innerHTML=`${peer.icon?`<img src="${esc(peer.icon)}" alt="">`:''}<b>${esc(peer.name)}</b><em>入力中…</em><i></i><i></i><i></i>`;stack.append(node);
+    const peers=new Map();
+    for(const peer of typingPeers.values()){
+      if(peer.templateId===tid)peers.set(peer.authorId||peer.clientId,peer.name||'PL');
     }
+    if(!peers.size)return;
+    const names=[...peers.values()].join('と');
+    const stack=document.createElement('div');stack.className='matrix-typing-stack';
+    const row=document.createElement('div');row.className='matrix-typing';
+    row.setAttribute('role','status');
+    row.title=names+'が入力中…';
+    row.innerHTML=`<b>${esc(names)}</b><em>が入力中…</em><i aria-hidden="true"></i><i aria-hidden="true"></i><i aria-hidden="true"></i>`;
+    stack.append(row);
+    list.prepend(stack);
   }
   window.addEventListener('matrix-board-typing',event=>{
     const peer=event.detail;if(!peer?.clientId||peer.clientId===typingClient)return;

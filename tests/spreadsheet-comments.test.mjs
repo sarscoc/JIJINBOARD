@@ -54,7 +54,12 @@ test('matrix keeps a desktop draft when another target is clicked, and sends wit
  assert.equal(w.document.querySelector('#matrixIconCommentCount').textContent,'1');assert.equal(w.document.querySelector('dialog').open,false);
  w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'other-device',templateId:'template',name:'Other PC',typing:true}}));
  assert.match(w.document.querySelector('.matrix-typing').textContent,/Other PC.*入力中/);
+ w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'third-device',templateId:'template',name:'Third PC',typing:true}}));
+ assert.equal(w.document.querySelectorAll('.matrix-typing').length,1);
+ assert.equal(w.document.querySelector('.matrix-typing').textContent,'Other PCとThird PCが入力中…');
  w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'other-device',typing:false}}));
+ assert.equal(w.document.querySelector('.matrix-typing').textContent,'Third PCが入力中…');
+ w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'third-device',typing:false}}));
  assert.equal(w.document.querySelector('.matrix-typing'),null);
 
 });
