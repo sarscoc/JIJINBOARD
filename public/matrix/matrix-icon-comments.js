@@ -176,11 +176,41 @@
     const targetIcon=target?`<img class="matrix-comment-target-icon" src="${esc(target)}" alt="" title="${esc(targetLabel)}">`:`<span class="matrix-comment-target-icon matrix-comment-target-empty" title="${esc(targetLabel)}"></span>`;
     return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}${c.pointNote?" matrix-point-note-thread":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))};--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-comment-target="${esc(c.target||c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${c.pointNote?"":`<span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}`}${!c.pointNote&&mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}${c.pointNote?"":`<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button>`}</div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
-  let selectedPoint='',selectedTemplate='';
   const template=()=>typeof currentTemplateId==='function'?String(currentTemplateId()||''):'';
   function pointNote(state,id){
     return state.display?.showComment===false?'':String(state.items?.[id]?.comment||'').trim();
   }
+
+  let hoveredPoint=null,previewBubble=null;
+  function closePointPreview(){
+    previewBubble?.remove();
+    previewBubble=null;
+    hoveredPoint=null;
+  }
+  document.addEventListener('pointerover',event=>{
+    if(event.pointerType!=='mouse')return;
+    const placed=event.target.closest?.('.placed[data-id]');
+    if(!placed?.dataset.notePreview||placed===hoveredPoint||placed.classList.contains('comment-editing'))return;
+    closePointPreview();
+    hoveredPoint=placed;
+    const bubble=document.createElement('div');
+    bubble.className='matrix-point-hover-preview';
+    bubble.textContent=placed.dataset.notePreview;
+    document.body.append(bubble);
+    previewBubble=bubble;
+    const point=placed.getBoundingClientRect(),rect=bubble.getBoundingClientRect(),margin=8;
+    const left=Math.max(margin,Math.min(point.left+(point.width-rect.width)/2,innerWidth-rect.width-margin));
+    const top=point.top>=rect.height+margin*2?point.top-rect.height-margin:point.bottom+margin;
+    bubble.style.left=left+'px';
+    bubble.style.top=Math.max(margin,Math.min(top,innerHeight-rect.height-margin))+'px';
+  });
+  document.addEventListener('pointerout',event=>{
+    if(hoveredPoint?.contains(event.target)&&!hoveredPoint.contains(event.relatedTarget))closePointPreview();
+  });
+  document.addEventListener('pointerdown',closePointPreview,true);
+  document.addEventListener('scroll',closePointPreview,true);
+  window.addEventListener('resize',closePointPreview);
+  window.addEventListener('blur',closePointPreview);
 
   function refreshPointNotes(){
     const state=typeof appState==="function"?appState():{},tid=template();
@@ -192,9 +222,9 @@
     for(const placed of document.querySelectorAll('.placed[data-id]')){
       const id=placed.dataset.id,note=pointNote(state,id);
       const preview=note.replace(/\s+/g,' ');
-      if(preview)placed.title=preview.length>100?preview.slice(0,100)+'…':preview;
-      else placed.removeAttribute('title');
-      if(note&&(!selectedPoint||selectedPoint===id)){
+      if(preview)placed.dataset.notePreview=preview.length>100?preview.slice(0,100)+'…':preview;
+      else delete placed.dataset.notePreview;
+      if(note){
         const item=targetItem(id),address=`${tid}${TARGET_SEP}${id}`;
         notes.push(commentHtml({
           pointNote:true,target:address,body:note,persona_name:targetName(id),
@@ -213,8 +243,8 @@
         badge.addEventListener('click',event=>{event.stopPropagation();showPointComments(id)});
         placed.append(badge);
       }
-      badge.setAttribute('aria-pressed',String(id===selectedPoint&&tid===selectedTemplate));
     }
+    if(hoveredPoint&&!hoveredPoint.isConnected)closePointPreview();
     const p=panel(),list=p.querySelector('section');
     const previous=[...list.querySelectorAll(':scope > .matrix-point-note-thread')];
     if(previous.length===notes.length&&previous.every((node,index)=>node.matrixPointNoteHtml===notes[index]))return;
@@ -232,36 +262,26 @@
   }
 
   function showPointComments(id){
-    selectedPoint=id;
-    selectedTemplate=template();
-    const p=panel();p.hidden=false;
-    render();
-    p.querySelector('section').scrollTop=0;
-    if(id)window.dispatchEvent(new Event('matrix-point-comments-open'));
-  }
-
-  function pointSummary(id){
-    const header=document.createElement('div');header.className='matrix-point-summary';
-    header.innerHTML='<div class="matrix-point-summary-actions"><b></b><button type="button">すべて表示</button></div>';
-    header.querySelector('b').textContent=targetName(id);
-    header.querySelector('button').onclick=()=>showPointComments('');
-    if(ctx()?.boardId){
-      const button=document.createElement('button');button.type='button';button.textContent='コメントを書く';
-      button.onclick=()=>open(id);header.firstElementChild.append(button);
-    }
-    return header;
+    closePointPreview();
+    const p=panel(),list=p.querySelector('section');
+    p.hidden=false;
+    window.dispatchEvent(new Event('matrix-point-comments-open'));
+    const cards=[...list.querySelectorAll('.matrix-comment-card')];
+    const card=cards.find(node=>targetParts(node.dataset.commentTarget).itemId===id);
+    if(!card)return;
+    cards.forEach(node=>node.classList.toggle('focused',node===card));
+    list.scrollTop+=card.getBoundingClientRect().top-list.getBoundingClientRect().top-8;
   }
 
   function render(){
     const tid=typeof currentTemplateId==="function"?String(currentTemplateId()||""):"";
-    if(selectedTemplate!==tid)selectedPoint='';
     const visibleComments=comments.filter(comment=>{
       const target=targetParts(comment.target||comment.target_id);
-      if(!tid||(selectedPoint&&target.itemId!==selectedPoint))return false;
+      if(!tid)return false;
       if(target.templateId)return target.templateId===tid;
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
-const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});if(window.JijinDesktop)for(const rows of children.values())rows.sort((a,b)=>-window.JijinDesktop.newest(a,b));const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));if(window.JijinDesktop)roots.sort(window.JijinDesktop.newest);count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';if(selectedPoint)list.prepend(pointSummary(selectedPoint));renderTyping();refreshPointNotes()}
+const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});if(window.JijinDesktop)for(const rows of children.values())rows.sort((a,b)=>-window.JijinDesktop.newest(a,b));const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));if(window.JijinDesktop)roots.sort(window.JijinDesktop.newest);count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping();refreshPointNotes()}
   const changes=JijinSync.ledger();let cacheVersion=0;
   const load=JijinComments.loader(async()=>{
     const c=ctx();if(!c||!commentRoom())return null;
