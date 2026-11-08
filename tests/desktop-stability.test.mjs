@@ -81,11 +81,18 @@ test('desktop MATRIX note and comment composers switch exclusively and retain th
 });
 
 test('desktop MATRIX replies remain indented in newest-first order and use marker rather than text colors',t=>{
- const w=page(t,'<section id="list"></section><span id="count"></span>');w.eval(source('shared/desktop-ui.js'));
+ const w=page(t,'<div class="placed" data-id="pc"></div><section id="list"></section><span id="count"></span>');w.eval(source('shared/desktop-ui.js'));
  w.eval(`var comments=[{id:'parent',created_at:'2026-11-04',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'parent'},{id:'reply',parent_id:'parent',created_at:'2026-11-05',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'reply'}];function profile(){return {id:'me'}}function ctx(){return {boardId:'b'}}function pcList(){return [{id:'pc',name:'PC',type:'PC',color:'#aabbcc',colorDark:'#334455'}]}function esc(v){return String(v||'')}function targetImage(){return ''}function targetName(){return 'PC'}function targetParts(){return {templateId:'tpl',itemId:'pc'}}function currentTemplateId(){return 'tpl'}function formatCommentDate(){return ''}function renderTyping(){}function panel(){return {querySelector:s=>document.querySelector(s==='section'?'#list':'#count')}}`);
  const code=source('matrix/matrix-icon-comments.js');w.eval(code.slice(code.indexOf('  function commentColor('),code.indexOf('  const changes='))+';window.paint=render;');
- w.paint();let rows=w.document.querySelectorAll('.matrix-comment-thread');assert.equal(rows.length,2);assert.equal(rows[1].classList.contains('matrix-reply'),true);assert.equal(rows[1].parentElement,rows[0]);assert.match(rows[1].textContent,/reply/);assert.equal(rows[0].querySelector('article').style.getPropertyValue('--comment-marker'),'#aabbcc');
+ w.appState=()=>({items:{pc:{placed:true,comment:'既存の補足'}}});w.paint();let rows=w.document.querySelectorAll('.matrix-comment-thread');assert.equal(rows.length,2);assert.equal(rows[1].classList.contains('matrix-reply'),true);assert.equal(rows[1].parentElement,rows[0]);assert.match(rows[1].textContent,/reply/);assert.equal(rows[0].querySelector('article').style.getPropertyValue('--comment-marker'),'#aabbcc');
  w.document.documentElement.classList.add('dark');w.paint();assert.equal(w.document.querySelector('article').style.getPropertyValue('--comment-marker'),'#334455');
+ const badge=w.document.querySelector('.matrix-point-note-badge');
+ assert.equal(badge.title,'既存の補足');
+ badge.click();
+ assert.equal(w.document.querySelector('#list > .matrix-point-summary .matrix-point-note-text').textContent,'既存の補足');
+ assert.equal(badge.getAttribute('aria-pressed'),'true');
+ w.document.querySelector('.matrix-point-summary button').click();
+ assert.equal(w.document.querySelector('.matrix-point-summary'),null);
 });
 
 test('PC supplement is outside the canvas clipping hierarchy and remains within the viewport',t=>{

@@ -135,7 +135,7 @@
     if (!placed || placed._draggedByPointer) return;
     stopPlacedAction(event);
     filterCurrentPage();
-    if(sharedCommentComposer)sharedCommentComposer(placed.dataset.id||"");
+    window.showMatrixPointComments?.(placed.dataset.id||"");
   }, true);
 
   document.addEventListener("dblclick", event => {

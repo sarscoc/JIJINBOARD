@@ -176,15 +176,73 @@
     const targetIcon=target?`<img class="matrix-comment-target-icon" src="${esc(target)}" alt="" title="${esc(targetLabel)}">`:`<span class="matrix-comment-target-icon matrix-comment-target-empty" title="${esc(targetLabel)}"></span>`;
     return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))};--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-comment-target="${esc(c.target||c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em><span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}${mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button></div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
+  let selectedPoint='',selectedTemplate='';
+  const template=()=>typeof currentTemplateId==='function'?String(currentTemplateId()||''):'';
+  function pointNote(state,id){
+    return state.display?.showComment===false?'':String(state.items?.[id]?.comment||'').trim();
+  }
+
+  function refreshPointNotes(){
+    const state=typeof appState==="function"?appState():{},tid=template();
+    const commented=new Set(comments.filter(comment=>{
+      const target=targetParts(comment.target||comment.target_id);
+      return target.templateId===tid||(!target.templateId&&state.items?.[target.itemId]?.placed);
+    }).map(comment=>targetParts(comment.target||comment.target_id).itemId));
+    for(const placed of document.querySelectorAll('.placed[data-id]')){
+      const id=placed.dataset.id,note=pointNote(state,id);
+      let badge=placed.querySelector('.matrix-point-note-badge');
+      if(!note&&!commented.has(id)){badge?.remove();continue}
+      if(!badge){
+        badge=document.createElement('button');
+        badge.type='button';badge.className='matrix-point-note-badge';
+        badge.setAttribute('aria-label','コマの補足とコメントを表示');
+        badge.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg>';
+        badge.addEventListener('pointerdown',event=>event.stopPropagation());
+        badge.addEventListener('click',event=>{event.stopPropagation();showPointComments(id)});
+        placed.append(badge);
+      }
+      const preview=note.replace(/\s+/g,' ');
+      badge.title=preview?(preview.length>100?preview.slice(0,100)+'…':preview):'コメントを表示';
+      badge.setAttribute('aria-pressed',String(id===selectedPoint&&tid===selectedTemplate));
+    }
+    const body=document.querySelector('.matrix-point-note-text');
+    if(body&&selectedTemplate===tid){
+      body.textContent=pointNote(state,selectedPoint);
+      body.parentElement.hidden=!body.textContent;
+    }
+  }
+
+  function showPointComments(id){
+    selectedPoint=id;
+    selectedTemplate=template();
+    const p=panel();p.hidden=false;
+    render();
+    p.querySelector('section').scrollTop=0;
+    if(id)window.dispatchEvent(new Event('matrix-point-comments-open'));
+  }
+
+  function pointSummary(id){
+    const header=document.createElement('div');header.className='matrix-point-summary';
+    header.innerHTML='<div class="matrix-point-summary-actions"><b></b><button type="button">すべて表示</button></div><div class="matrix-point-note"><strong>コマの補足</strong><p class="matrix-point-note-text"></p></div>';
+    header.querySelector('b').textContent=targetName(id);
+    header.querySelector('button').onclick=()=>showPointComments('');
+    if(ctx()?.boardId){
+      const button=document.createElement('button');button.type='button';button.textContent='コメントを書く';
+      button.onclick=()=>open(id);header.firstElementChild.append(button);
+    }
+    return header;
+  }
+
   function render(){
     const tid=typeof currentTemplateId==="function"?String(currentTemplateId()||""):"";
+    if(selectedTemplate!==tid)selectedPoint='';
     const visibleComments=comments.filter(comment=>{
       const target=targetParts(comment.target||comment.target_id);
-      if(!tid)return false;
+      if(!tid||(selectedPoint&&target.itemId!==selectedPoint))return false;
       if(target.templateId)return target.templateId===tid;
       return !!(typeof appState==="function"&&appState()?.items?.[target.itemId]?.placed);
     });
-const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});if(window.JijinDesktop)for(const rows of children.values())rows.sort((a,b)=>-window.JijinDesktop.newest(a,b));const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));if(window.JijinDesktop)roots.sort(window.JijinDesktop.newest);count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';renderTyping()}
+const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIconCommentCount"),children=new Map(),ids=new Set(visibleComments.map(c=>c.id));visibleComments.forEach(c=>{if(c.parent_id){const a=children.get(c.parent_id)||[];a.push(c);children.set(c.parent_id,a)}});if(window.JijinDesktop)for(const rows of children.values())rows.sort((a,b)=>-window.JijinDesktop.newest(a,b));const roots=visibleComments.filter(c=>!c.parent_id||!ids.has(c.parent_id));if(window.JijinDesktop)roots.sort(window.JijinDesktop.newest);count.textContent=visibleComments.length;list.innerHTML=roots.length?roots.map(c=>commentHtml(c,0,children)).join(""):'<p class="matrix-comment-empty">マーカーされた感想がここに並びます。</p>';if(selectedPoint)list.prepend(pointSummary(selectedPoint));renderTyping();refreshPointNotes()}
   const changes=JijinSync.ledger();let cacheVersion=0;
   const load=JijinComments.loader(async()=>{
     const c=ctx();if(!c||!commentRoom())return null;
@@ -307,6 +365,8 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
   new MutationObserver(()=>render()).observe(document.documentElement,{attributes:true,attributeFilter:["class"]});
   render();
   window.openMatrixIconComment=id=>open(id);
+  window.showMatrixPointComments=showPointComments;
+  window.refreshMatrixPointNotes=refreshPointNotes;
   window.addEventListener("matrix-board-room",()=>{lastSerial="";load(true).catch(console.warn)});
   window.addEventListener("matrix-board-comments-changed",()=>load().catch(console.warn));
   // The shared channel loads once and catches up on reconnect.

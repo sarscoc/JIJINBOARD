@@ -236,6 +236,7 @@
   }
   window.visualViewport?.addEventListener('resize',viewport);addEventListener('resize',viewport);
   mq.addEventListener('change',()=>{dockDrag=null;root.classList.remove('phone-composing');viewport();setDock(dockLevel)});viewport();
+  if(tool==='matrix')window.addEventListener('matrix-point-comments-open',()=>{if(mq.matches&&dockLevel<2)setDock(2)});
   // Observe a stationary press, cancel on scroll/drag; never synthesize a save.
   function clearHold(){clearTimeout(hold);hold=null}
   function beginComment(el){

@@ -3164,7 +3164,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
 </style>
 <link rel="stylesheet" href="board-integration.css?v=20261102-room1">
 <link rel="stylesheet" href="matrix-pc.css?v=20261102-room1">
-<link rel="stylesheet" href="matrix-icon-comments.css?v=20261105-pc4">
+<link rel="stylesheet" href="matrix-icon-comments.css?v=20261108-point-notes">
 
 <link rel="stylesheet" href="../log/log-select-menu.css?v=20261103-select1">
 <link rel="stylesheet" href="matrix-settings-pretty.css?v=20261103-pretty1">
@@ -4936,7 +4936,6 @@ function openInlineCommentEditor(id,el){
       draftPosition=pos;
       box.className='inline-comment-editor pos-'+draftPosition;
       updateDirectionButtons();
-      updateCommentPreview();
 
       requestAnimationFrame(()=>ta.focus());
     });
@@ -4955,28 +4954,6 @@ function openInlineCommentEditor(id,el){
     });
   };
 
-  const updateCommentPreview=()=>{
-    let cm=el.querySelector(':scope > .placed-comment');
-
-    if(draftComment.trim()){
-      if(!cm){
-        cm=document.createElement('div');
-        el.appendChild(cm);
-      }
-
-      const disp=appState().display||{};
-      const item=items.find(x=>x.id===id);
-      cm.className='placed-comment comment-'+draftPosition+' '+((disp.commentBox||'on')==='on'?'with-box':'no-box');
-      cm.textContent=draftComment;
-      cm.style.fontSize=(disp.commentFontSize||10)+'px';
-      cm.style.fontFamily=getCommentFontFamily(disp);
-      cm.style.color=commentTextColor(item,disp);
-      applyTextOutline(cm,'comment');
-    }else{
-      cm?.remove();
-    }
-  };
-
   const commit=()=>{
     if(closed)return;
     closed=true;
@@ -4993,6 +4970,7 @@ function openInlineCommentEditor(id,el){
 
     const it=items.find(x=>x.id===id);
     if(it)it.local=appState().items[id];
+    window.refreshMatrixPointNotes?.();
 
     box.remove();
     el.classList.remove('comment-editing');
@@ -5008,7 +4986,7 @@ function openInlineCommentEditor(id,el){
     if(box.contains(e.target))return;
     if(window.JijinCommentComposer?.desktop()){
       if(ta.value.trim())return;
-      draftComment=l.comment||'';draftPosition=l.commentPosition||'top';updateCommentPreview();
+      draftComment=l.comment||'';draftPosition=l.commentPosition||'top';
       closed=true;box.remove();el.classList.remove('comment-editing');
       document.removeEventListener('pointerdown',outsideHandler,true);
       try{if(parent!==window)parent.document.removeEventListener('pointerdown',outsideHandler,true)}catch{}
@@ -5020,7 +4998,6 @@ function openInlineCommentEditor(id,el){
 
   ta.addEventListener('input',()=>{
     draftComment=ta.value;
-    updateCommentPreview();
   });
 
   ta.addEventListener('keydown',e=>{
@@ -5051,7 +5028,7 @@ function openInlineCommentEditor(id,el){
 function setupPlacedClickBehavior(el,id){
   el.addEventListener('click',e=>{
     if(isMobileLayout()||el._draggedByPointer||e.target.closest('.inline-comment-editor'))return;
-    if(typeof window.openMatrixIconComment==='function'){e.preventDefault();e.stopPropagation();window.openMatrixIconComment(id)}
+    if(typeof window.showMatrixPointComments==='function'){e.preventDefault();e.stopPropagation();window.showMatrixPointComments(id)}
   });
   el.addEventListener('dblclick',e=>{
     if(isMobileLayout())return;
@@ -5328,7 +5305,6 @@ function renderPlaced(){
     el.style.setProperty('--item-icon-size',(Number(d.iconSize)||72)+'px');
 
     const chosen=characterTextColor(it,d);
-    const commentChosen=commentTextColor(it,d);
     el.style.color=chosen;
 
     const av=document.createElement('div');
@@ -5356,17 +5332,6 @@ function renderPlaced(){
       el.appendChild(n);
     }
 
-    if(d.showComment!==false&&String(l.comment||'').trim()){
-      const cm=document.createElement('div');
-      const pos=l.commentPosition||'top';
-      cm.className='placed-comment comment-'+pos+' '+((d.commentBox||'on')==='on'?'with-box':'no-box');
-      cm.textContent=l.comment;
-      cm.style.fontSize=(d.commentFontSize||10)+'px';
-      cm.style.fontFamily=getCommentFontFamily(d);
-      cm.style.color=commentChosen;
-      el.appendChild(cm);
-    }
-
     el.addEventListener('pointerdown',e=>startPlacedDrag(e,it.id,el));
     setupPlacedClickBehavior(el,it.id);
 
@@ -5375,7 +5340,7 @@ function renderPlaced(){
   });
 
   document.querySelectorAll('.placed-name').forEach(el=>applyTextOutline(el,'name'));
-  document.querySelectorAll('.placed-comment').forEach(el=>applyTextOutline(el,'comment'));
+  window.refreshMatrixPointNotes?.();
   renderMobilePlacementTray();
 }
 function startPlacedDrag(e,id,el){
@@ -5485,8 +5450,6 @@ function startPlacedDrag(e,id,el){
         renderTemplateTabs().catch(console.warn);
       }
       setTimeout(()=>{el._draggedByPointer=false},120);
-    }else if(typeof window.openMatrixIconComment==='function'){
-      window.openMatrixIconComment(id);
     }
   };
 
@@ -6799,9 +6762,9 @@ if(!new URL(location.href).searchParams.has('board')){
 }
 
 </script>
-<script src="board-integration.js?v=20261105-pc5"></script>
+<script src="board-integration.js?v=20261108-point-notes"></script>
 <script src="matrix-pc.js?v=20261105-pc4"></script>
-<script src="matrix-icon-comments.js?v=20261105-pc5"></script>
+<script src="matrix-icon-comments.js?v=20261108-point-notes"></script>
 <script src="matrix-template-sync.js?v=20261103-commentfix2" data-matrix-template-sync="1"></script>
 <script src="../log/log-select-menu.js?v=20261103-pretty1"></script>
 <script src="matrix-settings-ui.js?v=20261103-pretty1"></script>
