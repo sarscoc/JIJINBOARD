@@ -45,6 +45,68 @@ function buildUploadPlan(roomId,logId,tabs,grouped){
   return {tabRows,chunks};
 }
 
+
+/* Upload sessions are private R2 manifests. No log or tab is published until
+   every expected chunk is present and has been verified at finalization. */
+const uploadManifestKey=(roomId,id)=>`rooms/${roomId}/pending-uploads/${id}/manifest.json`;
+async function uploadManifest(env,roomId,id){
+  const object=await env.LOGS.get(uploadManifestKey(roomId,id));
+  return object?JSON.parse(await object.text()):null;
+}
+export async function handleStagedLogUpload(request,env,action,id=''){
+  if(request.method!=='POST')return json({error:'Method not allowed'},405);
+  let body;try{body=await request.json()}catch{return json({error:'JSONを読み取れません'},400)}
+  const roomId=String(body?.boardId||'').slice(0,160);
+  const token=request.headers.get('x-board-admin-token')||request.headers.get('x-admin-token')||'';
+  if(!roomId||!await verifyRoomAdmin(env.DB,roomId,token))return json({error:'部屋主の認証が必要です'},403);
+  if(action==='start'){
+    const tabs=Array.isArray(body.tabs)?body.tabs.map(t=>({name:String(t.name||''),count:Number(t.count)})):[];
+    if(!tabs.length||tabs.length>200||tabs.some(t=>!t.name||!Number.isSafeInteger(t.count)||t.count<0)||new Set(tabs.map(t=>t.name)).size!==tabs.length)return json({error:'タブ情報が不正です'},400);
+    const uploadId=randomToken(20),logId=randomToken(20);
+    const manifest={roomId,logId,uploadId,createdAt:Date.now(),title:String(body.title||'TRPG LOG').slice(0,200),scenarioTitle:String(body.scenarioTitle||body.title||'TRPG LOG').slice(0,120),scenarioParticipants:String(body.scenarioParticipants||'').slice(0,300),spoiler:!!body.spoiler,displayMode:body.logDisplayMode==='dark'?'dark':'light',tabs:tabs.map((t,order)=>({...t,order,tabId:randomToken(16),chunks:Math.max(1,Math.ceil(t.count/CHUNK_SIZE))}))};
+    await env.LOGS.put(uploadManifestKey(roomId,uploadId),JSON.stringify(manifest));
+    return json({uploadId,logId,chunkSize:CHUNK_SIZE},201);
+  }
+  const manifest=await uploadManifest(env,roomId,id);
+  if(!manifest||Date.now()-manifest.createdAt>86400000)return json({error:'アップロード期限が切れています。もう一度開始してください'},404);
+  if(action==='chunk'){
+    const tab=manifest.tabs.find(t=>t.order===body.tabIndex),index=body.chunkIndex;
+    if(!tab||!Number.isInteger(index)||index<0||index>=tab.chunks||!Array.isArray(body.messages))return json({error:'チャンク情報が不正です'},400);
+    const expected=index===tab.chunks-1?tab.count-index*CHUNK_SIZE:CHUNK_SIZE;
+    if(body.messages.length!==expected||body.messages.some(m=>String(m?.tab||tab.name)!==tab.name))return json({error:'発言数またはタブ名が一致しません'},400);
+    const lines=body.messages.map((message,offset)=>lineFromMessage(message,index*CHUNK_SIZE+offset));
+    const key=chunkKey(roomId,manifest.logId,tab.tabId,index);
+    await env.LOGS.put(key,JSON.stringify({tab_id:tab.tabId,tab_name:tab.name,chunk_index:index,lines}),{httpMetadata:{contentType:'application/json; charset=utf-8'},customMetadata:{roomId,logId:manifest.logId,tabId:tab.tabId,lineCount:String(lines.length)}});
+    const saved=await env.LOGS.get(key);
+    if(!saved)return json({error:'保存の確認に失敗しました'},500);
+    const checked=JSON.parse(await saved.text());
+    if(!Array.isArray(checked.lines)||checked.lines.length!==expected)return json({error:'保存された発言数が一致しません'},500);
+    return json({saved:expected,tabIndex:tab.order,chunkIndex:index});
+  }
+  if(action==='finish'){
+    const statements=[],tabStatements=[],seen=[];
+    for(const tab of manifest.tabs){
+      tabStatements.push(env.DB.prepare('INSERT INTO log_tab(tab_id,log_id,tab_name,tab_sort_order) VALUES(?,?,?,?)').bind(tab.tabId,manifest.logId,tab.name,tab.order));
+      for(let index=0;index<tab.chunks;index++){
+        const key=chunkKey(roomId,manifest.logId,tab.tabId,index),object=await env.LOGS.get(key);
+        if(!object)return json({error:`${tab.name} の保存が未完了です (${index+1}/${tab.chunks})`},409);
+        const payload=JSON.parse(await object.text()),expected=index===tab.chunks-1?tab.count-index*CHUNK_SIZE:CHUNK_SIZE;
+        if(payload.tab_id!==tab.tabId||payload.chunk_index!==index||!Array.isArray(payload.lines)||payload.lines.length!==expected)return json({error:`${tab.name} の保存内容が一致しません`},409);
+        seen.push(payload.lines.length);
+        statements.push(env.DB.prepare('INSERT INTO log_chunk(chunk_id,tab_id,chunk_index,chunk_r2_key) VALUES(?,?,?,?)').bind(randomToken(16),tab.tabId,index,key));
+      }
+    }
+    if(seen.reduce((a,b)=>a+b,0)!==manifest.tabs.reduce((a,t)=>a+t.count,0))return json({error:'全体の発言数が一致しません'},409);
+    const existing=await env.DB.prepare('SELECT log_id FROM log WHERE log_id=?').bind(manifest.logId).first();
+    if(existing)return json({id:manifest.logId,roomId,alreadyComplete:true});
+    const last=await env.DB.prepare('SELECT COALESCE(MAX(log_sort_order),-1) AS value FROM log WHERE room_id=?').bind(roomId).first();
+    await env.DB.batch([env.DB.prepare('INSERT INTO log(log_id,room_id,log_name,scenario_title,scenario_participants,spoiler_enabled,log_sort_order,log_display_mode) VALUES(?,?,?,?,?,?,?,?)').bind(manifest.logId,roomId,manifest.title,manifest.scenarioTitle,manifest.scenarioParticipants,manifest.spoiler?1:0,Number(last?.value)+1,manifest.displayMode),...tabStatements,...statements]);
+    await env.LOGS.delete(uploadManifestKey(roomId,id)).catch(()=>{});
+    return json({id:manifest.logId,roomId,title:manifest.title},201);
+  }
+  return json({error:'Not found'},404);
+}
+
 export async function createStreamRoom(request,env){
   if(request.method!=='POST')return json({error:'Method not allowed'},405);
   let body=null;try{body=await request.json()}catch{}
