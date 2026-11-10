@@ -339,10 +339,10 @@ function installGlimpseTooltip(){
  tooltip.style.cssText="position:fixed;z-index:2147483000;display:none;max-width:min(420px,calc(100vw - 24px));max-height:min(65vh,480px);overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;pointer-events:none;padding:10px 12px;border:1px solid rgba(120,120,120,.22);border-radius:8px;background:var(--surface,#fff);color:var(--text-color,#222);box-shadow:0 5px 22px rgba(0,0,0,.12);font:11px/1.6 system-ui,sans-serif";
  document.body.append(tooltip);
  const place=event=>{if(tooltip.style.display==="none")return;const width=tooltip.offsetWidth,height=tooltip.offsetHeight;tooltip.style.left=Math.max(8,Math.min(event.clientX+12,innerWidth-width-8))+"px";tooltip.style.top=Math.max(8,Math.min(event.clientY+14,innerHeight-height-8))+"px"};
- document.addEventListener("pointerover",event=>{if(event.pointerType==="touch")return;const item=event.target.closest?.(".foreign-glimpse[data-full-message]");if(!item)return;tooltip.textContent=item.dataset.fullMessage.replace(/^([^\\n]*)\\n/,"$1\\n");tooltip.style.display="block";place(event)});
+ document.addEventListener("pointerover",event=>{if(event.pointerType==="touch")return;const item=event.target.closest?.(".foreign-glimpse[data-full-message]");if(!item)return;tooltip.textContent=item.dataset.fullMessage.split(String.raw`\\n`).join(String.fromCharCode(10));tooltip.style.display="block";place(event)});
  document.addEventListener("pointermove",event=>{if(event.target.closest?.(".foreign-glimpse[data-full-message]"))place(event);else tooltip.style.display="none"});
  document.addEventListener("pointerout",event=>{if(event.target.closest?.(".foreign-glimpse[data-full-message]")&&!event.relatedTarget?.closest?.(".foreign-glimpse[data-full-message]"))tooltip.style.display="none"});
- document.addEventListener("focusin",event=>{const item=event.target.closest?.(".foreign-glimpse[data-full-message]");if(!item)return;tooltip.textContent=item.dataset.fullMessage;tooltip.style.display="block";const rect=item.getBoundingClientRect();place({clientX:rect.left,clientY:rect.bottom})});
+ document.addEventListener("focusin",event=>{const item=event.target.closest?.(".foreign-glimpse[data-full-message]");if(!item)return;tooltip.textContent=item.dataset.fullMessage.split(String.raw`\\n`).join(String.fromCharCode(10));tooltip.style.display="block";const rect=item.getBoundingClientRect();place({clientX:rect.left,clientY:rect.bottom})});
  document.addEventListener("focusout",()=>tooltip.style.display="none");
 }
 installGlimpseTooltip();
