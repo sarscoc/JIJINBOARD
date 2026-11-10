@@ -10,7 +10,7 @@
     cacheDirty=false;
     logTextCache.write(room.id,room);
   }
-  const chunkUrl=(roomId,index,tab)=>`${streamPath(roomId,`chunk/${index}`)}?tab=${encodeURIComponent(tab||'')}`;
+  const chunkUrl=(roomId,index,tab)=>`${streamPath(roomId,`chunk/${index}`)}?tab=${encodeURIComponent(tab||'')}&_fresh=${Date.now()}`;
 
   async function streamFetch(path){
     let failure;
