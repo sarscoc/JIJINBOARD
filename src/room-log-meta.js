@@ -41,6 +41,16 @@ export async function handleRoomLogMeta(request,env,roomId,logId='',executionCon
     }))});
   }
 
+  if(request.method==='PATCH'&&!logId){
+    if(!await verifyRoomAdmin(env.DB,roomId,request.headers.get('x-board-admin-token')||''))return json({error:'部屋主だけが並び替えできます'},403);
+    const body=await safeBody(request),order=body?.order;
+    if(!Array.isArray(order)||!order.length||order.some(id=>typeof id!=='string')||new Set(order).size!==order.length)return json({error:'並び順が不正です'},400);
+    const existing=(await env.DB.prepare('SELECT log_id FROM log WHERE room_id=?').bind(roomId).all()).results.map(row=>row.log_id);
+    if(order.length!==existing.length||order.some(id=>!existing.includes(id)))return json({error:'ログ一覧が変更されました。再読み込みしてください'},409);
+    await env.DB.batch(order.map((id,index)=>env.DB.prepare('UPDATE log SET log_sort_order=? WHERE room_id=? AND log_id=?').bind(index,roomId,id)));
+    return json({ok:true});
+  }
+
   if(request.method==='POST'&&!logId){
     if(!await verifyRoomAdmin(env.DB,roomId,request.headers.get('x-board-admin-token')||''))return json({error:'この自陣を編集できるのは部屋主だけです'},403);
     const body=await safeBody(request),id=String(body?.roomId||'');if(!id)return json({error:'追加するログが見つかりません'},404);
