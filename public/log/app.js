@@ -86,16 +86,61 @@ async function handleFile(file) {
 
 async function createRoom() {
   if (!state.parsed) return;
-  const btn = $("#createRoomBtn"); btn.disabled = true; btn.textContent = "作成中…";
-  try {
-    const result = await api("/api/rooms", { method: "POST",headers:{"x-site-owner-key":localStorage.getItem("trpgMarkerSiteOwnerKey")||""}, body: JSON.stringify({...state.parsed,creatorId:state.profile.id}) });
+  const btn=$("#createRoomBtn"),preview=$("#importPreview"),status=$("#homeStatus");
+  const boardId=integrationBoardId||new URL(location.href).searchParams.get("board")||"";
+  const adminToken=localStorage.getItem(`admin:${boardId}`)||localStorage.getItem(`jijinboardBoardAdminToken:${boardId}`)||"";
+  btn.disabled=true;
+  const progress=document.createElement("section");
+  progress.id="logUploadProgress";
+  progress.setAttribute("role","status");
+  progress.style.cssText="margin:16px 0;padding:16px;border:1px solid #ddd;border-radius:12px;max-height:65vh;overflow:auto";
+  preview.after(progress);
+  const grouped=new Map(state.parsed.tabs.map(tab=>[tab,[]]));
+  state.parsed.messages.forEach(m=>{const tab=String(m.tab||state.parsed.tabs[0]||"メイン");if(!grouped.has(tab))grouped.set(tab,[]);grouped.get(tab).push(m)});
+  const tabs=[...grouped].map(([name,messages])=>({name,messages,count:messages.length,saved:0}));
+  const total=tabs.reduce((n,t)=>n+t.count,0);
+  const render=(active=-1,error="")=>{
+    const saved=tabs.reduce((n,t)=>n+t.saved,0);
+    progress.replaceChildren();
+    const heading=document.createElement("h3");heading.textContent=error?"アップロードを確認してください":"ログをアップロードしています";progress.append(heading);
+    const overall=document.createElement("p");overall.textContent=`${saved.toLocaleString()} / ${total.toLocaleString()} 件 保存確認済み`;progress.append(overall);
+    const bar=document.createElement("progress");bar.max=Math.max(total,1);bar.value=saved;bar.style.width="100%";progress.append(bar);
+    for(let i=0;i<tabs.length;i++){
+      const t=tabs[i],line=document.createElement("p");line.style.margin="8px 0";
+      const label=t.saved===t.count?"保存完了":i===active?"保存中":"待機中";
+      line.textContent=`${t.name}　${t.saved.toLocaleString()} / ${t.count.toLocaleString()}　${label}`;progress.append(line);
+    }
+    if(error){const warning=document.createElement("p");warning.style.color="#b3261e";warning.textContent=error;progress.append(warning)}
+  };
+  render();
+  const uploadApi=(path,data)=>api(path,{method:"POST",headers:{"x-board-admin-token":adminToken},body:JSON.stringify({boardId,...data})});
+  try{
+    if(!boardId||!adminToken)throw Error("部屋の管理権限を確認できません。部屋の管理画面からアップロードしてください。");
+    const started=await uploadApi("/api/log-uploads/start",{title:state.parsed.title,tabs:tabs.map(({name,count})=>({name,count})),scenarioTitle:$("#scenarioTitleInput")?.value.trim(),scenarioParticipants:$("#scenarioParticipantsInput")?.value.trim(),spoiler:!!$("#spoilerInput")?.checked});
+    const chunkSize=started.chunkSize||120;
+    for(let i=0;i<tabs.length;i++){
+      const tab=tabs[i],chunks=Math.max(1,Math.ceil(tab.count/chunkSize));
+      for(let j=0;j<chunks;j++){
+        render(i);
+        const messages=tab.messages.slice(j*chunkSize,(j+1)*chunkSize);
+        let error;
+        for(let attempt=0;attempt<3;attempt++){
+          try{await uploadApi(`/api/log-uploads/chunk/${started.uploadId}`,{tabIndex:i,chunkIndex:j,messages});error=null;break}
+          catch(e){error=e;if(attempt<2)await new Promise(resolve=>setTimeout(resolve,500*(attempt+1)))}
+        }
+        if(error)throw error;
+        tab.saved+=messages.length;render(i);
+      }
+    }
+    const result=await uploadApi(`/api/log-uploads/finish/${started.uploadId}`,{});
+    progress.replaceChildren();const done=document.createElement("h3");done.textContent="全タブの保存が完了しました！";progress.append(done);
     try{
-      localStorage.setItem(`admin:${result.id}`, result.adminToken);
+      localStorage.setItem(`admin:${result.id}`,result.adminToken||adminToken);
       const owned=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}");owned[result.id]={title:state.parsed.title,createdAt:new Date().toISOString()};localStorage.setItem("trpgMarkerOwnedRooms",JSON.stringify(owned));
-    }catch(error){console.warn("Log ownership cache could not be saved",error)}
-    if(integrationEmbedded&&integrationBoardId&&parent!==window)parent.postMessage({type:"jijinboard-room-created",roomId:result.id,adminToken:result.adminToken,title:state.parsed.title,spoiler:!!$("#spoilerInput")?.checked,scenarioTitle:$("#scenarioTitleInput")?.value.trim()||"",scenarioParticipants:$("#scenarioParticipantsInput")?.value.trim()||""},location.origin);
-    else location.href = `/log/?room=${encodeURIComponent(result.id)}`;
-  } catch (e) { $("#homeStatus").textContent = e.message; btn.disabled = false; btn.textContent = "アップロードする"; }
+    }catch(e){console.warn("Log ownership cache could not be saved",e)}
+    if(integrationEmbedded&&integrationBoardId&&parent!==window)parent.postMessage({type:"jijinboard-room-created",roomId:result.id,adminToken:result.adminToken||adminToken,title:state.parsed.title,spoiler:!!$("#spoilerInput")?.checked,scenarioTitle:$("#scenarioTitleInput")?.value.trim()||"",scenarioParticipants:$("#scenarioParticipantsInput")?.value.trim()||""},location.origin);
+    else location.href=`/log/?room=${encodeURIComponent(result.id)}`;
+  }catch(e){render(-1,e.message);status.textContent="保存は完了していません。再試行しても既存ログは変更されません。";btn.disabled=false;btn.textContent="最初から再試行"; }
 }
 async function renderOwnedRooms(){const ids=[];for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(key?.startsWith("admin:"))ids.push(key.slice(6))}const box=$("#ownedRooms"),list=$("#ownedRoomList");if(!ids.length){box.classList.add("hidden");return}const saved=JSON.parse(localStorage.getItem("trpgMarkerOwnedRooms")||"{}"),rooms=await Promise.all(ids.map(async id=>{try{const room=await api(`/api/rooms/${encodeURIComponent(id)}?summary=1`);return{id,title:room.title,createdAt:room.createdAt,available:true}}catch{return{id,title:saved[id]?.title||"読み込めない部屋",createdAt:saved[id]?.createdAt||"",available:false}}}));rooms.sort((a,b)=>String(b.createdAt).localeCompare(String(a.createdAt)));list.innerHTML=rooms.map(room=>`<div class="owned-room ${room.available?"":"unavailable"}" data-owned-room="${esc(room.id)}"><a href="/log/?room=${encodeURIComponent(room.id)}"><span><b>${esc(room.title)}</b><small>${room.createdAt?esc(formatCommentDate(room.createdAt)):""}</small></span><i>${room.available?"開く ›":"確認できません"}</i></a><button type="button" class="room-delete" data-delete-room="${esc(room.id)}" data-room-title="${esc(room.title)}" title="部屋を削除">×</button></div>`).join("");box.classList.remove("hidden")}
 function rememberRecentRoom(room){const recent=JSON.parse(localStorage.getItem("trpgMarkerRecentRooms")||"[]").filter(item=>item.id!==room.id);recent.unshift({id:room.id,title:room.title,visitedAt:new Date().toISOString()});localStorage.setItem("trpgMarkerRecentRooms",JSON.stringify(recent.slice(0,20)))}
