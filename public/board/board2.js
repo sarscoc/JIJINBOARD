@@ -74,6 +74,25 @@ function saveNavigation(){
 function restoreNavigation(){
  try{const saved=JSON.parse(localStorage.getItem(navigationKey())||'null');if(saved?.generation!==localStorage.getItem('jijin.dataset.generation.v1')||saved?.data?.id!==boardId||!Array.isArray(saved.data.logs))return false;state.board=saved.data;showBoardTitle(saved.data.name);renderLogs();return true}catch{return false}
 }
+let draggingLogId="";
+function installDesktopLogReorder(){
+ const list=$("#logList");if(!list||list.dataset.reorderReady)return;list.dataset.reorderReady="1";
+ list.addEventListener("dragstart",e=>{
+   const row=e.target.closest(".log-entry");
+   if(!row||!adminToken()||window.matchMedia("(pointer:coarse)").matches){e.preventDefault();return}
+   draggingLogId=row.dataset.logId;e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("text/plain",draggingLogId);row.style.opacity=".55";
+ });
+ list.addEventListener("dragover",e=>{if(!draggingLogId)return;e.preventDefault();e.dataTransfer.dropEffect="move";const target=e.target.closest(".log-entry"),source=[...list.children].find(row=>row.dataset.logId===draggingLogId);if(!target||!source||target===source)return;const rect=target.getBoundingClientRect();list.insertBefore(source,e.clientY<rect.top+rect.height/2?target:target.nextSibling)});
+ list.addEventListener("drop",async e=>{
+   if(!draggingLogId)return;e.preventDefault();const id=draggingLogId;draggingLogId="";
+   const order=[...list.children].map(row=>row.dataset.logId),old=[...state.board.logs];
+   if(order.join("|")===old.map(x=>x.roomId).join("|")){renderLogs();return}
+   state.board.logs=order.map(id=>old.find(item=>item.roomId===id));renderLogs();
+   try{await api(`/api/boards/${encodeURIComponent(boardId)}/logs`,{method:"PATCH",headers:{"x-board-admin-token":adminToken()},body:JSON.stringify({order})})}
+   catch(error){state.board.logs=old;renderLogs();alert("ログの並び替えを保存できませんでした: "+error.message)}
+ });
+ list.addEventListener("dragend",()=>{draggingLogId="";[...list.children].forEach(row=>row.style.opacity="");renderLogs()});
+}
 function renderLogs(){
  const logs=state.board?.logs||[],owner=!!adminToken(),list=$("#logList");if(!list)return;
  $("#emptyLogs").hidden=logs.length>0;
