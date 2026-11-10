@@ -88,7 +88,7 @@ async function createRoom() {
   if (!state.parsed) return;
   const btn=$("#createRoomBtn"),preview=$("#importPreview"),status=$("#homeStatus");
   const boardId=integrationBoardId||new URL(location.href).searchParams.get("board")||"";
-  const adminToken=localStorage.getItem(`admin:${boardId}`)||localStorage.getItem(`jijinboardBoardAdminToken:${boardId}`)||"";
+  const adminToken=localStorage.getItem(`boardAdmin:${boardId}`)||JSON.parse(localStorage.getItem("jijinboardOwnedBoards.v1")||"{}")[boardId]?.adminToken||"";
   btn.disabled=true;
   const progress=document.createElement("section");
   progress.id="logUploadProgress";
