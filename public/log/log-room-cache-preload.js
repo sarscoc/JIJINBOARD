@@ -23,10 +23,10 @@
   }
 
   async function firstStreamedRoom(roomId){
-    const cached=parentCache?.get(roomId);if(cached?.stream?.streamed&&Array.isArray(cached.stream.tabStreams)&&Array.isArray(cached.messages))return cached;
+    const cached=parentCache?.get(roomId);// Do not reuse an old tab index after R2/D1 recovery; fetch current metadata.
     try{
       const metaQuery=window.JijinDesktop?'?firstTab=':'';
-      const metaResponse=await streamFetch(streamPath(roomId,'meta')+metaQuery);if(!metaResponse.ok)throw new Error('stream unavailable');
+      const metaResponse=await streamFetch(streamPath(roomId,'meta')+metaQuery+(metaQuery?'&':'?')+'_fresh='+Date.now());if(!metaResponse.ok)throw new Error('stream unavailable');
       const meta=await metaResponse.json();
       if(meta.chunkCount===0)return null;
       const allTabs=Array.isArray(meta.tabs)?meta.tabs:[],hidden=new Set(window.JijinDesktop?(meta.tabStreams||[]).filter(info=>info.hidden).map(info=>info.tabName):[]),tabs=allTabs.filter(tab=>!hidden.has(tab)),tab=tabs.find(name=>name==="メイン")||tabs[0]||"",loadedByTab={};
