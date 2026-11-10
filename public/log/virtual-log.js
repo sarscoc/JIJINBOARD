@@ -174,7 +174,7 @@
     const items = state.room.messages.filter(m => m.tab === tab && matchesSearch(m, search));
     const key = `${state.virtualGeneration}:compact:${trackIndex}`;
     state.virtualPanels.set(key, { mode: "compact", tab, grouped, search, items, heights: items.map(compactEstimate), prefix: null, start: 0, end: 0, frame: 0 });
-    const body = items.length ? compactRows : tabPending(tab,search) ? '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>' : '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>';
+    const body = items.length ? compactRows : tabPending(tab,search) ? '<div class="log-empty-spinner" role="status" aria-label="読み込み中"><span></span></div>' : '<div class="log-empty" role="status">このタブに表示する発言はありません</div>';
     return `<section class="log-page virtual-page" data-virtual-key="${key}" data-real-index="${realIndex}" data-track-index="${trackIndex}" data-clone="${clone}"><div class="page-scroll">${body}</div></section>`;
   };
 
