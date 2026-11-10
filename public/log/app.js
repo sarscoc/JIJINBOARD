@@ -137,7 +137,7 @@ async function openRoom(id) {
       ...(fresh?[fresh.then(()=>null,()=>null)]:[]),
       new Promise(resolve=>setTimeout(()=>resolve(null),localFirst?180:80))
     ]);
-    const localRoom=localFirst&&cached?.id===id&&cached.tabs?.length&&cached.messages?.length?cached:null;
+    const localRoom=localFirst&&cached?.id===id&&cached.tabs?.length&&cached.messages?.length&&!cached.stream?.streamed?cached:null;
     if(!localRoom)fresh||=readRoom();
     const paintRoom=room=>{
     const previousTab=state.room?.tabs?.[state.activeTabIndex];
