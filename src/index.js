@@ -14,7 +14,7 @@ import { handleMatrixTemplateComments } from './matrix-template-comments.js';
 import { handleMatrixTemplates } from './matrix-templates.js';
 import { handleMatrixPoint } from './matrix-point.js';
 import { handleMatrixState } from './matrix-state.js';
-import { createStreamRoom,handleLogStream,prepareStreamRoomDelete } from './log-stream.js';
+import { createStreamRoom,handleStagedLogUpload,handleLogStream,prepareStreamRoomDelete } from './log-stream.js';
 import { handleLogCommentWindow } from './log-comments-window.js';
 import { handleBoardTheme } from './board-theme.js';
 import { handleGroupRowColors } from './group-row-colors.js';
@@ -70,6 +70,8 @@ const worker={
     const playerIcon=url.pathname.match(/^\/api\/boards\/([^/]+)\/player-icons\/([^/]+)\/([^/]+)$/);
     if(playerIcon)return servePlayerIcon(request,env,decodeURIComponent(playerIcon[1]),playerIcon[2],playerIcon[3]);
     if(request.method==='POST'&&url.pathname==='/api/rooms')return createStreamRoom(request,env);
+    const staged=url.pathname.match(/^\/api\/log-uploads\/(start|chunk|finish)(?:\/([^/]+))?$/);
+    if(staged)return handleStagedLogUpload(request,env,staged[1],staged[2]||'');
 
     const stream=url.pathname.match(/^\/api\/rooms\/([^/]+)\/stream\/(meta|full|chunk|find)(?:\/([^/]+))?$/);
     if(stream)return handleLogStream(request,env,decodeURIComponent(stream[1]),stream[2],stream[3]?decodeURIComponent(stream[3]):'',executionContext);
