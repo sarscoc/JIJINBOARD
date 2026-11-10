@@ -106,7 +106,7 @@ async function directChunk(request,env,logId,index){
   }
   if(!row)return json({index,tab:requestedTab,tabId:requestedTabId,messages:[]});
   const messages=await readChunk(env,row,row.tab_name),response=json({index,tab:row.tab_name,tabId:row.tab_id,messages});
-  response.headers.set('cache-control','private, max-age=31536000, immutable');return response;
+  response.headers.set('cache-control','no-store');return response;
 }
 
 export async function handleLogStream(request,env,logId,action,arg){
