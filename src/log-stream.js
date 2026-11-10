@@ -119,14 +119,16 @@ export async function handleLogStream(request,env,logId,action,arg){
     const items=tabs.map(tab=>({tabId:tab.tab_id,tabName:tab.tab_name,order:Number(tab.tab_sort_order)||0,hidden:!!tab.tab_hidden,chunkCount:Number(tab.chunk_count)||0,messageCount:null}));
     const firstTab=new URL(request.url).searchParams.get('firstTab');
     let first=null;
-    if(firstTab!==null){
-      if(!indexed){
-        const recovered=await unindexedChunks(env,row.room_id,logId,tabs);
-        for(const item of items){
-          item.recoveredIndexes=recovered.filter(chunk=>chunk.tabId===item.tabId).map(chunk=>chunk.index).sort((a,b)=>a-b);
-          item.chunkCount=item.recoveredIndexes.length;
-        }
+    // Recover R2 chunks for legacy uploads even when the client does not request firstTab.
+    // Otherwise the tab list reports zero chunks and HO tabs appear unreadable.
+    if(!indexed){
+      const recovered=await unindexedChunks(env,row.room_id,logId,tabs);
+      for(const item of items){
+        item.recoveredIndexes=recovered.filter(chunk=>chunk.tabId===item.tabId).map(chunk=>chunk.index).sort((a,b)=>a-b);
+        item.chunkCount=item.recoveredIndexes.length;
       }
+    }
+    if(firstTab!==null){
       const visible=items.filter(item=>!item.hidden);
       const preferred=visible.find(item=>item.tabName===firstTab)||visible.find(item=>item.tabName==='メイン')||visible[0];
       if(preferred){
