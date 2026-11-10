@@ -121,9 +121,10 @@ export async function handleLogStream(request,env,logId,action,arg){
     let first=null;
     // Recover R2 chunks for legacy uploads even when the client does not request firstTab.
     // Otherwise the tab list reports zero chunks and HO tabs appear unreadable.
-    if(!indexed){
-      const recovered=await unindexedChunks(env,row.room_id,logId,tabs);
-      for(const item of items){
+    const missingItems=items.filter(item=>item.chunkCount===0);
+    if(missingItems.length){
+      const recovered=await unindexedChunks(env,row.room_id,logId,tabs.filter(tab=>missingItems.some(item=>item.tabId===tab.tab_id)));
+      for(const item of missingItems){
         item.recoveredIndexes=recovered.filter(chunk=>chunk.tabId===item.tabId).map(chunk=>chunk.index).sort((a,b)=>a-b);
         item.chunkCount=item.recoveredIndexes.length;
       }
