@@ -93,7 +93,26 @@ async function createRoom() {
   const progress=document.createElement("section");
   progress.id="logUploadProgress";
   progress.setAttribute("role","status");
-  progress.style.cssText="margin:16px 0;padding:16px;border:1px solid #ddd;border-radius:12px;max-height:65vh;overflow:auto";
+  progress.className="jijin-upload-progress";
+  const uploadStyle=document.createElement("style");
+  uploadStyle.textContent=`
+    .jijin-upload-progress{--upload-accent:var(--jijin-pre-color1,var(--theme-color,var(--accent-color,#8a92a2)));margin:10px auto;padding:12px 14px;max-width:440px;max-height:min(52vh,360px);overflow:auto;border:1px solid color-mix(in srgb,var(--upload-accent) 20%,#ddd);border-radius:9px;background:var(--surface,#fff);color:inherit;font-size:11px;line-height:1.5}
+    .jijin-upload-progress .upload-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+    .jijin-upload-progress .upload-head strong{font-size:12px;font-weight:600}
+    .jijin-upload-progress .upload-total{font-size:10px;opacity:.65;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .jijin-upload-progress progress{display:block;width:100%;height:4px;appearance:none;border:0;border-radius:4px;overflow:hidden;background:color-mix(in srgb,var(--upload-accent) 12%,transparent);margin:0 0 10px}
+    .jijin-upload-progress progress::-webkit-progress-bar{background:color-mix(in srgb,var(--upload-accent) 12%,transparent)}
+    .jijin-upload-progress progress::-webkit-progress-value{background:var(--upload-accent);border-radius:4px}
+    .jijin-upload-progress progress::-moz-progress-bar{background:var(--upload-accent)}
+    .jijin-upload-progress .upload-tab{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:9px;align-items:center;min-height:25px;border-top:1px solid color-mix(in srgb,currentColor 7%,transparent)}
+    .jijin-upload-progress .upload-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .jijin-upload-progress .upload-count{font-variant-numeric:tabular-nums;opacity:.62;white-space:nowrap}
+    .jijin-upload-progress .upload-state{min-width:40px;text-align:right;font-size:10px;opacity:.5;white-space:nowrap}
+    .jijin-upload-progress .upload-tab[data-state="active"] .upload-state{color:var(--upload-accent);opacity:1}
+    .jijin-upload-progress .upload-tab[data-state="done"] .upload-state{color:var(--upload-accent);opacity:.85}
+    .jijin-upload-progress .upload-error{margin:8px 0 0;color:#b3261e;font-size:10px;overflow-wrap:anywhere}
+  `;
+  progress.append(uploadStyle);
   preview.after(progress);
   const grouped=new Map(state.parsed.tabs.map(tab=>[tab,[]]));
   state.parsed.messages.forEach(m=>{const tab=String(m.tab||state.parsed.tabs[0]||"メイン");if(!grouped.has(tab))grouped.set(tab,[]);grouped.get(tab).push(m)});
@@ -101,16 +120,22 @@ async function createRoom() {
   const total=tabs.reduce((n,t)=>n+t.count,0);
   const render=(active=-1,error="")=>{
     const saved=tabs.reduce((n,t)=>n+t.saved,0);
-    progress.replaceChildren();
-    const heading=document.createElement("h3");heading.textContent=error?"アップロードを確認してください":"ログをアップロードしています";progress.append(heading);
-    const overall=document.createElement("p");overall.textContent=`${saved.toLocaleString()} / ${total.toLocaleString()} 件 保存確認済み`;progress.append(overall);
-    const bar=document.createElement("progress");bar.max=Math.max(total,1);bar.value=saved;bar.style.width="100%";progress.append(bar);
+    progress.replaceChildren(uploadStyle);
+    const head=document.createElement("div");head.className="upload-head";
+    const heading=document.createElement("strong");heading.textContent=error?"アップロード未完了":"ログをアップロード中";
+    const overall=document.createElement("span");overall.className="upload-total";overall.textContent=`${saved.toLocaleString()} / ${total.toLocaleString()}`;
+    head.append(heading,overall);progress.append(head);
+    const bar=document.createElement("progress");bar.max=Math.max(total,1);bar.value=saved;progress.append(bar);
     for(let i=0;i<tabs.length;i++){
-      const t=tabs[i],line=document.createElement("p");line.style.margin="8px 0";
-      const label=t.saved===t.count?"保存完了":i===active?"保存中":"待機中";
-      line.textContent=`${t.name}　${t.saved.toLocaleString()} / ${t.count.toLocaleString()}　${label}`;progress.append(line);
+      const t=tabs[i],line=document.createElement("div");line.className="upload-tab";
+      const done=t.saved===t.count,activeNow=i===active&&!done;
+      line.dataset.state=done?"done":activeNow?"active":"waiting";
+      const name=document.createElement("span");name.className="upload-name";name.textContent=t.name;
+      const count=document.createElement("span");count.className="upload-count";count.textContent=`${t.saved.toLocaleString()} / ${t.count.toLocaleString()}`;
+      const stateLabel=document.createElement("span");stateLabel.className="upload-state";stateLabel.textContent=done?"完了":activeNow?"保存中":"待機";
+      line.append(name,count,stateLabel);progress.append(line);
     }
-    if(error){const warning=document.createElement("p");warning.style.color="#b3261e";warning.textContent=error;progress.append(warning)}
+    if(error){const warning=document.createElement("p");warning.className="upload-error";warning.textContent=error;progress.append(warning)}
   };
   render();
   const uploadApi=(path,data)=>api(path,{method:"POST",headers:{"x-board-admin-token":adminToken},body:JSON.stringify({boardId,...data})});
