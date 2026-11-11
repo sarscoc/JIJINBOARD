@@ -495,9 +495,12 @@
   });
   window.addEventListener("jijinboard-cache-updated",event=>{
     const url=new URL(event.detail.url);
-    if(!url.pathname.startsWith(`/api/boards/${encodeURIComponent(boardId)}/matrix/`))return;
-    if(url.pathname.includes("/comments"))return;
-    if(active&&roomId)loadRoom(roomId).catch(console.warn);else dirtyState=true;
+    // Template/point/image cache updates are not room-state changes.
+    // They are handled by their own event-driven synchronizers; reloading
+    // the entire MATRIX for each cache write caused unnecessary D1 reads.
+    if(url.pathname!==matrixPath())return;
+    if(active&&roomId&&!fullStateDirty&&!saving)loadRoom(roomId).catch(console.warn);
+    else dirtyState=true;
   });
   // Refresh thumbnail avatars when participant images arrive after templates.
   if(typeof renderLibrary==="function"){
