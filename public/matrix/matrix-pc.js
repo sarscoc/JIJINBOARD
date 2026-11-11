@@ -300,7 +300,9 @@
   if(!restoreParticipants(activeRoom))setParticipants([],{forcePaint:true});
 
   window.addEventListener("matrix-board-room",event=>{
-    activeRoom=event.detail?.roomId||boardId;
+    const nextRoom=event.detail?.roomId||boardId;
+    if(nextRoom!==activeRoom){participantRevision=-1;loadKey="";}
+    activeRoom=nextRoom;
     restoreParticipants(activeRoom);
     load(activeRoom,true).catch(console.warn);
   });
@@ -308,11 +310,11 @@
     const data=event.detail?.data;
     if(Array.isArray(data?.participants)&&Number.isFinite(data.revision)){
       if(data.revision<participantRevision)return;
-      participantRevision=data.revision;++loadSeq;lastLoadedAt=Date.now();setParticipants(data.participants);return;
+      participantRevision=data.revision;++loadSeq;lastLoadedAt=Date.now();verifiedRooms.add(activeRoom);setParticipants(data.participants);return;
     }
     load(activeRoom,true).catch(console.warn);
   });
-  window.addEventListener("jijinboard-player-master-updated",()=>load(activeRoom).catch(console.warn));
+  window.addEventListener("jijinboard-player-master-updated",()=>load(activeRoom,true).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>{
     if(!verifiedRooms.has(activeRoom))load(activeRoom).catch(console.warn);
   });
