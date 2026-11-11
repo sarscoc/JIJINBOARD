@@ -11,12 +11,15 @@ const preserve=new Set(['app_reset','app_dataset','top_auth','top_session']);
 // the retired global identity rows. New application code always uses addresses.
 
 const pending=(diagnostic={})=>new Response(JSON.stringify({...diagnostic,code:'DATASET_RESETTING',error:'保存データを初期化しています。しばらくしてから再読み込みしてください。'}),{status:503,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','retry-after':'5'}});
+// A completed one-time reset never needs another D1 schema check in this isolate.
+// Cache only the completed state; pending resets must continue on every request.
+const completedResetIds=new Set();
 export async function performRequestedReset(env){
- const id=String(env.RESET_DATASET_ONCE||'');if(!id)return null;
+ const id=String(env.RESET_DATASET_ONCE||'');if(!id||completedResetIds.has(id))return null;
  const db=env.DB;
  await db.prepare(controlSQL).run();
  const found=await db.prepare('SELECT * FROM app_reset WHERE reset_id=?').bind(id).first();
- if(found?.state==='complete')return null;
+ if(found?.state==='complete'){completedResetIds.add(id);return null;}
  // Revoke all browser generations before touching data. Old in-flight requests drain
  // while every new entry into this Worker is held behind this same durable gate.
  await db.batch([
