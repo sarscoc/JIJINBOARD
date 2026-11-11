@@ -123,8 +123,11 @@ const worker={
       if(request.method!=='GET')return json({error:'Method not allowed'},405);
       const board=decodeURIComponent(matrixVersion[1]),room=decodeURIComponent(matrixVersion[2]);
       if(!await validMatrixScope(env.DB,board,room))return json({error:'この自陣にないログです'},404);
-      const row=await env.DB.prepare('SELECT revision FROM matrix_revision WHERE room_id=?').bind(board).first();
-      return json({revision:Number(row?.revision||0)});
+      const [matrix,participants]=await env.DB.batch([
+        env.DB.prepare('SELECT revision FROM matrix_revision WHERE room_id=?').bind(board),
+        env.DB.prepare('SELECT room_revision FROM room WHERE room_id=?').bind(board)
+      ]);
+      return json({revision:Number(matrix.results?.[0]?.revision||0),participantsRevision:Number(participants.results?.[0]?.room_revision||0)});
     }
     const matrixState=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)$/);if(matrixState)return handleMatrixState(request,env,decodeURIComponent(matrixState[1]),decodeURIComponent(matrixState[2]));
     const templateComments=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/template-comments\/([^/]+)$/);if(templateComments)return handleMatrixTemplateComments(request,env,decodeURIComponent(templateComments[1]),decodeURIComponent(templateComments[2]),decodeURIComponent(templateComments[3]),executionContext);
