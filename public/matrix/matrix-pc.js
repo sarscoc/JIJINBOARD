@@ -37,6 +37,7 @@
   let activeRoom=params.get("room")||boardId,participants=[],draggingPcId="",participantsSignature="";
   let participantRevision=-1;
   let loadPromise=null,loadKey="",lastLoadedAt=0,loadSeq=0,activePaintFrame=0;
+   const verifiedRooms=new Set();
   const api=async(path,options={})=>{const response=await fetch(path,{headers:{"content-type":"application/json",...(options.headers||{})},...options}),body=await response.json().catch(()=>({}));if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);return body};
   const me=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const participantPath=room=>room===boardId?`/api/boards/${encodeURIComponent(boardId)}/participants`:`/api/boards/${encodeURIComponent(boardId)}/logs/${encodeURIComponent(room)}/participants`;
@@ -148,10 +149,10 @@
     const nextRoom=room||activeRoom||"";
     activeRoom=nextRoom;
     if(!nextRoom){setParticipants([]);return}
-    const now=Date.now();
+    // Fetch each room once; subsequent reads require an actual change event.
     if(!force&&loadKey===nextRoom){
       if(loadPromise)return loadPromise;
-      if(now-lastLoadedAt<1200)return;
+      if(verifiedRooms.has(nextRoom))return;
     }
     const seq=++loadSeq;
     loadKey=nextRoom;
@@ -162,6 +163,7 @@
       if(seq!==loadSeq||activeRoom!==nextRoom)return;
       const changed=setParticipants(list);
       lastLoadedAt=Date.now();
+      verifiedRooms.add(nextRoom);
       if(changed)paintAfterLayout();
     })();
     loadPromise=task;
@@ -312,10 +314,10 @@
   });
   window.addEventListener("jijinboard-player-master-updated",()=>load(activeRoom).catch(console.warn));
   window.addEventListener("matrix-board-active",()=>{
-    load(activeRoom).catch(console.warn);
+    if(!verifiedRooms.has(activeRoom))load(activeRoom).catch(console.warn);
   });
 
   window.addEventListener("message",event=>{if(event.origin===location.origin&&event.data?.type==="jijinboard-participants-saved")load(activeRoom,true).catch(console.warn)});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)load(activeRoom,true).catch(console.warn)});
+  // Visibility alone is not a data change. Reconnect notifications refresh participants.
   queueMicrotask(()=>load(activeRoom).catch(console.warn));
 })();
