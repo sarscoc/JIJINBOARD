@@ -55,6 +55,7 @@
   let roomId=params.get("room")||boardId,lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false,fullStateDirty=false;
   let loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
   let realtime=null,realtimeRoom="",dirtyState=false,dirtyParticipants=false,dirtyComments=false;
+  const connectedRooms=new Set();let reconnectAttempts=0;
   const pendingActions=new Map(),pointRequests=new Map(),pointChains=new Map();
   const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
@@ -173,15 +174,23 @@
       if(realtime!==socket)return;
       try{socket.send(JSON.stringify({type:"join",clientId:realtimeClientId}))}catch{}
       flushPendingActions(socket);
-      dispatchRefresh("participants");dispatchRefresh("matrix-state");
-      if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
+      // Initial room/template/participant loads already run during startup.
+      // Only a genuine reconnection needs to catch up on missed notifications.
+      const reconnect=connectedRooms.has(roomId);
+      connectedRooms.add(roomId);
+      reconnectAttempts=0;
+      if(reconnect){
+        dispatchRefresh("participants");
+        dispatchRefresh("matrix-state");
+        if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
+      }
     });
     socket.addEventListener("message",event=>{
       if(realtime!==socket)return;
       let data;try{data=JSON.parse(event.data)}catch{return}
       if(data?.type==="refresh")dispatchRefresh(String(data.action||""),data.data??null);
     });
-    socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom="";if(active)setTimeout(()=>{if(active&&!realtime)connectRealtimeEvents()},1000)}});
+    socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom="";if(active){const delay=Math.min(30000,1000*2**Math.min(reconnectAttempts++,5));setTimeout(()=>{if(active&&!realtime)connectRealtimeEvents()},delay)}}});
     socket.addEventListener("error",()=>{try{socket.close()}catch{}});
   }
 
