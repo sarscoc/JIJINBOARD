@@ -181,14 +181,17 @@
       reconnectAttempts=0;
       const openedRoom=roomId;
       // One-row revision check instead of three full reads on every reconnect.
-      api(matrixPath()+"/revision").then(({revision})=>{
+      api(matrixPath()+"/revision").then(({revision,participantsRevision})=>{
         if(realtime!==socket||roomId!==openedRoom)return;
         const previous=roomRevisions.get(openedRoom);
-        roomRevisions.set(openedRoom,revision);
-        if(!reconnect||previous===revision)return;
-        dispatchRefresh("participants");
-        dispatchRefresh("matrix-state");
-        if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
+        const next={matrix:revision,participants:participantsRevision};
+        roomRevisions.set(openedRoom,next);
+        if(!reconnect)return;
+        if(!previous||previous.participants!==next.participants)dispatchRefresh("participants");
+        if(!previous||previous.matrix!==next.matrix){
+          dispatchRefresh("matrix-state");
+          if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
+        }
       }).catch(error=>{
         console.warn("MATRIX revision check failed",error);
         // Unknown state: prefer correctness over skipping missed edits.
