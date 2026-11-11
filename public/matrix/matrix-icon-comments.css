@@ -385,3 +385,33 @@ html.jijin-desktop body #matrixIconCommentList>.matrix-reply{margin-left:24px!im
  background:var(--paper,#fff);color:var(--matrix-ink,#303641);font:11px/1.45 system-ui,sans-serif;
  white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 3px 10px #0002;
 }
+
+/* Keep the comment header fixed and make the comment list the scroll container.
+   Grid row 2 has a finite height; auto-sized rails used to clip long threads. */
+html.embedded .stage-shell > #matrixIconComments{
+  height:100%!important;
+  max-height:100%!important;
+  min-height:0!important;
+  align-self:stretch!important;
+  overflow:hidden!important;
+}
+html.embedded #matrixIconComments > #matrixIconCommentList{
+  display:block;
+  flex:1 1 0%!important;
+  min-height:0!important;
+  height:auto!important;
+  max-height:100%!important;
+  overflow-x:hidden!important;
+  overflow-y:auto!important;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  scrollbar-color:color-mix(in srgb,var(--matrix-ink) 36%,transparent) transparent;
+}
+html.embedded #matrixIconCommentList::-webkit-scrollbar{width:6px}
+html.embedded #matrixIconCommentList::-webkit-scrollbar-thumb{
+  background:color-mix(in srgb,var(--matrix-ink) 32%,transparent);
+  border-radius:6px;
+}
+@media(max-width:800px){
+  html.embedded .stage-shell > #matrixIconComments{height:100%!important}
+}
