@@ -118,7 +118,7 @@ const worker={
     const matrixTemplateImage=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/templates\/([^/]+)\/image$/);if(matrixTemplateImage)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplateImage[1]),'',decodeURIComponent(matrixTemplateImage[2]),true);
     const matrixTemplates=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/templates(?:\/([^/]+))?$/);if(matrixTemplates)return handleMatrixTemplates(request,env,decodeURIComponent(matrixTemplates[1]),decodeURIComponent(matrixTemplates[2]),matrixTemplates[3]?decodeURIComponent(matrixTemplates[3]):'',false);
     const matrixPoint=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/points\/([^/]+)$/);if(matrixPoint)return handleMatrixPoint(request,env,decodeURIComponent(matrixPoint[1]),decodeURIComponent(matrixPoint[2]),decodeURIComponent(matrixPoint[3]),executionContext);
-    const matrixVersion=url.pathname.match(/^\\/api\\/boards\\/([^/]+)\\/matrix\\/([^/]+)\\/revision$/);
+    const matrixVersion=url.pathname.match(/^\/api\/boards\/([^/]+)\/matrix\/([^/]+)\/revision$/);
     if(matrixVersion){
       if(request.method!=='GET')return json({error:'Method not allowed'},405);
       const board=decodeURIComponent(matrixVersion[1]),room=decodeURIComponent(matrixVersion[2]);
