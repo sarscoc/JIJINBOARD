@@ -55,7 +55,7 @@
   let roomId=params.get("room")||boardId,lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false,fullStateDirty=false;
   let loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
   let realtime=null,realtimeRoom="",dirtyState=false,dirtyParticipants=false,dirtyComments=false;
-  const connectedRooms=new Set();let reconnectAttempts=0;
+  const connectedRooms=new Set(),roomRevisions=new Map();let reconnectAttempts=0;
   const pendingActions=new Map(),pointRequests=new Map(),pointChains=new Map();
   const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
@@ -179,11 +179,24 @@
       const reconnect=connectedRooms.has(roomId);
       connectedRooms.add(roomId);
       reconnectAttempts=0;
-      if(reconnect){
+      const openedRoom=roomId;
+      // One-row revision check instead of three full reads on every reconnect.
+      api(matrixPath()+"/revision").then(({revision})=>{
+        if(realtime!==socket||roomId!==openedRoom)return;
+        const previous=roomRevisions.get(openedRoom);
+        roomRevisions.set(openedRoom,revision);
+        if(!reconnect||previous===revision)return;
         dispatchRefresh("participants");
         dispatchRefresh("matrix-state");
         if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
-      }
+      }).catch(error=>{
+        console.warn("MATRIX revision check failed",error);
+        // Unknown state: prefer correctness over skipping missed edits.
+        if(reconnect&&realtime===socket){
+          dispatchRefresh("participants");dispatchRefresh("matrix-state");
+          if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
+        }
+      });
     });
     socket.addEventListener("message",event=>{
       if(realtime!==socket)return;
