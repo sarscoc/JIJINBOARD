@@ -1,3 +1,9 @@
+export const matrixRevisionStatements = [
+  `CREATE TABLE IF NOT EXISTS matrix_revision (room_id TEXT PRIMARY KEY,revision INTEGER NOT NULL DEFAULT 0)`,
+  ...['matrix_settings','matrix_template','matrix_point'].flatMap(table=>
+    ['INSERT','UPDATE','DELETE'].map(operation=>`CREATE TRIGGER IF NOT EXISTS matrix_rev_${table}_${operation.toLowerCase()} AFTER ${operation} ON ${table} BEGIN INSERT INTO matrix_revision(room_id,revision) VALUES(${operation==='DELETE'?'OLD':'NEW'}.room_id,1) ON CONFLICT(room_id) DO UPDATE SET revision=revision+1; END`)
+  )
+];
 // Freshness tokens are not credentials. Rotate this row as part of every data reset.
 export const freshnessStatements = [
   `CREATE TABLE IF NOT EXISTS app_dataset (singleton INTEGER PRIMARY KEY CHECK(singleton=1),generation TEXT NOT NULL)`,
