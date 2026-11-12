@@ -7,8 +7,9 @@
   section.innerHTML=`
     <div class="settings-panel-title">テンプレートの一括移行</div>
     <div class="matrix-transfer-actions">
-      <button type="button" data-download>すべてダウンロード</button>
-      <button type="button" data-import>ファイルから一括追加</button>
+      <button type="button" data-download>移行用JSON保存</button>
+      <button type="button" data-download-images>画像ZIP保存</button>
+      <button type="button" data-import>一括追加</button>
     </div>
     <input type="file" accept=".json,application/json" hidden>
     <form class="matrix-transfer-actions">
@@ -20,9 +21,10 @@
   const deleteButton=document.getElementById('deleteCurrentTemplateBtn');
   settings.insertBefore(section,deleteButton?.parentElement===settings?deleteButton:null);
   const download=section.querySelector('[data-download]'),importButton=section.querySelector('[data-import]');
+  const downloadImages=section.querySelector('[data-download-images]');
   const file=section.querySelector('input[type=file]'),form=section.querySelector('form');
   const destination=form.querySelector('input'),status=section.querySelector('[role=status]');
-  const controls=[download,importButton,destination,form.querySelector('button')];
+  const controls=[download,downloadImages,importButton,destination,form.querySelector('button')];
   const format='jijinboard-matrix-templates';
   const collection=board=>`/api/boards/${encodeURIComponent(board)}/matrix/${encodeURIComponent(board)}/templates`;
   let busy=false,pending=null;
@@ -36,18 +38,24 @@
     });
   }
 
-  async function collect(){
+  async function savedTemplates(){
     const {templates}=await ctx.api(collection(ctx.boardId));
     if(!templates?.length)throw new Error('保存済みのテンプレートがありません');
+    return templates;
+  }
+
+  async function fetchImage(record){
+    const response=await fetch(record.dataUrl,{signal:AbortSignal.timeout(20000)});
+    if(!response.ok)throw new Error(`画像を取得できませんでした「${record.name}」`);
+    return response.blob();
+  }
+
+  async function collect(){
+    const templates=await savedTemplates();
     const result=[];
     for(const {record,templateState} of templates){
       status.textContent=`テンプレートを取得中（${result.length}/${templates.length}件）`;
-      let image='';
-      if(record.dataUrl){
-        const response=await fetch(record.dataUrl,{signal:AbortSignal.timeout(20000)});
-        if(!response.ok)throw new Error(`画像を取得できませんでした「${record.name}」`);
-        image=await dataUrl(await response.blob());
-      }
+      const image=record.dataUrl?await dataUrl(await fetchImage(record)):'';
       result.push({record:{name:record.name,imageName:record.imageName,createdAt:record.createdAt,dataUrl:image},templateState});
     }
     return {format,version:1,templates:result};
@@ -103,6 +111,22 @@
     const link=document.createElement('a');link.href=url;link.download='jijinboard-matrix-templates.json';
     link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
     status.textContent=`${bundle.templates.length}件をダウンロードしました。`;
+  }));
+  downloadImages.addEventListener('click',()=>run(async()=>{
+    const records=(await savedTemplates()).map(row=>row.record).filter(record=>record.dataUrl);
+    if(!records.length)throw new Error('保存済みのテンプレート画像がありません');
+    const entries=[];
+    for(const record of records){
+      status.textContent=`画像を取得中（${entries.length}/${records.length}件）`;
+      const image=await fetchImage(record);
+      const subtype=image.type.match(/^image\/([a-z0-9]+)(?:\+xml)?$/)?.[1];
+      const originalExtension=record.imageName?.match(/\.([a-z0-9]+)$/i)?.[1];
+      const extension=subtype==='jpeg'?'jpg':subtype||originalExtension||'img';
+      const index=String(entries.length+1).padStart(3,'0');
+      entries.push({name:`${index}_${sanitizeExportFileName(record.name||'template')}.${extension}`,bytes:await image.arrayBuffer()});
+    }
+    blobDownload(makeStoredZip(entries),'jijinboard-matrix-images.zip');
+    status.textContent=`画像${entries.length}件のZIPを作成しました。`;
   }));
   importButton.addEventListener('click',()=>{
     if(pending?.board===ctx.boardId){run(()=>transfer(ctx.boardId));return}

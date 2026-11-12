@@ -33,7 +33,7 @@ body>.log-select-menu{z-index:1100;scrollbar-color:#d9b5d7 transparent}
 #settings input[type="color"]::-moz-color-swatch{border:0;border-radius:5px}
 
 #settings .matrix-template-transfer{grid-column:1/-1}
-#settings .matrix-transfer-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:0 0 5px}
+#settings .matrix-transfer-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:0 0 5px}
 #settings form.matrix-transfer-actions{grid-template-columns:minmax(0,1fr) auto}
 #settings .matrix-transfer-actions :is(button,input){
   box-sizing:border-box;min-width:0;min-height:0;height:28px;padding:0 7px;

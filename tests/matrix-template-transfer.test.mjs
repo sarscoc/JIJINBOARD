@@ -36,3 +36,34 @@ test('copy appends fresh templates to the selected board and resumes without cop
  assert.equal(writes[0].body.record.id,undefined);
  assert.equal(writes[0].body.templateState.items.pc.comment,'A');
 });
+
+test('image ZIP preserves original bytes and formats, skips empty templates, and uses unique names',async t=>{
+ const dom=new JSDOM('<div id="displaySettingsBody"></div>',{url:'https://test/matrix/?board=source',runScripts:'outside-only'});
+ t.after(()=>dom.window.close());
+ const w=dom.window;
+ const templates=['webp','png',''].map(ext=>({record:{name:'地図',dataUrl:ext?'/'+ext:''}}));
+ w.matrixBoardContext={boardId:'source',api:async()=>({templates})};
+ w.fetch=async path=>new Response(path,{headers:{'content-type':'image/'+path.slice(1)}});
+ const index=readFileSync(new URL('../public/matrix/index.html',import.meta.url),'utf8');
+ Object.assign(w,{TextEncoder,Blob});
+ w.eval(index.slice(index.indexOf('function sanitizeExportFileName('),index.indexOf('function iconExportSelectedSize(')));
+ let complete;
+ const downloaded=new Promise(resolve=>complete=resolve);
+ w.blobDownload=(blob,name)=>complete({blob,name});
+ w.eval(source);
+ w.document.querySelector('[data-download-images]').click();
+ const {blob,name}=await downloaded;
+ assert.equal(name,'jijinboard-matrix-images.zip');
+ assert.equal(blob.type,'application/zip');
+ const archive=await blob.arrayBuffer(),view=new DataView(archive),decoder=new TextDecoder();
+ let offset=0;
+ for(const [file,body] of [['001_地図.webp','/webp'],['002_地図.png','/png']]){
+  assert.equal(view.getUint32(offset,true),0x04034b50);
+  const nameLength=view.getUint16(offset+26,true),size=view.getUint32(offset+18,true);
+  assert.equal(decoder.decode(new Uint8Array(archive,offset+30,nameLength)),file);
+  offset+=30+nameLength;
+  assert.equal(decoder.decode(new Uint8Array(archive,offset,size)),body);
+  offset+=size;
+ }
+ assert.equal(view.getUint16(archive.byteLength-12,true),2);
+});
