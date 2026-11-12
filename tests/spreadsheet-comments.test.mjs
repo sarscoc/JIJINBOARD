@@ -39,7 +39,7 @@ test('matrix keeps a desktop draft when another target is clicked, and sends wit
  w.HTMLDialogElement.prototype.show=function(){this.open=true};w.HTMLDialogElement.prototype.close=function(){this.open=false};
  const writes=[];let saved=[];
  w.matrixBoardContext={boardId:'b',roomId:'r',profile:()=>({id:'author',plName:'PL'}),api:async(path,options={})=>{
-  if(options.method==='POST'){const data=JSON.parse(options.body);writes.push(data);saved.push({id:'comment',target_id:'template@@matrix-template@@'+decodeURIComponent(data.target.split('/').pop()),body:data.body,persona_name:'PL',persona_type:'PL'});return {ok:true}}
+  if(options.method==='POST'){const data=JSON.parse(options.body);writes.push(data);saved.push({id:'comment-'+writes.length,parent_id:data.parentId,target_id:'template@@matrix-template@@'+decodeURIComponent(data.target.split('/').pop()),body:data.body,persona_name:'PL',persona_type:'PL'});return {ok:true}}
   if(path.endsWith('/participants'))return {participants:[]};return {comments:saved};
  }};
  w.items=[];w.currentTemplateId=()=> 'template';w.appState=()=>({items:{}});w.displayImage=()=>'';
@@ -61,6 +61,24 @@ test('matrix keeps a desktop draft when another target is clicked, and sends wit
  assert.equal(w.document.querySelector('.matrix-typing').textContent,'Third PCが入力中…');
  w.dispatchEvent(new w.CustomEvent('matrix-board-typing',{detail:{clientId:'third-device',typing:false}}));
  assert.equal(w.document.querySelector('.matrix-typing'),null);
+ const stage=w.document.querySelector('.stage-shell');
+ const point=w.document.createElement('div');point.className='placed';point.dataset.id='first';stage.append(point);
+ w.appState=()=>({items:{first:{placed:true,comment:'補足'}}});
+ w.refreshMatrixPointNotes();
+ const submit=async body=>{
+  const dialog=w.document.querySelector('#matrixIconCommentDialog');
+  assert.equal(dialog.open,true);dialog.querySelector('textarea').value=body;
+  dialog.querySelector('form').requestSubmit();await tick();await tick();
+ };
+ w.document.querySelector('[data-matrix-note-comment]').click();
+ await submit('補足へのコメント');
+ assert.equal(writes[1].parentId,'');
+ assert.equal(writes[1].target,'/boards/b/matrix/template/points/first');
+ w.document.querySelector('[data-matrix-reply="comment-2"]').click();
+ await submit('その返信');
+ assert.equal(writes[2].parentId,'comment-2');
+ assert.equal(writes[2].target,writes[1].target);
+ assert.match(w.document.querySelector('.matrix-point-note-thread .matrix-reply').textContent,/その返信/);
 
 });
 

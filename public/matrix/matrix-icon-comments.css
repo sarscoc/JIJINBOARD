@@ -127,7 +127,6 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
   scrollbar-color:color-mix(in srgb,var(--matrix-ink) 32%,transparent) transparent;
 }
 .matrix-comment-thread{margin-bottom:6px}
-.matrix-comment-thread.matrix-reply{margin-left:14px}
 .matrix-comment-card{
   padding:8px;
   border:1px solid var(--matrix-line);
@@ -193,8 +192,8 @@ html.embedded .toolbar-scale-check{border-radius:8px;padding:4px 7px!important;b
 .matrix-comment-author button[data-matrix-edit]{font-size:9px}
 .matrix-comment-author button[data-matrix-like]{font-size:11px;color:#fff;text-shadow:0 0 1px rgba(0,0,0,.8)}
 .matrix-comment-author button[data-matrix-like].liked{color:#e73152;text-shadow:none}
-.matrix-comment-author button[data-matrix-reply]{font-size:13px;opacity:.55}
-.matrix-comment-author button[data-matrix-reply]:hover{color:var(--matrix-ink);opacity:1}
+.matrix-comment-author button:is([data-matrix-reply],[data-matrix-note-comment]){font-size:13px;opacity:.55}
+.matrix-comment-author button:is([data-matrix-reply],[data-matrix-note-comment]):hover{color:var(--matrix-ink);opacity:1}
 
 /* MATRIX-specific lower row: target icon > comment body. Target name is intentionally hidden. */
 .matrix-comment-body-row{
@@ -332,8 +331,9 @@ html body #matrixIconComments .matrix-comment-head{box-sizing:border-box!importa
 html body #matrixIconComments .matrix-comment-head b{font:inherit!important;font-weight:700!important;letter-spacing:inherit!important}
 
 /* Replies stay on one reply rail, as in LOGCOMMENTS. */
-#matrixIconComments .matrix-comment-thread.matrix-reply{margin-left:24px!important}
-#matrixIconComments .matrix-reply .matrix-reply{margin-left:0!important}
+#matrixIconCommentList .matrix-comment-thread.matrix-reply,
+#matrixIconCommentList .matrix-point-note-thread > .matrix-comment-thread{margin-inline-start:24px!important}
+#matrixIconCommentList .matrix-reply .matrix-reply{margin-inline-start:0!important}
 .matrix-typing{display:flex;align-items:center;gap:7px;padding:8px;color:var(--matrix-muted);font-size:11px}
 .matrix-typing img{width:24px;height:24px;object-fit:contain;border-radius:50%}
 .matrix-typing em{font-style:normal;font-size:10px}
@@ -366,8 +366,6 @@ html.jijin-desktop body #matrixIconComments .matrix-comment-card:is(:hover,.focu
  border-color:var(--comment-marker,var(--matrix-line))!important;
  background:color-mix(in srgb,var(--comment-marker) 22%,var(--matrix-glass-strong))!important;
 }
-html.jijin-desktop body #matrixIconComments>.matrix-comments-list>.matrix-reply,
-html.jijin-desktop body #matrixIconCommentList>.matrix-reply{margin-left:24px!important}
 
 /* Only the badge sits on the board. Notes use the same pane as replies. */
 .placed>.matrix-point-note-badge{

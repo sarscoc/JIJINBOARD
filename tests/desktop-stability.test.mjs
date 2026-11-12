@@ -84,7 +84,7 @@ test('desktop MATRIX replies remain indented in newest-first order and use marke
  const w=page(t,'<div class="placed" data-id="pc"><img alt=""></div><section id="list"></section><span id="count"></span>');w.eval(source('shared/desktop-ui.js'));
  w.eval(`var comments=[{id:'parent',created_at:'2026-11-04',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'parent'},{id:'reply',parent_id:'parent',created_at:'2026-11-05',target:'tpl@@matrix-template@@pc',persona_name:'PC',persona_type:'PC',author_id:'me',body:'reply'}];function profile(){return {id:'me'}}function ctx(){return {boardId:'b'}}function pcList(){return [{id:'pc',name:'PC',type:'PC',color:'#aabbcc',colorDark:'#334455'}]}function esc(v){return String(v||'')}function targetImage(){return ''}function targetName(){return 'PC'}function targetItem(){return {markerColor:'#aabbcc'}}var TARGET_SEP='@@matrix-template@@';function targetParts(){return {templateId:'tpl',itemId:'pc'}}function currentTemplateId(){return 'tpl'}function formatCommentDate(){return ''}function renderTyping(){}function panel(){return {querySelector:s=>document.querySelector(s==='section'?'#list':'#count')}}`);
  const code=source('matrix/matrix-icon-comments.js');w.eval(code.slice(code.indexOf('  function commentColor('),code.indexOf('  const changes='))+';window.paint=render;');
- w.appState=()=>({items:{pc:{placed:true,comment:'既存の補足\n二行目'}}});w.paint();let rows=w.document.querySelectorAll('.matrix-comment-thread:not(.matrix-point-note-thread)');assert.equal(rows.length,2);assert.equal(rows[1].classList.contains('matrix-reply'),true);assert.equal(rows[1].parentElement,rows[0]);assert.match(rows[1].textContent,/reply/);assert.equal(rows[0].querySelector('article').style.getPropertyValue('--comment-marker'),'#aabbcc');
+ w.appState=()=>({items:{pc:{placed:true,comment:'既存の補足\n二行目'}}});w.paint();let rows=w.document.querySelectorAll('.matrix-comment-thread:not(.matrix-point-note-thread)');assert.equal(rows.length,2);assert.equal(rows[1].classList.contains('matrix-reply'),true);assert.equal(rows[1].parentElement,rows[0]);assert.equal(rows[0].parentElement,w.document.querySelector('.matrix-point-note-thread'));assert.ok(w.document.querySelector('[data-matrix-note-comment]'));assert.match(rows[1].textContent,/reply/);assert.equal(rows[0].querySelector('article').style.getPropertyValue('--comment-marker'),'#aabbcc');
  w.document.documentElement.classList.add('dark');w.paint();assert.equal(w.document.querySelector('.matrix-comment-thread:not(.matrix-point-note-thread) article').style.getPropertyValue('--comment-marker'),'#334455');
  const badge=w.document.querySelector('.matrix-point-note-badge');
  const placed=badge.closest('.placed'),avatar=placed.querySelector('img');
@@ -108,6 +108,7 @@ test('desktop MATRIX replies remain indented in newest-first order and use marke
  w.paint();
  assert.equal(w.document.querySelector('.matrix-point-note-badge'),null);
  assert.equal(w.document.querySelectorAll('#list .matrix-comment-thread').length,2);
+ assert.equal(w.document.querySelector('#list > .matrix-comment-thread > .matrix-reply')?.textContent.includes('reply'),true);
 });
 
 test('PC supplement is outside the canvas clipping hierarchy and remains within the viewport',t=>{
