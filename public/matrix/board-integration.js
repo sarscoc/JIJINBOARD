@@ -117,7 +117,7 @@
 
   function applyRemotePoint(data){
     const itemId=String(data?.itemId||"");
-    if(pointRequests.has(String(data?.templateId||window.currentTemplateId?.()||'')+':'+itemId))return;
+    if(pointRequests.has(roomId+':'+String(data?.templateId||window.currentTemplateId?.()||'')+':'+itemId))return;
     if(!itemId||!roomId||data?.templateId&&data.templateId!==window.currentTemplateId?.())return;
     const state=appState();state.items||={};
     const item=state.items[itemId]||(state.items[itemId]=typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{});
