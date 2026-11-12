@@ -309,11 +309,14 @@ for(const tool of ['log','matrix','sheets']){
  });
 }
 
-test('MATRIX waits for its phone styles, stable dimensions and image before revealing the canvas',async t=>{
+test('MATRIX reveals a settled canvas or falls back when the image stalls',async t=>{
  const dom=new JSDOM('<iframe src="https://test/matrix/?embedded=1"></iframe>',{url:'https://test/board/',runScripts:'outside-only'});t.after(()=>dom.window.close());
  const w=dom.window.document.querySelector('iframe').contentWindow,d=w.document;d.open();d.write('<body><div class="app"><div id="canvas"><img id="templateImg" src="one.png"><div class="placed"></div></div></div><aside id="matrixIconComments"><section></section></aside></body>');d.close();
  w.matchMedia=()=>({matches:true,addEventListener(){}});let frames=[],iconSize=200,loaded=false;
  w.requestAnimationFrame=fn=>frames.push(fn);w.PointerEvent=w.MouseEvent;
+ const timers=new Map();let timerId=0;
+ w.setTimeout=(fn,delay)=>{assert.equal(delay,500);timers.set(++timerId,fn);return timerId};
+ w.clearTimeout=id=>timers.delete(id);
  const image=d.getElementById('templateImg');Object.defineProperty(image,'complete',{get:()=>loaded});
  d.getElementById('canvas').getBoundingClientRect=()=>({width:300,height:400});d.querySelector('.placed').getBoundingClientRect=()=>({width:iconSize,height:iconSize});
  w.eval(source('mobile-workspace.js'));
@@ -324,6 +327,12 @@ test('MATRIX waits for its phone styles, stable dimensions and image before reve
  loaded=true;image.dispatchEvent(new w.Event('load'));frame();frame();frame();
  assert.equal(d.documentElement.hasAttribute('data-phone-matrix-sizing'),false);
  image.src='two.png';loaded=false;await tick();assert.equal(d.documentElement.dataset.phoneMatrixSizing,'1');
+ // New sizing signals while the image is pending must keep the original deadline.
+ const deadline=[...timers.keys()][0];
+ w.dispatchEvent(new w.Event('matrix-board-active'));
+ assert.deepEqual([...timers.keys()],[deadline]);
+ timers.get(deadline)();
+ assert.equal(d.documentElement.hasAttribute('data-phone-matrix-sizing'),false);
 });
 test('only the same-origin MATRIX frame can report a ready layout and navigation hides it again',async t=>{
  const f=shell(t),matrix=f.d.getElementById('matrixFrame');

@@ -14,28 +14,39 @@
   }
   link.addEventListener('load',revealLog);mq.addEventListener('change',revealLog);
   if(tool==='matrix'){
-    let stylesReady=!!link.sheet,sequence=0,frameReadySent=false;
+    let stylesReady=!!link.sheet,measurement=0,revealTimer=0,frameReadySent=false;
+    function revealMatrix(){
+      window.cancelAnimationFrame?.(measurement);measurement=0;
+      clearTimeout(revealTimer);revealTimer=0;
+      delete root.dataset.phoneMatrixSizing;
+      if(mq.matches&&!frameReadySent){
+        parent.postMessage({type:'jijin-phone-matrix-ready'},location.origin);
+        frameReadySent=true;
+      }
+    }
     root.dataset.phoneMatrixSizing='1';
     settleMatrix=()=>{
-      if(!mq.matches){delete root.dataset.phoneMatrixSizing;return}
-      if(typeof requestAnimationFrame!=='function')return;
+      if(!mq.matches){revealMatrix();return}
       root.dataset.phoneMatrixSizing='1';
-      const current=++sequence;let previous='',stable=0,attempts=0;
+      // A stalled image or an unmeasurable canvas must never leave only the dock visible.
+      if(!revealTimer)revealTimer=setTimeout(revealMatrix,500);
+      if(typeof requestAnimationFrame!=='function')return;
+      window.cancelAnimationFrame?.(measurement);
+      let previous='',stable=0,attempts=0;
       function measure(){
-        if(current!==sequence||!mq.matches)return;
+        if(!mq.matches){revealMatrix();return}
         const canvas=document.getElementById('canvas'),image=document.getElementById('templateImg');
         const rect=canvas?.getBoundingClientRect();
         const signature=[canvas,document.getElementById('templateOverlay'),canvas?.querySelector('.placed')].filter(Boolean).map(node=>{
           const r=node.getBoundingClientRect();return [r.width,r.height].map(value=>Math.round(value*10)).join(',');
         }).join('|');
         stable=signature===previous?stable+1:0;previous=signature;
-        if(stylesReady&&workspaceInstalled&&rect?.width>0&&rect?.height>0&&stable>=2){
-          if(!frameReadySent){parent.postMessage({type:'jijin-phone-matrix-ready'},location.origin);frameReadySent=true}
-          if(!image?.getAttribute('src')||image.complete){delete root.dataset.phoneMatrixSizing;return}
-        }
-        if(++attempts<120)requestAnimationFrame(measure);
+        const libraryVisible=document.body.classList.contains('mobile-view-icons');
+        const canvasReady=rect?.width>0&&rect?.height>0&&stable>=2&&(!image?.getAttribute('src')||image.complete);
+        if(stylesReady&&workspaceInstalled&&(libraryVisible||canvasReady)){revealMatrix();return}
+        if(++attempts<120)measurement=requestAnimationFrame(measure);
       }
-      requestAnimationFrame(measure);
+      measurement=requestAnimationFrame(measure);
     };
     link.addEventListener('load',()=>{stylesReady=true;settleMatrix()});
     link.addEventListener('error',()=>{stylesReady=true;settleMatrix()});
