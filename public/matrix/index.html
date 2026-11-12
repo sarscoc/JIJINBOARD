@@ -3162,6 +3162,11 @@ body > #settings .display-settings-body{
 }
 body > #settings.floating-closed{display:none!important}
 body > #settings:not(.floating-closed){display:flex!important;flex-direction:column!important}
+@media(max-width:760px){
+  .matrix-mobile-return{position:absolute;z-index:200000;inset:4px 4px auto;padding:5px;border:1px dashed var(--line,#ccc);border-radius:6px;background:var(--paper,#fff);text-align:center;font-size:10px;pointer-events:none}
+  .matrix-mobile-return.active{background:#ffe8f0;color:#944565}
+}
+.matrix-pc-strip.remove-drop-active{outline:1px dashed #ca679c;outline-offset:-2px}
 </style>
 <link rel="stylesheet" href="board-integration.css?v=20261102-room1">
 <link rel="stylesheet" href="matrix-pc.css?v=20261102-room1">
@@ -3254,7 +3259,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
           </div>
         </div>
       </div>
-      <div class="mobile-placement-tray" id="mobilePlacementTray" aria-label="選択中の未配置アイコン"></div>
+      <div class="mobile-placement-tray" id="mobilePlacementTray" aria-label="配置するコマ"></div>
       <div class="stage">
         <div class="canvas" id="canvas">
           <img class="template-img" id="templateImg" alt="">
@@ -3649,7 +3654,8 @@ async function warmImageCacheForItems(list,{force=false,renderOnEach=false}={}){
 }
 async function ensurePlacedImagesCached(){
   const s=appState();
-  const placed=items.filter(it=>s.items?.[it.id]?.placed);
+  const used=new Set(Object.keys(s.items||{}).filter(id=>s.items[id]?.placed).map(matrixPieceSourceId));
+  const placed=items.filter(it=>used.has(it.id));
   await warmImageCacheForItems(placed,{force:false,renderOnEach:false});
 }
 async function syncCharacterImageCache(currentItems){
@@ -3674,8 +3680,10 @@ async function hydrateCharacterImages(currentItems){
   await warmImageCacheForItems(ordered,{force:false,renderOnEach:false});
 }
 function displayImage(it){
-  if(window.JijinDesktop&&imageCacheMeta.get(it.id)?.signature!==String(it.imageSignature||stableRemoteImageKey(it.baseImage)||'').trim())return it.baseImage||'';
-  return imageBlobUrls.get(it.id) || it.baseImage || '';
+  if(!it)return '';
+  const imageId=it.sourceId||it.id;
+  if(window.JijinDesktop&&imageCacheMeta.get(imageId)?.signature!==String(it.imageSignature||stableRemoteImageKey(it.baseImage)||'').trim())return it.baseImage||'';
+  return imageBlobUrls.get(imageId) || it.baseImage || '';
 }
 
 function showLibraryPage(which){
@@ -3909,7 +3917,7 @@ async function renderTemplateTabs(){
     const known=new Map(items.map(item=>[item.id,item]));
     Object.entries(stateItems).filter(([,local])=>local?.placed).forEach(([id,local])=>{
       const pointX=Number(local.coordVersion===2?local.templateX:local.x),pointY=Number(local.coordVersion===2?local.templateY:local.y);
-      const item=known.get(id),icon=item?displayImage(item):'';
+      const item=known.get(matrixPieceSourceId(id)),icon=item?displayImage(item):'';
       const marker=document.createElement(icon?'img':'i');
       marker.className=icon?'template-preview-icon':'template-preview-dot';
       marker.style.left=`${Number.isFinite(pointX)?pointX:50}%`;
@@ -4291,19 +4299,13 @@ function isMobileLayout(){
   return !!window.matchMedia?.('(max-width:760px)').matches;
 }
 function isMobileItemSelected(local){
-  return !!(local?.placed || local?.mobileSelected===true);
+  return local?.mobileSelected===true;
 }
 function toggleMobileItemSelection(id){
   if(isMobileLayout()&&!templateSpaceReady())return;
   const state=appState();
   const local=state.items?.[id]||(state.items[id]=makeLocalItemState(id));
-  const selected=isMobileItemSelected(local);
-  if(selected){
-    local.mobileSelected=false;
-    local.placed=false;
-  }else{
-    local.mobileSelected=true;
-  }
+  local.mobileSelected=!isMobileItemSelected(local);
   saveState(state);
   saveCurrentTemplateState(state);
   const it=items.find(item=>item.id===id);
@@ -4357,12 +4359,12 @@ function renderMobilePlacementTray(){
   const state=appState(),display=state.display||{};
   const pending=items.filter(it=>{
     const local=state.items?.[it.id];
-    return isMobileItemSelected(local)&&!local?.placed;
+    return isMobileItemSelected(local);
   });
   if(!pending.length){
     const empty=document.createElement('div');
     empty.className='mobile-tray-empty';
-    empty.textContent=items.length?'アイコン一覧でONにした未配置アイコンがここに出ます':'登録したキャラクターのアイコンがここに表示されます';
+    empty.textContent=items.length?'アイコン一覧でONにしたコマがここに出ます':'登録したキャラクターのアイコンがここに表示されます';
     tray.appendChild(empty);
     return;
   }
@@ -4371,7 +4373,7 @@ function renderMobilePlacementTray(){
     const btn=document.createElement('button');
     btn.type='button';
     btn.className='mobile-tray-item';
-    btn.title='タップしてテンプレ中央に配置';
+    btn.title='タップしてコマを追加';
     const av=document.createElement('div');
     av.className='mobile-tray-avatar';
     applyShapeClass(av);
@@ -4392,8 +4394,9 @@ function renderMobilePlacementTray(){
         alert('先にテンプレ画像を入れてください。');
         return;
       }
-      placeItem(it.id,50,50,true);
-      bringPlacedToFront(it.id);
+      const occupied=Object.entries(appState().items||{}).filter(([id,point])=>point?.placed&&matrixPieceSourceId(id)===it.id);
+      const offset=[0,12,-12,24,-24][occupied.length%5];
+      bringPlacedToFront(placeItem(it.id,50+offset,50+Math.floor(occupied.length/5)%4*12,true));
       renderLibrary();
       renderMobilePlacementTray();
     });
@@ -4411,7 +4414,7 @@ function syncMobileCommentDirectionButtons(){
 function openMobileCommentEditor(id){
   const state=appState(),local=state.items?.[id];
   if(!local)return;
-  const it=items.find(item=>item.id===id);
+  const it=matrixPieceSource(id);
   mobileCommentEditingId=id;
   mobileCommentDraftPosition=local.commentPosition||'top';
   $('#mobileCommentName').textContent=it?.name?`${it.name} — コメント`:'コメント';
@@ -4478,6 +4481,10 @@ function startMobilePlacedInteraction(e,id,el){
     el.style.left=Math.max(2,Math.min(98,startPctX+dx))+'%';
     el.style.top=Math.max(2,Math.min(98,startPctY+dy))+'%';
   };
+  const tray=$('#mobilePlacementTray');
+  const returnZone=document.createElement('div');
+  returnZone.className='matrix-mobile-return';
+  returnZone.textContent='ここに戻す';
   const move=ev=>{
     if(longPressed)return;
     lastX=ev.clientX;lastY=ev.clientY;
@@ -4486,18 +4493,23 @@ function startMobilePlacedInteraction(e,id,el){
       clearTimeout(timer);
       el._draggedByPointer=true;
       el.classList.add('dragging');
+      canvas.append(returnZone);
     }
+    returnZone.classList.toggle('active',pointInside(returnZone,lastX,lastY)||pointInside(tray,lastX,lastY));
     if(moved&&!raf)raf=requestAnimationFrame(paint);
   };
-  const finish=()=>{
+  const finish=ev=>{
     clearTimeout(timer);
+    const returned=ev.type==='pointerup'&&(pointInside(returnZone,ev.clientX,ev.clientY)||pointInside(tray,ev.clientX,ev.clientY));
+    returnZone.remove();
     if(raf){cancelAnimationFrame(raf);paint()}
     el.removeEventListener('pointermove',move);
     el.removeEventListener('pointerup',finish);
     el.removeEventListener('pointercancel',finish);
     el.classList.remove('dragging');
     try{el.releasePointerCapture?.(e.pointerId)}catch{}
-    if(moved&&!longPressed){
+    if(moved&&returned){removeMatrixPlacement(id,true);return}
+    if(moved&&!longPressed&&ev.type==='pointerup'){
       const x=parseFloat(el.style.left)||startPctX;
       const y=parseFloat(el.style.top)||startPctY;
       mutate(s=>{
@@ -4631,7 +4643,7 @@ function renderLibrary(){
     im.loading='eager';
     im.decoding='async';
     try{im.fetchPriority='low'}catch{}
-    im.dataset.matrixImageId=it.id;im.src=displayImage(it)||'';
+    im.dataset.matrixImageId=it.sourceId||it.id;im.src=displayImage(it)||'';
     im.onerror=()=>im.style.display='none';
     bindIconImage(im,l.crop,currentIconShape());
     av.append(im);
@@ -4723,6 +4735,7 @@ function startLibraryDrag(e,it,card){
     window.removeEventListener('pointerup',up);
     window.removeEventListener('pointercancel',up);
 
+    if(ev.type==='pointercancel')return;
     if(!moved){
       placeItem(it.id,50,50);
       return;
@@ -4754,8 +4767,32 @@ function startLibraryDrag(e,it,card){
   window.addEventListener('pointerup',up,{once:true});
   window.addEventListener('pointercancel',up,{once:true});
 }
-function placeItem(id,x,y,isTemplatePoint=templateSpaceReady()){
+function matrixPieceSourceId(id){
+  return String(id||'').replace(/::piece:[0-9a-f-]{36}$/i,'');
+}
+function matrixPieceSource(id){
+  return items.find(item=>item.id===matrixPieceSourceId(id));
+}
+function pointInside(element,x,y){
+  const rect=element?.getBoundingClientRect();
+  return !!(rect?.width&&rect.height&&x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom);
+}
+function removeMatrixPlacement(id,keepInTray=false){
+  const source=matrixPieceSourceId(id);
+  mutate(state=>{
+    if(!state.items?.[id])return;
+    state.items[id].placed=false;
+    if(keepInTray)(state.items[source]??={}).mobileSelected=true;
+  });
+  renderPlaced();
+  renderTemplateTabs().catch(console.warn);
+}
+function placeItem(sourceId,x,y,isTemplatePoint=templateSpaceReady()){
+  const existing=appState().items||{};
+  const duplicate=Object.entries(existing).some(([id,point])=>point?.placed&&matrixPieceSourceId(id)===sourceId);
+  const id=duplicate?`${sourceId}::piece:${crypto.randomUUID()}`:sourceId;
   mutate(s=>{
+    if(duplicate)s.items[id]={crop:{...normalizedCrop(s.items[sourceId]?.crop)}};
     const l=s.items[id]||(s.items[id]={});
     l.placed=true;
     if(isTemplatePoint&&templateSpaceReady()){
@@ -4777,6 +4814,7 @@ function placeItem(id,x,y,isTemplatePoint=templateSpaceReady()){
   const it=items.find(x=>x.id===id);if(it)it.local=appState().items[id];
   renderPlaced();
   renderTemplateTabs().catch(console.warn);
+  return id;
 }
 
 function normalizedCrop(c){
@@ -5217,20 +5255,19 @@ function ensurePlacedZOrders(state=appState()){
   let changed=false;
   const placed=[];
 
-  items.forEach((it,index)=>{
-    const local=state.items?.[it.id];
+  Object.values(state.items||{}).forEach(local=>{
     if(!local?.placed)return;
     const z=Number(local.zOrder);
     if(Number.isFinite(z)&&z>0){
       maxZ=Math.max(maxZ,z);
     }else{
-      placed.push({it,index,local});
+      placed.push(local);
     }
   });
 
-  placed.forEach(entry=>{
+  placed.forEach(local=>{
     maxZ+=1;
-    entry.local.zOrder=maxZ;
+    local.zOrder=maxZ;
     changed=true;
   });
 
@@ -5242,15 +5279,11 @@ function ensurePlacedZOrders(state=appState()){
 }
 
 function orderedPlacedItems(state=appState()){
-  return items
-    .map((it,index)=>({it,index,local:state.items?.[it.id]}))
-    .filter(entry=>entry.local?.placed)
-    .sort((a,b)=>{
-      const az=Number(a.local?.zOrder)||0;
-      const bz=Number(b.local?.zOrder)||0;
-      return az-bz || a.index-b.index;
-    })
-    .map(entry=>entry.it);
+  const sources=new Map(items.map(item=>[item.id,item]));
+  return Object.entries(state.items||{}).flatMap(([id,local])=>{
+    const source=sources.get(matrixPieceSourceId(id));
+    return local?.placed&&source?[{...source,id,sourceId:source.id,local}]:[];
+  }).sort((a,b)=>(Number(a.local.zOrder)||0)-(Number(b.local.zOrder)||0));
 }
 
 function bringPlacedToFront(id,el=null){
@@ -5321,7 +5354,7 @@ function renderPlaced(){
     im.draggable=false;
     im.loading='lazy';
     im.decoding='async';
-    im.dataset.matrixImageId=it.id;im.src=displayImage(it)||'';
+    im.dataset.matrixImageId=it.sourceId||it.id;im.src=displayImage(it)||'';
     im.onerror=()=>im.style.display='none';
     bindIconImage(im,l.crop,currentIconShape());
     av.appendChild(im);
@@ -5348,7 +5381,7 @@ function renderPlaced(){
   renderMobilePlacementTray();
 }
 function startPlacedDrag(e,id,el){
-  const item=items.find(entry=>entry.id===id),mine=(()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')?.id||''}catch{return''}})();
+  const item=matrixPieceSource(id),mine=(()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')?.id||''}catch{return''}})();
   if(item?.ownerId&&item.ownerId!==mine)return;
   if(isMobileLayout()){startMobilePlacedInteraction(e,id,el);return;}
   if(e.button!=null&&e.button!==0)return;
@@ -5375,12 +5408,9 @@ function startPlacedDrag(e,id,el){
   const startPoint=useTemplate?getTemplatePoint(local,geom):{x:Number(local.x??50),y:Number(local.y??50)};
   const startPctX=Number(startPoint.x??50);
   const startPctY=Number(startPoint.y??50);
-  const libraryPane=$('#libraryPane');
-  const pointInLibrary=(x,y)=>{
-    if(!libraryPane)return false;
-    const lr=libraryPane.getBoundingClientRect();
-    return x>=lr.left&&x<=lr.right&&y>=lr.top&&y<=lr.bottom;
-  };
+  const libraryPane=$('#libraryPane'),sourceStrip=document.querySelector('.matrix-pc-strip');
+  const returnTargets=[libraryPane,sourceStrip].filter(Boolean);
+  const isReturnDrop=(x,y)=>returnTargets.some(target=>pointInside(target,x,y));
 
   let moved=false;
   let lastX=startX;
@@ -5410,7 +5440,7 @@ function startPlacedDrag(e,id,el){
       el._draggedByPointer=true;
     }
     if(moved){
-      libraryPane?.classList.toggle('remove-drop-active',pointInLibrary(lastX,lastY));
+      for(const target of returnTargets)target.classList.toggle('remove-drop-active',pointInside(target,lastX,lastY));
     }
     if(moved&&!raf)raf=requestAnimationFrame(paint);
   };
@@ -5421,20 +5451,12 @@ function startPlacedDrag(e,id,el){
     el.removeEventListener('pointerup',finish);
     el.removeEventListener('pointercancel',finish);
     el.classList.remove('dragging');
-    libraryPane?.classList.remove('remove-drop-active');
+    for(const target of returnTargets)target.classList.remove('remove-drop-active');
     try{el.releasePointerCapture?.(e.pointerId)}catch{}
 
-    if(moved){
-      const removePlacement=ev.type==='pointerup'&&pointInLibrary(ev.clientX,ev.clientY);
-      if(removePlacement){
-        mutate(state=>{
-          const l=state.items?.[id];
-          if(l)l.placed=false;
-        });
-        const it=items.find(z=>z.id===id);
-        if(it)it.local=appState().items[id];
-        renderPlaced();
-        renderTemplateTabs().catch(console.warn);
+    if(moved&&ev.type==='pointerup'){
+      if(isReturnDrop(ev.clientX,ev.clientY)){
+        removeMatrixPlacement(id);
       }else{
         const x=parseFloat(el.style.left)||startPctX;
         const y=parseFloat(el.style.top)||startPctY;
@@ -6766,9 +6788,9 @@ if(!new URL(location.href).searchParams.has('board')){
 }
 
 </script>
-<script src="board-integration.js?v=20261108-note-hover"></script>
-<script src="matrix-pc.js?v=20261105-pc4"></script>
-<script src="matrix-icon-comments.js?v=20261112-note-replies"></script>
+<script src="board-integration.js?v=20261113-pieces"></script>
+<script src="matrix-pc.js?v=20261113-pieces"></script>
+<script src="matrix-icon-comments.js?v=20261113-pieces"></script>
 <script src="matrix-template-sync.js?v=20261103-commentfix2" data-matrix-template-sync="1"></script>
 <script src="../log/log-select-menu.js?v=20261103-pretty1"></script>
 <script src="matrix-settings-ui.js?v=20261103-pretty1"></script>

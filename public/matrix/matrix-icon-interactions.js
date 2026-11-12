@@ -9,7 +9,7 @@
 
   const profile = () => window.matrixBoardContext?.profile?.() || null;
   const currentTemplate = () => typeof currentTemplateId === "function" ? String(currentTemplateId() || "") : "";
-  const itemFor = id => (Array.isArray(window.items) ? window.items : (typeof items !== "undefined" ? items : [])).find(item => item?.id === id);
+  const itemFor = id => (Array.isArray(window.items) ? window.items : (typeof items !== "undefined" ? items : [])).find(item => item?.id === (typeof matrixPieceSourceId==="function"?matrixPieceSourceId(id):id));
   const sharedCommentComposer = typeof window.openMatrixIconComment === "function" ? window.openMatrixIconComment : null;
 
   function targetParts(value) {
