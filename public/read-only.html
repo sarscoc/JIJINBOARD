@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>閲覧専用モード | JIJINBOARD</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;color:#25272d;background:#f7f8fa}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.panel{width:min(100%,560px);padding:clamp(24px,6vw,44px);background:white;border:1px solid #e4e6eb;border-radius:18px;box-shadow:0 12px 40px #2025380b}.eyebrow{font-size:12px;letter-spacing:.14em;color:#6c7483;font-weight:700}.symbol{font-size:28px;margin:18px 0 10px}h1{font-size:clamp(23px,5vw,31px);margin:0 0 16px;line-height:1.4}p{line-height:1.85;color:#535b68}.note{background:#f5f6f8;padding:15px 18px;border-radius:10px;font-size:14px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}button,a.action{font:inherit;border:1px solid #d8dce4;background:white;color:#222a35;border-radius:9px;padding:11px 17px;text-decoration:none;cursor:pointer}button.primary{background:#252a34;color:white;border-color:#252a34}small{display:block;margin-top:18px;color:#7a8290;line-height:1.6}
+</style>
+</head>
+<body>
+<main class="panel">
+<div class="eyebrow">JIJINBOARD / READ ONLY</div>
+<div class="symbol" aria-hidden="true">⚠️</div>
+<h1>現在、閲覧専用モードです</h1>
+<p id="reason">APIの利用制限、または通信障害が発生した可能性があります。編集や保存を続けず、復旧をお待ちください。</p>
+<div class="note"><strong>データについて</strong><p>この画面では編集を行いません。サーバーに保存済みの内容は削除されませんが、保存できなかった変更が反映されているとは限りません。元の画面に戻る前に、未保存の編集がないか確認してください。</p><p>通信が制限されている間は、新しいデータを取得できない場合があります。</p></div>
+<div class="actions"><button class="primary" id="back" type="button">元の画面に戻る</button><button id="copy" type="button">元のURLをコピー</button></div>
+<small>※ このページは制限時の案内画面です。自動復旧や全ページ共通の編集ロックは別途実装が必要です。</small>
+</main>
+<script>
+(()=>{
+ const params=new URLSearchParams(location.search);
+ const raw=params.get('return')||'';
+ let target='/';
+ try{const url=new URL(raw,location.origin);if(url.origin===location.origin&&!url.pathname.startsWith('/read-only'))target=url.pathname+url.search+url.hash}catch{}
+ document.getElementById('back').addEventListener('click',()=>{location.assign(target)});
+ document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(new URL(target,location.origin).href);document.getElementById('copy').textContent='コピーしました'}catch{document.getElementById('copy').textContent='コピーできませんでした'}});
+ if(params.get('reason')==='quota')document.getElementById('reason').textContent='APIの利用上限に達した可能性があります。編集・保存は行わず、復旧をお待ちください。';
+})();
+</script>
+</body>
+</html>
