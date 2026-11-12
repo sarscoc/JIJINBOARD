@@ -80,18 +80,23 @@ test('comments collapse excessive pasted paragraph spacing while preserving a bl
  assert.equal(host.textContent,'first\n\nsecond');assert.equal(host.querySelector('strong').textContent,'second');
 });
 
-test('selecting log text offers a marker without opening the comment dialog',t=>{
- const w=fixture(t,'<div id="selectionBar" class="hidden"><span id="selectedQuote"></span></div><dialog id="commentDialog"></dialog>');
- let selection={quote:'本文'};
- Object.assign(w,{state:{},$:selector=>w.document.querySelector(selector),selectionInfo:()=>selection});
+test('completed log selection opens the composer without moving keyboard focus or clearing the range',t=>{
+ const w=fixture(t,'<div id="logPane">ログ本文</div><dialog id="commentDialog"><textarea id="commentBody"></textarea><button id="commentDeleteBtn"></button></dialog>');
+ const log=w.document.getElementById('logPane'),dialog=w.document.getElementById('commentDialog');
+ const range=w.document.createRange();range.selectNodeContents(log);w.getSelection().addRange(range);
+ const selection={quote:'ログ本文',messageId:'m1'};
+ Object.assign(w,{state:{profile:{plName:'PL'}},$:selector=>w.document.querySelector(selector),selectionInfo:()=>selection,clearCommentImage(){},positionCommentDialog(){},CSS:{}});
+ dialog.show=()=>{throw new Error('show() would transfer focus')};
  const app=source('log/app.js');
- w.eval(app.slice(app.indexOf('function showSelection('),app.indexOf('function fillPersonaSelect(')));
+ w.eval(app.slice(app.indexOf('let selectingLog='),app.indexOf('function fillPersonaSelect(')));
+ w.eval(app.slice(app.indexOf('function openCommentDialog('),app.indexOf('function openReplyDialog(')));
+ w.fillPersonaSelect=()=>{};
+ log.dispatchEvent(new w.MouseEvent('pointerdown',{bubbles:true,button:0}));
  w.document.dispatchEvent(new w.Event('selectionchange'));
- assert.equal(w.state.selection,selection);
- assert.equal(w.document.getElementById('selectedQuote').textContent,'「本文」');
- assert.equal(w.document.getElementById('selectionBar').classList.contains('hidden'),false);
- assert.equal(w.document.getElementById('commentDialog').open,false);
- selection=null;
- w.document.dispatchEvent(new w.Event('selectionchange'));
- assert.equal(w.document.getElementById('selectionBar').classList.contains('hidden'),true);
+ assert.equal(dialog.open,false);
+ log.dispatchEvent(new w.MouseEvent('pointerup',{bubbles:true,button:0}));
+ assert.equal(dialog.open,true);
+ assert.equal(w.state.pendingSelection.quote,'ログ本文');
+ assert.equal(w.document.activeElement,w.document.body);
+ assert.equal(w.getSelection().toString(),'ログ本文');
 });

@@ -118,7 +118,7 @@
       const action=editingId?'comment:edit':'comment:create';changes?.accept(action,result);
       const apply=()=>{if(changes&&!changes.newer(result))return;setVersion(result.version);if(editingId)patchAnnotation(result.patch||result.comment);else insertAnnotation(result.annotation||result.comment)};
       if(result.annotation||result.comment||result.patch){if(refreshLoader)refreshLoader.patch(apply);else apply()}else refreshAnnotations(true).catch(console.warn);
-      setTyping(false);document.getElementById('commentDialog').close();state.pendingSelection=null;state.selection=null;state.replyTo=null;state.editingCommentId=null;getSelection()?.removeAllRanges();document.getElementById('selectionBar').classList.add('hidden');if(!payload.parentId&&!editingId)jumpToMessage(payload.messageId);
+      setTyping(false);document.getElementById('commentDialog').close();state.pendingSelection=null;state.selection=null;state.replyTo=null;state.editingCommentId=null;getSelection()?.removeAllRanges();if(!payload.parentId&&!editingId)jumpToMessage(payload.messageId);
     }catch(error){alert(error.message)}finally{posting=false}
   }
 

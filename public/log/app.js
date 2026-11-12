@@ -473,15 +473,25 @@ function selectionInfo() {
   const textOffset=(textEl,node,offset,edge)=>{if(textEl.contains(node)){return JijinLogFormat.sourceOffset(textEl,node,offset,edge)}if(parent(node)?.closest?.(".speaker"))return 0;return edge==="start"?0:Number(textEl.dataset.sourceLength)||0};
   const rects=[...range.getClientRects()].filter(r=>r.width||r.height),focusAtEnd=selection.focusNode===range.endContainer&&selection.focusOffset===range.endOffset,rect=(focusAtEnd?rects[rects.length-1]:rects[0])||range.getBoundingClientRect();const startOffset=textOffset(startText,range.startContainer,range.startOffset,"start"),endOffset=textOffset(endText,range.endContainer,range.endOffset,"end"),messages=state.room.messages,first=messages.findIndex(m=>m.id===startMessage.dataset.message),last=messages.findIndex(m=>m.id===endMessage.dataset.message),quote=messages.slice(first,last+1).map((m,i)=>JijinLogFormat.plain(m.text,i===0?startOffset:0,first+i===last?endOffset:m.text.length)).join("\n");return {messageId:startMessage.dataset.message,endMessageId:endMessage.dataset.message,startOffset,endOffset,quote,anchorLeft:rect.left,anchorRight:rect.right,anchorTop:rect.top,anchorBottom:rect.bottom};
 }
+let selectingLog=false;
 function showSelection() {
-  const bar=$("#selectionBar");
-  if(state.archiveMode||$("#commentDialog").open){bar.classList.add("hidden");return}
+  if(selectingLog||state.archiveMode||$("#commentDialog").open||!state.profile.plName)return;
   const selection=selectionInfo();
-  state.selection=selection?.quote.trim()?selection:null;
-  bar.classList.toggle("hidden",!state.selection);
-  if(state.selection)$("#selectedQuote").textContent=`「${state.selection.quote.trim()}」`;
+  if(!selection?.quote.trim())return;
+  state.selection=selection;
+  openCommentDialog();
 }
 document.addEventListener("selectionchange",showSelection);
+document.addEventListener("pointerdown",event=>{
+  if(event.button===0&&event.target.closest?.("#logPane"))selectingLog=true;
+});
+function finishLogSelection(){
+  if(!selectingLog)return;
+  selectingLog=false;
+  showSelection();
+}
+window.addEventListener("pointerup",finishLogSelection);
+window.addEventListener("pointercancel",finishLogSelection);
 function fillPersonaSelect() {
   $("#personaSelect").innerHTML = `<option value="PL">${esc(state.profile.plName || "PL名を設定") }（PL）</option>` + state.profile.personas.map((p,i)=>`<option value="${i}">${esc(p.name)}（${esc(p.type)}）</option>`).join("") + `<option value="ADD">＋ キャラ追加</option>`;
   const valid=state.lastPersona==="PL"||(/^\d+$/.test(state.lastPersona)&&state.profile.personas[Number(state.lastPersona)]);$("#personaSelect").value=valid?state.lastPersona:"PL";state.lastPersona=$("#personaSelect").value;
@@ -498,7 +508,11 @@ function openCommentDialog() {
     CSS.highlights.set("jijin-comment-selection",new Highlight(selected.getRangeAt(0).cloneRange()));
   }
   if (!state.profile.plName) { openProfile(); return; }
-  clearCommentImage();fillPersonaSelect(); $("#commentBody").value = ""; $("#commentDialog").show(); positionCommentDialog(); setTimeout(()=>$("#commentBody").focus(),0);
+  clearCommentImage();fillPersonaSelect();
+  $("#commentBody").value="";
+  // A nonmodal composer can open without the automatic focus transfer of show().
+  $("#commentDialog").open=true;
+  positionCommentDialog();
 }
 function openReplyDialog(annotation,anchor){if(window.JijinCommentComposer?.keep($("#commentDialog"),!!state.commentImage))return;if(!annotation)return;state.editingCommentId=null;state.editingOriginalPersona=null;$("#commentDeleteBtn").classList.add("hidden");state.replyTo=annotation.id;state.pendingSelection={messageId:annotation.message_id,endMessageId:annotation.end_message_id||annotation.message_id,startOffset:annotation.start_offset,endOffset:annotation.end_offset,quote:annotation.quote,anchorLeft:anchor.left,anchorRight:anchor.right,anchorTop:anchor.top,anchorBottom:anchor.bottom};clearCommentImage();fillPersonaSelect();$("#commentBody").value="";$("#commentDialog").show();positionCommentDialog();setTimeout(()=>$("#commentBody").focus(),0)}
 function openEditDialog(annotation,anchor){if(window.JijinCommentComposer?.keep($("#commentDialog"),!!state.commentImage))return;if(!annotation)return;state.replyTo=annotation.parent_id||null;state.editingCommentId=annotation.id;state.pendingSelection={messageId:annotation.message_id,endMessageId:annotation.end_message_id||annotation.message_id,startOffset:annotation.start_offset,endOffset:annotation.end_offset,quote:annotation.quote,anchorLeft:anchor.left,anchorRight:anchor.right,anchorTop:anchor.top,anchorBottom:anchor.bottom};clearCommentImage();fillPersonaSelect();const personaIndex=state.profile.personas.findIndex(persona=>persona.name===annotation.persona_name&&persona.type===annotation.persona_type);$("#personaSelect").value=annotation.persona_type==="PL"?"PL":personaIndex>=0?String(personaIndex):$("#personaSelect").value;state.lastPersona=$("#personaSelect").value;updateCommentPersonaAvatar();$("#commentBody").value=annotation.body||"";state.commentImage=null;$("#commentDeleteBtn").classList.remove("hidden");$("#commentDialog").show();positionCommentDialog();setTimeout(()=>$("#commentBody").focus(),0)}
@@ -506,7 +520,7 @@ function positionCommentDialog(){const dialog=$("#commentDialog"),a=state.pendin
 async function postComment(event) {
   event.preventDefault(); const persona = currentPersona(), body = $("#commentBody").value.trim(); if (!body&&!state.commentImage&&state.commentImage!==null) return;
   const payload = { ...state.pendingSelection, parentId:state.replyTo||"", color: persona.color || "#ffe66b", authorId: state.profile.id, authorName: state.profile.plName, personaName: persona.name, personaType: persona.type, personaIcon: persona.icon || "", body,imageData:state.commentImage };
-  try { const editingId=state.editingCommentId;await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`, { method:editingId?"PATCH":"POST", body:JSON.stringify(payload) }); setTyping(false); $("#commentDialog").close(); state.pendingSelection=null; state.selection=null; state.replyTo=null;state.editingCommentId=null; getSelection()?.removeAllRanges(); $("#selectionBar").classList.add("hidden"); await refreshAnnotations(true); if(!payload.parentId)jumpToMessage(payload.messageId); } catch(e) { alert(e.message); }
+  try { const editingId=state.editingCommentId;await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`, { method:editingId?"PATCH":"POST", body:JSON.stringify(payload) }); setTyping(false); $("#commentDialog").close(); state.pendingSelection=null; state.selection=null; state.replyTo=null;state.editingCommentId=null; getSelection()?.removeAllRanges(); await refreshAnnotations(true); if(!payload.parentId)jumpToMessage(payload.messageId); } catch(e) { alert(e.message); }
 }
 // PL/PC editing is owned by the current room editor, never a second LOG form.
 function openProfile(){window.JijinLogSettings?.open()}
@@ -604,8 +618,7 @@ document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.rea
 addEventListener("pagehide",disconnectRealtime);
 addEventListener("pageshow",()=>{if(state.roomId&&state.roomId!=="archive"&&!state.archiveMode)connectRealtime()});
 addEventListener("message",event=>{if(event.origin!==location.origin)return;if(event.data?.type==="jijinboard-open-profile")openProfile();if(event.data?.type==="jijinboard-request-profile")emitIntegratedProfile()});
-$("#markBtn").addEventListener("pointerdown",event=>event.preventDefault());
-$("#markBtn").onclick=()=>{openCommentDialog();$("#selectionBar").classList.add("hidden")}; $("#viewMode").value=state.viewMode; $("#viewMode").onchange=e=>{const time=currentReadingTime();state.readingAnchor=time;state.viewMode=e.target.value;localStorage.setItem("trpgMarkerViewMode",state.viewMode);renderLog(time);setTimeout(revealInlineSuggestions,20)}; $("#searchInput").oninput=()=>{const time=currentReadingTime();state.readingAnchor=time;renderLog(time);setTimeout(revealInlineSuggestions,20)};
+$("#viewMode").value=state.viewMode; $("#viewMode").onchange=e=>{const time=currentReadingTime();state.readingAnchor=time;state.viewMode=e.target.value;localStorage.setItem("trpgMarkerViewMode",state.viewMode);renderLog(time);setTimeout(revealInlineSuggestions,20)}; $("#searchInput").oninput=()=>{const time=currentReadingTime();state.readingAnchor=time;renderLog(time);setTimeout(revealInlineSuggestions,20)};
 $("#shareBtn").onclick=async()=>{await navigator.clipboard.writeText(location.href);$("#roomStatus").textContent="共有URLをコピーしました";setTimeout(()=>$("#roomStatus").textContent="",1800)};
 function applyFontSize(value){const size=Math.min(20,Math.max(10,Number(value)||12.5));document.documentElement.style.setProperty("--log-font-size",`${size}px`);$("#fontSize").value=String(size);localStorage.setItem("trpgMarkerFontSize",String(size))}$("#fontSize").oninput=e=>applyFontSize(e.target.value);applyFontSize(localStorage.getItem("trpgMarkerFontSize")||12.5);
 const startupUrl=new URL(location.href),siteOwnerKey=startupUrl.searchParams.get("owner");if(siteOwnerKey){localStorage.setItem("trpgMarkerSiteOwnerKey",siteOwnerKey);startupUrl.searchParams.delete("owner");history.replaceState(null,"",startupUrl.pathname+startupUrl.search)}const roomId=startupUrl.searchParams.get("room");if(window.__TRPG_ARCHIVE__)openArchiveData(window.__TRPG_ARCHIVE__);else if(roomId)openRoom(roomId);
@@ -617,7 +630,7 @@ addEventListener("jijinboard-cache-updated",event=>{
 
 document.getElementById("commentDialog").addEventListener("close",()=>{
   CSS.highlights?.delete("jijin-comment-selection");
-  state.selection=null;$("#selectionBar").classList.add("hidden");
+  state.selection=null;
 });
 
 // Settings live in a separate iframe. Apply its saved color pair immediately.
