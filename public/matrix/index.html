@@ -3167,8 +3167,14 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
   .matrix-mobile-return.active{background:#ffe8f0;color:#944565}
 }
 .matrix-pc-strip.remove-drop-active{outline:1px dashed #ca679c;outline-offset:-2px}
-#matrixTemplateViewToggle{align-self:flex-end;display:grid;place-items:center;flex:none;width:28px;height:26px;margin:4px 6px 0;padding:0;border:1px solid var(--line,#e5e8ea);border-radius:6px;background:var(--paper,#fff);color:var(--ink,#4d5257);cursor:pointer}
-#matrixTemplateViewToggle[aria-pressed=true]{background:#f8e6f2;border-color:#ddadd3;color:#854772}
+:root{--matrix-template-view-color:var(--matrix-note-accent,var(--jijin-pre-color1,var(--accent,#84b5d3)))}
+html #matrixTemplateViewToggle{align-self:center;display:grid;place-items:center;flex:none;width:28px;height:28px;margin:0;padding:0;border:1px solid var(--matrix-template-view-color);border-radius:7px;background:var(--matrix-template-view-color)!important;color:#fff!important;cursor:pointer}
+html #matrixTemplateViewToggle[aria-pressed=true]{background:#fff!important;color:var(--matrix-template-view-color)!important}
+html[data-matrix-template-view=alternate] :is(#libraryPane,#templatesPage,#templatesPage #templateTabs){background:var(--matrix-template-view-color)!important;background-image:none!important}
+html[data-matrix-template-view=alternate] #templateTabs .template-tab-empty{color:#fff}
+@media(max-width:760px){
+  html #templatesPage #matrixTemplateViewToggle{align-self:flex-end;margin:4px 6px 0}
+}
 </style>
 <link rel="stylesheet" href="board-integration.css?v=20261102-room1">
 <link rel="stylesheet" href="matrix-pc.css?v=20261102-room1">
@@ -3232,9 +3238,6 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
         <div class="library-page-meta">
           <span>過去テンプレ</span>
         </div>
-        <button type="button" id="matrixTemplateViewToggle" aria-label="任意回答用の一覧に切り替え" title="任意回答用の一覧に切り替え" aria-pressed="false">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 5h11m-3-3 3 3-3 3M14 11H3m3-3-3 3 3 3"/></svg>
-        </button>
         <div class="past-template-grid" id="templateTabs">
           <div class="template-tab-empty">まだありません</div>
         </div>
@@ -3257,6 +3260,9 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
         </div>
         <div class="stage-toolbar-actions">
           <button class="btn" id="exportImageBtn" type="button" title="現在の完成画面をPNG保存">完成画面保存</button>
+          <button type="button" id="matrixTemplateViewToggle" aria-label="任意回答用の一覧に切り替え" title="任意回答用の一覧に切り替え" aria-pressed="false">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 5h11m-3-3 3 3-3 3M14 11H3m3-3-3 3 3 3"/></svg>
+          </button>
           <button class="btn" id="exportIconsBtn" type="button" title="完成したアイコンをPNGにしてZIP保存">アイコン保存</button>
           <div class="stage-toolbar-row">
             <button class="btn new-template-btn" id="newTemplateBtn" type="button">＋ 新しいテンプレを作る</button>
@@ -3839,6 +3845,7 @@ const lastTemplateInView=new Map();
 function updateTemplateViewToggle(){
   const button=$('#matrixTemplateViewToggle');
   const label=alternateTemplateView?'通常の一覧に戻る':'任意回答用の一覧に切り替え';
+  document.documentElement.dataset.matrixTemplateView=alternateTemplateView?'alternate':'regular';
   button.setAttribute('aria-pressed',String(alternateTemplateView));
   button.setAttribute('aria-label',label);
   button.title=label;
@@ -3849,6 +3856,7 @@ function recordsInTemplateView(records,alternate=alternateTemplateView){
 async function toggleTemplateView(){
   const button=$('#matrixTemplateViewToggle');
   if(button.disabled)return;
+  if(!alternateTemplateView&&!window.confirm("何でも許せる人向けテンプレ一覧を表示しますか？"))return;
   button.disabled=true;
   try{
     const next=!alternateTemplateView,records=recordsInTemplateView(await tplAllRecords(),next);
@@ -6759,7 +6767,15 @@ document.querySelectorAll('input[name="iconExportSize"]').forEach(el=>el.addEven
 $('#iconExportModal').addEventListener('pointerdown',e=>{
   if(e.target===$('#iconExportModal'))$('#iconExportModal').classList.remove('open');
 });
-$('#matrixTemplateViewToggle').onclick=()=>toggleTemplateView().catch(error=>alert(error.message));
+const templateViewToggle=$('#matrixTemplateViewToggle');
+const templateViewMobile=matchMedia('(max-width:760px)');
+function positionTemplateViewToggle(){
+  if(templateViewMobile.matches)$('#templateTabs').before(templateViewToggle);
+  else $('#exportImageBtn').after(templateViewToggle);
+}
+templateViewMobile.addEventListener('change',positionTemplateViewToggle);
+positionTemplateViewToggle();
+templateViewToggle.onclick=()=>toggleTemplateView().catch(error=>alert(error.message));
 $('#newTemplateBtn').onclick=async()=>{const button=$('#newTemplateBtn');if(button.disabled)return;button.disabled=true;try{await createNewTemplate()}catch(error){alert(error.message||'テンプレートを作れませんでした。もう一度お試しください。')}finally{button.disabled=false}};
 $('#deleteCurrentTemplateBtn').onclick=()=>deleteSavedTemplate(currentTemplateId());
 
