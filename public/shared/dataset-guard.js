@@ -145,6 +145,6 @@
     return response;
   };
   addEventListener('storage',event=>{if(event.key===key&&event.newValue!==generation){blocked=true;location.reload()}});
-  window.JijinDataset={ready,get blocked(){return blocked}};
+  window.JijinDataset={ready,get blocked(){return blocked},enterReadOnly};
 })();
 
