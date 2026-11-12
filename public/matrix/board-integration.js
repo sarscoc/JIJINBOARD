@@ -211,7 +211,7 @@
       let data;try{data=JSON.parse(event.data)}catch{return}
       if(data?.type==="refresh")dispatchRefresh(String(data.action||""),data.data??null);
     });
-    socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom="";if(active){const delay=Math.min(30000,1000*2**Math.min(reconnectAttempts++,5));setTimeout(()=>{if(active&&!realtime)connectRealtimeEvents()},delay)}}});
+    socket.addEventListener("close",()=>{if(realtime===socket){realtime=null;realtimeRoom="";if(active&&!window.JijinDataset?.blocked){if(reconnectAttempts>=4){window.JijinDataset?.enterReadOnly?.('network');return}const delay=Math.min(30000,1000*2**Math.min(reconnectAttempts++,5));setTimeout(()=>{if(active&&!realtime&&!window.JijinDataset?.blocked)connectRealtimeEvents()},delay)}}});
     socket.addEventListener("error",()=>{try{socket.close()}catch{}});
   }
 
