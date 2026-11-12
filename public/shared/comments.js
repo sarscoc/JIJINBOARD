@@ -87,10 +87,10 @@
       });
       return refreshTask;
     };
-    function retry() { clearTimeout(timer); if (active) timer = setTimeout(connect, Math.min(15000, 500 * 2 ** attempts++)); }
+    function retry() { clearTimeout(timer); if (!active || window.JijinDataset?.blocked) return; if(attempts>=4){window.JijinDataset?.enterReadOnly?.('network');return} timer = setTimeout(connect, Math.min(15000, 500 * 2 ** attempts++)); }
     async function connect() {
       clearTimeout(timer);
-      if (!active || connecting || !room() || socket?.readyState < 2) return;
+      if (!active || window.JijinDataset?.blocked || connecting || !room() || socket?.readyState < 2) return;
       const boardId = String(room());
       let current;
       let address=`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api/boards/${encodeURIComponent(boardId)}/realtime`;
