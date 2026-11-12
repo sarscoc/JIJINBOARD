@@ -295,8 +295,8 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
     load.patch(()=>{if(!changes.newer(data))return;cacheVersion=Math.max(cacheVersion,Number(data.version)||0);const rows=JijinSync.reduce(comments,action,data,{scope:JijinComments.target.matrix(ctx()?.boardId),viewerId:profile()?.id,own});if(rows===null)return;comments=rows;lastSerial=JSON.stringify(rows);render()});return true;
   }
   const commentLive=JijinComments.live({board:()=>ctx()?.boardId,refresh:load,onChange:applyChange,onNote:data=>{
+    // Point notes are applied directly; do not re-fetch every template.
     if(ctx()?.isActive?.())ctx()?.applyRemotePoint?.(data?.point);
-    window.dispatchEvent(new CustomEvent('matrix-board-comments-changed',{detail:{action:'matrix-template-state'}}));
   }});
   window.addEventListener('matrix-board-active',()=>{commentLive.setActive(true)});
   window.addEventListener('message',event=>{if(event.origin===location.origin&&event.data?.type==='jijinboard-matrix-active')commentLive.setActive(!!event.data.active)});
