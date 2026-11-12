@@ -182,7 +182,7 @@
       console.warn("MATRIX template sync failed",error);
       // Keep the failed draft available for recovery without ever replaying it automatically.
       let backedUp=false;
-      try{localStorage.setItem(`jijinboardTemplateSaveRecovery:${boardId}:${id}`,JSON.stringify(pendingSaves.get(timerKey)||draft));backedUp=true}catch{}
+      try{localStorage.setItem(`jijinboardTemplateSaveRecovery:${boardId}:${logId}:${id}`,JSON.stringify(pendingSaves.get(timerKey)||draft));backedUp=true}catch{}
       if(error.status===409){
         clearTimeout(saveTimers.get(timerKey));saveTimers.delete(timerKey);pendingSaves.delete(timerKey);
         rehydrateQueued=true;
