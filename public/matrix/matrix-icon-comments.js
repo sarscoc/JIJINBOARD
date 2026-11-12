@@ -408,7 +408,11 @@ const p=panel(),list=p.querySelector("section"),count=p.querySelector("#matrixIc
   window.showMatrixPointComments=showPointComments;
   window.refreshMatrixPointNotes=refreshPointNotes;
   window.addEventListener("matrix-board-room",()=>{lastSerial="";load(true).catch(console.warn)});
-  window.addEventListener("matrix-board-comments-changed",()=>load().catch(console.warn));
+  window.addEventListener("matrix-board-comments-changed",event=>{
+    // Template/point layout updates do not require reloading comment threads.
+    if(event.detail?.action==="matrix-template-state")return;
+    load().catch(console.warn);
+  });
   // The shared channel loads once and catches up on reconnect.
 })();
 
