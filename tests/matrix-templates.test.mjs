@@ -128,3 +128,15 @@ test('new templates are committed with their copied placements and notes, or fai
   assert.equal(saved.templateState.items.pc.comment,'note');
   assert.equal(saved.templateState.items.pc.commentPosition,'bottom');
 });
+
+test('the alternate template view survives reloads and legacy metadata saves',async()=>{
+  const f=fixture();
+  const created=await f.call('PUT',{baseRevision:null,record:{name:'optional',alternate:true},templateState:{}});
+  assert.equal(created.status,200);
+  const [initial]=await f.list();
+  assert.equal(initial.record.alternate,true);
+  assert.equal((await f.save(initial.record.revision,'renamed')).status,200);
+  assert.equal((await f.list())[0].record.alternate,true);
+  const single=await (await f.call('GET')).json();
+  assert.equal(single.record.alternate,true);
+});

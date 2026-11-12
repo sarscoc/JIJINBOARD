@@ -15,7 +15,7 @@
     const pointFields=new Set(['placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment','commentPosition','zOrder']);
     const items={};
     for(const [id,item] of Object.entries(state?.items||{}))items[id]=Object.fromEntries(Object.entries(item||{}).filter(([key])=>!pointFields.has(key)));
-    return {record:{name:record?.name||'',dataUrl:record?.dataUrl||'',imageName:record?.imageName||''},state:{...state,savedAt:undefined,items}};
+    return {record:{name:record?.name||'',dataUrl:record?.dataUrl||'',imageName:record?.imageName||'',alternate:record?.alternate===true},state:{...state,savedAt:undefined,items}};
   }
 
   const deletedKey=`jijinboardDeletedTemplates:${boardId}`;

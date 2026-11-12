@@ -3167,6 +3167,8 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
   .matrix-mobile-return.active{background:#ffe8f0;color:#944565}
 }
 .matrix-pc-strip.remove-drop-active{outline:1px dashed #ca679c;outline-offset:-2px}
+#matrixTemplateViewToggle{align-self:flex-end;display:grid;place-items:center;flex:none;width:28px;height:26px;margin:4px 6px 0;padding:0;border:1px solid var(--line,#e5e8ea);border-radius:6px;background:var(--paper,#fff);color:var(--ink,#4d5257);cursor:pointer}
+#matrixTemplateViewToggle[aria-pressed=true]{background:#f8e6f2;border-color:#ddadd3;color:#854772}
 </style>
 <link rel="stylesheet" href="board-integration.css?v=20261102-room1">
 <link rel="stylesheet" href="matrix-pc.css?v=20261102-room1">
@@ -3230,6 +3232,9 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
         <div class="library-page-meta">
           <span>過去テンプレ</span>
         </div>
+        <button type="button" id="matrixTemplateViewToggle" aria-label="任意回答用の一覧に切り替え" title="任意回答用の一覧に切り替え" aria-pressed="false">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" aria-hidden="true"><path d="M2 5h11m-3-3 3 3-3 3M14 11H3m3-3-3 3 3 3"/></svg>
+        </button>
         <div class="past-template-grid" id="templateTabs">
           <div class="template-tab-empty">まだありません</div>
         </div>
@@ -3780,7 +3785,7 @@ function saveCurrentTemplateState(stateOverride=null){
   };
   setTemplateStates(all);
 }
-function restoreTemplatePlacementState(tid){
+function restoreTemplatePlacementState(tid,{localOnly=false}={}){
   const all=templateStates();
   const saved=all[tid];
   const s=appState();
@@ -3793,7 +3798,7 @@ function restoreTemplatePlacementState(tid){
     }
     it.local=s.items[it.id];
   });
-  saveState(s);
+  if(localOnly)saveJSON(STATE,s);else saveState(s);
   restoreDisplay();
   renderLibrary();
   renderPlaced();
@@ -3829,6 +3834,34 @@ function makeTemplateName(){
   const pad=n=>String(n).padStart(2,'0');
   return `テンプレ ${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+let alternateTemplateView=false;
+const lastTemplateInView=new Map();
+function updateTemplateViewToggle(){
+  const button=$('#matrixTemplateViewToggle');
+  const label=alternateTemplateView?'通常の一覧に戻る':'任意回答用の一覧に切り替え';
+  button.setAttribute('aria-pressed',String(alternateTemplateView));
+  button.setAttribute('aria-label',label);
+  button.title=label;
+}
+function recordsInTemplateView(records,alternate=alternateTemplateView){
+  return records.filter(record=>(record.alternate===true)===alternate);
+}
+async function toggleTemplateView(){
+  const button=$('#matrixTemplateViewToggle');
+  if(button.disabled)return;
+  button.disabled=true;
+  try{
+    const next=!alternateTemplateView,records=recordsInTemplateView(await tplAllRecords(),next);
+    const target=records.find(record=>record.id===lastTemplateInView.get(next))||records[0];
+    if(target){await switchTemplate(target.id,{localOnly:true});return}
+    saveCurrentTemplateState();
+    localStorage.removeItem(TEMPLATE_CURRENT);
+    alternateTemplateView=next;
+    showTemplateRecord(null);
+    restoreTemplatePlacementState('',{localOnly:true});
+    await renderTemplateTabs();
+  }finally{button.disabled=false}
+}
 async function createNewTemplate(){
   // Save the old editing page first, and promote its crop settings to character-wide defaults.
   const previousState=appState();
@@ -3839,6 +3872,7 @@ async function createNewTemplate(){
   const rec={
     id,
     name:makeTemplateName(),
+    alternate:alternateTemplateView,
     dataUrl:'',
     createdAt:Date.now(),
     updatedAt:Date.now()
@@ -3879,7 +3913,7 @@ async function renderTemplateTabs(){
   const states=templateStates();
   const current=currentTemplateId();
 
-  const meaningful=all.filter(rec=>{
+  const meaningful=recordsInTemplateView(all).filter(rec=>{
     const st=states[rec.id]?.items||{};
     const hasData=Object.values(st).some(v=>v?.placed||String(v?.comment||'').trim());
     return !!rec.dataUrl||hasData;
@@ -3979,7 +4013,7 @@ async function deleteSavedTemplate(id){
   if(wasCurrent){
     localStorage.removeItem(TEMPLATE_CURRENT);
 
-    const remaining=await tplAllRecords();
+    const remaining=recordsInTemplateView(await tplAllRecords());
     if(remaining.length){
       const next=remaining[0];
       localStorage.setItem(TEMPLATE_CURRENT,next.id);
@@ -4005,7 +4039,7 @@ async function deleteSavedTemplate(id){
   await updateCurrentTemplateDeleteButton();
 }
 
-async function switchTemplate(id){
+async function switchTemplate(id,{localOnly=false}={}){
   if(!id)return;
 
   const oldId=currentTemplateId();
@@ -4016,12 +4050,17 @@ async function switchTemplate(id){
 
   localStorage.setItem(TEMPLATE_CURRENT,id);
   showTemplateRecord(rec);
-  restoreTemplatePlacementState(id);
+  restoreTemplatePlacementState(id,{localOnly});
   await renderTemplateTabs();
   await updateCurrentTemplateDeleteButton();
 }
 
 function showTemplateRecord(rec){
+  if(rec){
+    alternateTemplateView=rec.alternate===true;
+    lastTemplateInView.set(alternateTemplateView,rec.id);
+  }
+  updateTemplateViewToggle();
   const c=$('#canvas'),im=$('#templateImg');
   if(rec?.dataUrl){if(im.getAttribute('src')!==rec.dataUrl)im.src=rec.dataUrl;c.classList.add('has-template')}
   else{im.removeAttribute('src');c.classList.remove('has-template')}
@@ -6720,6 +6759,7 @@ document.querySelectorAll('input[name="iconExportSize"]').forEach(el=>el.addEven
 $('#iconExportModal').addEventListener('pointerdown',e=>{
   if(e.target===$('#iconExportModal'))$('#iconExportModal').classList.remove('open');
 });
+$('#matrixTemplateViewToggle').onclick=()=>toggleTemplateView().catch(error=>alert(error.message));
 $('#newTemplateBtn').onclick=async()=>{const button=$('#newTemplateBtn');if(button.disabled)return;button.disabled=true;try{await createNewTemplate()}catch(error){alert(error.message||'テンプレートを作れませんでした。もう一度お試しください。')}finally{button.disabled=false}};
 $('#deleteCurrentTemplateBtn').onclick=()=>deleteSavedTemplate(currentTemplateId());
 
@@ -6785,10 +6825,10 @@ if(!new URL(location.href).searchParams.has('board')){
 <script src="board-integration.js?v=20261108-note-hover"></script>
 <script src="matrix-pc.js?v=20261105-pc4"></script>
 <script src="matrix-icon-comments.js?v=20261112-note-replies"></script>
-<script src="matrix-template-sync.js?v=20261103-commentfix2" data-matrix-template-sync="1"></script>
+<script src="matrix-template-sync.js?v=20261113-template-views" data-matrix-template-sync="1"></script>
 <script src="../log/log-select-menu.js?v=20261103-pretty1"></script>
 <script src="matrix-settings-ui.js?v=20261103-pretty1"></script>
-<script src="matrix-template-transfer.js?v=20261113-template-zip"></script>
+<script src="matrix-template-transfer.js?v=20261113-template-views"></script>
 <script src="desktop-notes.js?v=20261105-pc5"></script>
 </body>
 </html>

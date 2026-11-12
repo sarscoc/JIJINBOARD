@@ -56,7 +56,7 @@
     for(const {record,templateState} of templates){
       status.textContent=`テンプレートを取得中（${result.length}/${templates.length}件）`;
       const image=record.dataUrl?await dataUrl(await fetchImage(record)):'';
-      result.push({record:{name:record.name,imageName:record.imageName,createdAt:record.createdAt,dataUrl:image},templateState});
+      result.push({record:{name:record.name,imageName:record.imageName,createdAt:record.createdAt,alternate:record.alternate===true,dataUrl:image},templateState});
     }
     return {format,version:1,templates:result};
   }

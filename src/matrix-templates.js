@@ -80,7 +80,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     const points=(await env.DB.prepare('SELECT template_id,point_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,supplement_body,point_settings FROM matrix_point WHERE room_id=? AND template_id=?').bind(roomId,templateId).all()).results||[];
     const definition=parseDefinition(row.template_definition),templateState=cloneObject(definition.templateState);
     for(const point of points)applyPoint(templateState,point);
-    return json({record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(row.template_image_key):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState});
+    return json({record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(row.template_image_key):'',imageName:String(definition.imageName||''),alternate:definition.alternate===true,createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState});
   }
 
   if(request.method==='GET'&&!templateId){
@@ -91,7 +91,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     return json({templates:await Promise.all(rows.map(async row=>{
       const definition=parseDefinition(row.template_definition),templateState=cloneObject(definition.templateState);
       for(const point of pointsByTemplate.get(row.template_id)||[])applyPoint(templateState,point);
-      return{record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(row.template_image_key):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState};
+      return{record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(row.template_image_key):'',imageName:String(definition.imageName||''),alternate:definition.alternate===true,createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState};
     }))});
   }
 
@@ -118,8 +118,9 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
     }
     const name=String(record.name||'MATRIX').trim().slice(0,120)||'MATRIX';
     const createdAt=Number(parseDefinition(old?.template_definition).createdAt)||(old?Date.parse(old.created_at+'Z'):0)||Number(record.createdAt)||Date.now(),updatedAt=Date.now();
+    const alternate=typeof record.alternate==='boolean'?record.alternate:parseDefinition(old?.template_definition).alternate===true;
     const definitionState={...templateState,items:{}};
-    const definition=JSON.stringify({revision,imageName:String(record.imageName||'').slice(0,180),createdAt,updatedAt,templateState:definitionState});
+    const definition=JSON.stringify({revision,alternate,imageName:String(record.imageName||'').slice(0,180),createdAt,updatedAt,templateState:definitionState});
     if(definition.length>300_000)return json({error:'テンプレート設定が大きすぎます'},413);
     let settingsWrites;
     try{settingsWrites=old?pointSettingsStatements(env.DB,roomId,templateId,definition,templateState):await newPointStatements(env.DB,roomId,templateId,definition,templateState)}
@@ -135,7 +136,7 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
       if(uploadedKey)await env.LOGS.delete(uploadedKey).catch(()=>{});
       return conflict();
     }
-    return json({ok:true,record:{id:templateId,revision,name,dataUrl:key?imageUrl(roomId,templateId)+'?v='+encodeURIComponent(key):'',imageName:String(record.imageName||''),createdAt,updatedAt},templateState});
+    return json({ok:true,record:{id:templateId,revision,name,dataUrl:key?imageUrl(roomId,templateId)+'?v='+encodeURIComponent(key):'',imageName:String(record.imageName||''),alternate,createdAt,updatedAt},templateState});
   }
 
   if(request.method==='DELETE'&&templateId){
