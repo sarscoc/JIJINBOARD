@@ -3,20 +3,22 @@
   const settings=document.getElementById('displaySettingsBody'),ctx=window.matrixBoardContext;
   if(!settings||!ctx)return;
   const section=document.createElement('section');
-  section.className='settings-panel-section';
+  section.className='settings-panel-section matrix-template-transfer';
   section.innerHTML=`
     <div class="settings-panel-title">テンプレートの一括移行</div>
-    <div class="settings-row"><button class="btn" type="button" data-download>すべてダウンロード</button></div>
-    <div class="settings-row"><button class="btn" type="button" data-import>ファイルから一括追加</button>
-      <input type="file" accept=".json,application/json" hidden></div>
-    <form class="settings-row">
-      <label for="matrixTransferDestination">コピー先の部屋URL</label>
-      <input id="matrixTransferDestination" type="url" required placeholder="https://…/board/?id=…">
-      <button class="btn" type="submit">別の部屋にすべてコピー</button>
+    <div class="matrix-transfer-actions">
+      <button type="button" data-download>すべてダウンロード</button>
+      <button type="button" data-import>ファイルから一括追加</button>
+    </div>
+    <input type="file" accept=".json,application/json" hidden>
+    <form class="matrix-transfer-actions">
+      <input id="matrixTransferDestination" type="url" aria-label="コピー先の部屋URL" required placeholder="コピー先の部屋URL">
+      <button type="submit">別の部屋にコピー</button>
     </form>
-    <div class="help">画像・表示設定・コマ配置・補足を含みます。PL・PCや返信コメントは移行しません。</div>
-    <p class="help" role="status" aria-live="polite"></p>`;
-  settings.prepend(section);
+    <p class="matrix-transfer-caption">画像・表示設定・コマ配置・補足が対象です。</p>
+    <p class="matrix-transfer-caption" role="status" aria-live="polite"></p>`;
+  const deleteButton=document.getElementById('deleteCurrentTemplateBtn');
+  settings.insertBefore(section,deleteButton?.parentElement===settings?deleteButton:null);
   const download=section.querySelector('[data-download]'),importButton=section.querySelector('[data-import]');
   const file=section.querySelector('input[type=file]'),form=section.querySelector('form');
   const destination=form.querySelector('input'),status=section.querySelector('[role=status]');

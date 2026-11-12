@@ -7,7 +7,7 @@ const source=readFileSync(new URL('../public/matrix/matrix-template-transfer.js'
 const tick=()=>new Promise(setImmediate);
 
 test('copy appends fresh templates to the selected board and resumes without copying completed items twice',async t=>{
- const dom=new JSDOM('<div id="displaySettingsBody"></div>',{url:'https://test/matrix/?board=source',runScripts:'outside-only'});
+ const dom=new JSDOM('<div id="displaySettingsBody"><section id="otherSettings"></section><button id="deleteCurrentTemplateBtn"></button></div>',{url:'https://test/matrix/?board=source',runScripts:'outside-only'});
  t.after(()=>dom.window.close());
  const w=dom.window,writes=[];
  const templates=['A','B'].map(name=>({record:{id:'old-'+name,name,dataUrl:''},templateState:{display:{},items:{pc:{placed:true,x:5,comment:name}}}}));
@@ -20,6 +20,9 @@ test('copy appends fresh templates to the selected board and resumes without cop
   return {};
  }};
  w.eval(source);
+ const section=w.document.querySelector('.matrix-template-transfer');
+ assert.equal(section.previousElementSibling.id,'otherSettings');
+ assert.equal(section.nextElementSibling.id,'deleteCurrentTemplateBtn');
  const form=w.document.querySelector('form'),status=w.document.querySelector('[role=status]');
  form.querySelector('input').value='https://test/board/?id=destination';
  form.requestSubmit();await tick();
