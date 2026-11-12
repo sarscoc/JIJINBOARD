@@ -19,6 +19,7 @@
   async function storeScreen(){
     if(!window.indexedDB||!document.body)return;
     const clone=document.documentElement.cloneNode(true);
+    const base=document.createElement('base');base.href=location.href;clone.querySelector('head')?.prepend(base);
     // Preserve the visual layout, but never persist runnable code or live inputs.
     clone.querySelectorAll('script,iframe,object,embed,form input[type=password]').forEach(el=>el.remove());
     clone.querySelectorAll('[onload],[onclick],[onerror],[onchange],[oninput]').forEach(el=>{
