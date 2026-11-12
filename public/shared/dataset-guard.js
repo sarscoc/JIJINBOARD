@@ -14,6 +14,22 @@
     const destination='/read-only.html?reason='+encodeURIComponent(reason)+'&return='+encodeURIComponent(location.pathname+location.search+location.hash);
     try{window.top.location.assign(destination)}catch{location.assign(destination)}
   }
+  // Keep a bounded snapshot of the last successful GET, independently of
+  // HTTP cache-control:no-store. This is a local, offline-only recovery copy.
+  async function rememberSnapshot(url,response){
+    if(!window.caches||!response.ok||!response.headers.get('content-type')?.includes('application/json'))return;
+    if(!/^\/api\/(boards|rooms)\//.test(url.pathname))return;
+    if(/\/(?:realtime|player-icons|images|image|auth)(?:\/|$)/.test(url.pathname))return;
+    try{
+      const body=await response.clone().text();
+      if(body.length>1500000)return;
+      const cache=await caches.open('jijinboard-readonly-snapshots-v1');
+      const snapshotUrl=new URL('/__readonly_snapshot__',location.origin);
+      snapshotUrl.searchParams.set('path',url.pathname+url.search);
+      snapshotUrl.searchParams.set('generation',generation||stored||'');
+      await cache.put(snapshotUrl.href,new Response(body,{headers:{'content-type':'application/json','x-snapshot-at':new Date().toISOString()}}));
+    }catch(error){console.warn('Read-only snapshot skipped',error)}
+  }
   const isTerminal=response=>response.status>=500&&response.status!==503 /* reset handled below */;
 
   let generation=stored,blocked=false;
@@ -101,6 +117,7 @@
       if(data?.code!=='DATASET_RESETTING')enterReadOnly(response.status===429?'quota':'server');
     }
     if(response.status===429)enterReadOnly('quota');
+    if(method==='GET'&&response.ok)rememberSnapshot(url,response).catch(()=>{});
     if(response.status===409){
       const data=await response.clone().json().catch(()=>null);
       if(data?.code==='DATASET_CHANGED'){
