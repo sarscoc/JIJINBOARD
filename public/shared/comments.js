@@ -77,7 +77,16 @@
   function live({board, refresh, onNote = () => {}, onTyping = () => {}, onChange = () => false, onError = console.warn}) {
     let active = false, socket = null, timer = null, attempts = 0, resume = false, connecting = false;
     const room = () => typeof board === 'function' ? board() : board;
-    const update = () => Promise.resolve().then(refresh).catch(onError);
+    // Coalesce duplicate refresh requests from socket open, visibility and online.
+    let refreshTask=null,refreshQueued=false;
+    const update = () => {
+      if(refreshTask){refreshQueued=true;return refreshTask}
+      refreshTask=Promise.resolve().then(refresh).catch(onError).finally(()=>{
+        refreshTask=null;
+        if(refreshQueued){refreshQueued=false;update()}
+      });
+      return refreshTask;
+    };
     function retry() { clearTimeout(timer); if (active) timer = setTimeout(connect, Math.min(15000, 500 * 2 ** attempts++)); }
     async function connect() {
       clearTimeout(timer);
@@ -114,14 +123,14 @@
       if(active===!!next){if(active)connect();return;}
       active = !!next; clearTimeout(timer);
       if (!active) { const old = socket; socket = null; old?.close(); }
-      else { connect(); update(); }
+      else { connect(); }
     }
     function typing(address, person, on) {
       if (socket?.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({type:'change', action:'comment:typing', data:{clientId, target:address, name:person?.name || 'PL', icon:String(person?.icon || '').slice(0,3000), typing:!!on}}));
     }
-    window.addEventListener('online', () => { if (active) { connect(); update(); } });
-    document.addEventListener('visibilitychange', () => { if (active && !document.hidden) { connect(); update(); } });
+    window.addEventListener('online', () => { if (active) connect(); });
+    document.addEventListener('visibilitychange', () => { if (active && !document.hidden) connect(); });
     window.addEventListener('pagehide', () => { resume=active;setActive(false); });
     window.addEventListener('pageshow', () => { if(resume){resume=false;setActive(true);} });
     return {setActive, typing, refresh:update};
