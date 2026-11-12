@@ -57,6 +57,11 @@
   html[data-mobile-workspace=log] .page-track{will-change:auto}
   html[data-mobile-workspace=log] .log-page{content-visibility:visible;backface-visibility:visible}
   /* MATRIX: swipe between the list and canvas; remove the previous bottom tabs. */
+  /* The embedded desktop rail sets height:100% with a more specific selector. */
+  html.embedded[data-mobile-workspace=matrix] .stage-shell > #matrixIconComments{
+    height:var(--phone-dock-height)!important;
+    max-height:none!important;
+  }
   html[data-mobile-workspace=matrix][data-phone-matrix-sizing] #canvas{visibility:hidden!important}
   html[data-mobile-workspace=matrix] #mobileBottomNav{display:none!important}
   html[data-mobile-workspace=matrix] .mobile-placement-tray:not(:has(.mobile-tray-item)){display:none!important}

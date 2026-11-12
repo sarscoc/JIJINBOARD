@@ -72,7 +72,7 @@
         if(frame.id==='logFrame'){
           const style=doc.createElement('style');style.textContent='@media(max-width:760px){body>.topbar{display:none!important}}';doc.head.append(style);
         }
-        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261112-matrix-reveal';doc.head.append(script);
+        const script=doc.createElement('script');script.id='mobileWorkspaceScript';script.src='/board/mobile-workspace.js?v=20261112-matrix-dock';doc.head.append(script);
       }catch{}
     };
     frame.addEventListener('load',()=>{if(['matrixFrame','logFrame'].includes(frame.id))delete frame.dataset.phoneReady;install()});

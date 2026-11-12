@@ -4,7 +4,7 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261105-display8';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261112-matrix-dock';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
   let workspaceInstalled=false,settleMatrix=()=>{};
   function revealLog(){
