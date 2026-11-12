@@ -143,8 +143,10 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
 
   if(request.method==='DELETE'&&templateId){
     const row=await env.DB.prepare('SELECT template_image_key FROM matrix_template WHERE room_id=? AND template_id=?').bind(roomId,templateId).first();
-    if(row?.template_image_key)await env.LOGS.delete(row.template_image_key).catch(()=>{});
-    await env.DB.prepare("UPDATE matrix_template SET template_image_key='__deleted__',template_definition='{}',updated_at=CURRENT_TIMESTAMP WHERE room_id=? AND template_id=?").bind(roomId,templateId).run();
+    // Tombstone in D1 first. Never delete the R2 image before the DB write
+    // succeeds: a failed DB operation must not leave a visible broken template.
+    // Retain the R2 object for recovery; cleanup requires a separate verified job.
+    await env.DB.prepare("UPDATE matrix_template SET template_image_key='__deleted__',template_definition='{}',updated_at=CURRENT_TIMESTAMP WHERE room_id=? AND template_id=? AND template_image_key<>'__deleted__'").bind(roomId,templateId).run();
     return json({ok:true});
   }
 
