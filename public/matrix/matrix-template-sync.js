@@ -125,7 +125,8 @@
   }
   async function rebaseDraft(timerKey,draft){
     if(!draft.base||draft.rebased)return false;
-    const latest=(await api(endpoint(draft.logId,''),{cache:'no-store'})).templates?.find(item=>item.record?.id===draft.id);
+    // Fetch only the conflicting template and its points, not every template.
+    const latest=await api(endpoint(draft.logId,draft.id),{cache:'no-store'});
     if(!latest||latest.record.revision===draft.baseRevision)return false;
     const local=pendingSaves.get(timerKey)||draft;
     const merged=mergeChanges(local.base,editable(local.record,local.templateState),editable(latest.record,latest.templateState));
