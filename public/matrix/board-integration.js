@@ -259,7 +259,14 @@
       return true;
     })();
     pointChains.set(key,task);
-    try{return await task}finally{if(pointChains.get(key)===task)pointChains.delete(key)}
+    try{return await task}finally{
+      if(pointChains.get(key)===task){
+        pointChains.delete(key);
+        // A drag can arrive while the previous promise is settling.
+        const pending=pointRequests.get(key);
+        if(pending)savePoint(itemId,pending).catch(console.warn);
+      }
+    }
   }
 
   window.matrixBoardContext={boardId,get roomId(){return roomId},isApplyingRemote:()=>applyingRemote,api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange,savePoint,applyRemotePoint};
