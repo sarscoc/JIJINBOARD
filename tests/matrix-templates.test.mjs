@@ -112,3 +112,19 @@ test('token comments save independently and do not revert newer coordinates',asy
  await call({comment:'stale recovery',recoverIfEmpty:true});[row]=await f.list();assert.equal(row.templateState.items.pc.comment,'shared bubble');
  await call({comment:'',commentPosition:'top'});[row]=await f.list();assert.equal(row.templateState.items.pc.comment,'');assert.equal(row.templateState.items.pc.x,88);
 });
+
+
+test('new templates are committed with their copied placements and notes, or fail before publishing',async()=>{
+  const f=fixture();
+  const record={name:'Copied',dataUrl:'data:image/webp;base64,QQ=='};
+  const items={pc:{placed:true,x:22,y:42,comment:'note',commentPosition:'bottom'}};
+  const invalid=await f.call('PUT',{baseRevision:null,record,templateState:{items:{pc:{...items.pc,oversized:'x'.repeat(100001)}}}});
+  assert.equal(invalid.status,413);
+  assert.deepEqual(await f.list(),[]);
+  assert.equal(f.objects.size,0);
+  assert.equal((await f.call('PUT',{baseRevision:null,record,templateState:{items}})).status,200);
+  const [saved]=await f.list();
+  assert.equal(saved.templateState.items.pc.x,22);
+  assert.equal(saved.templateState.items.pc.comment,'note');
+  assert.equal(saved.templateState.items.pc.commentPosition,'bottom');
+});

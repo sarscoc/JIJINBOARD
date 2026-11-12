@@ -37,7 +37,7 @@
     const collection=document.getElementById('mobileMenuLogs'),frame=activeFrame();
     collection.textContent=frame?.id==='matrixFrame'?'テンプレ一覧':'ログ一覧';collection.hidden=frame?.id==='spreadsheetFrame';
     menu.querySelectorAll('[data-phone-action]').forEach(button=>button.hidden=frame?.id!=='matrixFrame'||button.dataset.phoneAction==='new-template');
-    document.getElementById('mobileMenuOptions').hidden=frame?.id==='matrixFrame';
+    document.getElementById('mobileMenuOptions').textContent=frame?.id==='matrixFrame'?'MATRIX設定':'表示・絞り込み設定';
     document.getElementById('mobileMenuPeople').textContent='PL・PC設定';
     document.body.classList.toggle('phone-frame-docked',frame?.dataset.phoneDocked==='1');
   }
