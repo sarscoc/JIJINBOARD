@@ -4,6 +4,18 @@
   const nativeFetch=window.fetch.bind(window),key='jijin.dataset.generation.v1';
   const get=Storage.prototype.getItem,set=Storage.prototype.setItem,remove=Storage.prototype.removeItem;
   const stored=get.call(localStorage,key)||'';
+  // A terminal API/server failure must not trigger endless reconnect loops.
+  // Navigate once to a static page that does not require D1 or WebSockets.
+  let failureRedirected=false;
+  function enterReadOnly(reason){
+    if(failureRedirected||location.pathname.startsWith('/read-only'))return;
+    failureRedirected=true;
+    blocked=true;
+    const destination='/read-only.html?reason='+encodeURIComponent(reason)+'&return='+encodeURIComponent(location.pathname+location.search+location.hash);
+    try{window.top.location.assign(destination)}catch{location.assign(destination)}
+  }
+  const isTerminal=response=>response.status>=500&&response.status!==503 /* reset handled below */;
+
   let generation=stored,blocked=false;
   const appKey=k=>/^(board:|trpg|jijinboard|jijin\.comment-cache\.|personas:|magiaMatrix|charaHub|admin:|boardAdmin:|theme:|mainTab:)/.test(k);
   Storage.prototype.setItem=function(k,v){if(blocked&&appKey(String(k)))return;return set.call(this,k,v)};
@@ -64,7 +76,7 @@
     return generation;
   })();
   // Failed bootstrap must never permit writes, even if application code catches its error.
-  ready.catch(error=>{blocked=true;console.warn('Dataset guard',error)});
+  ready.catch(error=>{blocked=true;console.warn('Dataset guard',error);enterReadOnly('server')});
   window.fetch=async function(input,init){
     const url=new URL(input instanceof Request?input.url:String(input),location.href);
     if(url.origin!==location.origin||!url.pathname.startsWith('/api/'))return nativeFetch(input,init);
@@ -76,7 +88,19 @@
       const headers=new Headers(init?.headers||(input instanceof Request?input.headers:undefined));
       headers.set('x-jijin-dataset',generation);options={...init,headers};
     }
-    const response=await nativeFetch(input,options);
+    let response;
+    try{response=await nativeFetch(input,options)}
+    catch(error){
+      // Aborts can be intentional (tab changes, superseded requests).
+      if(error?.name!=='AbortError')enterReadOnly('network');
+      throw error;
+    }
+    if(isTerminal(response)||response.status===503){
+      // Dataset-reset responses are expected during an intentional reset.
+      const data=response.status===503?await response.clone().json().catch(()=>null):null;
+      if(data?.code!=='DATASET_RESETTING')enterReadOnly(response.status===429?'quota':'server');
+    }
+    if(response.status===429)enterReadOnly('quota');
     if(response.status===409){
       const data=await response.clone().json().catch(()=>null);
       if(data?.code==='DATASET_CHANGED'){
