@@ -23,6 +23,12 @@ export async function notifyResource(request,response,env,context,bodyRequest){
   if(!board)return;
   let data=null;
   if(action==='matrix-point')data=(await response.clone().json()).point||null;
+  if(action==='matrix-template-state'){
+   // Include the affected template ID for future targeted client refreshes.
+   // Keep the action unchanged so older clients continue to reconcile safely.
+   const match=path.match(/\/matrix\/([^/]+)\/templates\/([^/]+)$/);
+   if(match)data={roomId:decodeURIComponent(match[1]),templateId:decodeURIComponent(match[2]),deleted:request.method==='DELETE'};
+  }
   if(action==='spreadsheet-state'){
    const saved=await response.clone().json(),input=await bodyRequest.json();const payload={state:input.state,baseRevision:input.baseRevision,revision:saved.revision};
    if(JSON.stringify(payload).length<=5500)data=payload;
