@@ -9,6 +9,7 @@
 :root{color-scheme:light;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;color:#25272d;background:#f7f8fa}*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}.panel{width:min(100%,560px);padding:clamp(24px,6vw,44px);background:white;border:1px solid #e4e6eb;border-radius:18px;box-shadow:0 12px 40px #2025380b}.eyebrow{font-size:12px;letter-spacing:.14em;color:#6c7483;font-weight:700}.symbol{font-size:28px;margin:18px 0 10px}h1{font-size:clamp(23px,5vw,31px);margin:0 0 16px;line-height:1.4}p{line-height:1.85;color:#535b68}.note{background:#f5f6f8;padding:15px 18px;border-radius:10px;font-size:14px}.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}button,a.action{font:inherit;border:1px solid #d8dce4;background:white;color:#222a35;border-radius:9px;padding:11px 17px;text-decoration:none;cursor:pointer}button.primary{background:#252a34;color:white;border-color:#252a34}small{display:block;margin-top:18px;color:#7a8290;line-height:1.6}
 .snapshots{margin-top:24px;border-top:1px solid #e4e6eb;padding-top:18px}.snapshots h2{font-size:18px}.snapshot{border:1px solid #e4e6eb;border-radius:10px;margin:10px 0;padding:12px}.snapshot summary{cursor:pointer;font-weight:650;overflow-wrap:anywhere}.snapshot time{display:block;font-size:12px;color:#747d89;margin-top:5px}.snapshot pre{white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;max-height:400px;overflow:auto;background:#f6f7f9;padding:12px;border-radius:8px}.empty{font-size:14px}
 .snapshot-body{padding-top:12px}.data-line{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid #f0f1f3;overflow-wrap:anywhere}.data-line strong{flex:0 0 auto;color:#626c79;font-size:12px}.data-line span{font-size:14px;white-space:pre-wrap}.data-group{margin:8px 0 8px 12px;padding-left:12px;border-left:2px solid #e5e7eb}.data-group summary{font-weight:600;color:#394352}.data-entry{padding:9px 12px;margin:7px 0;border:1px solid #eceef1;border-radius:8px}.template-card{padding:12px;border:1px solid #e4e6eb;border-radius:10px;margin-bottom:12px}.template-card h3{margin:0 0 10px;font-size:16px}
+.screen-preview{margin-top:24px;border-top:1px solid #e4e6eb;padding-top:18px}.screen-preview h2{font-size:18px}.screen-preview iframe{width:100%;height:65vh;border:1px solid #d8dce4;border-radius:10px;background:white}.panel:has(.screen-preview:not([hidden])){width:min(100%,1100px)}
 </style>
 </head>
 <body>
@@ -18,7 +19,7 @@
 <h1>現在、閲覧専用モードです</h1>
 <p id="reason">APIの利用制限、または通信障害が発生した可能性があります。編集や保存を続けず、復旧をお待ちください。</p>
 <div class="note"><strong>データについて</strong><p>この画面では編集を行いません。サーバーに保存済みの内容は削除されませんが、保存できなかった変更が反映されているとは限りません。元の画面に戻る前に、未保存の編集がないか確認してください。</p><p>通信が制限されている間は、新しいデータを取得できない場合があります。</p></div>
-<section class="snapshots"><h2>この端末に残っている最終取得データ</h2><p class="empty" id="snapshotStatus">ローカルデータを確認しています…</p><div id="snapshotList"></div></section><div class="actions"><button class="primary" id="back" type="button">元の画面に戻る</button><button id="copy" type="button">元のURLをコピー</button></div>
+<section class="screen-preview" id="screenPreview" hidden><h2>最後に表示していた画面</h2><p>表示内容をそのまま保存した閲覧用の画面です。編集・通信はできません。</p><iframe id="screenFrame" title="保存された自陣ボードの画面" sandbox="" referrerpolicy="no-referrer"></iframe></section><section class="snapshots"><h2>この端末に残っている最終取得データ</h2><p class="empty" id="snapshotStatus">ローカルデータを確認しています…</p><div id="snapshotList"></div></section><div class="actions"><button class="primary" id="back" type="button">元の画面に戻る</button><button id="copy" type="button">元のURLをコピー</button></div>
 <small>※ このページは制限時の案内画面です。自動復旧や全ページ共通の編集ロックは別途実装が必要です。</small>
 </main>
 <script>
@@ -69,6 +70,30 @@
    }else renderValue(data,body);
    section.append(body);return section;
  }
+ async function showSavedScreen(){
+   if(!window.indexedDB)return;
+   const request=indexedDB.open('jijinboard-readonly-screen-v1',1);
+   request.onupgradeneeded=()=>request.result.createObjectStore('screens');
+   request.onsuccess=()=>{
+     const db=request.result;
+     const tx=db.transaction('screens','readonly');
+     const key=new URL(target,location.origin);
+     const lookup=tx.objectStore('screens').get(key.pathname+key.search);
+     lookup.onsuccess=()=>{
+       const saved=lookup.result;
+       if(saved?.html){
+         const preview=document.getElementById('screenPreview');
+         const frame=document.getElementById('screenFrame');
+         // No scripts or same-origin privileges: only the saved layout can render.
+         frame.srcdoc=saved.html;
+         preview.hidden=false;
+       }
+       db.close();
+     };
+     lookup.onerror=()=>db.close();
+   };
+ }
+ showSavedScreen();
  async function showSnapshots(){
    const status=document.getElementById('snapshotStatus'),list=document.getElementById('snapshotList');
    if(!window.caches){status.textContent='このブラウザではキャッシュを利用できません。';return}
