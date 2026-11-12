@@ -79,3 +79,20 @@ test('comments collapse excessive pasted paragraph spacing while preserving a bl
  w.eval(app.slice(start,end));const host=w.document.createElement('div');host.innerHTML=w.commentBodyHtml('first\r\n\r\n\r\n\r\n**second**');
  assert.equal(host.textContent,'first\n\nsecond');assert.equal(host.querySelector('strong').textContent,'second');
 });
+
+test('message copy preserves the whole plain body and excludes the speaker and annotation count',async t=>{
+ const w=fixture(t,'<main></main>'),text='**太字**\n|漢字《かんじ》';
+ const message={id:'m1',speaker:'PC',text};
+ let copied;
+ Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async value=>{copied=value}}});
+ Object.assign(w,{state:{room:{messages:[message]}},esc:String,markedText:row=>w.JijinLogFormat.render(row.text)});
+ const app=source('log/app.js');
+ w.eval(app.slice(app.indexOf('function messageHtml('),app.indexOf('function timelineGroups(')));
+ w.document.querySelector('main').innerHTML=w.messageHtml(message,{m1:[{}]});
+ const button=w.document.querySelector('[data-copy-message]');
+ button.querySelector('path').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
+ await new Promise(setImmediate);
+ assert.equal(copied,'太字\n漢字');
+ assert.equal(button.dataset.copyStatus,'success');
+ assert.ok(w.document.querySelector('[data-message-comments="m1"]'));
+});

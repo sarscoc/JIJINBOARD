@@ -83,3 +83,17 @@ html .comment-card:focus-visible{
 
 
 .log-speaker-dialog{width:min(600px,calc(100vw - 24px));background:#fff;color:#303641}.log-speaker-dialog>button{float:right;border:0;background:none;padding:8px 12px;cursor:pointer}.log-speaker-dialog #logSpeakerSlot{clear:both;min-height:220px;max-height:70vh;overflow:auto}
+
+.log-message .log-copy-message{
+  position:absolute;top:2px;right:3px;width:22px;height:20px;padding:0;
+  display:grid;place-items:center;border:0;border-radius:4px;background:transparent;
+  color:var(--muted);cursor:pointer;opacity:0;
+}
+.log-message:has(>.annotation-count){padding-right:46px}
+.log-message:has(>.annotation-count) .log-copy-message{right:23px}
+.log-message:hover .log-copy-message,.log-copy-message:focus-visible,.log-copy-message[data-copy-status]{opacity:1}
+.log-copy-message:hover,.log-copy-message:focus-visible{background:var(--soft)}
+.log-copy-message[data-copy-status] svg{display:none}
+.log-copy-message[data-copy-status="success"]::after{content:"✓"}
+.log-copy-message[data-copy-status="error"]::after{content:"!"}
+@media (hover:none),(max-width:760px){.log-message .log-copy-message{opacity:.7}}

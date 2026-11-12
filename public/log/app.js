@@ -289,8 +289,32 @@ function markerColor(value){const pair=String(value||"").split("|");value=pair[d
 function messageHtml(m, grouped) {
   const anns = grouped[m.id] || [];
   const color = /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(m.color || "") ? m.color : "";
-  return `<div class="log-message ${m.system ? "system-message" : ""} ${m.diceroll ? "diceroll" : ""}" data-message="${m.id}"${color ? ` style="color:${esc(color)}"` : ""}><span class="speaker">${esc(m.speaker || "")}${m.speaker ? "：" : ""}</span><span class="message-text" data-source-length="${m.text.length}">${markedText(m, anns)}</span>${anns.length ? `<button class="annotation-count" data-message-comments="${m.id}">${anns.length}</button>` : ""}</div>`;
+  return `<div class="log-message ${m.system ? "system-message" : ""} ${m.diceroll ? "diceroll" : ""}" data-message="${m.id}"${color ? ` style="color:${esc(color)}"` : ""}><span class="speaker">${esc(m.speaker || "")}${m.speaker ? "：" : ""}</span><span class="message-text" data-source-length="${m.text.length}">${markedText(m, anns)}</span>${anns.length ? `<button class="annotation-count" data-message-comments="${m.id}">${anns.length}</button>` : ""}<button class="log-copy-message" type="button" data-copy-message aria-label="本文をコピー" title="本文をコピー"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg></button></div>`;
 }
+
+document.addEventListener("click",async event=>{
+  const button=event.target.closest?.("[data-copy-message]");
+  if(!button)return;
+  const id=button.closest(".log-message")?.dataset.message;
+  const message=state.room?.messages.find(entry=>entry.id===id);
+  if(!message)return;
+  button.disabled=true;
+  try{
+    await navigator.clipboard.writeText(JijinLogFormat.plain(message.text));
+    button.dataset.copyStatus="success";
+    button.title="本文をコピーしました";
+  }catch{
+    button.dataset.copyStatus="error";
+    button.title="コピーできませんでした";
+  }
+  button.setAttribute("aria-label",button.title);
+  setTimeout(()=>{
+    delete button.dataset.copyStatus;
+    button.title="本文をコピー";
+    button.setAttribute("aria-label",button.title);
+    button.disabled=false;
+  },1300);
+});
 function timelineGroups(messages) {
   const groups = [];
   messages.forEach((message, index) => {
