@@ -90,18 +90,18 @@
     const preserved=annotationStateForPlacement(id);
     const sourceItem=items.find(entry=>entry.id===id);
     const placementImage=String(sourceItem?.placementImage||sourceItem?.baseImage||sourceItem?.imageFallback||"");
-    const placedId=placeItem(id,x,y)||id;
+    placeItem(id,x,y);
 
     const state=appState();
     state.items||={};
-    const local=state.items[placedId]||(state.items[placedId]=makeLocalItemState(placedId));
-    if(preserved&&placedId===id)Object.assign(local,preserved);
+    const local=state.items[id]||(state.items[id]=makeLocalItemState(id));
+    if(preserved)Object.assign(local,preserved);
     if(placementImage)local.placedImage=placementImage;
     saveState(state);
     if(typeof saveCurrentTemplateState==="function")saveCurrentTemplateState(state);
     const item=items.find(entry=>entry.id===id);
     if(item){
-      if(placedId===id)item.local=local;
+      item.local=local;
       if(placementImage){
         item.baseImage=placementImage;
         item.imageFallback=item.imageFallback||placementImage;
@@ -195,7 +195,7 @@
       if(!fallback){
         const placed=image.closest?.(".placed[data-id]");
         const itemId=String(placed?.dataset?.id||"");
-        const item=(typeof items!=="undefined"&&Array.isArray(items))?items.find(entry=>String(entry?.id||"")===(typeof matrixPieceSourceId==="function"?matrixPieceSourceId(itemId):itemId)):null;
+        const item=(typeof items!=="undefined"&&Array.isArray(items))?items.find(entry=>String(entry?.id||"")===itemId):null;
         fallback=String(item?.imageFallback||"");
       }
       if(fallback&&image.src!==new URL(fallback,location.href).href&&!image.dataset.fallbackTried){

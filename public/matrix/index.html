@@ -3259,7 +3259,7 @@ body > #settings:not(.floating-closed){display:flex!important;flex-direction:col
           </div>
         </div>
       </div>
-      <div class="mobile-placement-tray" id="mobilePlacementTray" aria-label="配置するコマ"></div>
+      <div class="mobile-placement-tray" id="mobilePlacementTray" aria-label="選択中の未配置アイコン"></div>
       <div class="stage">
         <div class="canvas" id="canvas">
           <img class="template-img" id="templateImg" alt="">
@@ -3654,8 +3654,7 @@ async function warmImageCacheForItems(list,{force=false,renderOnEach=false}={}){
 }
 async function ensurePlacedImagesCached(){
   const s=appState();
-  const used=new Set(Object.keys(s.items||{}).filter(id=>s.items[id]?.placed).map(matrixPieceSourceId));
-  const placed=items.filter(it=>used.has(it.id));
+  const placed=items.filter(it=>s.items?.[it.id]?.placed);
   await warmImageCacheForItems(placed,{force:false,renderOnEach:false});
 }
 async function syncCharacterImageCache(currentItems){
@@ -3680,10 +3679,8 @@ async function hydrateCharacterImages(currentItems){
   await warmImageCacheForItems(ordered,{force:false,renderOnEach:false});
 }
 function displayImage(it){
-  if(!it)return '';
-  const imageId=it.sourceId||it.id;
-  if(window.JijinDesktop&&imageCacheMeta.get(imageId)?.signature!==String(it.imageSignature||stableRemoteImageKey(it.baseImage)||'').trim())return it.baseImage||'';
-  return imageBlobUrls.get(imageId) || it.baseImage || '';
+  if(window.JijinDesktop&&imageCacheMeta.get(it.id)?.signature!==String(it.imageSignature||stableRemoteImageKey(it.baseImage)||'').trim())return it.baseImage||'';
+  return imageBlobUrls.get(it.id) || it.baseImage || '';
 }
 
 function showLibraryPage(which){
@@ -3917,7 +3914,7 @@ async function renderTemplateTabs(){
     const known=new Map(items.map(item=>[item.id,item]));
     Object.entries(stateItems).filter(([,local])=>local?.placed).forEach(([id,local])=>{
       const pointX=Number(local.coordVersion===2?local.templateX:local.x),pointY=Number(local.coordVersion===2?local.templateY:local.y);
-      const item=known.get(matrixPieceSourceId(id)),icon=item?displayImage(item):'';
+      const item=known.get(id),icon=item?displayImage(item):'';
       const marker=document.createElement(icon?'img':'i');
       marker.className=icon?'template-preview-icon':'template-preview-dot';
       marker.style.left=`${Number.isFinite(pointX)?pointX:50}%`;
@@ -4299,13 +4296,19 @@ function isMobileLayout(){
   return !!window.matchMedia?.('(max-width:760px)').matches;
 }
 function isMobileItemSelected(local){
-  return local?.mobileSelected===true;
+  return !!(local?.placed || local?.mobileSelected===true);
 }
 function toggleMobileItemSelection(id){
   if(isMobileLayout()&&!templateSpaceReady())return;
   const state=appState();
   const local=state.items?.[id]||(state.items[id]=makeLocalItemState(id));
-  local.mobileSelected=!isMobileItemSelected(local);
+  const selected=isMobileItemSelected(local);
+  if(selected){
+    local.mobileSelected=false;
+    local.placed=false;
+  }else{
+    local.mobileSelected=true;
+  }
   saveState(state);
   saveCurrentTemplateState(state);
   const it=items.find(item=>item.id===id);
@@ -4359,12 +4362,12 @@ function renderMobilePlacementTray(){
   const state=appState(),display=state.display||{};
   const pending=items.filter(it=>{
     const local=state.items?.[it.id];
-    return isMobileItemSelected(local);
+    return isMobileItemSelected(local)&&!local?.placed;
   });
   if(!pending.length){
     const empty=document.createElement('div');
     empty.className='mobile-tray-empty';
-    empty.textContent=items.length?'アイコン一覧でONにしたコマがここに出ます':'登録したキャラクターのアイコンがここに表示されます';
+    empty.textContent=items.length?'アイコン一覧でONにした未配置アイコンがここに出ます':'登録したキャラクターのアイコンがここに表示されます';
     tray.appendChild(empty);
     return;
   }
@@ -4373,7 +4376,7 @@ function renderMobilePlacementTray(){
     const btn=document.createElement('button');
     btn.type='button';
     btn.className='mobile-tray-item';
-    btn.title='タップしてコマを追加';
+    btn.title='タップしてテンプレ中央に配置';
     const av=document.createElement('div');
     av.className='mobile-tray-avatar';
     applyShapeClass(av);
@@ -4394,9 +4397,8 @@ function renderMobilePlacementTray(){
         alert('先にテンプレ画像を入れてください。');
         return;
       }
-      const occupied=Object.entries(appState().items||{}).filter(([id,point])=>point?.placed&&matrixPieceSourceId(id)===it.id);
-      const offset=[0,12,-12,24,-24][occupied.length%5];
-      bringPlacedToFront(placeItem(it.id,50+offset,50+Math.floor(occupied.length/5)%4*12,true));
+      placeItem(it.id,50,50,true);
+      bringPlacedToFront(it.id);
       renderLibrary();
       renderMobilePlacementTray();
     });
@@ -4414,7 +4416,7 @@ function syncMobileCommentDirectionButtons(){
 function openMobileCommentEditor(id){
   const state=appState(),local=state.items?.[id];
   if(!local)return;
-  const it=matrixPieceSource(id);
+  const it=items.find(item=>item.id===id);
   mobileCommentEditingId=id;
   mobileCommentDraftPosition=local.commentPosition||'top';
   $('#mobileCommentName').textContent=it?.name?`${it.name} — コメント`:'コメント';
@@ -4643,7 +4645,7 @@ function renderLibrary(){
     im.loading='eager';
     im.decoding='async';
     try{im.fetchPriority='low'}catch{}
-    im.dataset.matrixImageId=it.sourceId||it.id;im.src=displayImage(it)||'';
+    im.dataset.matrixImageId=it.id;im.src=displayImage(it)||'';
     im.onerror=()=>im.style.display='none';
     bindIconImage(im,l.crop,currentIconShape());
     av.append(im);
@@ -4735,7 +4737,6 @@ function startLibraryDrag(e,it,card){
     window.removeEventListener('pointerup',up);
     window.removeEventListener('pointercancel',up);
 
-    if(ev.type==='pointercancel')return;
     if(!moved){
       placeItem(it.id,50,50);
       return;
@@ -4767,32 +4768,21 @@ function startLibraryDrag(e,it,card){
   window.addEventListener('pointerup',up,{once:true});
   window.addEventListener('pointercancel',up,{once:true});
 }
-function matrixPieceSourceId(id){
-  return String(id||'').replace(/::piece:[0-9a-f-]{36}$/i,'');
-}
-function matrixPieceSource(id){
-  return items.find(item=>item.id===matrixPieceSourceId(id));
-}
 function pointInside(element,x,y){
   const rect=element?.getBoundingClientRect();
   return !!(rect?.width&&rect.height&&x>=rect.left&&x<=rect.right&&y>=rect.top&&y<=rect.bottom);
 }
 function removeMatrixPlacement(id,keepInTray=false){
-  const source=matrixPieceSourceId(id);
   mutate(state=>{
     if(!state.items?.[id])return;
     state.items[id].placed=false;
-    if(keepInTray)(state.items[source]??={}).mobileSelected=true;
+    if(keepInTray)state.items[id].mobileSelected=true;
   });
   renderPlaced();
   renderTemplateTabs().catch(console.warn);
 }
-function placeItem(sourceId,x,y,isTemplatePoint=templateSpaceReady()){
-  const existing=appState().items||{};
-  const duplicate=Object.entries(existing).some(([id,point])=>point?.placed&&matrixPieceSourceId(id)===sourceId);
-  const id=duplicate?`${sourceId}::piece:${crypto.randomUUID()}`:sourceId;
+function placeItem(id,x,y,isTemplatePoint=templateSpaceReady()){
   mutate(s=>{
-    if(duplicate)s.items[id]={crop:{...normalizedCrop(s.items[sourceId]?.crop)}};
     const l=s.items[id]||(s.items[id]={});
     l.placed=true;
     if(isTemplatePoint&&templateSpaceReady()){
@@ -4814,7 +4804,6 @@ function placeItem(sourceId,x,y,isTemplatePoint=templateSpaceReady()){
   const it=items.find(x=>x.id===id);if(it)it.local=appState().items[id];
   renderPlaced();
   renderTemplateTabs().catch(console.warn);
-  return id;
 }
 
 function normalizedCrop(c){
@@ -5255,19 +5244,20 @@ function ensurePlacedZOrders(state=appState()){
   let changed=false;
   const placed=[];
 
-  Object.values(state.items||{}).forEach(local=>{
+  items.forEach((it,index)=>{
+    const local=state.items?.[it.id];
     if(!local?.placed)return;
     const z=Number(local.zOrder);
     if(Number.isFinite(z)&&z>0){
       maxZ=Math.max(maxZ,z);
     }else{
-      placed.push(local);
+      placed.push({it,index,local});
     }
   });
 
-  placed.forEach(local=>{
+  placed.forEach(entry=>{
     maxZ+=1;
-    local.zOrder=maxZ;
+    entry.local.zOrder=maxZ;
     changed=true;
   });
 
@@ -5279,11 +5269,15 @@ function ensurePlacedZOrders(state=appState()){
 }
 
 function orderedPlacedItems(state=appState()){
-  const sources=new Map(items.map(item=>[item.id,item]));
-  return Object.entries(state.items||{}).flatMap(([id,local])=>{
-    const source=sources.get(matrixPieceSourceId(id));
-    return local?.placed&&source?[{...source,id,sourceId:source.id,local}]:[];
-  }).sort((a,b)=>(Number(a.local.zOrder)||0)-(Number(b.local.zOrder)||0));
+  return items
+    .map((it,index)=>({it,index,local:state.items?.[it.id]}))
+    .filter(entry=>entry.local?.placed)
+    .sort((a,b)=>{
+      const az=Number(a.local?.zOrder)||0;
+      const bz=Number(b.local?.zOrder)||0;
+      return az-bz || a.index-b.index;
+    })
+    .map(entry=>entry.it);
 }
 
 function bringPlacedToFront(id,el=null){
@@ -5354,7 +5348,7 @@ function renderPlaced(){
     im.draggable=false;
     im.loading='lazy';
     im.decoding='async';
-    im.dataset.matrixImageId=it.sourceId||it.id;im.src=displayImage(it)||'';
+    im.dataset.matrixImageId=it.id;im.src=displayImage(it)||'';
     im.onerror=()=>im.style.display='none';
     bindIconImage(im,l.crop,currentIconShape());
     av.appendChild(im);
@@ -5381,7 +5375,7 @@ function renderPlaced(){
   renderMobilePlacementTray();
 }
 function startPlacedDrag(e,id,el){
-  const item=matrixPieceSource(id),mine=(()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')?.id||''}catch{return''}})();
+  const item=items.find(entry=>entry.id===id),mine=(()=>{try{return JSON.parse(localStorage.getItem('trpgMarkerProfile')||'null')?.id||''}catch{return''}})();
   if(item?.ownerId&&item.ownerId!==mine)return;
   if(isMobileLayout()){startMobilePlacedInteraction(e,id,el);return;}
   if(e.button!=null&&e.button!==0)return;
@@ -6788,9 +6782,9 @@ if(!new URL(location.href).searchParams.has('board')){
 }
 
 </script>
-<script src="board-integration.js?v=20261113-pieces"></script>
-<script src="matrix-pc.js?v=20261113-pieces"></script>
-<script src="matrix-icon-comments.js?v=20261113-pieces"></script>
+<script src="board-integration.js?v=20261108-note-hover"></script>
+<script src="matrix-pc.js?v=20261105-pc4"></script>
+<script src="matrix-icon-comments.js?v=20261112-note-replies"></script>
 <script src="matrix-template-sync.js?v=20261103-commentfix2" data-matrix-template-sync="1"></script>
 <script src="../log/log-select-menu.js?v=20261103-pretty1"></script>
 <script src="matrix-settings-ui.js?v=20261103-pretty1"></script>

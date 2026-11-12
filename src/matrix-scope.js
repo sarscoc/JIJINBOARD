@@ -5,5 +5,3 @@ export async function validMatrixScope(db,board,scope){
  if(scope===board)return !!await db.prepare('SELECT 1 FROM room WHERE room_id=?').bind(board).first();
  const log=await parentRoomForLog(db,scope);return !!log&&log.room_id===board;
 }
-
-export const matrixPieceSourceId=id=>String(id||'').replace(/::piece:[0-9a-f-]{36}$/i,'');

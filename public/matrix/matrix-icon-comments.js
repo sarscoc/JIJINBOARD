@@ -20,10 +20,7 @@
     const parts=targetParts(value),tid=parts.templateId||(typeof currentTemplateId==='function'?currentTemplateId():'');
     return JijinComments.target.matrix(ctx().boardId,tid,parts.itemId);
   }
-  const targetItem=id=>{
-    const pointId=targetParts(id).itemId;
-    return typeof matrixPieceSource==="function"?matrixPieceSource(pointId):items.find(item=>item.id===pointId);
-  };
+  const targetItem=id=>items.find(item=>item.id===targetParts(id).itemId);
   const targetImage=id=>displayImage(targetItem(id))||"";
   const targetName=id=>targetItem(id)?.name||"PC";
   const pcList=()=>{

@@ -1,4 +1,4 @@
-import {validMatrixScope,matrixPieceSourceId} from './matrix-scope.js';
+import {validMatrixScope} from './matrix-scope.js';
 import {playerKey,characterKey,localId} from './player-address.js';
 import { dataImage,ensurePlIdentity,parentRoomForLog,hashText } from './data-model.js';
 
@@ -44,7 +44,7 @@ async function newPointStatements(db,roomId,templateId,definition,templateState)
     if(settings.length>100_000)throw Object.assign(new Error('MATRIXのPC個別設定が大きすぎます'),{status:413});
     return db.prepare(`INSERT INTO matrix_point(room_id,template_id,point_id,character_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,supplement_body,point_settings)
       SELECT ?,?,?,?,?,?,?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM matrix_template WHERE room_id=? AND template_id=? AND template_definition=?)`)
-      .bind(roomId,templateId,pointId,characters.get(matrixPieceSourceId(pointId))||null,item.placed?1:0,finite(item.x),finite(item.y),finite(item.templateX),finite(item.templateY),finite(item.scaleBaseWidth),Math.max(0,Math.min(10,Math.trunc(finite(item.coordVersion)??0))),String(item.comment||'').slice(0,4000),settings,roomId,templateId,definition);
+      .bind(roomId,templateId,pointId,characters.get(pointId)||null,item.placed?1:0,finite(item.x),finite(item.y),finite(item.templateX),finite(item.templateY),finite(item.scaleBaseWidth),Math.max(0,Math.min(10,Math.trunc(finite(item.coordVersion)??0))),String(item.comment||'').slice(0,4000),settings,roomId,templateId,definition);
   });
 }
 
