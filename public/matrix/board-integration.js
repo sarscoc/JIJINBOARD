@@ -192,11 +192,14 @@
           dispatchRefresh("matrix-state");
           if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
         }
+        // Comments are stored separately from MATRIX revisions. Reconcile them
+        // once after an actual disconnect, even when the layout is unchanged.
+        dispatchRefresh("matrix-comments");
       }).catch(error=>{
         console.warn("MATRIX revision check failed",error);
         // Unknown state: prefer correctness over skipping missed edits.
         if(reconnect&&realtime===socket){
-          dispatchRefresh("participants");dispatchRefresh("matrix-state");
+          dispatchRefresh("participants");dispatchRefresh("matrix-state");dispatchRefresh("matrix-comments");
           if(window.matrixTemplateSync?.isHydrated?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
         }
       });
