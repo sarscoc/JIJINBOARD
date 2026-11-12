@@ -74,6 +74,17 @@ export async function handleMatrixTemplates(request,env,roomId,logId,templateId=
   }
   if(!logId||!await validMatrixScope(env.DB,roomId,logId))return json({error:'この自陣にないログです'},404);
 
+  // Targeted fetch for a single changed template. Keep the full endpoint
+  // for initial hydration and deletion reconciliation.
+  if(request.method==='GET'&&templateId){
+    const row=await env.DB.prepare("SELECT template_id,template_name,template_image_key,template_definition,created_at,updated_at FROM matrix_template WHERE room_id=? AND template_id=? AND template_image_key<>'__deleted__'").bind(roomId,templateId).first();
+    if(!row)return json({error:'テンプレートが見つかりません'},404);
+    const points=(await env.DB.prepare('SELECT template_id,point_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,supplement_body,point_settings FROM matrix_point WHERE room_id=? AND template_id=?').bind(roomId,templateId).all()).results||[];
+    const definition=parseDefinition(row.template_definition),templateState=cloneObject(definition.templateState);
+    for(const point of points)applyPoint(templateState,point);
+    return json({record:{id:row.template_id,revision:await revisionOf(row),name:row.template_name,dataUrl:row.template_image_key?imageUrl(roomId,row.template_id)+'?v='+encodeURIComponent(row.template_image_key):'',imageName:String(definition.imageName||''),createdAt:Number(definition.createdAt)||Date.parse(row.created_at)||Date.now(),updatedAt:Number(definition.updatedAt)||Date.parse(row.updated_at)||Date.now()},templateState});
+  }
+
   if(request.method==='GET'&&!templateId){
     const rows=(await env.DB.prepare("SELECT template_id,template_name,template_image_key,template_definition,created_at,updated_at FROM matrix_template WHERE room_id=? AND template_image_key<>'__deleted__' ORDER BY created_at,template_id").bind(roomId).all()).results||[];
     const points=(await env.DB.prepare('SELECT template_id,point_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,supplement_body,point_settings FROM matrix_point WHERE room_id=?').bind(roomId).all()).results||[];
