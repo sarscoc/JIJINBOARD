@@ -234,14 +234,15 @@
         return true;
       });
     }
-    const point=pointPayload(itemId,item);point.templateId=item.templateId||window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId;
+    const point=pointPayload(itemId,item);point.templateId=item.templateId||window.currentTemplateId?.()||'';
+    const saveRoom=roomId,key=saveRoom+':'+point.templateId+':'+itemId;
+    const backupKey='jijinboard:pending-point:'+boardId+':'+key;
     pointRequests.set(key,point);
     // Persist the latest unsent position before any network operation.
-    try{localStorage.setItem('jijinboard:pending-point:'+boardId+':'+roomId+':'+key,JSON.stringify(point))}catch{}
+    try{localStorage.setItem(backupKey,JSON.stringify(point))}catch{}
     // While a save is in flight, retain only the newest coordinates.
-    // This prevents one database write per intermediate drag position.
     if(pointChains.has(key))return pointChains.get(key);
-    const path=pointPath(itemId);
+    const path=`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(saveRoom)}/points/${encodeURIComponent(itemId)}`;
     const task=(async()=>{
       while(pointRequests.has(key)){
         const latest=pointRequests.get(key);
@@ -250,7 +251,7 @@
           await api(path,{method:"PATCH",body});
           if(pointRequests.get(key)===latest){
             pointRequests.delete(key);
-            try{localStorage.removeItem('jijinboard:pending-point:'+boardId+':'+roomId+':'+key)}catch{}
+            try{localStorage.removeItem(backupKey)}catch{}
           }
         }catch(error){
           if(pointRequests.get(key)!==latest)continue;
@@ -271,7 +272,7 @@
         pointChains.delete(key);
         // A drag can arrive while the previous promise is settling.
         const pending=pointRequests.get(key);
-        if(pending)savePoint(itemId,pending).catch(console.warn);
+        if(pending&&roomId===saveRoom)savePoint(itemId,pending).catch(console.warn);
       }
     }
   }
