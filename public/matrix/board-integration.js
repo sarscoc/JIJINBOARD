@@ -134,6 +134,8 @@
   }
 
   function dispatchRefresh(action,data=null){
+    // Notifications are broadcast to the board; ignore changes to another log.
+    if(data?.roomId&&String(data.roomId)!==String(roomId))return;
     if(action==="matrix-typing"){window.dispatchEvent(new CustomEvent("matrix-board-typing",{detail:data}));return}
     if(action==="matrix-point"){
       if(active){
@@ -151,7 +153,7 @@
       return;
     }
     if(String(action||"").startsWith("matrix-")){
-      if(active)window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action}}));else dirtyComments=true;
+      if(active)window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action,data}}));else dirtyComments=true;
     }
   }
 
