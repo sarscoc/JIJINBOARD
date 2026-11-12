@@ -33,17 +33,16 @@ test('phone log comments stay together across tabs and remote renders, with no c
   assert.equal(f.d.querySelector('.phone-dock-grip span').textContent,'コメント');
   f.desktop();await tick();assert.equal(rows[1].hidden,false);
 });
-test('a stationary long press opens the original log composer and retains its selection',t=>{
+test('phone logs leave a long press to native text selection',t=>{
   const f=fixture(t);let opens=0;
-  f.d.querySelector('.message-text').innerHTML='First <b>formatted</b> sentence.<br>Second sentence.';
-  f.w.selectionInfo=()=>({messageId:'m1',quote:f.w.getSelection().toString()});f.w.openCommentDialog=()=>opens++;
-  f.pointer(f.d.querySelector('.log-message'),'pointerdown');f.fireHold();
-  assert.equal(opens,1);assert.equal(f.w.state.selection.messageId,'m1');
-  assert.equal(f.w.state.selection.quote,'First formatted sentence.Second sentence.');
-  let native=0;f.d.addEventListener('touchend',()=>native++);
-  f.d.querySelector('.message-text').dispatchEvent(new f.w.Event('touchend',{bubbles:true}));assert.equal(native,0);
-  f.desktop();f.d.querySelector('.message-text').dispatchEvent(new f.w.Event('touchend',{bubbles:true}));assert.equal(native,1);
-  assert.equal(f.d.querySelector('.phone-dock-head select'),null);
+  f.w.openCommentDialog=()=>opens++;
+  const text=f.d.querySelector('.message-text');
+  f.pointer(text,'pointerdown');f.fireHold();
+  assert.equal(opens,0);
+  const menu=new f.w.MouseEvent('contextmenu',{bubbles:true,cancelable:true});
+  text.dispatchEvent(menu);
+  assert.equal(menu.defaultPrevented,false);
+  assert.doesNotMatch(source('mobile-workspace.css'),/user-select:none/);
 });
 test('scroll movement and pointer cancellation never open a composer',t=>{
   const f=fixture(t);let opens=0;f.w.openCommentDialog=()=>opens++;

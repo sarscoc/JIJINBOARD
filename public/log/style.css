@@ -15,7 +15,7 @@ body{font-size:13px;line-height:1.5}.topbar{height:46px}.room{padding:12px;max-w
 .log-pane{height:calc(100vh - 102px);min-height:520px;padding:0;display:flex;flex-direction:column;perspective:none}.cylinder-nav{position:relative;top:auto;flex:0 0 40px;margin:0;padding:5px 10px;border-bottom:0}.carousel-viewport{flex:1;min-height:0;overflow:hidden}.page-track{height:100%;display:flex;will-change:transform}.log-page{flex:0 0 100%;height:100%;min-width:0;transform:none!important;opacity:1!important;transition:none}.page-scroll{height:100%;overflow-y:auto;overscroll-behavior:contain;padding:4px 12px 24px;scrollbar-gutter:stable}.page-title{position:sticky;top:0;z-index:3;background:color-mix(in srgb,var(--paper) 94%,transparent);backdrop-filter:blur(7px);padding:3px 42px;text-align:center;color:var(--muted);font-size:9px;letter-spacing:.08em}.page-row{border-bottom:0;padding:0}.log-message:hover{background:color-mix(in srgb,var(--soft) 55%,transparent)}
 .comment-author{display:flex;align-items:center;gap:7px}.comment-avatar{width:30px;height:30px;flex:0 0 30px;border-radius:50%;overflow:hidden;background:var(--soft);display:grid;place-items:center;border:1px solid var(--line)}.comment-avatar{width:28px;height:28px;object-fit:contain}.empty-avatar::before{content:""}
 @media(max-width:800px){.log-pane{height:calc(100vh - 145px);min-height:420px}.page-scroll{padding:3px 4px 22px}}
-.selection-bar{display:none!important}
+.log-message,.log-message .message-text{-webkit-user-select:text;user-select:text}
 #commentDialog{position:fixed;margin:0;width:min(390px,calc(100% - 24px));max-height:calc(100vh - 24px);overflow:auto}#commentDialog form{padding:14px;gap:9px}#commentDialog textarea{min-height:100px}
 #commentDialog::backdrop{background:transparent}
 .comment-persona-picker{display:grid;grid-template-columns:32px minmax(0,1fr);gap:8px;align-items:center}.comment-persona-picker select{width:100%;border:0!important;background:transparent!important;padding:4px 0!important}.comment-input-avatar{width:30px;height:30px;border-radius:50%;overflow:hidden;background:var(--soft);display:grid;place-items:center;font-size:11px}.comment-input-avatar img{width:100%;height:100%;display:block;object-fit:contain}#commentDialog .dialog-head{font-size:12px}#commentDialog .dialog-head .icon-btn{width:26px;height:26px}#commentDialog textarea{border:0;background:var(--soft);min-height:88px;padding:10px}#commentDialog .dialog-actions{margin-top:-2px}#commentDialog .dialog-actions .quiet{border:0;background:transparent;font-size:11px;padding:5px}.comment-card .comment-author{margin-top:0}
@@ -83,17 +83,3 @@ html .comment-card:focus-visible{
 
 
 .log-speaker-dialog{width:min(600px,calc(100vw - 24px));background:#fff;color:#303641}.log-speaker-dialog>button{float:right;border:0;background:none;padding:8px 12px;cursor:pointer}.log-speaker-dialog #logSpeakerSlot{clear:both;min-height:220px;max-height:70vh;overflow:auto}
-
-.log-message .log-copy-message{
-  position:absolute;top:2px;right:3px;width:22px;height:20px;padding:0;
-  display:grid;place-items:center;border:0;border-radius:4px;background:transparent;
-  color:var(--muted);cursor:pointer;opacity:0;
-}
-.log-message:has(>.annotation-count){padding-right:46px}
-.log-message:has(>.annotation-count) .log-copy-message{right:23px}
-.log-message:hover .log-copy-message,.log-copy-message:focus-visible,.log-copy-message[data-copy-status]{opacity:1}
-.log-copy-message:hover,.log-copy-message:focus-visible{background:var(--soft)}
-.log-copy-message[data-copy-status] svg{display:none}
-.log-copy-message[data-copy-status="success"]::after{content:"✓"}
-.log-copy-message[data-copy-status="error"]::after{content:"!"}
-@media (hover:none),(max-width:760px){.log-message .log-copy-message{opacity:.7}}

@@ -4,7 +4,7 @@
   if(parent===window)return;
   const tool=location.pathname.includes('/matrix')?'matrix':location.pathname.includes('/spreadsheet')?'sheets':'log';
   document.documentElement.dataset.mobileWorkspace=tool;
-  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261112-matrix-dock';document.head.append(link);
+  const link=document.createElement('link');link.rel='stylesheet';link.href='/board/mobile-workspace.css?v=20261113-native-log-selection';document.head.append(link);
   const mq=matchMedia('(max-width:760px)'),root=document.documentElement;
   let workspaceInstalled=false,settleMatrix=()=>{};
   function revealLog(){
@@ -250,18 +250,6 @@
   if(tool==='matrix')window.addEventListener('matrix-point-comments-open',()=>{if(mq.matches&&dockLevel<2)setDock(2)});
   // Observe a stationary press, cancel on scroll/drag; never synthesize a save.
   function clearHold(){clearTimeout(hold);hold=null}
-  function beginComment(el){
-    if(!document.querySelector(composerSelector)?.open)requestedEdit=null;
-    if(tool==='matrix'){
-      window.openMatrixIconComment?.(el.dataset.id||'');
-    }else if(tool==='log'){
-      const text=el.querySelector('.message-text');if(!text)return;
-      const selection=getSelection(),range=document.createRange();range.selectNodeContents(text);selection.removeAllRanges();selection.addRange(range);
-      if(typeof selectionInfo==='function'&&typeof state!=='undefined'&&typeof openCommentDialog==='function'){
-        const info=selectionInfo();if(info?.quote?.trim()){state.selection=info;openCommentDialog()}
-      }
-    }
-  }
   if(tool==='log')for(const type of ['mouseup','touchend'])window.addEventListener(type,event=>{
     if(mq.matches&&event.target.closest('.log-message[data-message]'))event.stopImmediatePropagation();
   },true);
@@ -361,11 +349,11 @@
     press={x:event.clientX,y:event.clientY,el,time:Date.now(),id:event.pointerId,down:event};
     // Decide the touch direction before handing an icon to its existing drag handler.
     if(tool==='matrix'&&el)event.stopPropagation();
-    if(el&&tool!=='sheets')hold=setTimeout(()=>{
+    if(el&&tool==='matrix')hold=setTimeout(()=>{
       hold=null;
       // Cancel the legacy 540ms placement-note gesture before opening the shared composer.
-      if(tool==='matrix')el.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,pointerId:press?.id||1}));
-      suppressClick=true;beginComment(el);
+      el.dispatchEvent(new PointerEvent('pointercancel',{bubbles:true,pointerId:press?.id||1}));
+      suppressClick=true;window.openMatrixIconComment?.(el.dataset.id||'');
     },500);
   },true);
   window.addEventListener('pointermove',event=>{
@@ -388,7 +376,7 @@
     if(mq.matches&&press){
       const dx=event.clientX-press.x,dy=event.clientY-press.y;
       if(!press.dragging&&Math.abs(dx)>75&&Math.abs(dy)<40&&!event.target.closest('dialog,#sheetComments,#commentsPane,#matrixIconComments')){
-        if(tool==='log'){suppressClick=true;parent.postMessage({type:'jijin-phone-log-list'},location.origin)}
+        if(tool==='log'&&getSelection()?.isCollapsed!==false){suppressClick=true;parent.postMessage({type:'jijin-phone-log-list'},location.origin)}
         if(tool==='matrix'&&typeof setMobileMainView==='function'){suppressClick=true;setMobileMainView(dx>0?'icons':'stage',false)}
       }
     }
@@ -399,7 +387,7 @@
     if(!mq.matches)return;
     if(suppressClick||(tool==='matrix'&&event.target.closest('.placed[data-id]')&&!event.target.closest('dialog'))){event.preventDefault();event.stopImmediatePropagation();suppressClick=false}
   },true);
-  window.addEventListener('contextmenu',event=>{if(mq.matches&&event.target.closest('.placed[data-id],.log-message[data-message]')){event.preventDefault();event.stopImmediatePropagation()}},true);
+  window.addEventListener('contextmenu',event=>{if(mq.matches&&event.target.closest('.placed[data-id]')){event.preventDefault();event.stopImmediatePropagation()}},true);
   if(tool==='matrix'){
     const resetView=()=>{if(mq.matches&&typeof setMobileMainView==='function')setMobileMainView('stage',false)};
     resetView();

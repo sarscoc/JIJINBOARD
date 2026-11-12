@@ -80,19 +80,18 @@ test('comments collapse excessive pasted paragraph spacing while preserving a bl
  assert.equal(host.textContent,'first\n\nsecond');assert.equal(host.querySelector('strong').textContent,'second');
 });
 
-test('message copy preserves the whole plain body and excludes the speaker and annotation count',async t=>{
- const w=fixture(t,'<main></main>'),text='**太字**\n|漢字《かんじ》';
- const message={id:'m1',speaker:'PC',text};
- let copied;
- Object.defineProperty(w.navigator,'clipboard',{value:{writeText:async value=>{copied=value}}});
- Object.assign(w,{state:{room:{messages:[message]}},esc:String,markedText:row=>w.JijinLogFormat.render(row.text)});
+test('selecting log text offers a marker without opening the comment dialog',t=>{
+ const w=fixture(t,'<div id="selectionBar" class="hidden"><span id="selectedQuote"></span></div><dialog id="commentDialog"></dialog>');
+ let selection={quote:'本文'};
+ Object.assign(w,{state:{},$:selector=>w.document.querySelector(selector),selectionInfo:()=>selection});
  const app=source('log/app.js');
- w.eval(app.slice(app.indexOf('function messageHtml('),app.indexOf('function timelineGroups(')));
- w.document.querySelector('main').innerHTML=w.messageHtml(message,{m1:[{}]});
- const button=w.document.querySelector('[data-copy-message]');
- button.querySelector('path').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));
- await new Promise(setImmediate);
- assert.equal(copied,'太字\n漢字');
- assert.equal(button.dataset.copyStatus,'success');
- assert.ok(w.document.querySelector('[data-message-comments="m1"]'));
+ w.eval(app.slice(app.indexOf('function showSelection('),app.indexOf('function fillPersonaSelect(')));
+ w.document.dispatchEvent(new w.Event('selectionchange'));
+ assert.equal(w.state.selection,selection);
+ assert.equal(w.document.getElementById('selectedQuote').textContent,'「本文」');
+ assert.equal(w.document.getElementById('selectionBar').classList.contains('hidden'),false);
+ assert.equal(w.document.getElementById('commentDialog').open,false);
+ selection=null;
+ w.document.dispatchEvent(new w.Event('selectionchange'));
+ assert.equal(w.document.getElementById('selectionBar').classList.contains('hidden'),true);
 });

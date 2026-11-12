@@ -289,32 +289,9 @@ function markerColor(value){const pair=String(value||"").split("|");value=pair[d
 function messageHtml(m, grouped) {
   const anns = grouped[m.id] || [];
   const color = /^(#[0-9a-f]{3,8}|rgba?\([\d\s,.%]+\)|[a-z]+)$/i.test(m.color || "") ? m.color : "";
-  return `<div class="log-message ${m.system ? "system-message" : ""} ${m.diceroll ? "diceroll" : ""}" data-message="${m.id}"${color ? ` style="color:${esc(color)}"` : ""}><span class="speaker">${esc(m.speaker || "")}${m.speaker ? "：" : ""}</span><span class="message-text" data-source-length="${m.text.length}">${markedText(m, anns)}</span>${anns.length ? `<button class="annotation-count" data-message-comments="${m.id}">${anns.length}</button>` : ""}<button class="log-copy-message" type="button" data-copy-message aria-label="本文をコピー" title="本文をコピー"><svg viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg></button></div>`;
+  return `<div class="log-message ${m.system ? "system-message" : ""} ${m.diceroll ? "diceroll" : ""}" data-message="${m.id}"${color ? ` style="color:${esc(color)}"` : ""}><span class="speaker">${esc(m.speaker || "")}${m.speaker ? "：" : ""}</span><span class="message-text" data-source-length="${m.text.length}">${markedText(m, anns)}</span>${anns.length ? `<button class="annotation-count" data-message-comments="${m.id}">${anns.length}</button>` : ""}</div>`;
 }
 
-document.addEventListener("click",async event=>{
-  const button=event.target.closest?.("[data-copy-message]");
-  if(!button)return;
-  const id=button.closest(".log-message")?.dataset.message;
-  const message=state.room?.messages.find(entry=>entry.id===id);
-  if(!message)return;
-  button.disabled=true;
-  try{
-    await navigator.clipboard.writeText(JijinLogFormat.plain(message.text));
-    button.dataset.copyStatus="success";
-    button.title="本文をコピーしました";
-  }catch{
-    button.dataset.copyStatus="error";
-    button.title="コピーできませんでした";
-  }
-  button.setAttribute("aria-label",button.title);
-  setTimeout(()=>{
-    delete button.dataset.copyStatus;
-    button.title="本文をコピー";
-    button.setAttribute("aria-label",button.title);
-    button.disabled=false;
-  },1300);
-});
 function timelineGroups(messages) {
   const groups = [];
   messages.forEach((message, index) => {
@@ -409,7 +386,7 @@ function renderLog(anchorTime = "") {
   });
   const viewport=$(".carousel-viewport"); let touchStart=null;
   viewport.addEventListener("touchstart",e=>{const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY}},{passive:true});
-  viewport.addEventListener("touchend",e=>{if(!touchStart)return;const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;touchStart=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.2)switchLogPage(dx<0?1:-1)},{passive:true});
+  viewport.addEventListener("touchend",e=>{if(!touchStart)return;const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;touchStart=null;if(getSelection()?.isCollapsed===false)return;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.2)switchLogPage(dx<0?1:-1)},{passive:true});
   document.querySelectorAll(".page-scroll").forEach(page=>page.addEventListener("scroll",scheduleVisibleGlimpses,{passive:true}));
 }
 function sharedTimelineSlots(messages){const slots=[];messages.filter(message=>!state.hiddenTabs.has(message.tab)).forEach((message,index)=>{const key=message.time||`untimed-${index}`;let slot=slots[slots.length-1];if(!slot||slot.key!==key){slot={key,time:message.time,byTab:new Map()};slots.push(slot)}const list=slot.byTab.get(message.tab)||[];list.push(message);slot.byTab.set(message.tab,list)});slots.forEach(slot=>{const previewCount=Math.min(3,[...slot.byTab.values()].reduce((sum,list)=>sum+list.length,0));slot.height=Math.min(110,Math.max(30,previewCount?previewCount*29+8:0))});return slots}
@@ -422,7 +399,7 @@ function renderTimelineLog(anchorTime="") {
   $("#logPane").innerHTML=`${tabRailHtml()}<div class="carousel-viewport"><div class="page-track" id="pageTrack">${panels.join("")}</div></div>`;
   setTrackPosition(state.carouselPosition,false);updateCarouselNav();if(anchorTime)syncPanelToTime(document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`),anchorTime);
   $("#pageTrack").addEventListener("transitionend",event=>{if(event.target!==$("#pageTrack")||event.propertyName!=="transform")return;const n=visibleTabEntries().length;if(state.carouselPosition===0)state.carouselPosition=n;else if(state.carouselPosition===n+1)state.carouselPosition=1;setTrackPosition(state.carouselPosition,false);state.isSliding=false;hydrateNearbyPanels();if(state.slideQueue){const queued=state.slideQueue;state.slideQueue=0;requestAnimationFrame(()=>switchLogPage(queued))}});
-  const viewport=$(".carousel-viewport");let touchStart=null;viewport.addEventListener("touchstart",e=>{const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY}},{passive:true});viewport.addEventListener("touchend",e=>{if(!touchStart)return;const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;touchStart=null;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.2)switchLogPage(dx<0?1:-1)},{passive:true});document.querySelectorAll(".timeline-page").forEach(page=>page.addEventListener("scroll",scheduleVisibleGlimpses,{passive:true}));setTimeout(renderVisibleGlimpses,20);
+  const viewport=$(".carousel-viewport");let touchStart=null;viewport.addEventListener("touchstart",e=>{const t=e.touches[0];touchStart={x:t.clientX,y:t.clientY}},{passive:true});viewport.addEventListener("touchend",e=>{if(!touchStart)return;const t=e.changedTouches[0],dx=t.clientX-touchStart.x,dy=t.clientY-touchStart.y;touchStart=null;if(getSelection()?.isCollapsed===false)return;if(Math.abs(dx)>60&&Math.abs(dx)>Math.abs(dy)*1.2)switchLogPage(dx<0?1:-1)},{passive:true});document.querySelectorAll(".timeline-page").forEach(page=>page.addEventListener("scroll",scheduleVisibleGlimpses,{passive:true}));setTimeout(renderVisibleGlimpses,20);
 }
 function currentReadingTime() {
   const panel = document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`);
@@ -496,23 +473,15 @@ function selectionInfo() {
   const textOffset=(textEl,node,offset,edge)=>{if(textEl.contains(node)){return JijinLogFormat.sourceOffset(textEl,node,offset,edge)}if(parent(node)?.closest?.(".speaker"))return 0;return edge==="start"?0:Number(textEl.dataset.sourceLength)||0};
   const rects=[...range.getClientRects()].filter(r=>r.width||r.height),focusAtEnd=selection.focusNode===range.endContainer&&selection.focusOffset===range.endOffset,rect=(focusAtEnd?rects[rects.length-1]:rects[0])||range.getBoundingClientRect();const startOffset=textOffset(startText,range.startContainer,range.startOffset,"start"),endOffset=textOffset(endText,range.endContainer,range.endOffset,"end"),messages=state.room.messages,first=messages.findIndex(m=>m.id===startMessage.dataset.message),last=messages.findIndex(m=>m.id===endMessage.dataset.message),quote=messages.slice(first,last+1).map((m,i)=>JijinLogFormat.plain(m.text,i===0?startOffset:0,first+i===last?endOffset:m.text.length)).join("\n");return {messageId:startMessage.dataset.message,endMessageId:endMessage.dataset.message,startOffset,endOffset,quote,anchorLeft:rect.left,anchorRight:rect.right,anchorTop:rect.top,anchorBottom:rect.bottom};
 }
-let logDragStart=null,logWasDragged=false;
-document.addEventListener("pointerdown",event=>{
-  if(!event.target.closest?.("#logPane")||event.button!==0)return;
-  logDragStart={x:event.clientX,y:event.clientY};logWasDragged=false;
-  if(!$("#commentDialog").open){state.selection=null;CSS.highlights?.delete("jijin-comment-selection")}
-});
-document.addEventListener("pointermove",event=>{
-  if(logDragStart&&Math.hypot(event.clientX-logDragStart.x,event.clientY-logDragStart.y)>3)logWasDragged=true;
-});
-document.addEventListener("pointerup",()=>{logDragStart=null});
 function showSelection() {
-  if(state.archiveMode)return;
-  if(!logWasDragged)return;
-  const nextSelection = selectionInfo();
-  if (nextSelection?.quote.trim()) { state.selection = nextSelection; $("#selectedQuote").textContent = `「${state.selection.quote.trim()}」`; $("#selectionBar").classList.add("hidden"); if(!$("#commentDialog").open&&!$("#profileDialog").open)openCommentDialog(); }
-  else if (!$("#commentDialog").open) $("#selectionBar").classList.add("hidden");
+  const bar=$("#selectionBar");
+  if(state.archiveMode||$("#commentDialog").open){bar.classList.add("hidden");return}
+  const selection=selectionInfo();
+  state.selection=selection?.quote.trim()?selection:null;
+  bar.classList.toggle("hidden",!state.selection);
+  if(state.selection)$("#selectedQuote").textContent=`「${state.selection.quote.trim()}」`;
 }
+document.addEventListener("selectionchange",showSelection);
 function fillPersonaSelect() {
   $("#personaSelect").innerHTML = `<option value="PL">${esc(state.profile.plName || "PL名を設定") }（PL）</option>` + state.profile.personas.map((p,i)=>`<option value="${i}">${esc(p.name)}（${esc(p.type)}）</option>`).join("") + `<option value="ADD">＋ キャラ追加</option>`;
   const valid=state.lastPersona==="PL"||(/^\d+$/.test(state.lastPersona)&&state.profile.personas[Number(state.lastPersona)]);$("#personaSelect").value=valid?state.lastPersona:"PL";state.lastPersona=$("#personaSelect").value;
@@ -631,12 +600,12 @@ document.addEventListener("pointerdown",e=>{const dialog=$("#commentDialog");if(
 $("#commentBody").addEventListener("input",()=>setTyping(true));
 $("#commentDialog").addEventListener("close",()=>setTyping(false));
 document.addEventListener("keydown",e=>{if(e.defaultPrevented||e.altKey||e.ctrlKey||e.metaKey)return;const target=e.target;if(target?.matches?.("input, textarea, select")||target?.isContentEditable)return;if(e.key==="ArrowLeft"||e.key==="ArrowRight"){e.preventDefault();switchLogPage(e.key==="ArrowRight"?1:-1);return}if(e.key==="ArrowUp"||e.key==="ArrowDown"){const panel=document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"] .page-scroll`);if(!panel)return;e.preventDefault();const amount=(e.key==="ArrowDown"?1:-1)*Math.max(54,panel.clientHeight*.09);if(e.repeat)panel.scrollTop+=amount;else panel.scrollBy({top:amount,behavior:"smooth"})}});
-document.addEventListener("mouseup",()=>setTimeout(showSelection)); document.addEventListener("touchend",()=>setTimeout(showSelection,50));
 document.addEventListener("visibilitychange",()=>{if(!document.hidden&&state.realtimeWanted&&state.realtime?.readyState!==WebSocket.OPEN)connectRealtime()});
 addEventListener("pagehide",disconnectRealtime);
 addEventListener("pageshow",()=>{if(state.roomId&&state.roomId!=="archive"&&!state.archiveMode)connectRealtime()});
 addEventListener("message",event=>{if(event.origin!==location.origin)return;if(event.data?.type==="jijinboard-open-profile")openProfile();if(event.data?.type==="jijinboard-request-profile")emitIntegratedProfile()});
-$("#markBtn").onclick=openCommentDialog; $("#viewMode").value=state.viewMode; $("#viewMode").onchange=e=>{const time=currentReadingTime();state.readingAnchor=time;state.viewMode=e.target.value;localStorage.setItem("trpgMarkerViewMode",state.viewMode);renderLog(time);setTimeout(revealInlineSuggestions,20)}; $("#searchInput").oninput=()=>{const time=currentReadingTime();state.readingAnchor=time;renderLog(time);setTimeout(revealInlineSuggestions,20)};
+$("#markBtn").addEventListener("pointerdown",event=>event.preventDefault());
+$("#markBtn").onclick=()=>{openCommentDialog();$("#selectionBar").classList.add("hidden")}; $("#viewMode").value=state.viewMode; $("#viewMode").onchange=e=>{const time=currentReadingTime();state.readingAnchor=time;state.viewMode=e.target.value;localStorage.setItem("trpgMarkerViewMode",state.viewMode);renderLog(time);setTimeout(revealInlineSuggestions,20)}; $("#searchInput").oninput=()=>{const time=currentReadingTime();state.readingAnchor=time;renderLog(time);setTimeout(revealInlineSuggestions,20)};
 $("#shareBtn").onclick=async()=>{await navigator.clipboard.writeText(location.href);$("#roomStatus").textContent="共有URLをコピーしました";setTimeout(()=>$("#roomStatus").textContent="",1800)};
 function applyFontSize(value){const size=Math.min(20,Math.max(10,Number(value)||12.5));document.documentElement.style.setProperty("--log-font-size",`${size}px`);$("#fontSize").value=String(size);localStorage.setItem("trpgMarkerFontSize",String(size))}$("#fontSize").oninput=e=>applyFontSize(e.target.value);applyFontSize(localStorage.getItem("trpgMarkerFontSize")||12.5);
 const startupUrl=new URL(location.href),siteOwnerKey=startupUrl.searchParams.get("owner");if(siteOwnerKey){localStorage.setItem("trpgMarkerSiteOwnerKey",siteOwnerKey);startupUrl.searchParams.delete("owner");history.replaceState(null,"",startupUrl.pathname+startupUrl.search)}const roomId=startupUrl.searchParams.get("room");if(window.__TRPG_ARCHIVE__)openArchiveData(window.__TRPG_ARCHIVE__);else if(roomId)openRoom(roomId);
@@ -648,7 +617,7 @@ addEventListener("jijinboard-cache-updated",event=>{
 
 document.getElementById("commentDialog").addEventListener("close",()=>{
   CSS.highlights?.delete("jijin-comment-selection");
-  state.selection=null;logWasDragged=false;
+  state.selection=null;$("#selectionBar").classList.add("hidden");
 });
 
 // Settings live in a separate iframe. Apply its saved color pair immediately.
