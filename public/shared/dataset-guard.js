@@ -7,28 +7,43 @@
   // A terminal API/server failure must not trigger endless reconnect loops.
   // Navigate once to a static page that does not require D1 or WebSockets.
   let failureRedirected=false;
+  const snapshotDb='jijinboard-readonly-screen-v1';
+  function openSnapshotDb(){
+    return new Promise((resolve,reject)=>{
+      const request=indexedDB.open(snapshotDb,1);
+      request.onupgradeneeded=()=>request.result.createObjectStore('screens');
+      request.onsuccess=()=>resolve(request.result);
+      request.onerror=()=>reject(request.error);
+    });
+  }
+  async function storeScreen(){
+    if(!window.indexedDB||!document.body)return;
+    const clone=document.documentElement.cloneNode(true);
+    // Preserve the visual layout, but never persist runnable code or live inputs.
+    clone.querySelectorAll('script,iframe,object,embed,form input[type=password]').forEach(el=>el.remove());
+    clone.querySelectorAll('[onload],[onclick],[onerror],[onchange],[oninput]').forEach(el=>{
+      for(const attr of [...el.attributes])if(/^on/i.test(attr.name))el.removeAttribute(attr.name);
+    });
+    clone.querySelectorAll('input,textarea,select,button').forEach(el=>el.setAttribute('disabled',''));
+    const html='<!doctype html>\n'+clone.outerHTML;
+    if(html.length>3500000)return;
+    const db=await openSnapshotDb();
+    try{
+      await new Promise((resolve,reject)=>{
+        const tx=db.transaction('screens','readwrite');
+        tx.objectStore('screens').put({html,at:new Date().toISOString()},location.pathname+location.search);
+        tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+      });
+    }finally{db.close()}
+  }
   function enterReadOnly(reason){
     if(failureRedirected||location.pathname.startsWith('/read-only'))return;
     failureRedirected=true;
     blocked=true;
     const destination='/read-only.html?reason='+encodeURIComponent(reason)+'&return='+encodeURIComponent(location.pathname+location.search+location.hash);
-    try{window.top.location.assign(destination)}catch{location.assign(destination)}
-  }
-  // Keep a bounded snapshot of the last successful GET, independently of
-  // HTTP cache-control:no-store. This is a local, offline-only recovery copy.
-  async function rememberSnapshot(url,response){
-    if(!window.caches||!response.ok||!response.headers.get('content-type')?.includes('application/json'))return;
-    if(!/^\/api\/(boards|rooms)\//.test(url.pathname))return;
-    if(/\/(?:realtime|player-icons|images|image|auth)(?:\/|$)/.test(url.pathname))return;
-    try{
-      const body=await response.clone().text();
-      if(body.length>1500000)return;
-      const cache=await caches.open('jijinboard-readonly-snapshots-v1');
-      const snapshotUrl=new URL('/__readonly_snapshot__',location.origin);
-      snapshotUrl.searchParams.set('path',url.pathname+url.search);
-      snapshotUrl.searchParams.set('generation',generation||stored||'');
-      await cache.put(snapshotUrl.href,new Response(body,{headers:{'content-type':'application/json','x-snapshot-at':new Date().toISOString()}}));
-    }catch(error){console.warn('Read-only snapshot skipped',error)}
+    // Capture what was already rendered, then stop. Do not fetch anything.
+    Promise.race([storeScreen().catch(()=>{}),new Promise(resolve=>setTimeout(resolve,600))])
+      .finally(()=>{try{window.top.location.assign(destination)}catch{location.assign(destination)}});
   }
   const isTerminal=response=>response.status>=500&&response.status!==503 /* reset handled below */;
 
