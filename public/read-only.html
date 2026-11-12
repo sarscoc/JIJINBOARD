@@ -107,7 +107,10 @@
      for(const request of keys){
        const url=new URL(request.url),path=url.searchParams.get('path')||'';
        if(generation&&url.searchParams.get('generation')!==generation)continue;
-       if(board&&!path.includes('/'+encodeURIComponent(board)+'/')&&!path.includes('/'+board+'/'))continue;
+       if(board){
+         const [,api,resource,id]=new URL(path,location.origin).pathname.split('/');
+         if(api!=='api'||!['boards','rooms'].includes(resource)||id!==encodeURIComponent(board))continue;
+       }
        const response=await cache.match(request);if(!response)continue;
        let data;try{data=await response.json()}catch{continue}
        matches.push({path,data,stamp:response.headers.get('x-snapshot-at')||''});

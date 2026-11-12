@@ -46,7 +46,21 @@
     Promise.race([storeScreen().catch(()=>{}),new Promise(resolve=>setTimeout(resolve,600))])
       .finally(()=>{try{window.top.location.assign(destination)}catch{location.assign(destination)}});
   }
-  const isTerminal=response=>response.status>=500&&response.status!==503 /* reset handled below */;
+  async function rememberSnapshot(url,response){
+    if(!window.caches||!response.headers.get('content-type')?.includes('application/json'))return;
+    if(!/^\/api\/(boards|rooms)\//.test(url.pathname))return;
+    if(/\/(?:realtime|player-icons|images|image|auth)(?:\/|$)/.test(url.pathname))return;
+    const snapshotUrl=new URL('/__readonly_snapshot__',location.origin);
+    snapshotUrl.searchParams.set('path',url.pathname+url.search);
+    snapshotUrl.searchParams.set('generation',generation);
+    const body=await response.clone().text();
+    if(body.length>1500000||blocked)return;
+    const cache=await caches.open('jijinboard-readonly-snapshots-v1');
+    if(blocked)return;
+    await cache.put(snapshotUrl.href,new Response(body,{
+      headers:{'content-type':'application/json','x-snapshot-at':new Date().toISOString()}
+    }));
+  }
 
   let generation=stored,blocked=false;
   const appKey=k=>/^(board:|trpg|jijinboard|jijin\.comment-cache\.|personas:|magiaMatrix|charaHub|admin:|boardAdmin:|theme:|mainTab:)/.test(k);
@@ -108,7 +122,12 @@
     return generation;
   })();
   // Failed bootstrap must never permit writes, even if application code catches its error.
-  ready.catch(error=>{blocked=true;console.warn('Dataset guard',error);enterReadOnly('server')});
+  ready.catch(error=>{
+    // A generation change already blocks writes and schedules a clean reload.
+    if(blocked)return;
+    console.warn('Dataset guard',error);
+    enterReadOnly('server');
+  });
   window.fetch=async function(input,init){
     const url=new URL(input instanceof Request?input.url:String(input),location.href);
     if(url.origin!==location.origin||!url.pathname.startsWith('/api/'))return nativeFetch(input,init);
@@ -127,10 +146,10 @@
       if(error?.name!=='AbortError')enterReadOnly('network');
       throw error;
     }
-    if(isTerminal(response)||response.status===503){
+    if(response.status>=500){
       // Dataset-reset responses are expected during an intentional reset.
       const data=response.status===503?await response.clone().json().catch(()=>null):null;
-      if(data?.code!=='DATASET_RESETTING')enterReadOnly(response.status===429?'quota':'server');
+      if(data?.code!=='DATASET_RESETTING')enterReadOnly('server');
     }
     if(response.status===429)enterReadOnly('quota');
     if(method==='GET'&&response.ok)rememberSnapshot(url,response).catch(()=>{});

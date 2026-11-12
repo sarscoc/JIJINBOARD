@@ -38,3 +38,24 @@ test('desktop failed startup refresh keeps the room shell and locally rendered l
  w.eval(code.slice(0,end)+';window.boot=init;window.failRefresh=()=>{loadBoard=async()=>{throw Error("timeout")}};');await w.boot();const shell=w.document.getElementById('logList');
  w.failRefresh();await w.boot();assert.equal(w.document.getElementById('logList'),shell);assert.equal(shell.querySelectorAll('[data-room]').length,1);assert.ok(w.document.getElementById('boardConnectionIssue'));assert.equal(w.document.getElementById('boardStartupReload'),null);
 });
+
+test('a successful room read reaches the board and saves a generation-scoped snapshot',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});
+ t.after(()=>dom.window.close());
+ const w=dom.window;
+ Object.assign(w,{Request,Response,Headers});
+ w.localStorage.setItem('jijin.dataset.generation.v1','current');
+ const room={id:'one',name:'Room',logs:[]};
+ w.fetch=async path=>Response.json(path==='/api/dataset'?{generation:'current'}:room);
+ let saved;
+ const snapshot=new Promise(resolve=>saved=resolve);
+ w.caches={open:async()=>({put:async(url,response)=>saved({url,response})})};
+
+ w.eval(source('shared/dataset-guard.js'));
+ const response=await w.fetch('/api/boards/one');
+ assert.deepEqual(await response.json(),room);
+ const copy=await snapshot;
+ assert.equal(new URL(copy.url).searchParams.get('generation'),'current');
+ assert.equal(new URL(copy.url).searchParams.get('path'),'/api/boards/one');
+ assert.deepEqual(await copy.response.json(),room);
+});
