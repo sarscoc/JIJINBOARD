@@ -127,7 +127,12 @@
   function setParticipants(list,{forcePaint=false}={}){
     const next=Array.isArray(list)?list:[],signature=participantKey(next);
     participants=next;
-    if(signature===participantsSignature){if(forcePaint)paintParticipants();return false}
+    if(signature===participantsSignature){
+      // The revision can advance even when display fields are unchanged.
+      saveParticipants();
+      if(forcePaint)paintParticipants();
+      return false
+    }
     participantsSignature=signature;
     const state=appState();state.items||={};
     let stateChanged=false;
