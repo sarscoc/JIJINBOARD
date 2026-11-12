@@ -236,25 +236,30 @@
     }
     const point=pointPayload(itemId,item);point.templateId=item.templateId||window.currentTemplateId?.()||'';const key=point.templateId+':'+itemId;
     pointRequests.set(key,point);
-    const path=pointPath(itemId),body=JSON.stringify({authorId:me.id,authorName:me.plName,...point});
-    const task=(pointChains.get(key)||Promise.resolve()).catch(()=>{}).then(()=>api(path,{method:"PATCH",body}));
-    pointChains.set(key,task);
-    try{
-      const result=await task;
-      if(pointRequests.get(key)!==point)return;
-      pointRequests.delete(key);
-      // Server publishes the saved point; pending local drags retain priority.
+    // While a save is in flight, retain only the newest coordinates.
+    // This prevents one database write per intermediate drag position.
+    if(pointChains.has(key))return pointChains.get(key);
+    const path=pointPath(itemId);
+    const task=(async()=>{
+      while(pointRequests.has(key)){
+        const latest=pointRequests.get(key);
+        const body=JSON.stringify({authorId:me.id,authorName:me.plName,...latest});
+        try{
+          await api(path,{method:"PATCH",body});
+          if(pointRequests.get(key)===latest)pointRequests.delete(key);
+        }catch(error){
+          if(pointRequests.get(key)!==latest)continue;
+          pointRequests.delete(key);
+          console.warn('MATRIX placement save failed',error);
+          window.dispatchEvent(new CustomEvent('matrix-save-error',{detail:{message:error.message,itemId,templateId:latest.templateId}}));
+          if(typeof window.alert==='function')window.alert('配置を保存できませんでした：'+error.message);
+          return false;
+        }
+      }
       return true;
-    }catch(error){
-      if(pointRequests.get(key)!==point)return false;
-      pointRequests.delete(key);
-      console.warn('MATRIX placement save failed',error);
-      window.dispatchEvent(new CustomEvent('matrix-save-error',{detail:{message:error.message,itemId,templateId:point.templateId}}));
-      if(typeof window.alert==='function')window.alert('配置を保存できませんでした：'+error.message);
-      return false;
-    }finally{
-      if(pointChains.get(key)===task)pointChains.delete(key);
-    }
+    })();
+    pointChains.set(key,task);
+    try{return await task}finally{if(pointChains.get(key)===task)pointChains.delete(key)}
   }
 
   window.matrixBoardContext={boardId,get roomId(){return roomId},isApplyingRemote:()=>applyingRemote,api,profile,isActive:()=>active,saveNow:()=>requestSave(0),notifyChange,savePoint,applyRemotePoint};
