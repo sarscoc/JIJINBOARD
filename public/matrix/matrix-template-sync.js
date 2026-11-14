@@ -138,6 +138,54 @@
     return true;
   }
 
+  // An off-screen point changed: refresh only its template, not every point
+  // in the board. Do not overwrite local edits awaiting acknowledgement.
+  const pendingPointTemplates=new Set();
+  let pointRefreshTask=null;
+  async function refreshChangedTemplate(templateId){
+    const logId=currentLogId(),id=String(templateId||"");
+    if(!id||!hydrated||hydratedLogId!==logId)return;
+    if(saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){
+      rehydrateQueued=true;return;
+    }
+    const remote=await api(endpoint(logId,id),{cache:"no-store"});
+    if(logId!==currentLogId()||!remote?.record||isDeleted(id))return;
+    if(hydratePromise||saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){
+      rehydrateQueued=true;return;
+    }
+    const states=window.templateStates()||{};
+    const records=await window.tplAllRecords();
+    if(!records.some(record=>String(record.id)===id)){
+      // A newly added template needs the regular reconciliation path.
+      rehydrateQueued=true;refreshWhenIdle();return;
+    }
+    applying=true;
+    try{
+      const state=clone(states);
+      state[id]=remote.templateState||{};
+      window.setTemplateStates(state);
+      revisions.set(id,remote.record.revision??null);
+      acknowledged.set(id,editable(remote.record,remote.templateState||{}));
+      await rawSet(id,remote.record);
+    }finally{applying=false}
+  }
+  function queuePointTemplateRefresh(templateId){
+    if(!templateId)return;
+    pendingPointTemplates.add(String(templateId));
+    if(pointRefreshTask)return;
+    pointRefreshTask=Promise.resolve().then(async()=>{
+      while(pendingPointTemplates.size){
+        const ids=[...pendingPointTemplates];pendingPointTemplates.clear();
+        for(const id of ids){
+          try{await refreshChangedTemplate(id)}catch(error){
+            console.warn("MATRIX targeted template refresh failed",error);
+            rehydrateQueued=true;
+          }
+        }
+      }
+    }).finally(()=>{pointRefreshTask=null;refreshWhenIdle()});
+  }
+
   function refreshWhenIdle(){
     if(!rehydrateQueued||saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing"))return;
     rehydrateQueued=false;
@@ -326,7 +374,9 @@
   });
 
   window.addEventListener("matrix-board-comments-changed",event=>{
-    if(["matrix-template-state","matrix-change"].includes(event.detail?.action)){rehydrateQueued=true;refreshWhenIdle()}
+    if(event.detail?.action==="matrix-point-template"&&event.detail?.data?.templateId){
+      queuePointTemplateRefresh(event.detail.data.templateId);
+    }else if(["matrix-template-state","matrix-change"].includes(event.detail?.action)){rehydrateQueued=true;refreshWhenIdle()}
   });
 
   window.addEventListener("matrix-editor-finished",refreshWhenIdle);

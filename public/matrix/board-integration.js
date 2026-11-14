@@ -139,7 +139,7 @@
     if(action==="matrix-typing"){window.dispatchEvent(new CustomEvent("matrix-board-typing",{detail:data}));return}
     if(action==="matrix-point"){
       if(active){
-        if(data?.templateId&&data.templateId!==window.currentTemplateId?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-template-state"}}));
+        if(data?.templateId&&data.templateId!==window.currentTemplateId?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-point-template",data}}));
         else applyRemotePoint(data);
       }else dirtyComments=true;
       return;

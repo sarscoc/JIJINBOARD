@@ -45,9 +45,12 @@ export async function ensurePlIdentity(db,plId,plName='PL',options={}){
   const existing=await db.prepare('SELECT * FROM pl WHERE pl_id=?').bind(plId).first();
   const name=String(plName||existing?.pl_name||'PL').trim().slice(0,80)||'PL';
   if(existing){
-    if(name!==existing.pl_name||options.plIconKey||options.plColor||options.plColorDark){
-      await db.prepare(`UPDATE pl SET pl_name=?,pl_icon_key=CASE WHEN ?<>'' THEN ? ELSE pl_icon_key END,pl_color=COALESCE(NULLIF(?,''),pl_color),pl_color_dark=COALESCE(NULLIF(?,''),pl_color_dark),updated_at=CURRENT_TIMESTAMP WHERE pl_id=?`).bind(name,String(options.plIconKey||''),String(options.plIconKey||''),String(options.plColor||''),String(options.plColorDark||''),plId).run();
+    if(name===existing.pl_name&&!options.plIconKey&&!options.plColor&&!options.plColorDark){
+      // No mutation: the row we just read is already the current result.
+      // This avoids a second D1 SELECT on every ordinary MATRIX point save.
+      return existing;
     }
+    await db.prepare(`UPDATE pl SET pl_name=?,pl_icon_key=CASE WHEN ?<>'' THEN ? ELSE pl_icon_key END,pl_color=COALESCE(NULLIF(?,''),pl_color),pl_color_dark=COALESCE(NULLIF(?,''),pl_color_dark),updated_at=CURRENT_TIMESTAMP WHERE pl_id=?`).bind(name,String(options.plIconKey||''),String(options.plIconKey||''),String(options.plColor||''),String(options.plColorDark||''),plId).run();
     return db.prepare('SELECT * FROM pl WHERE pl_id=?').bind(plId).first();
   }
   const placeholder=`implicit:${await hashText(plId)}`;
