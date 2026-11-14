@@ -12,11 +12,11 @@ test('LOG selection is finalized locally, not on every selectionchange',()=>{
   assert.match(source,/if\(first<0\|\|last<first/);
 });
 
-test('double-clicking a LOG tab does not toggle its visibility',()=>{
+test('double-clicking a LOG tab retains the PL-local visibility toggle',()=>{
   const handler=source.match(/document\.addEventListener\("dblclick",e=>\{[^\n]+\}\);/);
   assert.ok(handler,'expected LOG tab double-click handler');
-  assert.match(handler[0],/goToTab\(/);
-  assert.doesNotMatch(handler[0],/toggleTabVisibility\(/);
+  assert.match(handler[0],/toggleTabVisibility\(/);
+  assert.doesNotMatch(handler[0],/goToTab\(/);
 });
 
 test('LOG marker rendering ignores missing or reversed endpoints',()=>{
