@@ -85,13 +85,16 @@
       const log=row.target.kind==='log'&&state.board?.logs?.find(item=>item.roomId===row.target.logId);
       const unopened=log?.spoiler&&!state.opened[row.target.logId];
       const area=row.target.kind==='log'?(unopened?'LOG':log?.scenarioTitle||log?.title||'LOG'):
-        row.target.kind==='matrix'?'MAGIA MATRIX':'SPREADSHEET';
+        row.target.kind==='matrix'?'MM':'Sheets';
       const {name,icon}=unopened?{}:details(row,people);
-      const action=row.kind==='placement'?(name?name+'の':'')+'コマを置きました':row.reply?'返信しました':'コメントしました';
+      const action=row.kind==='placement'?(name?name+'の':'')+'コマを配置':row.reply?'返信':'コメント';
       open.type='button';
       const label=document.createElement('span');
       label.textContent=area+' · '+(!unopened&&row.author?row.author+'が':'')+action;
-      time.textContent=new Date(row.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
+      const date=new Date(row.at);
+      time.dateTime=date.toISOString();
+      time.textContent=date.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      open.title=label.textContent+' · '+date.toLocaleString('ja-JP');
       open.addEventListener('click',()=>navigate(row));
       const avatar=document.createElement('span');
       avatar.className='board-activity-avatar';

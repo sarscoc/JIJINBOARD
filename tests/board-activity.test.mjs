@@ -33,8 +33,10 @@ test('recent updates persist locally and open the saved destination without fetc
   button.click();
   const updates=w.document.querySelectorAll('li button');
   assert.equal(updates.length,3);
-  assert.match(updates[1].textContent,/返信しました/);
-  assert.match(updates[2].textContent,/sarsが禊彦のコマを置きました/);
+  assert.match(updates[1].textContent,/返信/);
+  assert.match(updates[2].textContent,/MM · sarsが禊彦のコマを配置/);
+  assert.match(updates[2].title,/sarsが禊彦のコマを配置/);
+  assert.match(updates[2].querySelector('time').textContent,/^\d{2}:\d{2}$/);
   assert.match(updates[1].querySelector('img').src,/character-icons/);
   assert.match(updates[2].querySelector('img').src,/matrix-icons/);
   assert.match(updates[0].querySelector('img').src,/pl-icons/);

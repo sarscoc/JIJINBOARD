@@ -67,16 +67,16 @@
     #boardActivityButton:hover,#boardActivityButton[aria-expanded="true"]{opacity:1;background:var(--soft,#f5f2f5);border-radius:6px}
     #boardActivityButton img{width:16px;height:16px;object-fit:contain}
     #boardActivityButton.unread::after{content:"";position:absolute;right:3px;top:3px;width:6px;height:6px;border-radius:50%;background:var(--jijin-pre-color1,#d14991);box-shadow:0 0 0 1px white}
-    #boardActivity{position:absolute;top:calc(100% - 4px);right:0;width:min(328px,calc(100vw - 24px));max-height:min(360px,65vh);overflow:auto;overscroll-behavior:contain;border:1px solid var(--line,#e4dce3);border-radius:9px;background:#fff;color:var(--ink,#3e3740);box-shadow:0 8px 24px #27213119}
+    #boardActivity{position:absolute;top:calc(100% - 4px);right:0;width:min(300px,calc(100vw - 24px));max-height:min(360px,65vh);overflow:auto;overscroll-behavior:contain;border:1px solid var(--line,#e4dce3);border-radius:9px;background:#fff;color:var(--ink,#3e3740);box-shadow:0 8px 24px #27213119}
     #boardActivity[hidden],#boardActivity [role="status"]:empty{display:none}
-    #boardActivity ol{margin:0;padding:4px;list-style:none}
+    #boardActivity ol{margin:0;padding:3px;list-style:none}
     #boardActivity li+li{border-top:1px solid var(--line,#eee6ed)}
-    #boardActivity li button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-radius:5px;padding:8px;color:inherit;font-size:11px}
+    #boardActivity li button{display:flex;align-items:center;justify-content:space-between;gap:6px;width:100%;text-align:left;background:transparent;border:0;border-radius:4px;padding:5px 7px;color:inherit;font-size:11px;line-height:1.3}
     #boardActivity li button:hover,#boardActivity li button:focus-visible{background:var(--soft,#f5f2f5)}
     #boardActivity li button span{min-width:0;overflow-wrap:anywhere}
-    #boardActivity .board-activity-avatar{flex:0 0 22px;width:22px;height:22px;border-radius:50%;overflow:hidden;background:var(--soft,#eef2f7)}
+    #boardActivity .board-activity-avatar{flex:0 0 17px;width:17px;height:17px;border-radius:50%;overflow:hidden;background:var(--soft,#eef2f7)}
     #boardActivity .board-activity-avatar img{display:block;width:100%;height:100%;object-fit:cover}
-    #boardActivity li button>span:nth-child(2){flex:1}
+    #boardActivity li button>span:nth-child(2){flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     #boardActivity time{font-size:10px;white-space:nowrap;color:var(--muted,#766d76)}
     #boardActivity [role="status"]{margin:0;padding:10px 12px;font-size:11px;color:var(--muted,#766d76)}
     @media(max-width:760px){#boardActivity{top:calc(100% + 7px)}}
@@ -162,7 +162,7 @@
   <script src="../shared/player-master.js?v=20261103-nohandoff1"></script>
   <script src="speaker-editor.js?v=20261103-nohandoff1"></script>
   <script src="../shared/comment-target.js?v=1"></script>
-  <script src="board-activity.js?v=4"></script>
+  <script src="board-activity.js?v=5"></script>
   <script src="board-profile.js?v=20261115-activity"></script>
   <script src="theme-scoped.js?v=20261108-note-timeline"></script>
   <script src="log-no-shadows.js?v=20261103-layout1"></script>
