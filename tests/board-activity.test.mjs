@@ -47,3 +47,21 @@ test('recent updates persist locally and open the saved destination without fetc
   assert.equal(w.state.tool,'matrix');
   assert.equal(JSON.parse(w.localStorage.getItem('jijinboardActivity:room')).rows.length,3);
 });
+
+test('reconnected board merges missed updates by event time without marking duplicates unread',t=>{
+  const {window:w}=new JSDOM('<button id="boardActivityButton"></button><section id="boardActivity" hidden><p role="status"></p><ol></ol></section>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
+  t.after(()=>w.close());
+  w.boardId='room';
+  w.state={tool:'log'};
+  for(const file of ['public/shared/comment-target.js','public/board/board-activity.js'])w.eval(readFileSync(file,'utf8'));
+  const receive=detail=>w.dispatchEvent(new w.CustomEvent('jijinboard-activity',{detail}));
+  const update=(id,at)=>({kind:'placement',id,at,templateId:'map',itemId:'pc'});
+  const button=w.document.querySelector('button');
+  receive(update('live',3000));
+  button.click();
+  button.click();
+  receive([update('live',3000),update('missed',2000)]);
+  const {rows}=JSON.parse(w.localStorage.getItem('jijinboardActivity:room'));
+  assert.deepEqual(rows.map(row=>[row.id,row.at,row.unread]),[['live',3000,false],['missed',2000,true]]);
+  assert.ok(button.classList.contains('unread'));
+});

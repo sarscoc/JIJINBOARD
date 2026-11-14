@@ -22,22 +22,33 @@
     panel.hidden=!open;
     button.setAttribute('aria-expanded',String(open));
   }
-  function receive(event){
-    const data=event.detail;
-    if(!data||!['comment','placement'].includes(data.kind))return;
-    let target,entry;
+  function parseEntry(data){
+    if(!data||!['comment','placement'].includes(data.kind)||typeof data.id!=='string'||!data.id)return null;
     try{
-      target=JijinCommentTarget.parse(data.kind==='placement'?
+      const target=JijinCommentTarget.parse(data.kind==='placement'?
         JijinCommentTarget.matrix(boardId,data.templateId,data.itemId):data.target,boardId);
-      if(target.kind==='matrix'&&!target.templateId)return;
-      if(typeof data.id!=='string'||!data.id)return;
-      entry={kind:data.kind,id:data.id,target,
+      if(target.kind==='matrix'&&!target.templateId)return null;
+      const at=Number.isFinite(data.at)&&data.at>0&&data.at<=8640000000000000?data.at:Date.now();
+      return {kind:data.kind,id:data.id,target,
         tokenName:String(data.tokenName||'').slice(0,120),icon:String(data.icon||'').slice(0,500),
-        authorId:String(data.authorId||''),author:String(data.authorName||'').slice(0,80),reply:!!data.reply,at:Date.now(),unread:panel.hidden};
-    }catch{return}
+        authorId:String(data.authorId||''),author:String(data.authorName||'').slice(0,80),reply:!!data.reply,at,unread:panel.hidden};
+    }catch{return null}
+  }
+  function receive(event){
     const saved=new Map([...rows,...read()].map(row=>[row.id,row]));
-    if(saved.has(entry.id))return;
-    rows=[entry,...[...saved.values()].sort((a,b)=>b.at-a.at)].slice(0,50);
+    const incoming=Array.isArray(event.detail)?event.detail:[event.detail];
+    let changed=false;
+    const additions=[];
+    for(const data of incoming){
+      const entry=parseEntry(data);
+      if(!entry||saved.has(entry.id))continue;
+      saved.set(entry.id,entry);
+      additions.push(entry);
+      changed=true;
+    }
+    if(!changed)return;
+    const addedIds=new Set(additions.map(entry=>entry.id));
+    rows=[...additions,...[...saved.values()].filter(entry=>!addedIds.has(entry.id))].sort((a,b)=>b.at-a.at).slice(0,50);
     save();
     if(!panel.hidden)render();
   }

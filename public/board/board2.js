@@ -207,8 +207,8 @@ document.addEventListener("pointerdown",()=>{document.querySelector("#matrixFram
     connecting=false;if(stopped)return;
     const ws=new WebSocket(address);
     socket=ws;
-    ws.addEventListener('open',()=>{if(socket===ws){attempt=0;publish('join');window.dispatchEvent(new Event('jijinboard-reconnected'))}});
-    ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence'){const own=currentProfile();if(!own?.id||!String(own.plName||'').trim()||(data.presence||[]).some(person=>String(person.author_id)===String(own.id)))draw(data.presence)}else if(data.type==='activity')window.dispatchEvent(new CustomEvent('jijinboard-activity',{detail:data.data}));else if(data.type==='refresh')window.dispatchEvent(new CustomEvent('jijinboard-resource-change',{detail:{action:data.action,data:data.data}}))});
+    ws.addEventListener('open',()=>{if(socket===ws){attempt=0;publish('join');ws.send(JSON.stringify({type:'activity-history'}));window.dispatchEvent(new Event('jijinboard-reconnected'))}});
+    ws.addEventListener('message',event=>{if(socket!==ws)return;let data;try{data=JSON.parse(event.data)}catch{return}if(data.type==='presence'){const own=currentProfile();if(!own?.id||!String(own.plName||'').trim()||(data.presence||[]).some(person=>String(person.author_id)===String(own.id)))draw(data.presence)}else if(data.type==='activity'||data.type==='activity-history')window.dispatchEvent(new CustomEvent('jijinboard-activity',{detail:data.data}));else if(data.type==='refresh')window.dispatchEvent(new CustomEvent('jijinboard-resource-change',{detail:{action:data.action,data:data.data}}))});
     ws.addEventListener('close',()=>{if(socket!==ws)return;socket=null;if(!stopped){clearTimeout(reconnectTimer);reconnectTimer=setTimeout(connect,Math.min(30000,1000*2**attempt++))}});
     ws.addEventListener('error',()=>ws.close());
   }

@@ -23,7 +23,7 @@ test('board never publishes a placeholder guest and starts publishing after PL r
  w.WebSocket=Socket;w.eval('var boardId="one";function esc(value){return String(value)}');
  const code=readFileSync(new URL('../public/board/board2.js',import.meta.url),'utf8'),start=code.indexOf('// Presence belongs'),end=code.indexOf('window.JIJINBOARD_LOG_TITLE',start);
  w.setInterval=()=>{throw Error('presence must not use a periodic timer')};w.eval(code.slice(start,end));await new Promise(setImmediate);
- w.socket.dispatchEvent(new w.Event('open'));assert.deepEqual(sent,[]);
+ w.socket.dispatchEvent(new w.Event('open'));assert.deepEqual(sent.splice(0),[{type:'activity-history'}]);
  w.localStorage.setItem('trpgMarkerProfile',JSON.stringify({id:'pl',plName:'sars'}));w.document.querySelector('dialog').dispatchEvent(new w.Event('close'));
  assert.equal(sent.length,1);assert.equal(sent[0].plName,'sars');assert.equal(sent[0].authorId,'pl');
  w.socket.dispatchEvent(new w.MessageEvent('message',{data:JSON.stringify({type:'presence',presence:[{author_id:'visitor:old',pl_name:'ゲスト'},{author_id:'pl',pl_name:'sars'}]})}));

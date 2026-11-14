@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
 const clean=(value,max=100)=>String(value||'').slice(0,max);
 const cleanData=value=>{if(value==null)return null;try{const text=JSON.stringify(value);return text.length>6000?null:JSON.parse(text)}catch{return null}};
+const ACTIVITY_KEY="recent-activity";
 const PRESENCE_TTL=70_000;
 export class RoomHub extends DurableObject{
   constructor(ctx,env){super(ctx,env);this.httpPresence=new Map()}
@@ -21,11 +22,20 @@ export class RoomHub extends DurableObject{
         const comment=action==='comment:create'?message.data?.comment:null;
         const activity=comment?.id?{kind:'comment',id:comment.id,target:comment.target,
           authorName:comment.persona_name||comment.author_name,authorId:comment.author_id,icon:comment.persona_icon,reply:!!comment.parent_id,at:comment.created_at}:message.activity;
-        if(activity)this.broadcast({type:'activity',data:activity});
+        if(activity?.id){
+          activity.at=Date.now();
+          const added=await this.ctx.storage.transaction(async storage=>{
+            const rows=await storage.get(ACTIVITY_KEY)||[];
+            if(rows.some(row=>row.id===activity.id))return false;
+            await storage.put(ACTIVITY_KEY,[activity,...rows].slice(0,50));
+            return true;
+          });
+          if(added)this.broadcast({type:'activity',data:activity});
+        }
         return json({ok:true});
       }catch{return json({error:'Invalid message'},400)}
     }
-    if(url.pathname==='/deleted'&&request.method==='POST'){this.broadcast({type:'room-deleted'});this.httpPresence.clear();return json({ok:true})}
+    if(url.pathname==='/deleted'&&request.method==='POST'){this.broadcast({type:'room-deleted'});this.httpPresence.clear();await this.ctx.storage.delete(ACTIVITY_KEY);return json({ok:true})}
     if(url.pathname==='/presence'){
       if(request.method==='POST'){let body={};try{body=await request.json()}catch{};const authorId=clean(body?.authorId,120),plName=clean(body?.plName,80);if(authorId&&plName)this.httpPresence.set(authorId,{author_id:authorId,pl_name:plName,pl_icon:clean(body?.plIcon,100000),is_typing:!!body?.isTyping,typing_name:body?.isTyping?clean(body?.typingName,80):'',typing_icon:body?.isTyping?clean(body?.typingIcon,100000):'',typing_message_id:body?.isTyping?clean(body?.typingMessageId,100):'',last_seen:new Date().toISOString(),seen_at:Date.now()});return json({presence:this.participants()})}
       if(request.method==='GET')return json({presence:this.participants()});
@@ -33,7 +43,13 @@ export class RoomHub extends DurableObject{
     }
     return new Response('Not found',{status:404});
   }
-  webSocketMessage(socket,message){if(typeof message!=='string'||message.length>180000)return;let data;try{data=JSON.parse(message)}catch{return}if(data?.type==='change'){const action=clean(data.action,40);if(action){const payload=cleanData(data.data),type=action.startsWith('comment:')?'comment-change':'refresh';this.broadcast({type,action,data:payload},'',socket)}return}if(data?.type!=='join'&&data?.type!=='presence')return;const prev=socket.deserializeAttachment()||{},next={client_id:clean(data.clientId||prev.client_id,100),author_id:clean(data.authorId||prev.author_id,120),pl_name:clean(data.plName||prev.pl_name,80),text_color:/^#[0-9a-f]{6}$/i.test(data.plTextColor||'')?data.plTextColor:'',pl_icon:clean(data.plIcon||prev.pl_icon,100000),is_typing:!!data.isTyping,typing_name:data.isTyping?clean(data.typingName,80):'',typing_icon:data.isTyping?clean(data.typingIcon,100000):'',typing_message_id:data.isTyping?clean(data.typingMessageId,100):'',last_seen:new Date().toISOString()};socket.serializeAttachment(next);if(next.author_id)this.httpPresence.delete(next.author_id);this.broadcastPresence()}
+  async sendActivityHistory(socket){
+    try{
+      const rows=await this.ctx.storage.get(ACTIVITY_KEY)||[];
+      socket.send(JSON.stringify({type:'activity-history',data:rows}));
+    }catch(error){console.warn('Activity history unavailable',error)}
+  }
+  webSocketMessage(socket,message){if(typeof message!=='string'||message.length>180000)return;let data;try{data=JSON.parse(message)}catch{return}if(data?.type==='activity-history')return this.sendActivityHistory(socket);if(data?.type==='change'){const action=clean(data.action,40);if(action){const payload=cleanData(data.data),type=action.startsWith('comment:')?'comment-change':'refresh';this.broadcast({type,action,data:payload},'',socket)}return}if(data?.type!=='join'&&data?.type!=='presence')return;const prev=socket.deserializeAttachment()||{},next={client_id:clean(data.clientId||prev.client_id,100),author_id:clean(data.authorId||prev.author_id,120),pl_name:clean(data.plName||prev.pl_name,80),text_color:/^#[0-9a-f]{6}$/i.test(data.plTextColor||'')?data.plTextColor:'',pl_icon:clean(data.plIcon||prev.pl_icon,100000),is_typing:!!data.isTyping,typing_name:data.isTyping?clean(data.typingName,80):'',typing_icon:data.isTyping?clean(data.typingIcon,100000):'',typing_message_id:data.isTyping?clean(data.typingMessageId,100):'',last_seen:new Date().toISOString()};socket.serializeAttachment(next);if(next.author_id)this.httpPresence.delete(next.author_id);this.broadcastPresence()}
   webSocketClose(socket){this.broadcastPresence(socket)}
   webSocketError(socket){this.broadcastPresence(socket)}
   participants(excludedSocket=null){const now=Date.now();for(const [id,p] of this.httpPresence)if(now-Number(p.seen_at||0)>PRESENCE_TTL)this.httpPresence.delete(id);const people=new Map();for(const p of this.httpPresence.values())people.set(p.author_id,p);for(const socket of this.ctx.getWebSockets()){if(socket===excludedSocket)continue;const p=socket.deserializeAttachment()||{};if(!p.author_id||!p.pl_name||socket.readyState===2||socket.readyState===3)continue;const current=people.get(p.author_id);if(!current||p.is_typing)people.set(p.author_id,p)}return[...people.values()].filter(p=>String(p.pl_name||'').trim()&&!String(p.author_id||'').startsWith('visitor:')).map(({seen_at,session_player_id,session_device_id,session_tab_id,...p})=>p)}
