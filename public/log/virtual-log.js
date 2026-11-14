@@ -215,7 +215,9 @@
       // A full local render avoids reading a stale/blank animated carousel panel.
       renderLog(message.time);
     }
-    const panel = hydratePanel(state.carouselPosition);
+    const panel = typeof hydratePanel === "function"
+      ? hydratePanel(state.carouselPosition)
+      : document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`);
     const meta = metaFor(panel);
     if (meta) {
       const virtualIndex = meta.mode === "timeline"
