@@ -39,3 +39,46 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 test('LOG HTML loads the updated marker-selection code',()=>{
   assert.match(html,/app\.js\?v=20261115-local-marker-selection/);
 });
+
+test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
+  const virtual=readFileSync(new URL('../public/log/virtual-log.js',import.meta.url),'utf8');
+  const start=virtual.indexOf('  jumpToMessage = function(id, annotationId) {');
+  const end=virtual.indexOf('\\n  queueMicrotask(mountAllPanels)',start);
+  assert.ok(start>=0&&end>start);
+  const calls=[],stored=[];
+  const message={id:'target',tab:'B',time:'10:42',text:'remote marker'};
+  const state={roomId:'room',room:{tabs:['A','B'],messages:[message]},activeTabIndex:0,hiddenTabs:new Set(['B']),isSliding:true,slideQueue:1,carouselPosition:1,annotations:[]};
+  const element={style:{setProperty:(...args)=>calls.push(['style',...args])},querySelector:()=>null,classList:{remove:()=>{}}};
+  const panel={querySelector:()=>element};
+  const context={
+    state,
+    localStorage:{setItem:(...args)=>stored.push(args)},
+    renderLog:time=>{calls.push(['render',time]);state.carouselPosition=2},
+    hydratePanel:position=>{calls.push(['hydrate',position]);return panel},
+    metaFor:()=>({mode:'compact',items:[message]}),
+    revealIndex:(p,index)=>calls.push(['reveal',index]),
+    CSS:{escape:id=>id},
+    markerColor:()=> '#ffe66b',
+    pulseLogMarker:()=>calls.push(['pulse'])
+  };
+  vm.runInNewContext(virtual.slice(start,end),context);
+  context.jumpToMessage('target','annotation');
+  assert.equal(state.activeTabIndex,1);
+  assert.equal(state.hiddenTabs.has('B'),false);
+  assert.equal(state.isSliding,false);
+  assert.deepEqual(calls.filter(call=>call[0]==='render'),[['render','10:42']]);
+  assert.deepEqual(calls.filter(call=>call[0]==='reveal'),[['reveal',0]]);
+  assert.equal(calls.some(call=>call[0]==='pulse'),true);
+  assert.equal(stored.length,1);
+  assert.equal(stored[0][0],'hiddenTabs:room');
+});
+
+test('cross-tab marker navigation requires no remote fetch and updates script cache',()=>{
+  const virtual=readFileSync(new URL('../public/log/virtual-log.js',import.meta.url),'utf8');
+  const start=virtual.indexOf('  jumpToMessage = function(id, annotationId) {');
+  const end=virtual.indexOf('\\n  queueMicrotask(mountAllPanels)',start);
+  const body=virtual.slice(start,end);
+  assert.match(body,/state\\.room\\?\\.messages\\.find/);
+  assert.doesNotMatch(body,/fetch\\(|\\bapi\\(/);
+  assert.match(html,/virtual-log\\.js\\?v=20261115-local-tab-jump/);
+});
