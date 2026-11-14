@@ -43,7 +43,7 @@ test('LOG HTML loads the updated marker-selection code',()=>{
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
   const virtual=readFileSync(new URL('../public/log/virtual-log.js',import.meta.url),'utf8');
   const start=virtual.indexOf('  jumpToMessage = function(id, annotationId) {');
-  const end=virtual.indexOf('\\n  queueMicrotask(mountAllPanels)',start);
+  const end=virtual.indexOf('\n  queueMicrotask(mountAllPanels)',start);
   assert.ok(start>=0&&end>start);
   const calls=[],stored=[];
   const message={id:'target',tab:'B',time:'10:42',text:'remote marker'};
@@ -76,9 +76,9 @@ test('cross-tab marker navigation uses local message metadata and reveals destin
 test('cross-tab marker navigation requires no remote fetch and updates script cache',()=>{
   const virtual=readFileSync(new URL('../public/log/virtual-log.js',import.meta.url),'utf8');
   const start=virtual.indexOf('  jumpToMessage = function(id, annotationId) {');
-  const end=virtual.indexOf('\\n  queueMicrotask(mountAllPanels)',start);
+  const end=virtual.indexOf('\n  queueMicrotask(mountAllPanels)',start);
   const body=virtual.slice(start,end);
-  assert.match(body,/state\\.room\\?\\.messages\\.find/);
-  assert.doesNotMatch(body,/fetch\\(|\\bapi\\(/);
-  assert.match(html,/virtual-log\\.js\\?v=20261115-local-tab-jump/);
+  assert.match(body,/state\.room\?\.messages\.find/);
+  assert.doesNotMatch(body,/fetch\(|\bapi\(/);
+  assert.match(html,/virtual-log\.js\?v=20261115-local-tab-jump/);
 });
