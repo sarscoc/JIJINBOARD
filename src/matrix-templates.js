@@ -10,7 +10,7 @@ const isPlaceholder=row=>row?.template_definition==='{}'&&row?.template_image_ke
 const revisionOf=async row=>row&&!isPlaceholder(row)?String(parseDefinition(row.template_definition).revision||await hashText(row.template_definition||'{}')):null;
 const conflict=()=>json({error:'テンプレートが別の画面で更新されています。最新の情報を読み直してから編集してください。',code:'MATRIX_TEMPLATE_CONFLICT'},409);
 const imageUrl=(roomId,templateId)=>`/api/boards/${encodeURIComponent(roomId)}/matrix/templates/${encodeURIComponent(templateId)}/image`;
-const POINT_FIELDS=new Set(['placed','x','y','templateX','templateY','scaleBaseWidth','coordVersion','comment','commentPosition','placementRevision']);
+const POINT_FIELDS=new Set(['placed','x','y','templateX','templateY','scaleBaseWidth','coordVersion','comment','commentPosition','placementRevision','justPlaced']);
 
 function parseDefinition(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'?value:{}}catch{return{}}}
 function parseSettings(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}catch{return{}}}
@@ -23,6 +23,7 @@ function applyPoint(state,point){
   const settings=parseSettings(point.point_settings);
   const item={...settings,...(state.items[point.point_id]&&typeof state.items[point.point_id]==='object'?state.items[point.point_id]:{})};
   item.placementRevision=Number(settings.placementRevision)||0;
+  delete item.justPlaced;
   item.placed=!!point.is_placed;
   if(point.point_x!==null)item.x=Number(point.point_x);
   if(point.point_y!==null)item.y=Number(point.point_y);

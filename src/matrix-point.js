@@ -40,20 +40,21 @@ export async function handleMatrixPoint(request,env,roomId,logId,itemId,executio
   const placed=body?.placed!==undefined?!!body.placed:!!old?.is_placed,x=finite(body?.x,old?.point_x??null),y=finite(body?.y,old?.point_y??null),templateX=finite(body?.templateX,old?.template_x??null),templateY=finite(body?.templateY,old?.template_y??null),scale=finite(body?.scaleBaseWidth,old?.scale_base_width??null),version=Math.max(0,Math.min(10,Math.trunc(finite(body?.coordVersion,old?.coordinate_version??0))));
   const candidate=characterIdFromItem(itemId,authorId),ch=await env.DB.prepare('SELECT character_id FROM character WHERE character_id=? AND pl_id=?').bind(characterKey(roomId,authorId,candidate),playerKey(roomId,authorId)).first();
   const row=await env.DB.prepare(`INSERT INTO matrix_point(room_id,template_id,point_id,character_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,point_settings,updated_at)
-    SELECT ?,?,?,?,?,?,?,?,?,?,?,json_object('placementRevision',?),CURRENT_TIMESTAMP
+    SELECT ?,?,?,?,?,?,?,?,?,?,?,json_object('placementRevision',?,'justPlaced',?),CURRENT_TIMESTAMP
     WHERE EXISTS (SELECT 1 FROM matrix_template WHERE room_id=? AND template_id=? AND template_image_key<>'__deleted__')
       AND (?=0 OR EXISTS (SELECT 1 FROM matrix_point WHERE room_id=? AND template_id=? AND point_id=?))
     ON CONFLICT(room_id,template_id,point_id) DO UPDATE SET
       character_id=COALESCE(excluded.character_id,matrix_point.character_id),is_placed=excluded.is_placed,
       point_x=excluded.point_x,point_y=excluded.point_y,template_x=excluded.template_x,template_y=excluded.template_y,
       scale_base_width=excluded.scale_base_width,coordinate_version=excluded.coordinate_version,updated_at=CURRENT_TIMESTAMP,
-      point_settings=json_set(matrix_point.point_settings,'$.placementRevision',COALESCE(json_extract(matrix_point.point_settings,'$.placementRevision'),0)+?)
+      point_settings=json_set(matrix_point.point_settings,'$.placementRevision',COALESCE(json_extract(matrix_point.point_settings,'$.placementRevision'),0)+?,
+        '$.justPlaced',excluded.is_placed AND NOT matrix_point.is_placed)
     WHERE (? AND COALESCE(json_extract(matrix_point.point_settings,'$.placementRevision'),0)=?)
        OR (NOT ? AND COALESCE(json_extract(matrix_point.point_settings,'$.placementRevision'),0)=0)
     RETURNING is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,
-      json_extract(point_settings,'$.placementRevision') AS placement_revision`)
-    .bind(roomId,templateId,itemId,ch?.character_id||null,placed?1:0,x,y,templateX,templateY,scale,version,guarded?1:0,
+      json_extract(point_settings,'$.placementRevision') AS placement_revision, json_extract(point_settings,'$.justPlaced') AS just_placed`)
+    .bind(roomId,templateId,itemId,ch?.character_id||null,placed?1:0,x,y,templateX,templateY,scale,version,guarded?1:0,placed?1:0,
       roomId,templateId,base,roomId,templateId,itemId,guarded?1:0,guarded?1:0,base,guarded?1:0).first();
   if(!row)return json({code:'MATRIX_POINT_CONFLICT',error:'配置が他の画面で変わりました。最新の位置を表示します。',point:savedPoint(await readPoint(),itemId,templateId)},409);
-  return json({ok:true,point:savedPoint(row,itemId,templateId)});
+  return json({ok:true,point:savedPoint(row,itemId,templateId),activity:row.just_placed?{templateId,itemId,authorName}:null});
 }

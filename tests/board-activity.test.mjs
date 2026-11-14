@@ -1,0 +1,32 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {JSDOM} from 'jsdom';
+
+test('recent updates persist locally and open the saved destination without fetching history',async t=>{
+  const {window:w}=new JSDOM('<button id="boardActivityButton"></button><dialog id="boardActivity"><p role="status"></p><ol></ol></dialog><iframe id="matrixFrame" data-ready="1"></iframe>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
+  t.after(()=>w.close());
+  w.boardId='room';
+  w.state={tool:'log'};
+  w.selectTool=tool=>{w.state.tool=tool};
+  w.fetch=()=>assert.fail('activity must not fetch history');
+  let opened;
+  w.document.querySelector('iframe').contentWindow.jijinOpenActivity=row=>{opened=row;return true};
+  for(const file of ['public/shared/comment-target.js','public/board/board-activity.js'])w.eval(readFileSync(file,'utf8'));
+  const receive=detail=>w.dispatchEvent(new w.CustomEvent('jijinboard-activity',{detail}));
+  receive({kind:'placement',id:'placed',templateId:'map',itemId:'pc',authorName:'PL'});
+  receive({kind:'comment',id:'reply',target:'/boards/room/matrix/map/points/pc',authorName:'PC',reply:true});
+  receive({kind:'comment',id:'reply',target:'/boards/room/matrix/map/points/pc'});
+  const button=w.document.querySelector('#boardActivityButton');
+  assert.ok(button.classList.contains('unread'));
+  button.click();
+  const updates=w.document.querySelectorAll('li button');
+  assert.equal(updates.length,2);
+  assert.match(updates[0].textContent,/返信しました/);
+  updates[0].click();
+  await Promise.resolve();
+  assert.equal(opened.id,'reply');
+  assert.equal(opened.target.pointId,'pc');
+  assert.equal(w.state.tool,'matrix');
+  assert.equal(JSON.parse(w.localStorage.getItem('jijinboardActivity:room')).rows.length,2);
+});

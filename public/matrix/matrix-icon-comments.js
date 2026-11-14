@@ -179,7 +179,7 @@
     const avatar=c.persona_icon?`<img class="matrix-comment-avatar" src="${esc(c.persona_icon)}" alt="">`:'<span class="matrix-comment-avatar"></span>';
     const target=targetImage(c.target||c.target_id),targetLabel=targetName(c.target||c.target_id),replies=children.get(c.id)||[];
     const targetIcon=target?`<img class="matrix-comment-target-icon" src="${esc(target)}" alt="" title="${esc(targetLabel)}">`:`<span class="matrix-comment-target-icon matrix-comment-target-empty" title="${esc(targetLabel)}"></span>`;
-    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}${c.pointNote?" matrix-point-note-thread":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))};--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-comment-target="${esc(c.target||c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${c.pointNote?"":`<span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}`}${!c.pointNote&&mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}${c.pointNote?`<button type="button" data-matrix-note-comment title="補足にコメント" aria-label="補足にコメント">↩</button>`:`<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button>`}</div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
+    return `<div class="matrix-comment-thread ${depth?"matrix-reply":""}${c.pointNote?" matrix-point-note-thread":""}"><article class="matrix-comment-card" style="--comment-marker:${esc(commentColor(c))};--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-activity-comment="${esc(c.id)}" data-comment-target="${esc(c.target||c.target_id)}"><div class="matrix-comment-author">${avatar}<b>${esc(c.persona_name)}</b><em>${esc(c.persona_type)}</em>${c.pointNote?"":`<span class="matrix-comment-target-arrow" aria-hidden="true">＞</span>${targetIcon}`}${!c.pointNote&&mine?`<button data-matrix-edit="${esc(c.id)}" title="編集">✎</button>`:""}${c.pointNote?`<button type="button" data-matrix-note-comment title="補足にコメント" aria-label="補足にコメント">↩</button>`:`<time>${esc(formatCommentDate(c.created_at))}</time><button data-matrix-like="${esc(c.id)}" class="${c.liked_by_me?"liked":""}" aria-label="好き">${c.liked_by_me?"♥":"♡"}${Number(c.like_count)||""}</button><button data-matrix-reply="${esc(c.id)}" title="返信">↩</button>`}</div><div class="matrix-comment-body-row"><p>${esc(c.body).replace(/\n/g,"<br>")}</p></div></article>${replies.map(r=>commentHtml(r,depth+1,children)).join("")}</div>`
   }
   let rootThreads=[];
   const template=()=>typeof currentTemplateId==='function'?String(currentTemplateId()||''):'';
@@ -279,6 +279,26 @@
     cards.forEach(node=>node.classList.toggle('focused',node===card));
     list.scrollTop+=card.getBoundingClientRect().top-list.getBoundingClientRect().top-8;
   }
+
+  window.jijinOpenActivity=async ({kind,id,target})=>{
+    if(!target.templateId||!await tplGetRecord(target.templateId))return false;
+    if(currentTemplateId()!==target.templateId)await switchTemplate(target.templateId,{localOnly:true});
+    if(currentTemplateId()!==target.templateId)return false;
+    if(kind==='placement'){
+      const point=document.querySelector(`.placed[data-id="${CSS.escape(target.pointId)}"]`);
+      if(!point)return false;
+      point.scrollIntoView({behavior:'smooth',block:'nearest',inline:'nearest'});
+      return flash(target.pointId);
+    }
+    if(!comments.some(comment=>comment.id===id))return false;
+    showPointComments(target.pointId);
+    const card=panel().querySelector(`[data-activity-comment="${CSS.escape(id)}"]`);
+    if(!card)return false;
+    panel().querySelectorAll('.matrix-comment-card.focused').forEach(node=>node.classList.remove('focused'));
+    card.classList.add('focused');
+    card.scrollIntoView({behavior:'smooth',block:'center'});
+    return true;
+  };
 
   function render(){
     const tid=typeof currentTemplateId==="function"?String(currentTemplateId()||""):"";

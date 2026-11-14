@@ -13,7 +13,18 @@ export class RoomHub extends DurableObject{
       server.serializeAttachment({client_id:'',author_id:'',pl_name:'',pl_icon:'',is_typing:false,typing_name:'',typing_icon:'',typing_message_id:''});
       return new Response(null,{status:101,webSocket:client});
     }
-    if(url.pathname==='/notify'&&request.method==='POST'){try{const message=await request.json();const action=clean(message?.action,40);const data=cleanData(message?.data),type=action.startsWith('comment:')?'comment-change':'refresh';this.broadcast({type,action,data},clean(message?.excludeClientId,100));return json({ok:true})}catch{return json({error:'Invalid message'},400)}}
+    if(url.pathname==='/notify'&&request.method==='POST'){
+      try{
+        const message=await request.json(),action=clean(message?.action,40);
+        const type=action.startsWith('comment:')?'comment-change':'refresh';
+        this.broadcast({type,action,data:cleanData(message?.data)},clean(message?.excludeClientId,100));
+        const comment=action==='comment:create'?message.data?.comment:null;
+        const activity=comment?.id?{kind:'comment',id:comment.id,target:comment.target,
+          authorName:comment.persona_name||comment.author_name,reply:!!comment.parent_id,at:comment.created_at}:message.activity;
+        if(activity)this.broadcast({type:'activity',data:activity});
+        return json({ok:true});
+      }catch{return json({error:'Invalid message'},400)}
+    }
     if(url.pathname==='/deleted'&&request.method==='POST'){this.broadcast({type:'room-deleted'});this.httpPresence.clear();return json({ok:true})}
     if(url.pathname==='/presence'){
       if(request.method==='POST'){let body={};try{body=await request.json()}catch{};const authorId=clean(body?.authorId,120),plName=clean(body?.plName,80);if(authorId&&plName)this.httpPresence.set(authorId,{author_id:authorId,pl_name:plName,pl_icon:clean(body?.plIcon,100000),is_typing:!!body?.isTyping,typing_name:body?.isTyping?clean(body?.typingName,80):'',typing_icon:body?.isTyping?clean(body?.typingIcon,100000):'',typing_message_id:body?.isTyping?clean(body?.typingMessageId,100):'',last_seen:new Date().toISOString(),seen_at:Date.now()});return json({presence:this.participants()})}

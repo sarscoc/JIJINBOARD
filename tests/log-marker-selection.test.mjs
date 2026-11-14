@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261115-local-marker-selection/);
+  assert.match(html,/app\.js\?v=20261115-activity/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{

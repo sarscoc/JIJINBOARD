@@ -21,9 +21,13 @@ export async function notifyResource(request,response,env,context,bodyRequest){
  const task=(async()=>{
   const board=isLogCreation?(await response.clone().json()).roomId:decodeURIComponent(path.match(/^\/api\/boards\/([^/]+)/)?.[1]||'');
   if(!board)return;
-  let data=null;
+  let data=null,activity=null;
   if(action==='board-home')data={version:(await response.clone().json()).version||''};
-  if(action==='matrix-point')data=(await response.clone().json()).point||null;
+  if(action==='matrix-point'){
+   const saved=await response.clone().json();
+   data=saved.point||null;
+   if(saved.activity)activity={kind:'placement',id:crypto.randomUUID(),...saved.activity};
+  }
   if(action==='matrix-template-state'){
    // Include the affected template ID for future targeted client refreshes.
    // Keep the action unchanged so older clients continue to reconcile safely.
@@ -34,7 +38,7 @@ export async function notifyResource(request,response,env,context,bodyRequest){
    const saved=await response.clone().json(),input=await bodyRequest.json();const payload={state:input.state,changes:input.changes,baseRevision:input.baseRevision,revision:saved.revision};
    if(JSON.stringify(payload).length<=5500)data=payload;
   }
-  await env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action,data,excludeClientId:request.headers.get('x-realtime-client')||''})});
+  await env.ROOMS.get(env.ROOMS.idFromName(board)).fetch('https://room/notify',{method:'POST',body:JSON.stringify({action,data,activity,excludeClientId:request.headers.get('x-realtime-client')||''})});
  })().catch(error=>console.warn('Resource notification failed',error));
  if(context?.waitUntil)context.waitUntil(task);else await task;
  return response;

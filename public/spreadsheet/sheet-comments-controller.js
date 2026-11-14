@@ -60,6 +60,15 @@
     target.classList.add('sheet-comment-flash');
     setTimeout(()=>target.classList.remove('sheet-comment-flash'),1800);
   }
+  window.jijinOpenActivity=({id,target})=>{
+    const card=panel().querySelector(`[data-comment-id="${CSS.escape(id)}"]`);
+    if(!card)return false;
+    panel().querySelectorAll('.comment-card.focused').forEach(node=>node.classList.remove('focused'));
+    card.classList.add('focused');
+    jumpToCell(target.cellId);
+    card.scrollIntoView({behavior:'smooth',block:'center'});
+    return true;
+  };
   function focusCell(id){const cards=[...document.querySelectorAll('#sheetComments .comment-card')];for(const card of cards)card.classList.toggle('focused',card.dataset.cell===id);cards.find(card=>card.dataset.cell===id)?.scrollIntoView({behavior:'smooth',block:'center'})}
   function panel(){let a=document.querySelector('#sheetComments');if(!a){a=document.createElement('aside');a.id='sheetComments';a.innerHTML='<div class="sheet-comments-head comments-head"><strong>COMMENTS</strong><span class="sheet-comment-count">0</span></div><section class="sheet-comments-list comments-list"></section>';document.body.append(a)}else{const oldHead=a.querySelector('.sheet-comments-head'),oldList=a.querySelector(':scope>section');if(oldHead&&!oldHead.classList.contains('comments-head')){oldHead.className='sheet-comments-head comments-head';oldHead.innerHTML='<strong>COMMENTS</strong><span class="sheet-comment-count">0</span>'}if(oldList)oldList.classList.add('sheet-comments-list','comments-list')}return a}
   function card(c,depth,children){const mine=c.author_id===profile()?.id,icon=iconFor(c),replies=children.get(c.id)||[],avatar=icon?`<img class="sheet-comment-avatar comment-avatar" src="${esc(icon)}" alt="">`:'<span class="sheet-comment-avatar comment-avatar empty-avatar"></span>';return `<div class="sheet-comment-thread comment-thread ${depth?'sheet-reply is-reply':''}" style="--reply-depth:${Math.min(depth,3)}"><div class="sheet-comment-card comment-card" style="--comment-marker:${usesCommentMarkers()?esc(commentMarker(c)):'var(--jijin-sheet-comment-color,#171a20)'};--speaker-name-color:${/^#[0-9a-f]{6}$/i.test(c.text_color||'')?c.text_color:'inherit'}" data-comment-id="${esc(c.id)}" data-cell="${esc(c.cell_id)}"><div class="sheet-comment-author comment-author">${avatar}<span class="comment-name">${esc(c.persona_name)}<span class="persona-type">${esc(c.persona_type)}</span></span>${mine?`<button class="comment-edit" data-edit="${esc(c.id)}" title="編集">✎</button>`:''}<time class="comment-date">${esc(dateText(c.created_at))}</time><button class="comment-like ${c.liked_by_me?'liked':''}" data-like="${esc(c.id)}" aria-label="好き">${c.liked_by_me?'♥':'♡'}${Number(c.like_count)||''}</button><button class="comment-reply" data-reply="${esc(c.id)}" title="返信">↩</button></div><p class="sheet-comment-body comment-body">${esc(c.body).replace(/\n/g,'<br>')}</p></div>${replies.map(r=>card(r,depth+1,children)).join('')}</div>`}

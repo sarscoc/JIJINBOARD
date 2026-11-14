@@ -587,6 +587,12 @@ function jumpToMessage(id, annotationId) { const message=state.room?.messages.fi
 
 async function resizeCommentImage(file){if(!file)return"";const bitmap=await createImageBitmap(file),max=1000,scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height)),canvas=document.createElement("canvas");canvas.width=Math.max(1,Math.round(bitmap.width*scale));canvas.height=Math.max(1,Math.round(bitmap.height*scale));canvas.getContext("2d").drawImage(bitmap,0,0,canvas.width,canvas.height);bitmap.close?.();let quality=.78,data="";do{data=canvas.toDataURL("image/webp",quality);quality-=.1}while(data.length>600000&&quality>=.38);if(data.length>600000){const small=document.createElement("canvas");small.width=Math.round(canvas.width*.72);small.height=Math.round(canvas.height*.72);small.getContext("2d").drawImage(canvas,0,0,small.width,small.height);data=small.toDataURL("image/webp",.55)}return data}
 function clearCommentImage(){state.commentImage=""}
+window.jijinOpenActivity=async ({id,target})=>{
+  if(state.roomId!==target.logId||!state.room||!state.annotations.some(comment=>comment.id===id))return false;
+  await jumpToMessage(target.messageId,id);
+  jumpToComment(id);
+  return !!document.getElementById('comment-'+id);
+};
 function jumpToComment(id) { const el=$("#comment-"+CSS.escape(id)); if(!el)return; if(innerWidth<=800)$("#commentsPane").classList.add("open"); el.scrollIntoView({behavior:"smooth",block:"center"}); focusCommentChain(id); }
 
 loadProfile();
