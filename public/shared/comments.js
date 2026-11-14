@@ -123,7 +123,7 @@
       if(active===!!next){if(active)connect();return;}
       active = !!next; clearTimeout(timer);
       if (!active) { const old = socket; socket = null; old?.close(); }
-      else { connect(); }
+      else { update(); connect(); }
     }
     function typing(address, person, on) {
       if (socket?.readyState !== WebSocket.OPEN) return;
