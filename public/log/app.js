@@ -271,7 +271,7 @@ function markedText(message, anns) {
   const indexes = new Map(state.room.messages.map((m,i)=>[m.id,i])), messageIndex=indexes.get(message.id);
   const ranges = [...anns].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(a => {
     const startIndex=indexes.get(a.message_id),endIndex=indexes.get(a.end_message_id||a.message_id)??startIndex;
-    if(messageIndex<startIndex||messageIndex>endIndex)return null;
+    if(startIndex===undefined||endIndex===undefined||endIndex<startIndex||messageIndex<startIndex||messageIndex>endIndex)return null;
     return {start:messageIndex===startIndex?Math.max(0,a.start_offset):0,end:messageIndex===endIndex?Math.min(message.text.length,a.end_offset):message.text.length,id:a.id,color:annotationMarkerColor(a)};
   }).filter(r=>r&&r.end>r.start);
   const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
@@ -471,7 +471,7 @@ function selectionInfo() {
   if(!startMessage||!endMessage||!$("#logPane").contains(startMessage)||!$("#logPane").contains(endMessage))return null;
   const startText=startMessage.querySelector(".message-text"),endText=endMessage.querySelector(".message-text");if(!startText||!endText)return null;
   const textOffset=(textEl,node,offset,edge)=>{if(textEl.contains(node)){return JijinLogFormat.sourceOffset(textEl,node,offset,edge)}if(parent(node)?.closest?.(".speaker"))return 0;return edge==="start"?0:Number(textEl.dataset.sourceLength)||0};
-  const rects=[...range.getClientRects()].filter(r=>r.width||r.height),focusAtEnd=selection.focusNode===range.endContainer&&selection.focusOffset===range.endOffset,rect=(focusAtEnd?rects[rects.length-1]:rects[0])||range.getBoundingClientRect();const startOffset=textOffset(startText,range.startContainer,range.startOffset,"start"),endOffset=textOffset(endText,range.endContainer,range.endOffset,"end"),messages=state.room.messages,first=messages.findIndex(m=>m.id===startMessage.dataset.message),last=messages.findIndex(m=>m.id===endMessage.dataset.message),quote=messages.slice(first,last+1).map((m,i)=>JijinLogFormat.plain(m.text,i===0?startOffset:0,first+i===last?endOffset:m.text.length)).join("\n");return {messageId:startMessage.dataset.message,endMessageId:endMessage.dataset.message,startOffset,endOffset,quote,anchorLeft:rect.left,anchorRight:rect.right,anchorTop:rect.top,anchorBottom:rect.bottom};
+  const rects=[...range.getClientRects()].filter(r=>r.width||r.height),focusAtEnd=selection.focusNode===range.endContainer&&selection.focusOffset===range.endOffset,rect=(focusAtEnd?rects[rects.length-1]:rects[0])||range.getBoundingClientRect();const startOffset=textOffset(startText,range.startContainer,range.startOffset,"start"),endOffset=textOffset(endText,range.endContainer,range.endOffset,"end"),messages=state.room.messages,first=messages.findIndex(m=>m.id===startMessage.dataset.message),last=messages.findIndex(m=>m.id===endMessage.dataset.message);if(first<0||last<first||!Number.isFinite(startOffset)||!Number.isFinite(endOffset)||(first===last&&endOffset<=startOffset))return null;const quote=messages.slice(first,last+1).map((m,i)=>JijinLogFormat.plain(m.text,i===0?startOffset:0,first+i===last?endOffset:m.text.length)).join("\n");return {messageId:startMessage.dataset.message,endMessageId:endMessage.dataset.message,startOffset,endOffset,quote,anchorLeft:rect.left,anchorRight:rect.right,anchorTop:rect.top,anchorBottom:rect.bottom};
 }
 let selectingLog=false;
 function showSelection() {
@@ -481,7 +481,8 @@ function showSelection() {
   state.selection=selection;
   openCommentDialog();
 }
-document.addEventListener("selectionchange",showSelection);
+// Selection changes while dragging must not open a dialog or rebuild the log.
+// Finalize only after the local pointer/keyboard selection is complete.
 document.addEventListener("pointerdown",event=>{
   if(event.button===0&&event.target.closest?.("#logPane"))selectingLog=true;
 });
@@ -491,7 +492,10 @@ function finishLogSelection(){
   showSelection();
 }
 window.addEventListener("pointerup",finishLogSelection);
-window.addEventListener("pointercancel",finishLogSelection);
+window.addEventListener("pointercancel",()=>{selectingLog=false});
+document.addEventListener("keyup",event=>{
+  if(event.key==='Shift'||(event.shiftKey&&event.key.startsWith('Arrow')))showSelection();
+});
 function fillPersonaSelect() {
   $("#personaSelect").innerHTML = `<option value="PL">${esc(state.profile.plName || "PL名を設定") }（PL）</option>` + state.profile.personas.map((p,i)=>`<option value="${i}">${esc(p.name)}（${esc(p.type)}）</option>`).join("") + `<option value="ADD">＋ キャラ追加</option>`;
   const valid=state.lastPersona==="PL"||(/^\d+$/.test(state.lastPersona)&&state.profile.personas[Number(state.lastPersona)]);$("#personaSelect").value=valid?state.lastPersona:"PL";state.lastPersona=$("#personaSelect").value;
@@ -602,7 +606,8 @@ $("#dropzone").addEventListener("drop",e=>e.dataTransfer.files[0]&&handleFile(e.
 $("#createRoomBtn").onclick=createRoom; $("#profileBtn").onclick=openProfile; $("#commentForm").onsubmit=postComment;
 document.addEventListener("click",e=>{if(e.target.matches("[data-close]"))e.target.closest("dialog").close();const image=e.target.closest("[data-expand-image]");if(image){e.stopPropagation();$("#expandedCommentImage").src=image.src;$("#imageDialog").showModal();return}const like=e.target.closest("[data-like-comment]");if(like){e.stopPropagation();toggleLike(like.dataset.likeComment,like);return}const edit=e.target.closest("[data-edit-comment]");if(edit){e.stopPropagation();const annotation=state.annotations.find(item=>item.id===edit.dataset.editComment);openEditDialog(annotation,edit.closest(".comment-card").getBoundingClientRect());return}const typing=e.target.closest("[data-typing-target]");if(typing){jumpToMessage(typing.dataset.typingTarget);return} const mark=e.target.closest("mark[data-ann]");if(mark)jumpToComment(mark.dataset.ann);const reply=e.target.closest("[data-reply-comment]");if(reply){const annotation=state.annotations.find(item=>item.id===reply.dataset.replyComment);openReplyDialog(annotation,reply.closest(".comment-card").getBoundingClientRect())} const card=e.target.closest(".comment-card");if(card&&!reply)jumpToMessage(card.dataset.target,card.id.replace("comment-","")); const count=e.target.closest("[data-message-comments]");if(count){const a=state.annotations.find(x=>x.message_id===count.dataset.messageComments&&!x.parent_id);if(a)jumpToComment(a.id)} const page=e.target.closest("[data-page]");if(page)switchLogPage(page.dataset.page==="next"?1:-1)});
 document.addEventListener("click",e=>{const tab=e.target.closest("[data-tab-index]");if(tab)goToTab(Number(tab.dataset.tabIndex))});
-document.addEventListener("dblclick",e=>{const tab=e.target.closest(".tab-rail [data-tab-index]");if(!tab)return;e.preventDefault();e.stopPropagation();toggleTabVisibility(Number(tab.dataset.tabIndex))});
+// A double click must never hide the just-activated tab and leave a blank panel.
+document.addEventListener("dblclick",e=>{const tab=e.target.closest(".tab-rail [data-tab-index]");if(!tab)return;e.preventDefault();e.stopPropagation();goToTab(Number(tab.dataset.tabIndex))});
 document.addEventListener("click",e=>{const suggestion=e.target.closest("[data-suggest-message]");if(!suggestion)return;hideTabSuggestions();jumpToMessage(suggestion.dataset.suggestMessage)});
 document.addEventListener("click",e=>{const button=e.target.closest("[data-delete-room]");if(button)askDeleteOwnedRoom(button.dataset.deleteRoom,button.dataset.roomTitle)});
 $("#personaSelect").onchange=()=>{if($("#personaSelect").value==="ADD"){$("#commentDialog").close();openProfile();return}state.lastPersona=$("#personaSelect").value;localStorage.setItem(`lastPersona:${state.roomId}`,state.lastPersona);updateCommentPersonaAvatar()};
