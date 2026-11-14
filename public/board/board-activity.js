@@ -32,6 +32,7 @@
       if(target.kind==='matrix'&&!target.templateId)return;
       if(typeof data.id!=='string'||!data.id)return;
       entry={kind:data.kind,id:data.id,target,
+        tokenName:String(data.tokenName||'').slice(0,120),icon:String(data.icon||'').slice(0,500),
         author:String(data.authorName||'').slice(0,80),reply:!!data.reply,at:Date.now(),unread:panel.hidden};
     }catch{return}
     const saved=new Map([...rows,...read()].map(row=>[row.id,row]));
@@ -49,13 +50,27 @@
       const unopened=log?.spoiler&&!state.opened[row.target.logId];
       const area=row.target.kind==='log'?(unopened?'LOG':log?.scenarioTitle||log?.title||'LOG'):
         row.target.kind==='matrix'?'MAGIA MATRIX':'SPREADSHEET';
-      const action=row.kind==='placement'?'コマを置きました':row.reply?'返信しました':'コメントしました';
+      const action=row.kind==='placement'?(row.tokenName?row.tokenName+'の':'')+'コマを置きました':row.reply?'返信しました':'コメントしました';
       open.type='button';
       const label=document.createElement('span');
       label.textContent=area+' · '+(!unopened&&row.author?row.author+'が':'')+action;
       time.textContent=new Date(row.at).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'});
       open.addEventListener('click',()=>navigate(row));
-      open.append(label,time);
+      const avatar=document.createElement('span');
+      avatar.className='board-activity-avatar';
+      avatar.setAttribute('aria-hidden','true');
+      if(!unopened&&row.icon){
+        const prefix=`/api/boards/${encodeURIComponent(boardId)}/player-icons/`;
+        if(row.icon.startsWith(prefix)&&/^(?:matrix-icons|character-icons|pl-icons)\/[A-Za-z0-9_-]{20,80}$/.test(row.icon.slice(prefix.length))){
+          const image=document.createElement('img');
+          image.alt='';
+          image.loading='lazy';
+          image.addEventListener('error',()=>image.remove(),{once:true});
+          image.src=row.icon;
+          avatar.append(image);
+        }
+      }
+      open.append(avatar,label,time);
       item.append(open);
       list.append(item);
     }

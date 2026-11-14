@@ -14,8 +14,8 @@ test('recent updates persist locally and open the saved destination without fetc
   w.document.querySelector('iframe').contentWindow.jijinOpenActivity=row=>{opened=row;return true};
   for(const file of ['public/shared/comment-target.js','public/board/board-activity.js'])w.eval(readFileSync(file,'utf8'));
   const receive=detail=>w.dispatchEvent(new w.CustomEvent('jijinboard-activity',{detail}));
-  receive({kind:'placement',id:'placed',templateId:'map',itemId:'pc',authorName:'PL'});
-  receive({kind:'comment',id:'reply',target:'/boards/room/matrix/map/points/pc',authorName:'PC',reply:true});
+  receive({kind:'placement',id:'placed',templateId:'map',itemId:'pc',authorName:'sars',tokenName:'禊彦',icon:'/api/boards/room/player-icons/matrix-icons/'+'a'.repeat(20)});
+  receive({kind:'comment',id:'reply',target:'/boards/room/matrix/map/points/pc',authorName:'PC',icon:'/api/boards/room/player-icons/character-icons/'+'b'.repeat(20),reply:true});
   receive({kind:'comment',id:'reply',target:'/boards/room/matrix/map/points/pc'});
   const button=w.document.querySelector('#boardActivityButton');
   assert.ok(button.classList.contains('unread'));
@@ -32,6 +32,9 @@ test('recent updates persist locally and open the saved destination without fetc
   const updates=w.document.querySelectorAll('li button');
   assert.equal(updates.length,2);
   assert.match(updates[0].textContent,/返信しました/);
+  assert.match(updates[1].textContent,/sarsが禊彦のコマを置きました/);
+  assert.match(updates[0].querySelector('img').src,/character-icons/);
+  assert.match(updates[1].querySelector('img').src,/matrix-icons/);
   updates[0].click();
   await Promise.resolve();
   assert.equal(opened.id,'reply');

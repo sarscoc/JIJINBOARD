@@ -74,6 +74,9 @@
     #boardActivity li button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;text-align:left;background:transparent;border:0;border-radius:5px;padding:8px;color:inherit;font-size:11px}
     #boardActivity li button:hover,#boardActivity li button:focus-visible{background:var(--soft,#f5f2f5)}
     #boardActivity li button span{min-width:0;overflow-wrap:anywhere}
+    #boardActivity .board-activity-avatar{flex:0 0 22px;width:22px;height:22px;border-radius:50%;overflow:hidden;background:var(--soft,#eef2f7)}
+    #boardActivity .board-activity-avatar img{display:block;width:100%;height:100%;object-fit:cover}
+    #boardActivity li button>span:nth-child(2){flex:1}
     #boardActivity time{font-size:10px;white-space:nowrap;color:var(--muted,#766d76)}
     #boardActivity [role="status"]{margin:0;padding:10px 12px;font-size:11px;color:var(--muted,#766d76)}
     @media(max-width:760px){#boardActivity{top:calc(100% + 7px)}}
@@ -159,7 +162,7 @@
   <script src="../shared/player-master.js?v=20261103-nohandoff1"></script>
   <script src="speaker-editor.js?v=20261103-nohandoff1"></script>
   <script src="../shared/comment-target.js?v=1"></script>
-  <script src="board-activity.js?v=2"></script>
+  <script src="board-activity.js?v=3"></script>
   <script src="board-profile.js?v=20261115-activity"></script>
   <script src="theme-scoped.js?v=20261108-note-timeline"></script>
   <script src="log-no-shadows.js?v=20261103-layout1"></script>

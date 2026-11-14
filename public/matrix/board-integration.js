@@ -259,6 +259,10 @@
       });
     }
     const point=pointPayload(itemId,item);point.templateId=item.templateId||window.currentTemplateId?.()||'';
+    const token=typeof items!=="undefined"?items.find(entry=>entry.id===itemId):null;
+    if(token?.name)point.tokenName=String(token.name).slice(0,120);
+    const icon=token?.placementImage||token?.baseImage;
+    if(typeof icon==="string"&&icon.startsWith(`/api/boards/${encodeURIComponent(boardId)}/player-icons/`))point.tokenIcon=icon;
     const saveRoom=roomId,key=saveRoom+':'+point.templateId+':'+itemId;
     const backupKey='jijinboard:pending-point:'+boardId+':'+key;
     let basePlacementRevision=window.templateStates?.()?.[point.templateId]?.items?.[itemId]?.placementRevision??0;

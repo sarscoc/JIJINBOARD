@@ -164,12 +164,12 @@ test('placement activity is emitted only when the point enters the board',async(
  const f=fixture();await f.save(null,'original');
  const env={DB:{prepare(sql){return {bind(...args){return {first:async()=>f.sqlite.prepare(sql).get(...args)||null,run:async()=>f.sqlite.prepare(sql).run(...args)}}}}}};
  const place=async(placed,basePlacementRevision)=>{
-   const request=new Request('https://test/api',{method:'PATCH',body:JSON.stringify({authorId:'pl',authorName:'PL',templateId:'tpl',placed,x:30,basePlacementRevision})});
+   const request=new Request('https://test/api',{method:'PATCH',body:JSON.stringify({authorId:'pl',authorName:'PL',templateId:'tpl',placed,x:30,basePlacementRevision,tokenName:'禊彦',tokenIcon:'/api/boards/board/player-icons/matrix-icons/'+'a'.repeat(20)})});
    const response=await handleMatrixPoint(request,env,'board','log','new');
    assert.equal(response.status,200);
    return (await response.json()).activity;
  };
- assert.deepEqual(await place(true,0),{templateId:'tpl',itemId:'new',authorName:'PL'});
+ assert.deepEqual(await place(true,0),{templateId:'tpl',itemId:'new',authorName:'PL',tokenName:'禊彦',icon:'/api/boards/board/player-icons/matrix-icons/'+'a'.repeat(20)});
  assert.equal(await place(true,1),null);
  assert.equal(await place(false,2),null);
  assert.ok(await place(true,3));

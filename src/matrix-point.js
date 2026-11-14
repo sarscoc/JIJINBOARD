@@ -1,5 +1,5 @@
 import {validMatrixScope} from './matrix-scope.js';
-import {playerKey,characterKey,localId} from './player-address.js';
+import {playerKey,characterKey,playerIconUrl} from './player-address.js';
 import {handleComments,targets} from './comments.js';
 import { parentRoomForLog,ensurePlIdentity } from './data-model.js';
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store'}});
@@ -38,7 +38,7 @@ export async function handleMatrixPoint(request,env,roomId,logId,itemId,executio
   const base=guarded?body.basePlacementRevision:(old?.placement_revision??0);
   if(!Number.isSafeInteger(base)||base<0)return json({error:'配置のバージョンが不正です'},400);
   const placed=body?.placed!==undefined?!!body.placed:!!old?.is_placed,x=finite(body?.x,old?.point_x??null),y=finite(body?.y,old?.point_y??null),templateX=finite(body?.templateX,old?.template_x??null),templateY=finite(body?.templateY,old?.template_y??null),scale=finite(body?.scaleBaseWidth,old?.scale_base_width??null),version=Math.max(0,Math.min(10,Math.trunc(finite(body?.coordVersion,old?.coordinate_version??0))));
-  const candidate=characterIdFromItem(itemId,authorId),ch=await env.DB.prepare('SELECT character_id FROM character WHERE character_id=? AND pl_id=?').bind(characterKey(roomId,authorId,candidate),playerKey(roomId,authorId)).first();
+  const candidate=characterIdFromItem(itemId,authorId),ch=await env.DB.prepare('SELECT character_id,character_name,matrix_icon_key,character_icon_key FROM character WHERE character_id=? AND pl_id=?').bind(characterKey(roomId,authorId,candidate),playerKey(roomId,authorId)).first();
   const row=await env.DB.prepare(`INSERT INTO matrix_point(room_id,template_id,point_id,character_id,is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,point_settings,updated_at)
     SELECT ?,?,?,?,?,?,?,?,?,?,?,json_object('placementRevision',?,'justPlaced',?),CURRENT_TIMESTAMP
     WHERE EXISTS (SELECT 1 FROM matrix_template WHERE room_id=? AND template_id=? AND template_image_key<>'__deleted__')
@@ -56,5 +56,17 @@ export async function handleMatrixPoint(request,env,roomId,logId,itemId,executio
     .bind(roomId,templateId,itemId,ch?.character_id||null,placed?1:0,x,y,templateX,templateY,scale,version,guarded?1:0,placed?1:0,
       roomId,templateId,base,roomId,templateId,itemId,guarded?1:0,guarded?1:0,base,guarded?1:0).first();
   if(!row)return json({code:'MATRIX_POINT_CONFLICT',error:'配置が他の画面で変わりました。最新の位置を表示します。',point:savedPoint(await readPoint(),itemId,templateId)},409);
-  return json({ok:true,point:savedPoint(row,itemId,templateId),activity:row.just_placed?{templateId,itemId,authorName}:null});
+  let activity=null;
+  if(row.just_placed){
+    activity={templateId,itemId,authorName};
+    const tokenName=ch?.character_name||String(body?.tokenName||'').trim().slice(0,120);
+    const submittedIcon=String(body?.tokenIcon||'');
+    const prefix=`/api/boards/${encodeURIComponent(roomId)}/player-icons/`;
+    const validIcon=submittedIcon.startsWith(prefix)&&
+      /^(?:matrix-icons|character-icons|pl-icons)\/[A-Za-z0-9_-]{20,80}$/.test(submittedIcon.slice(prefix.length));
+    const icon=playerIconUrl(roomId,ch?.matrix_icon_key||ch?.character_icon_key)||(validIcon?submittedIcon:'');
+    if(tokenName)activity.tokenName=tokenName;
+    if(icon)activity.icon=icon;
+  }
+  return json({ok:true,point:savedPoint(row,itemId,templateId),activity});
 }

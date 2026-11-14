@@ -20,7 +20,7 @@ export class RoomHub extends DurableObject{
         this.broadcast({type,action,data:cleanData(message?.data)},clean(message?.excludeClientId,100));
         const comment=action==='comment:create'?message.data?.comment:null;
         const activity=comment?.id?{kind:'comment',id:comment.id,target:comment.target,
-          authorName:comment.persona_name||comment.author_name,reply:!!comment.parent_id,at:comment.created_at}:message.activity;
+          authorName:comment.persona_name||comment.author_name,icon:comment.persona_icon,reply:!!comment.parent_id,at:comment.created_at}:message.activity;
         if(activity)this.broadcast({type:'activity',data:activity});
         return json({ok:true});
       }catch{return json({error:'Invalid message'},400)}
