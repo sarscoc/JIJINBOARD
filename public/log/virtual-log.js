@@ -197,23 +197,42 @@
     revealIndex(panel, index);
   };
 
+  // Message IDs and tab membership are already in the PL's local room snapshot.
+  // Navigate without a server lookup; hydrate the destination before revealing it.
   jumpToMessage = function(id, annotationId) {
-    const message = state.room?.messages.find(m => m.id === id); if (!message) return;
+    const message = state.room?.messages.find(m => m.id === id);
+    if (!message) return;
     const index = state.room.tabs.indexOf(message.tab);
+    if (index < 0) return;
     if (state.hiddenTabs.has(message.tab)) {
-      state.hiddenTabs.delete(message.tab); localStorage.setItem(`hiddenTabs:${state.roomId}`, JSON.stringify([...state.hiddenTabs])); state.activeTabIndex = index; renderLog(message.time);
-    } else if (index !== state.activeTabIndex) {
-      if(typeof window!=="undefined"&&window.JijinDesktop&&index>=0&&typeof goToTab==="function")goToTab(index);else{state.isSliding=false;state.slideQueue=0;state.activeTabIndex=index;renderLog(message.time);}
+      state.hiddenTabs.delete(message.tab);
+      localStorage.setItem(`hiddenTabs:${state.roomId}`, JSON.stringify([...state.hiddenTabs]));
     }
-    const panel = document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`), meta = metaFor(panel);
+    if (index !== state.activeTabIndex || state.isSliding) {
+      state.isSliding = false;
+      state.slideQueue = 0;
+      state.activeTabIndex = index;
+      // A full local render avoids reading a stale/blank animated carousel panel.
+      renderLog(message.time);
+    }
+    const panel = typeof hydratePanel === "function"
+      ? hydratePanel(state.carouselPosition)
+      : document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`);
+    const meta = metaFor(panel);
     if (meta) {
-      const virtualIndex = meta.mode === "timeline" ? meta.items.findIndex(slot => (slot.byTab.get(message.tab) || []).some(m => m.id === id)) : meta.items.findIndex(m => m.id === id);
+      const virtualIndex = meta.mode === "timeline"
+        ? meta.items.findIndex(slot => (slot.byTab.get(message.tab) || []).some(m => m.id === id))
+        : meta.items.findIndex(m => m.id === id);
       if (virtualIndex >= 0) revealIndex(panel, virtualIndex);
     }
-    const el = panel?.querySelector(`[data-message="${CSS.escape(id)}"]`); if (!el) return;
-    const annotation = annotationId && state.annotations.find(item => item.id === annotationId), color = markerColor(annotation?.color || "#ffe66b");
-    el.style.setProperty("--flash-color", color); el.querySelector(".annotation-count")?.style.setProperty("--flash-color", color); el.classList.remove("flash");
-    pulseLogMarker(el,annotationId);
+    const el = panel?.querySelector(`[data-message="${CSS.escape(id)}"]`);
+    if (!el) return;
+    const annotation = annotationId && state.annotations.find(item => item.id === annotationId);
+    const color = markerColor(annotation?.color || "#ffe66b");
+    el.style.setProperty("--flash-color", color);
+    el.querySelector(".annotation-count")?.style.setProperty("--flash-color", color);
+    el.classList.remove("flash");
+    pulseLogMarker(el, annotationId);
   };
 
   queueMicrotask(mountAllPanels);
