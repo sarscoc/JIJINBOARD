@@ -13,6 +13,9 @@
     }catch{}
     return [];
   }
+  const activityDate=new Intl.DateTimeFormat('ja-JP',{
+    month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+  });
   let rows=read(),navigation=0;
   function save(){
     try{localStorage.setItem(key,JSON.stringify({generation:generation(),rows}))}catch{}
@@ -104,7 +107,7 @@
       label.textContent=area+' · '+(!unopened&&row.author?row.author+'が':'')+action;
       const date=new Date(row.at);
       time.dateTime=date.toISOString();
-      time.textContent=date.toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+      time.textContent=activityDate.format(date);
       open.title=label.textContent+' · '+date.toLocaleString('ja-JP');
       open.addEventListener('click',()=>navigate(row));
       const avatar=document.createElement('span');
