@@ -150,6 +150,9 @@
     }
     const remote=await api(endpoint(logId,id),{cache:"no-store"});
     if(logId!==currentLogId()||!remote?.record||isDeleted(id))return;
+    if(hydratePromise||saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){
+      rehydrateQueued=true;return;
+    }
     const states=window.templateStates()||{};
     const records=await window.tplAllRecords();
     if(!records.some(record=>String(record.id)===id)){
