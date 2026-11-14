@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 
 test('recent updates persist locally and open the saved destination without fetching history',async t=>{
-  const {window:w}=new JSDOM('<button id="boardActivityButton"></button><dialog id="boardActivity"><p role="status"></p><ol></ol></dialog><iframe id="matrixFrame" data-ready="1"></iframe>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
+  const {window:w}=new JSDOM('<button id="boardActivityButton"></button><section id="boardActivity" hidden><p role="status"></p><ol></ol></section><iframe id="matrixFrame" data-ready="1"></iframe>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
   t.after(()=>w.close());
   w.boardId='room';
   w.state={tool:'log'};
@@ -19,6 +19,15 @@ test('recent updates persist locally and open the saved destination without fetc
   receive({kind:'comment',id:'reply',target:'/boards/room/matrix/map/points/pc'});
   const button=w.document.querySelector('#boardActivityButton');
   assert.ok(button.classList.contains('unread'));
+  button.click();
+  const panel=w.document.querySelector('#boardActivity');
+  assert.equal(panel.hidden,false);
+  assert.equal(button.getAttribute('aria-expanded'),'true');
+  w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape'}));
+  assert.equal(panel.hidden,true);
+  button.click();
+  w.document.body.dispatchEvent(new w.Event('pointerdown',{bubbles:true}));
+  assert.equal(panel.hidden,true);
   button.click();
   const updates=w.document.querySelectorAll('li button');
   assert.equal(updates.length,2);
