@@ -17,7 +17,7 @@ function fixture(){
     templateStates:()=>structuredClone(states),setTemplateStates:value=>{states=structuredClone(value)},currentTemplateId:()=> 'tpl',
     saveCurrentTemplateState(){states.tpl=structuredClone(live)},saveTemplateFile:Object.assign(()=>{},{__jijinTemplateOptimized:true}),
     async restoreTemplate(){live=structuredClone(states.tpl);context.saveCurrentTemplateState()},
-    matrixBoardContext:{roomId:'log',profile:()=>({id:'pl',plName:'PL'}),isApplyingRemote:()=>remoteApplying,notifyChange(){},async api(path,options={}){calls.push({path,...options});if(options.method==='PUT')return putHandler(JSON.parse(options.body));return {templates:[structuredClone(remote)]}}},
+    matrixBoardContext:{roomId:'log',profile:()=>({id:'pl',plName:'PL'}),isApplyingRemote:()=>remoteApplying,notifyChange(){},async api(path,options={}){calls.push({path,...options});if(options.method==='PUT')return putHandler(JSON.parse(options.body));return /\/templates\/[^/]+$/.test(path)?structuredClone(remote):{templates:[structuredClone(remote)]}}},
     addEventListener(name,fn){listeners.set(name,fn)}
   };
   context.window=context;
@@ -48,7 +48,7 @@ test('conflicts stop queued stale writes, back up the edit, and reload',async()=
   f.remote.record.revision='remote-r2';f.remote.templateState.display.color='remote';
   rejectFirst();await tick();await f.flush();
   assert.equal(f.puts().length,1);assert.equal(f.alerts.length,1);
-  assert.equal(JSON.parse(f.storage.get('jijinboardTemplateSaveRecovery:board:tpl')).templateState.display.color,'green');
+  assert.equal(JSON.parse(f.storage.get('jijinboardTemplateSaveRecovery:board:log:tpl')).templateState.display.color,'green');
   assert.equal(f.calls.filter(c=>!c.method).length,3);
 });
 
