@@ -33,7 +33,7 @@
       if(typeof data.id!=='string'||!data.id)return;
       entry={kind:data.kind,id:data.id,target,
         tokenName:String(data.tokenName||'').slice(0,120),icon:String(data.icon||'').slice(0,500),
-        author:String(data.authorName||'').slice(0,80),reply:!!data.reply,at:Date.now(),unread:panel.hidden};
+        authorId:String(data.authorId||''),author:String(data.authorName||'').slice(0,80),reply:!!data.reply,at:Date.now(),unread:panel.hidden};
     }catch{return}
     const saved=new Map([...rows,...read()].map(row=>[row.id,row]));
     if(saved.has(entry.id))return;
@@ -42,15 +42,52 @@
     if(!panel.hidden)render();
   }
 
+  function localJson(key,fallback){
+    try{return JSON.parse(localStorage.getItem(key))??fallback}catch{return fallback}
+  }
+  function avatarUrl(value){
+    if(typeof value!=='string')return '';
+    const prefix=`/api/boards/${encodeURIComponent(boardId)}/player-icons/`;
+    if(value.startsWith(prefix)&&/^(?:matrix-icons|character-icons|pl-icons)\/[A-Za-z0-9_-]{20,80}$/.test(value.slice(prefix.length)))return value;
+    return /^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/i.test(value)?value:'';
+  }
+  function savedPeople(){
+    const profile=localJson('trpgMarkerProfile',null);
+    const presence=localJson(`board:${encodeURIComponent(boardId)}:presence`,null);
+    const matrixCache=localJson(`board:${encodeURIComponent(boardId)}:matrix-pcs:${encodeURIComponent(state.activeRoom||boardId)}`,null);
+    return {
+      participants:[...(matrixCache?.generation===generation()?matrixCache.participants||[]:[]),...(state.board?.participants||[])],
+      people:localJson('trpgProjectPeople.v1',[]),
+      players:[...(presence?.generation===generation()?presence.people||[]:[]),
+        ...(profile?[{author_id:profile.id,pl_name:profile.plName,pl_icon:profile.plIcon}]:[])]
+    };
+  }
+  function details(row,{participants,people,players}){
+    if(row.kind==='placement'){
+      const pointId=row.target.pointId;
+      const person=participants.find(p=>`participant:${p.authorId}:${p.personaId}`===pointId);
+      const local=people.find(p=>`participant:${p.plId}:${p.id}`===pointId);
+      return {name:row.tokenName||person?.name||local?.name,
+        icon:avatarUrl(row.icon)||avatarUrl(person?.matrixIcon||person?.icon||local?.matrixIcon||local?.icon)};
+    }
+    const characters=new Map(participants.filter(p=>p.name===row.author&&(!row.authorId||p.authorId===row.authorId)).map(p=>[JSON.stringify([p.authorId,p.personaId]),p]));
+    const local=people.filter(p=>p.name===row.author&&(!row.authorId||(p.plId||p.id)===row.authorId));
+    const player=players.find(p=>p.pl_name===row.author&&(!row.authorId||p.author_id===row.authorId));
+    return {icon:avatarUrl(row.icon)||avatarUrl(characters.size===1?characters.values().next().value.baseIcon:'')||
+      avatarUrl(local.length===1?local[0].icon:'')||avatarUrl(player?.pl_icon)};
+  }
+
   function render(){
     list.replaceChildren();
+    const people=savedPeople();
     for(const row of rows){
       const item=document.createElement('li'),open=document.createElement('button'),time=document.createElement('time');
       const log=row.target.kind==='log'&&state.board?.logs?.find(item=>item.roomId===row.target.logId);
       const unopened=log?.spoiler&&!state.opened[row.target.logId];
       const area=row.target.kind==='log'?(unopened?'LOG':log?.scenarioTitle||log?.title||'LOG'):
         row.target.kind==='matrix'?'MAGIA MATRIX':'SPREADSHEET';
-      const action=row.kind==='placement'?(row.tokenName?row.tokenName+'の':'')+'コマを置きました':row.reply?'返信しました':'コメントしました';
+      const {name,icon}=unopened?{}:details(row,people);
+      const action=row.kind==='placement'?(name?name+'の':'')+'コマを置きました':row.reply?'返信しました':'コメントしました';
       open.type='button';
       const label=document.createElement('span');
       label.textContent=area+' · '+(!unopened&&row.author?row.author+'が':'')+action;
@@ -59,16 +96,13 @@
       const avatar=document.createElement('span');
       avatar.className='board-activity-avatar';
       avatar.setAttribute('aria-hidden','true');
-      if(!unopened&&row.icon){
-        const prefix=`/api/boards/${encodeURIComponent(boardId)}/player-icons/`;
-        if(row.icon.startsWith(prefix)&&/^(?:matrix-icons|character-icons|pl-icons)\/[A-Za-z0-9_-]{20,80}$/.test(row.icon.slice(prefix.length))){
-          const image=document.createElement('img');
-          image.alt='';
-          image.loading='lazy';
-          image.addEventListener('error',()=>image.remove(),{once:true});
-          image.src=row.icon;
-          avatar.append(image);
-        }
+      if(icon){
+        const image=document.createElement('img');
+        image.alt='';
+        image.loading='lazy';
+        image.addEventListener('error',()=>image.remove(),{once:true});
+        image.src=icon;
+        avatar.append(image);
       }
       open.append(avatar,label,time);
       item.append(open);
