@@ -88,3 +88,24 @@ test('local stacking changes do not increment the shared template revision',asyn
  f.context.saveCurrentTemplateState();await tick();await f.flush();
  assert.equal(f.puts().length,0);
 });
+
+test('a point received during template hydration survives the older snapshot',async()=>{
+  const f=fixture();await tick();
+  const api=f.context.matrixBoardContext.api;
+  let finish;
+  f.context.matrixBoardContext.api=(path,options)=>{
+    if(!options?.method)return new Promise(resolve=>{finish=resolve});
+    return api(path,options);
+  };
+  f.refresh();await tick();
+  const states=f.context.templateStates();
+  states.tpl.items.pc={...states.tpl.items.pc,placed:false,x:95};
+  f.context.setTemplateStates(states);
+  f.context.matrixTemplateSync.rememberPointDuringHydration('tpl','pc',{placed:false,x:95});
+  finish({templates:[structuredClone(f.remote)]});
+  await tick();
+  assert.equal(f.context.templateStates().tpl.items.pc.placed,false);
+  assert.equal(f.context.templateStates().tpl.items.pc.x,95);
+  assert.equal(f.context.templateStates().tpl.display.color,'blue');
+  assert.equal(f.puts().length,0);
+});

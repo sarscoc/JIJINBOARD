@@ -96,7 +96,7 @@
   for(const id of ['dataTableRoot','fullCharacterPages']){const root=document.getElementById(id);if(root&&window.MutationObserver)new MutationObserver(markCells).observe(root,{childList:true,subtree:true})}
   new MutationObserver(()=>{if(usesCommentMarkers())render()}).observe(document.documentElement,{attributes:true,attributeFilter:['class']});phone?.addEventListener('change',render);window.addEventListener('storage',event=>{if(usesCommentMarkers()&&(event.key==='trpgMarkerProfile'||event.key?.startsWith('jijinboardSelectedColors:')||event.key?.startsWith('personas:')))render()})
   applyAccent();try{parent.document.addEventListener('input',event=>{if(event.target?.closest?.('#boardDesignSlot'))setTimeout(applyAccent,0)},true);parent.document.addEventListener('change',event=>{if(event.target?.closest?.('#boardDesignSlot'))setTimeout(applyAccent,0)},true)}catch{}
-  window.addEventListener('message',event=>{if(event.origin!==location.origin||event.data?.type!=='jijinboard-spreadsheet-active')return;active=!!event.data.active;commentLive.setActive(active);if(active){connectEvents();if(!loadedOnce||dirtyComments)load().catch(()=>{})}else disconnectEvents()});
+  window.addEventListener('message',event=>{if(event.origin!==location.origin||event.data?.type!=='jijinboard-spreadsheet-active')return;active=!!event.data.active;commentLive.setActive(active);if(active){connectEvents();if(!loadedOnce||dirtyComments)load().catch(()=>{})}});
   window.addEventListener('online',()=>{if(active)connectEvents()});document.addEventListener('visibilitychange',()=>{if(active&&!document.hidden)connectEvents()});window.addEventListener('pagehide',disconnectEvents);commentLive.setActive(active);if(active){connectEvents();load()}
 })();
 

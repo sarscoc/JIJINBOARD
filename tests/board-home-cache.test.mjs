@@ -26,3 +26,10 @@ test('uploaded screenshot is displayed and persisted without downloading it agai
  assert.equal(await env.w.JijinHomeImage.remember(new Blob(['upload']),env.target),true);
  await new Promise(resolve=>setTimeout(resolve,0));assert.equal(env.writes.length,1);assert.equal(fetched,0);env.close();
 });
+
+test('normal visits reuse the local screenshot without requesting its body',async()=>{
+ let fetched=0;const env=setup(async()=>{fetched++;throw Error('unexpected')});
+ assert.equal(await env.w.JijinHomeImage.show(env.target),true);
+ assert.equal(await env.w.JijinHomeImage.show(env.target),true);
+ assert.equal(fetched,0);env.close();
+});

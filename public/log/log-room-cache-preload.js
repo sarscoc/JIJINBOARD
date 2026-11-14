@@ -23,19 +23,32 @@
   }
 
   async function firstStreamedRoom(roomId){
-    const cached=parentCache?.get(roomId);// Do not reuse an old tab index after R2/D1 recovery; fetch current metadata.
+    const cached=parentCache?.get(roomId)||await Promise.race([
+      typeof logTextCache==='undefined'?null:logTextCache.read(roomId),
+      new Promise(resolve=>setTimeout(()=>resolve(null),80))
+    ]);
+    // Verify the tab index even when previously downloaded chunks can be reused.
     try{
-      const metaQuery=window.JijinDesktop?'?firstTab=':'';
+      const metaQuery=window.JijinDesktop&&!cached?.stream?.streamed?'?firstTab=':'';
       const metaResponse=await streamFetch(streamPath(roomId,'meta')+metaQuery+(metaQuery?'&':'?')+'_fresh='+Date.now());if(!metaResponse.ok)throw new Error('stream unavailable');
       const meta=await metaResponse.json();
       if(meta.chunkCount===0)return null;
       const allTabs=Array.isArray(meta.tabs)?meta.tabs:[],hidden=new Set(window.JijinDesktop?(meta.tabStreams||[]).filter(info=>info.hidden).map(info=>info.tabName):[]),tabs=allTabs.filter(tab=>!hidden.has(tab)),tab=tabs.find(name=>name==="メイン")||tabs[0]||"",loadedByTab={};
       let messages=[];
-      if(meta.first?.tab===tab){
-        messages=meta.first.messages;loadedByTab[tab]=[0];
-      }else if(tab){
+      const oldTabs=cached?.stream?.tabStreams||[];
+      for(const info of meta.tabStreams||[]){
+        const prior=oldTabs.find(old=>old.tabId===info.tabId&&old.tabName===info.tabName);
+        if(!tabs.includes(info.tabName)||!prior||prior.recoveredIndexes||info.recoveredIndexes||prior.chunkCount!==info.chunkCount)continue;
+        const loaded=cached.stream.loadedByTab?.[info.tabName];
+        if(!loaded?.length)continue;
+        loadedByTab[info.tabName]=loaded;
+      }
+      messages=(cached?.messages||[]).filter(message=>Object.hasOwn(loadedByTab,message.tab));
+      if(!loadedByTab[tab]?.includes(0)&&meta.first?.tab===tab){
+        messages=mergeMessages(messages,meta.first.messages);loadedByTab[tab]=[...new Set([...(loadedByTab[tab]||[]),0])];
+      }else if(tab&&!loadedByTab[tab]?.includes(0)){
         const response=await streamFetch(chunkUrl(roomId,0,tab));if(!response.ok)throw new Error('stream unavailable');
-        const chunk=await response.json();messages=Array.isArray(chunk.messages)?chunk.messages:[];loadedByTab[tab]=[0];
+        const chunk=await response.json();messages=mergeMessages(messages,Array.isArray(chunk.messages)?chunk.messages:[]);loadedByTab[tab]=[...new Set([...(loadedByTab[tab]||[]),0])];
       }
       const room={id:meta.id||roomId,title:meta.title||'TRPG LOG',createdAt:meta.createdAt||'',tabs,messages,stream:{streamed:true,chunkSize:Number(meta.chunkSize)||120,tabStreams:Array.isArray(meta.tabStreams)?meta.tabStreams:[],loadedByTab}};
       parentCache?.set(roomId,room);return room;

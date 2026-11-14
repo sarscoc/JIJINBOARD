@@ -54,9 +54,9 @@
   const embedded=params.get("embedded")==="1";
   let roomId=params.get("room")||boardId,lastState="",saving=false,saveQueued=false,saveTimer=0,active=!embedded,applyingRemote=false,fullStateDirty=false;
   let loadRequested=false,loadSeq=0,readySent=false,helpersQueued=false,helpersLoaded=false,loadedRoom="";
-  let realtime=null,realtimeRoom="",dirtyState=false,dirtyParticipants=false,dirtyComments=false;
+  let realtime=null,realtimeRoom="",dirtyState=false,dirtyParticipants=false,dirtyComments=false,dirtyPoints=false;
   const connectedRooms=new Set(),roomRevisions=new Map();let reconnectAttempts=0;
-  const pendingActions=new Map(),pointRequests=new Map(),pointChains=new Map();
+  const pendingActions=new Map(),pointRequests=new Map(),pointChains=new Map(),deferredPoints=new Map();
   const realtimeClientId=(crypto.randomUUID&&crypto.randomUUID())||`${Date.now()}-${Math.random()}`;
   const api=async(path,options={})=>{
     const controller=new AbortController();let timer;
@@ -70,7 +70,7 @@
   const profile=()=>{try{return JSON.parse(localStorage.getItem("trpgMarkerProfile")||"null")}catch{return null}};
   const matrixPath=()=>`/api/boards/${encodeURIComponent(boardId)}/matrix/${encodeURIComponent(roomId)}`;
   const pointPath=itemId=>`${matrixPath()}/points/${encodeURIComponent(itemId)}`;
-  const pointKeys=new Set(["placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth"]);
+  const pointKeys=new Set(["placementRevision","placed","x","y","templateX","templateY","coordVersion","scaleBaseWidth"]);
 
   function realtimeUrl(targetRoom=roomId){
     const protocol=location.protocol==="https:"?"wss:":"ws:";
@@ -115,20 +115,44 @@
     return true;
   }
 
+  function mergePoint(item,data){
+    for(const key of ['comment','commentPosition'])if(data[key]!==undefined)item[key]=String(data[key]);
+    for(const key of pointKeys){
+      if(data[key]===undefined)continue;
+      item[key]=key==="placed"?!!data[key]:data[key]===null?null:Number(data[key]);
+    }
+  }
+
   function applyRemotePoint(data){
-    const itemId=String(data?.itemId||"");
-    if(pointRequests.has(roomId+':'+String(data?.templateId||window.currentTemplateId?.()||'')+':'+itemId))return;
-    if(!itemId||!roomId||data?.templateId&&data.templateId!==window.currentTemplateId?.())return;
+    const itemId=String(data?.itemId||""),selected=window.currentTemplateId?.()||"";
+    const templateId=String(data?.templateId||selected);
+    if(!itemId||!roomId)return;
+    const key=roomId+':'+templateId+':'+itemId;
+    if(pointRequests.has(key)){
+      const pending=deferredPoints.get(key);
+      if(Number.isSafeInteger(data.placementRevision)&&data.placementRevision>(pending?.placementRevision??0))deferredPoints.set(key,data);
+      return;
+    }
+    const states=window.templateStates?.()||{};
+    const previous=states[templateId]?.items?.[itemId]?.placementRevision??0;
+    if(Number.isSafeInteger(data.placementRevision)&&data.placementRevision<previous)return;
+    if(templateId){
+      const stored=states[templateId]||(states[templateId]={});
+      stored.items||={};
+      mergePoint(stored.items[itemId]||=(typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{}),data);
+      window.setTemplateStates(states);
+      window.matrixTemplateSync?.rememberPointDuringHydration?.(templateId,itemId,data);
+    }
+    if(templateId!==selected)return;
     const state=appState();state.items||={};
     const item=state.items[itemId]||(state.items[itemId]=typeof makeLocalItemState==="function"?makeLocalItemState(itemId):{});
-    for(const key of ['comment','commentPosition'])if(data?.[key]!==undefined)item[key]=String(data[key]);
-    for(const key of pointKeys){if(["comment","commentPosition"].includes(key))continue;if(data?.[key]!==undefined)item[key]=key==="placed"?!!data[key]:Number(data[key])}
+    mergePoint(item,data);
     applyingRemote=true;
     try{
       saveJSON(STATE,state);
-      saveCurrentTemplateState(state);
       const live=items?.find?.(entry=>entry.id===itemId);if(live)live.local=item;
-      if(data?.comment!==undefined){if(!document.querySelector(".placed.comment-editing")&&typeof renderPlaced==="function")renderPlaced()}
+      if(!active){dirtyPoints=true;return}
+      if(data.comment!==undefined){if(!document.querySelector(".placed.comment-editing")&&typeof renderPlaced==="function")renderPlaced()}
       else if(!updatePlacedPoint(itemId,item)&&typeof renderPlaced==="function")renderPlaced();
     }finally{applyingRemote=false}
   }
@@ -138,10 +162,8 @@
     if(data?.roomId&&String(data.roomId)!==String(roomId))return;
     if(action==="matrix-typing"){window.dispatchEvent(new CustomEvent("matrix-board-typing",{detail:data}));return}
     if(action==="matrix-point"){
-      if(active){
-        if(data?.templateId&&data.templateId!==window.currentTemplateId?.())window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-point-template",data}}));
-        else applyRemotePoint(data);
-      }else dirtyComments=true;
+      if(!active&&data?.comment!==undefined)dirtyComments=true;
+      else applyRemotePoint(data);
       return;
     }
     if(action==="matrix-state"){
@@ -153,7 +175,7 @@
       return;
     }
     if(String(action||"").startsWith("matrix-")){
-      if(active)window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action,data}}));else dirtyComments=true;
+      if(active||action==="matrix-template-state")window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action,data}}));else dirtyComments=true;
     }
   }
 
@@ -239,6 +261,7 @@
     const point=pointPayload(itemId,item);point.templateId=item.templateId||window.currentTemplateId?.()||'';
     const saveRoom=roomId,key=saveRoom+':'+point.templateId+':'+itemId;
     const backupKey='jijinboard:pending-point:'+boardId+':'+key;
+    let basePlacementRevision=window.templateStates?.()?.[point.templateId]?.items?.[itemId]?.placementRevision??0;
     pointRequests.set(key,point);
     // Persist the latest unsent position before any network operation.
     try{localStorage.setItem(backupKey,JSON.stringify(point))}catch{}
@@ -248,16 +271,19 @@
     const task=(async()=>{
       while(pointRequests.has(key)){
         const latest=pointRequests.get(key);
-        const body=JSON.stringify({authorId:me.id,authorName:me.plName,...latest});
+        const body=JSON.stringify({authorId:me.id,authorName:me.plName,...latest,basePlacementRevision});
         try{
-          await api(path,{method:"PATCH",body});
+          const result=await api(path,{method:"PATCH",body});
+          basePlacementRevision=result.point?.placementRevision??basePlacementRevision;
           if(pointRequests.get(key)===latest){
             pointRequests.delete(key);
             try{localStorage.removeItem(backupKey)}catch{}
+            if(roomId===saveRoom&&result.point)applyRemotePoint(result.point);
           }
         }catch(error){
-          if(pointRequests.get(key)!==latest)continue;
+          if(pointRequests.get(key)!==latest&&error.code!=='MATRIX_POINT_CONFLICT')continue;
           pointRequests.delete(key);
+          if(roomId===saveRoom&&error.point)applyRemotePoint(error.point);
           // Keep the browser recovery copy. Do not silently replay a stale edit
           // over another participant's later work.
           console.warn('MATRIX placement save failed',error);
@@ -272,6 +298,9 @@
     try{return await task}finally{
       if(pointChains.get(key)===task){
         pointChains.delete(key);
+        const deferred=deferredPoints.get(key);
+        deferredPoints.delete(key);
+        if(deferred&&roomId===saveRoom)applyRemotePoint(deferred);
         // A drag can arrive while the previous promise is settling.
         const pending=pointRequests.get(key);
         if(pending&&roomId===saveRoom)savePoint(itemId,pending).catch(console.warn);
@@ -333,7 +362,7 @@
     loadedRoom="";
     if(roomId!==previousRoom){
       disconnectRealtimeEvents();
-      dirtyState=dirtyParticipants=dirtyComments=false;
+      dirtyState=dirtyParticipants=dirtyComments=dirtyPoints=false;
       window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
     }
     if(!roomId){requestAnimationFrame(()=>requestAnimationFrame(notifyReady));return}
@@ -507,6 +536,7 @@
       else{
         connectRealtimeEvents();
         if(dirtyState)loadRoom(roomId).catch(console.warn);
+        else if(dirtyPoints){dirtyPoints=false;redrawMatrix(appState(),true)}
         else scheduleTemplateOverlaySync();
         if(dirtyParticipants){dirtyParticipants=false;window.dispatchEvent(new CustomEvent("matrix-board-participants-changed",{detail:{roomId}}))}
         if(dirtyComments){dirtyComments=false;window.dispatchEvent(new CustomEvent("matrix-board-comments-changed",{detail:{roomId,action:"matrix-change"}}))}
@@ -528,7 +558,7 @@
         loadedRoom="";
         readySent=false;
         disconnectRealtimeEvents();
-        dirtyState=dirtyParticipants=dirtyComments=false;
+        dirtyState=dirtyParticipants=dirtyComments=dirtyPoints=false;
         if(changed)window.dispatchEvent(new CustomEvent("matrix-board-room",{detail:{roomId}}));
       }
     }

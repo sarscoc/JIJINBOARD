@@ -22,7 +22,7 @@ async function openPage(t){
    const path=String(input);
    if(path==='/api/dataset')return {ok:true,json:async()=>({generation:'test'})};
    if(path.includes('/spreadsheet/state')){
-    if(options.method==='POST'){if(pauseNext){pauseNext=false;await new Promise(resolve=>{releasePost=resolve})}if(fail)return {ok:false,json:async()=>({error:'通信エラー'})};const data=JSON.parse(options.body);assert.equal(data.baseRevision,revision);revision='r'+(posts.length+1);server=structuredClone(data.state);posts.push(structuredClone(data.state));return {ok:true,json:async()=>({ok:true,revision})}}
+    if(options.method==='POST'){if(pauseNext){pauseNext=false;await new Promise(resolve=>{releasePost=resolve})}if(fail)return {ok:false,json:async()=>({error:'通信エラー'})};const data=JSON.parse(options.body);assert.equal(data.baseRevision,revision);revision='r'+(posts.length+1);server=structuredClone(data.changes?w.JijinSheetPatch.apply(server,data.changes):data.state);posts.push(structuredClone(server));return {ok:true,json:async()=>({ok:true,revision})}}
     return {ok:true,json:async()=>({state:structuredClone(server),revision})};
    }
    return {ok:true,json:async()=>({comments:[],images:[],participants:[],characters:[],people:[],tabs:[]})};

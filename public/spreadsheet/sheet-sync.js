@@ -41,7 +41,7 @@
     return out;
   }
 
-  let lastRemoteRevision=null,conflicted=false,initialFailed=false;
+  let lastRemoteRevision=null,remoteSnapshot=null,conflicted=false,initialFailed=false;
   let saving=false,resave=false,localDirty=false,savePromise=null;
   let timer=0,loading=true,readySent=false,itemCache=null,applyingRemote=false,refreshPromise=null,lastRemoteSerial='',remoteDirty=false;
   let lastCharacterIds=new Set((sanitizeSnapshot(read())['charaHub.characters']||[]).map(ch=>ch.id));
@@ -82,7 +82,10 @@
           const snapshot=currentSnapshot(),serial=JSON.stringify(snapshot);
           if(serial===lastRemoteSerial){localDirty=false;break}
           const baseRevision=lastRemoteRevision;
-          const saved=await api(endpoint,{method:'POST',body:JSON.stringify({state:snapshot,baseRevision:lastRemoteRevision})});
+          const changes=remoteSnapshot&&window.JijinSheetPatch?.diff(remoteSnapshot,snapshot);
+          const payload=changes&&changes.length<=5000&&JSON.stringify(changes).length<serial.length?{changes}:{state:snapshot};
+          const saved=await api(endpoint,{method:'POST',body:JSON.stringify({...payload,baseRevision})});
+          remoteSnapshot=snapshot;
           refreshState.patch(()=>{lastRemoteRevision=saved.revision;if(canApplyRemote()&&currentSerial()!==serial)applyRemote(snapshot)});
           lastRemoteRevision=saved.revision;
           lastRemoteSerial=serial;localDirty=currentSerial()!==serial;
@@ -134,17 +137,18 @@
         lastCharacterIds=new Set(state.characters.map(ch=>ch.id));
         try{if(typeof ensureLayoutShape==='function')ensureLayoutShape()}catch(error){console.warn(error)}
         try{if(typeof migrateCharacters==='function')migrateCharacters()}catch(error){console.warn(error)}
-        try{if(typeof setMainView==='function')setMainView();else if(typeof renderDataTable==='function')renderDataTable()}catch(error){console.warn(error)}
+        try{if(boardActive){if(typeof setMainView==='function')setMainView();else if(typeof renderDataTable==='function')renderDataTable()}}catch(error){console.warn(error)}
       }
       lastRemoteSerial=serial;
     }finally{applyingRemote=false}
     return clean;
   }
 
-  const canApplyRemote=()=>!conflicted&&!loading&&boardActive&&!localDirty&&!saving&&!timer&&!window.sheetDisplaySettings?.isEditing?.();
+  const canApplyRemote=()=>!conflicted&&!loading&&!localDirty&&!saving&&!timer&&!window.sheetDisplaySettings?.isEditing?.();
   const refreshState=JijinSync.loader(()=>api(endpoint,{cache:'no-store'}),result=>{
     if(!canApplyRemote())return;
     lastRemoteRevision=result.revision??null;
+    remoteSnapshot=result.state;
     rememberRemoteView(result.state);
     const clean=sanitizeSnapshot(result.state||{}),serial=JSON.stringify(clean);
     if(serial!==lastRemoteSerial&&serial!==currentSerial())applyRemote(clean);else lastRemoteSerial=serial;
@@ -170,7 +174,7 @@
   const fullCharacterRoot=document.getElementById('fullCharacterMode');
   const fitCharacterFields=()=>{if(!characterFitNeeded()||characterFitRaf)return;characterFitRaf=requestAnimationFrame(()=>{characterFitRaf=0;if(!characterFitNeeded())return;document.querySelectorAll('#fullCharacterMode .character-sheet-edit,.connected-character-page .character-sheet-edit,.character-popup .character-sheet-edit').forEach(fitCharacterField)})};
   function syncFitObserver(){if(characterFitObserver){characterFitObserver.disconnect();characterFitObserver=null}if(!characterFitNeeded()||!fullCharacterRoot||!window.MutationObserver)return;characterFitObserver=new MutationObserver(fitCharacterFields);characterFitObserver.observe(fullCharacterRoot,{childList:true,subtree:true})}
-  function setBoardActive(next){boardActive=!!next;if(!boardActive){if(characterFitRaf){cancelAnimationFrame(characterFitRaf);characterFitRaf=0}syncFitObserver();return}syncFitObserver();fitCharacterFields();if(remoteDirty)refreshRemote()}
+  function setBoardActive(next){boardActive=!!next;if(!boardActive){if(characterFitRaf){cancelAnimationFrame(characterFitRaf);characterFitRaf=0}syncFitObserver();return}syncFitObserver();fitCharacterFields();if(remoteDirty)refreshRemote();else if(!loading&&typeof setMainView==='function')setMainView()}
   document.addEventListener('input',event=>{if(boardActive&&event.target?.matches?.('.character-sheet-edit'))fitCharacterField(event.target)},true);
   document.addEventListener('click',event=>{if(event.target?.closest?.('#mainCharacterModeBtn,#mainDatabaseModeBtn'))setTimeout(()=>{syncFitObserver();fitCharacterFields()},0)},true);
   window.addEventListener('resize',()=>{if(characterFitNeeded())fitCharacterFields()},{passive:true});
@@ -179,15 +183,24 @@
     if(event.detail?.action!=='spreadsheet-state')return;
     const saved=event.detail.data;
     if(saved?.revision===lastRemoteRevision)return;
-    if(boardActive&&!loading&&!conflicted&&!localDirty&&!saving&&!timer&&!window.sheetDisplaySettings?.isEditing?.()&&saved?.state&&saved.baseRevision===lastRemoteRevision){
-      refreshState.patch(()=>{if(canApplyRemote()){lastRemoteRevision=saved.revision;applyRemote(saved.state);remoteDirty=false}});return;
+    if(canApplyRemote()&&saved?.baseRevision===lastRemoteRevision&&(saved.state||saved.changes)){
+      refreshState.patch(()=>{
+        if(!canApplyRemote()||saved.baseRevision!==lastRemoteRevision)return;
+        try{
+          const snapshot=saved.state||window.JijinSheetPatch.apply(remoteSnapshot,saved.changes);
+          applyRemote(snapshot);
+          remoteSnapshot=snapshot;
+          lastRemoteRevision=saved.revision;
+          remoteDirty=false;
+        }catch{remoteDirty=true;if(boardActive)queueMicrotask(refreshRemote)}
+      });
+      return;
     }
     remoteDirty=true;if(boardActive)refreshRemote();
   });
 
   const catchUp=()=>{if(initialFailed&&boardActive){initialFailed=false;conflicted=false;loading=true;initialRemoteSync(api(endpoint,{cache:'no-store'}));return}remoteDirty=true;if(boardActive)refreshRemote()};
-  window.addEventListener('online',catchUp);window.addEventListener('pageshow',catchUp);
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)catchUp()});
+  window.addEventListener('online',()=>{if(initialFailed)catchUp()});
   window.addEventListener('jijinboard-spreadsheet-reconnected',catchUp);
 
   function notifyReady(){if(readySent)return;readySent=true;requestAnimationFrame(()=>requestAnimationFrame(()=>{try{parent.postMessage({type:'jijinboard-spreadsheet-ready'},location.origin)}catch{}}))}
@@ -200,7 +213,7 @@
     let remote=null;
     try{
       const result=await pending;
-      remote=result.state;rememberRemoteView(remote);lastRemoteRevision=result.revision??null;
+      remote=result.state;remoteSnapshot=remote;rememberRemoteView(remote);lastRemoteRevision=result.revision??null;
       if(remote!==null&&(typeof remote!=='object'||Array.isArray(remote)))throw Error('保存データを読み込めませんでした');
       const cleanRemote=sanitizeSnapshot(remote||{});
       // Server absence and empty snapshots both discard cached data. Never migrate it back.

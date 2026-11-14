@@ -20,3 +20,11 @@ test('a completed log upload invalidates its parent board without a second write
  await notifyResource(request,Response.json({id:'new-log',roomId:'parent-board'},{status:201}),env);
  assert.deepEqual(events,[['parent-board','board-meta']]);
 });
+
+test('a sheet patch broadcasts only edited fields and its committed revision',async()=>{
+ const events=[],env={ROOMS:{idFromName:x=>x,get:()=>({fetch:async(url,init)=>events.push(JSON.parse(init.body))})}};
+ const changes=[{path:['charaHub.layoutV1','title'],value:'new'}];
+ const request=new Request('https://test/api/boards/b/spreadsheet/state',{method:'POST',body:JSON.stringify({changes,baseRevision:'before'})});
+ await notifyResource(request,Response.json({revision:'after'}),env,null,request.clone());
+ assert.deepEqual(events[0].data,{changes,baseRevision:'before',revision:'after'});
+});

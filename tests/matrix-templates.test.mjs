@@ -140,3 +140,21 @@ test('the alternate template view survives reloads and legacy metadata saves',as
   const single=await (await f.call('GET')).json();
   assert.equal(single.record.alternate,true);
 });
+
+test('concurrent placement saves conflict without erasing the winning coordinates',async()=>{
+ const {handleMatrixPoint}=await import('../src/matrix-point.js');
+ const f=fixture();await f.save(null,'original');
+ const env={DB:{prepare(sql){let args=[];return {bind(...values){args=values;return this},async first(){return f.sqlite.prepare(sql).get(...args)||null},async run(){return {meta:f.sqlite.prepare(sql).run(...args)}}}}}};
+ const call=(x,basePlacementRevision)=>handleMatrixPoint(new Request('https://test/api',{method:'PATCH',body:JSON.stringify({
+   authorId:'pl',authorName:'PL',templateId:'tpl',placed:true,x,y:0,templateX:null,templateY:null,scaleBaseWidth:null,coordVersion:0,basePlacementRevision
+ })}),env,'board','log','pc');
+ const responses=await Promise.all([call(22,0),call(45,0)]);
+ assert.deepEqual(responses.map(r=>r.status).sort(),[200,409]);
+ const winning=(await responses.find(r=>r.ok).json()).point;
+ const rejected=await responses.find(r=>!r.ok).json();
+ assert.equal(winning.placementRevision,1);
+ assert.deepEqual(rejected.point,winning);
+ assert.equal((await f.list())[0].templateState.items.pc.placementRevision,1);
+ assert.equal((await call(77,1)).status,200);
+ assert.equal((await f.list())[0].templateState.items.pc.x,77);
+});

@@ -5,14 +5,14 @@
   const $=selector=>document.querySelector(selector);
   const imageUrl=()=>`/api/boards/${encodeURIComponent(boardId)}/home-image`;
 
-  window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='board-home')showImage(imageUrl()+'?rev='+Date.now())});
-  window.addEventListener('jijinboard-reconnected',()=>showImage(imageUrl()+'?rev='+Date.now()));
-  function showImage(src){
+  window.addEventListener('jijinboard-resource-change',event=>{if(event.detail?.action==='board-home')showImage(imageUrl()+'?rev='+Date.now(),{verify:true,version:event.detail.data?.version})});
+  window.addEventListener('jijinboard-reconnected',()=>showImage(imageUrl()+'?rev='+Date.now(),{verify:true}));
+  function showImage(src,options){
     const image=$("#boardHomeImage"),empty=$("#boardHomeEmpty"),label=$("#boardHomeUploadLabel");if(!image||!empty)return;
     image.loading="eager";image.fetchPriority="high";image.decoding="async";
     image.onload=()=>{image.classList.remove("hidden");empty.classList.add("hidden");if(label)label.textContent="スクショを変更"};
     image.onerror=()=>{image.classList.add("hidden");empty.classList.remove("hidden");if(label)label.textContent="スクショを設定"};
-    if(window.JijinHomeImage){window.JijinHomeImage.show(image);return}
+    if(window.JijinHomeImage){window.JijinHomeImage.show(image,options);return}
     if(image.getAttribute("src")!==src)image.src=src;
     if(image.complete&&image.naturalWidth)image.onload();
   }
@@ -31,7 +31,7 @@
       if(label)label.textContent="保存中…";if(input)input.disabled=true;
       const blob=await resizeScreenshot(file),response=await fetch(`/api/boards/${encodeURIComponent(boardId)}/home-image`,{method:"POST",headers:{"content-type":blob.type||"image/webp"},body:blob}),body=await response.json().catch(()=>({}));
       if(!response.ok)throw new Error(body.error||`通信エラー (${response.status})`);
-      if(window.JijinHomeImage)await window.JijinHomeImage.remember(blob,$("#boardHomeImage"));
+      if(window.JijinHomeImage)await window.JijinHomeImage.remember(blob,$("#boardHomeImage"),body.version);
       else showImage(imageUrl()+"?v="+Date.now());
     }catch(error){alert(error.message);if(label)label.textContent=old}finally{if(input){input.disabled=false;input.value=""}}
   }

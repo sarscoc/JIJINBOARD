@@ -7,25 +7,54 @@ const tick=async()=>{for(let i=0;i<12;i++)await new Promise(setImmediate)};
 function fixture(options={}){
   let state={items:{},display:{}},socket;const listeners=new Map(),events=[],requests=[];
   const saved={items:{pc:{placed:true,x:73,y:21}},display:{color:'template-color'}};
+  let stored={tpl:saved};
   class Socket{static OPEN=1;static CONNECTING=0;readyState=0;listeners=new Map();constructor(){socket=this}addEventListener(n,f){this.listeners.set(n,f)}close(){}send(){}}
   const context={URL,crypto,console,AbortController,queueMicrotask,CustomEvent,dispatchEvent:event=>events.push(event),WebSocket:Socket,location:{href:options.url||'https://test/matrix/?board=board&room=log',origin:'https://test',protocol:'https:',host:'test'},
     localStorage:{getItem:()=>options.profile?JSON.stringify(options.profile):null},fetch:async(path,init={})=>{requests.push({path,...init});if(options.fetch){const response=await options.fetch(path,init);if(response)return response}return {ok:true,json:async()=>({state:{items:{},display:{color:'room-default'}}})}},
     parent:{postMessage(){}},requestIdleCallback(){},requestAnimationFrame:fn=>fn(),setTimeout,clearTimeout,
     document:{querySelector:()=>null,querySelectorAll:()=>[],addEventListener(){}},addEventListener:(name,fn)=>listeners.set(name,fn),
-    mutate:fn=>fn(state),appState:()=>state,saveState:s=>{state=s},saveJSON:(key,s)=>{state=s},saveCurrentTemplateState:s=>Object.assign(saved,structuredClone(s)),STATE:'state',items:[],
-    currentTemplateId:()=> 'tpl',templateStates:()=>({tpl:saved}),matrixTemplateSync:{isHydrated:()=>options.hydrated!==false},
+    mutate:fn=>fn(state),appState:()=>state,saveState:s=>{state=s},saveJSON:(key,s)=>{state=s},saveCurrentTemplateState:s=>Object.assign(stored.tpl,structuredClone(s)),STATE:'state',items:[],
+    currentTemplateId:()=> 'tpl',templateStates:()=>structuredClone(stored),setTemplateStates:states=>{stored=structuredClone(states)},matrixTemplateSync:{isHydrated:()=>options.hydrated!==false},
     scheduleTemplateOverlaySync(){},renderLibrary(){},renderPlaced(){},restoreDisplay(){},restorePaneWidth(){},makeLocalItemState:()=>({})
   };
   context.window=context;vm.runInNewContext(source,context);
-  return {context,events,requests,setActive(active){listeners.get("message")({origin:"https://test",data:{type:"jijinboard-matrix-active",active}})},state:()=>state,saved,refreshPoint(point){socket.listeners.get('message')({data:JSON.stringify({type:'refresh',action:'matrix-point',data:point})})}};
+  return {context,events,requests,setActive(active){listeners.get("message")({origin:"https://test",data:{type:"jijinboard-matrix-active",active}})},state:()=>state,get saved(){return stored.tpl},stored:()=>stored,refreshPoint(point){socket.listeners.get('message')({data:JSON.stringify({type:'refresh',action:'matrix-point',data:point})})}};
 }
 
 test('room refresh keeps the active template display and placement',async()=>{
   const f=fixture();await tick();assert.equal(f.state().display.color,'template-color');assert.equal(f.state().items.pc.x,73);
 });
 
-test('point updates for another template cannot change the current template',async()=>{
-  const f=fixture();await tick();f.refreshPoint({templateId:'other',itemId:'pc',placed:true,x:1});assert.equal(f.state().items.pc.x,73);
+test('another template receives placements and removals locally without a GET',async()=>{
+  const f=fixture();await tick();const before=f.requests.length;
+  f.refreshPoint({templateId:'other',itemId:'pc',placed:true,x:1});
+  assert.equal(f.state().items.pc.x,73);
+  assert.equal(f.stored().other.items.pc.x,1);
+  f.refreshPoint({templateId:'other',itemId:'pc',placed:false});
+  assert.equal(f.stored().other.items.pc.placed,false);
+  assert.equal(f.stored().other.items.pc.x,1);
+  assert.equal(f.requests.length,before);
+});
+
+test('hidden MATRIX persists position updates without a refresh on return',async()=>{
+  const f=fixture();await tick();f.setActive(false);const before=f.requests.length;
+  f.refreshPoint({templateId:'tpl',itemId:'pc',placed:false,x:9});
+  assert.equal(f.saved.items.pc.placed,false);
+  assert.equal(f.saved.items.pc.x,9);
+  f.setActive(true);await tick();
+  assert.equal(f.state().items.pc.placed,false);
+  assert.equal(f.requests.length,before);
+  assert.equal(f.events.filter(e=>e.type==='matrix-board-comments-changed').length,0);
+});
+
+test('a successful placement persists the canonical save response without a GET',async()=>{
+  const f=fixture({profile:{id:'pl',plName:'PL'},fetch:async(path,init)=>{
+    if(init.method==='PATCH')return {ok:true,json:async()=>({point:{templateId:'tpl',itemId:'pc',placed:true,x:13,y:25}})};
+  }});await tick();const before=f.requests.length;
+  await f.context.matrixBoardContext.savePoint('pc',{placed:true,x:12,y:25});
+  assert.equal(f.saved.items.pc.x,13);
+  assert.equal(f.state().items.pc.x,13);
+  assert.deepEqual(f.requests.slice(before).map(r=>r.method),['PATCH']);
 });
 
 test('remote token comments are applied to live and saved state',async()=>{

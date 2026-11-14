@@ -12,7 +12,7 @@
   let editSeq=0;
   const acknowledged=new Map(),latestEdits=new Map();
   function editable(record,state){
-    const pointFields=new Set(['placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment','commentPosition','zOrder']);
+    const pointFields=new Set(['placementRevision','placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment','commentPosition','zOrder','placementRevision']);
     const items={};
     for(const [id,item] of Object.entries(state?.items||{}))items[id]=Object.fromEntries(Object.entries(item||{}).filter(([key])=>!pointFields.has(key)));
     return {record:{name:record?.name||'',dataUrl:record?.dataUrl||'',imageName:record?.imageName||'',alternate:record?.alternate===true},state:{...state,savedAt:undefined,items}};
@@ -107,7 +107,17 @@
     img.src=url.pathname+url.search;
   },true);
   const rawSet=window.tplSetRecord;
-  window.matrixTemplateSync={isHydrated:()=>hydrated&&hydratedLogId===currentLogId(),isApplyingRemote:()=>applying};
+  const hydratingPoints=new Map();
+  window.matrixTemplateSync={
+    isHydrated:()=>hydrated&&hydratedLogId===currentLogId(),
+    isApplyingRemote:()=>applying,
+    rememberPointDuringHydration(templateId,itemId,data){
+      if(hydratingLogId!==currentLogId())return;
+      if(!hydratingPoints.has(templateId))hydratingPoints.set(templateId,new Map());
+      const points=hydratingPoints.get(templateId);
+      points.set(itemId,{...points.get(itemId),...data});
+    }
+  };
 
   // Rebase only disjoint edits, then submit against the revision just read.
   // Overlapping changes still stop; never retry a whole stale snapshot blindly.
@@ -138,56 +148,63 @@
     return true;
   }
 
-  // An off-screen point changed: refresh only its template, not every point
-  // in the board. Do not overwrite local edits awaiting acknowledgement.
-  const pendingPointTemplates=new Set();
-  let pointRefreshTask=null;
-  async function refreshChangedTemplate(templateId){
-    const logId=currentLogId(),id=String(templateId||"");
-    if(!id||!hydrated||hydratedLogId!==logId)return;
-    if(saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){
-      rehydrateQueued=true;return;
-    }
-    const remote=await api(endpoint(logId,id),{cache:"no-store"});
-    if(logId!==currentLogId()||!remote?.record||isDeleted(id))return;
-    if(hydratePromise||saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){
-      rehydrateQueued=true;return;
-    }
-    const states=window.templateStates()||{};
-    const records=await window.tplAllRecords();
-    if(!records.some(record=>String(record.id)===id)){
-      // A newly added template needs the regular reconciliation path.
-      rehydrateQueued=true;refreshWhenIdle();return;
-    }
-    applying=true;
+  const changedTemplates=new Set();
+  let refreshingTemplates=false;
+  async function refreshChangedTemplates(){
+    if(refreshingTemplates||!hydrated||hydratedLogId!==currentLogId()||hydratePromise||saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing"))return;
+    refreshingTemplates=true;
     try{
-      const state=clone(states);
-      state[id]=remote.templateState||{};
-      window.setTemplateStates(state);
-      revisions.set(id,remote.record.revision??null);
-      acknowledged.set(id,editable(remote.record,remote.templateState||{}));
-      await rawSet(id,remote.record);
-    }finally{applying=false}
-  }
-  function queuePointTemplateRefresh(templateId){
-    if(!templateId)return;
-    pendingPointTemplates.add(String(templateId));
-    if(pointRefreshTask)return;
-    pointRefreshTask=Promise.resolve().then(async()=>{
-      while(pendingPointTemplates.size){
-        const ids=[...pendingPointTemplates];pendingPointTemplates.clear();
-        for(const id of ids){
-          try{await refreshChangedTemplate(id)}catch(error){
-            console.warn("MATRIX targeted template refresh failed",error);
-            rehydrateQueued=true;
-          }
+      while(changedTemplates.size){
+        const id=changedTemplates.values().next().value,logId=currentLogId();
+        changedTemplates.delete(id);
+        const remote=await api(endpoint(logId,id),{cache:"no-store"}).catch(error=>{
+          if(error.status===404)return null;
+          throw error;
+        });
+        if(logId!==currentLogId())return;
+        if(saveTimers.size||pendingSaves.size||savingIds.size||hydratePromise||document.querySelector?.(".placed.comment-editing")){
+          changedTemplates.add(id);
+          return;
         }
+        applying=true;
+        try{
+          const states=window.templateStates()||{};
+          if(remote?.record){
+            await rawSet(id,remote.record);
+            if(logId!==currentLogId())return;
+            const current=window.templateStates()||{};
+            const snapshot=remote.templateState||{};
+            for(const [pointId,item] of Object.entries(current[id]?.items||{})){
+              const incoming=snapshot.items?.[pointId];
+              if((item.placementRevision??0)<=(incoming?.placementRevision??0))continue;
+              snapshot.items||={};
+              const next=snapshot.items[pointId]||={};
+              for(const key of ['placementRevision','placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth'])next[key]=item[key];
+            }
+            states[id]=snapshot;
+            revisions.set(id,remote.record.revision??null);
+            acknowledged.set(id,editable(remote.record,snapshot));
+          }else{
+            await window.tplDeleteRecord?.(id);
+            if(logId!==currentLogId())return;
+            delete states[id];
+            revisions.delete(id);
+            acknowledged.delete(id);
+          }
+          const current=window.templateStates()||{};
+          if(Object.hasOwn(states,id))current[id]=states[id];else delete current[id];
+          window.setTemplateStates(current);
+          if(id===window.currentTemplateId?.())await window.restoreTemplate?.();
+          else await window.renderTemplateTabs?.();
+        }finally{applying=false}
       }
-    }).finally(()=>{pointRefreshTask=null;refreshWhenIdle()});
+    }catch(error){console.warn("MATRIX template refresh failed",error);rehydrateQueued=true}
+    finally{refreshingTemplates=false;if(rehydrateQueued)refreshWhenIdle()}
   }
 
   function refreshWhenIdle(){
-    if(!rehydrateQueued||saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing"))return;
+    if(!rehydrateQueued){if(changedTemplates.size)refreshChangedTemplates();return}
+    if(saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing"))return;
     rehydrateQueued=false;
     hydrate(currentLogId(),true).catch(()=>{});
   }
@@ -287,6 +304,19 @@
         if(!previous||JSON.stringify({...previous,boardId:undefined})!==JSON.stringify({...rec,boardId:undefined}))await rawSet(rec.id,rec);
         states[rec.id]=item?.templateState&&typeof item.templateState==="object"?item.templateState:{};
       }));
+      for(const [templateId,points] of hydratingPoints){
+        const state=states[templateId];
+        if(!state)continue;
+        state.items||={};
+        const localItems=window.templateStates()?.[templateId]?.items;
+        for(const [itemId,patch] of points){
+          const item=state.items[itemId]||={};
+          for(const key of ['placementRevision','placed','x','y','templateX','templateY','coordVersion','scaleBaseWidth','comment','commentPosition']){
+            if(Object.hasOwn(patch,key)&&localItems?.[itemId])item[key]=localItems[itemId][key];
+          }
+        }
+      }
+      hydratingPoints.clear();
       window.setTemplateStates(states);
       const current=String(window.currentTemplateId?.()||""),keptIds=remoteIds;
       if(current&&!keptIds.has(current)){try{localStorage.removeItem("magiaMatrix.currentTemplate.v1")}catch{}}
@@ -299,7 +329,7 @@
     if(saveTimers.size||pendingSaves.size||savingIds.size||document.querySelector?.(".placed.comment-editing")){rehydrateQueued=true;return false}
     if(!force&&hydrated&&hydratedLogId===target&&!hydratePromise)return true;
     if(hydratePromise){rehydrateQueued=true;if(target!==hydratingLogId)hydrateSeq++;return hydratePromise}
-    const seq=++hydrateSeq;hydratingLogId=target;
+    const seq=++hydrateSeq;hydratingLogId=target;hydratingPoints.clear();
     const task=(async()=>{
       try{
         const result=await api(endpoint(target,""),{cache:"reload"});
@@ -326,6 +356,7 @@
     hydratePromise=task;
     try{return await task}finally{
       if(hydratePromise===task){hydratePromise=null;hydratingLogId=""}
+      if(changedTemplates.size&&!rehydrateQueued)refreshWhenIdle();
       if(rehydrateQueued&&!saveTimers.size&&!pendingSaves.size&&!savingIds.size){rehydrateQueued=false;const next=currentLogId();if(next)queueMicrotask(()=>hydrate(next,true).catch(()=>{}))}
     }
   }
@@ -362,7 +393,7 @@
 
   window.addEventListener("matrix-board-room",event=>{
     const next=String(event.detail?.roomId||"");if(!next)return;
-    lastLogId=next;
+    lastLogId=next;changedTemplates.clear();
     if(hydratedLogId!==next){hydrated=false;hydratedLogId=""}
     hydrate(next).catch(()=>{});
   });
@@ -374,9 +405,11 @@
   });
 
   window.addEventListener("matrix-board-comments-changed",event=>{
-    if(event.detail?.action==="matrix-point-template"&&event.detail?.data?.templateId){
-      queuePointTemplateRefresh(event.detail.data.templateId);
-    }else if(["matrix-template-state","matrix-change"].includes(event.detail?.action)){rehydrateQueued=true;refreshWhenIdle()}
+    const detail=event.detail;
+    if(detail?.action==="matrix-template-state"&&detail.data?.templateId){
+      changedTemplates.add(detail.data.templateId);
+      refreshWhenIdle();
+    }else if(["matrix-template-state","matrix-change"].includes(detail?.action)){rehydrateQueued=true;refreshWhenIdle()}
   });
 
   window.addEventListener("matrix-editor-finished",refreshWhenIdle);

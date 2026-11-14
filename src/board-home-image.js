@@ -25,8 +25,8 @@ export async function handleBoardHomeImage(request,env,roomId){
     const bytes=await request.arrayBuffer();
     if(!bytes.byteLength)return json({error:"画像が空です"},400);
     if(bytes.byteLength>6_000_000)return json({error:"トップ画像が大きすぎます（6MBまで）"},413);
-    await env.LOGS.put(imageKey(roomId),bytes,{httpMetadata:{contentType,cacheControl:"private, no-cache"},customMetadata:{roomId}});
-    return json({ok:true});
+    const saved=await env.LOGS.put(imageKey(roomId),bytes,{httpMetadata:{contentType,cacheControl:"private, no-cache"},customMetadata:{roomId}});
+    return json({ok:true,version:saved?.httpEtag||''});
   }
 
   return new Response("Method not allowed",{status:405,headers:{allow:"GET, HEAD, POST"}});
