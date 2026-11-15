@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261115-notice-jump/);
+  assert.match(html,/app\.js\?v=20261115-phone-tab/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
@@ -103,4 +103,19 @@ test('a phone notification succeeds when its marker is shown and the comment car
   assert.equal(await context.window.jijinOpenActivity(row),true);
   context.jumpToMessage=async()=>false;
   assert.equal(await context.window.jijinOpenActivity(row),'not-found');
+});
+
+test('phone tab changes render the destination directly',()=>{
+  const start=source.indexOf('function showPhoneLogTab(');
+  const end=source.indexOf('function switchLogPage(',start);
+  const state={activeTabIndex:0};
+  const rendered=[];
+  const context={state,document:{documentElement:{dataset:{mobileWorkspace:'log'}}},
+    matchMedia:()=>({matches:true}),renderLog:time=>rendered.push([state.activeTabIndex,time])};
+  vm.runInNewContext(source.slice(start,end),context);
+  assert.equal(context.showPhoneLogTab(2,'12:30'),true);
+  assert.deepEqual(rendered,[[2,'12:30']]);
+  context.matchMedia=()=>({matches:false});
+  assert.equal(context.showPhoneLogTab(1,'12:31'),false);
+  assert.equal(state.activeTabIndex,2);
 });

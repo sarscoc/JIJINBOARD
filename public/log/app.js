@@ -410,20 +410,28 @@ function currentReadingTime() {
   rows.forEach(row => { const d = Math.abs(row.getBoundingClientRect().top - targetY); if (d < distance) { distance = d; best = row; } });
   return state.viewMode==="timeline"&&best?.dataset.slotIndex!=null?`@slot:${best.dataset.slotIndex}|${encodeURIComponent(best.dataset.time||"")}`:best?.dataset.time||"";
 }
+function showPhoneLogTab(index,time){
+  if(document.documentElement.dataset.mobileWorkspace!=="log"||!matchMedia("(max-width:760px)").matches)return false;
+  state.activeTabIndex=index;
+  renderLog(time);
+  return true;
+}
 function switchLogPage(direction) {
   const entries=visibleTabEntries();if (!entries.length) return;
   if (state.isSliding) { state.slideQueue = direction < 0 ? -1 : 1; return; }
   state.isSliding = true;
   const time = state.readingAnchor||currentReadingTime(), n = entries.length;state.readingAnchor=time;state.syncingScrollUntil=Date.now()+650;let visibleIndex=entries.findIndex(item=>item.index===state.activeTabIndex);if(visibleIndex<0)visibleIndex=0;
+  visibleIndex=(visibleIndex+direction+n)%n;
+  if(showPhoneLogTab(entries[visibleIndex].index,time))return;
   state.carouselPosition += direction;
-  visibleIndex=(visibleIndex+direction+n)%n;state.activeTabIndex=entries[visibleIndex].index;
+  state.activeTabIndex=entries[visibleIndex].index;
   const target = hydratePanel(state.carouselPosition);
   syncPanelToTime(target, time);
   if(state.carouselPosition===0)syncPanelToTime(document.querySelector(`.log-page[data-track-index="${n}"]`),time);
   if(state.carouselPosition===n+1)syncPanelToTime(document.querySelector(`.log-page[data-track-index="1"]`),time);
   updateCarouselNav(); setTrackPosition(state.carouselPosition, true);setTimeout(revealInlineSuggestions,80);setTimeout(renderVisibleGlimpses,560);
 }
-function goToTab(index){const tab=state.room?.tabs?.[index],entries=visibleTabEntries();if(!tab||state.hiddenTabs.has(tab)||index===state.activeTabIndex)return;const position=entries.findIndex(item=>item.index===index);if(position<0)return;const time=state.readingAnchor||currentReadingTime();state.readingAnchor=time;state.syncingScrollUntil=Date.now()+650;state.isSliding=true;state.slideQueue=0;state.activeTabIndex=index;state.carouselPosition=position+1;syncPanelToTime(hydratePanel(state.carouselPosition),time);hydrateNearbyPanels();updateCarouselNav();setTrackPosition(state.carouselPosition,true);setTimeout(revealInlineSuggestions,80);setTimeout(renderVisibleGlimpses,560)}
+function goToTab(index){const tab=state.room?.tabs?.[index],entries=visibleTabEntries();if(!tab||state.hiddenTabs.has(tab)||index===state.activeTabIndex)return;const position=entries.findIndex(item=>item.index===index);if(position<0)return;const time=state.readingAnchor||currentReadingTime();state.readingAnchor=time;state.syncingScrollUntil=Date.now()+650;if(showPhoneLogTab(index,time))return;state.isSliding=true;state.slideQueue=0;state.activeTabIndex=index;state.carouselPosition=position+1;syncPanelToTime(hydratePanel(state.carouselPosition),time);hydrateNearbyPanels();updateCarouselNav();setTrackPosition(state.carouselPosition,true);setTimeout(revealInlineSuggestions,80);setTimeout(renderVisibleGlimpses,560)}
 function toggleTabVisibility(index){const tab=state.room?.tabs?.[index];if(!tab)return;if(state.hiddenTabs.has(tab)){state.hiddenTabs.delete(tab)}else{if(visibleTabEntries().length<=1)return;state.hiddenTabs.add(tab)}localStorage.setItem(`hiddenTabs:${state.roomId}`,JSON.stringify([...state.hiddenTabs]));if(state.hiddenTabs.has(activeTabName()))state.activeTabIndex=visibleTabEntries()[0].index;renderLog(currentReadingTime())}
 function renderComments() {
   const commentsScroll=$("#commentsList").scrollTop;
