@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261115-phone-marker/);
+  assert.match(html,/app\.js\?v=20261115-comment-media/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
@@ -133,4 +133,15 @@ test('phone marker jump centers the marker in its log pane without a second scro
   context.pulseLogMarker(element,'comment');
   assert.deepEqual(calls,[{top:460,behavior:'instant'}]);
   assert.equal(context.state.activeMarkerId,'comment');
+});
+
+test('LOG comment URL rendering distinguishes images and video on CDN hosts',()=>{
+  const start=source.indexOf('function isImageUrl(');
+  const end=source.indexOf('state.archiveMode=',start);
+  const context={URL,state:{archiveImages:{}},esc:value=>value,JijinLogFormat:{render:value=>value}};
+  vm.runInNewContext(source.slice(start,end),context);
+  assert.match(context.commentBodyHtml('https://files.catbox.moe/example.webp'),/<img /);
+  assert.match(context.commentBodyHtml('https://files.catbox.moe/example.mp4'),/<video /);
+  assert.match(context.commentBodyHtml('https://youtu.be/abcdefghijk'),/youtube-nocookie\.com\/embed\/abcdefghijk/);
+  assert.doesNotMatch(context.commentBodyHtml('https://example.test/?next=youtu.be/abcdefghijk'),/<iframe /);
 });

@@ -4,8 +4,39 @@ const uid = () => crypto.randomUUID ? crypto.randomUUID() : Math.random().toStri
 const integrationParams=new URL(location.href).searchParams,integrationBoardId=integrationParams.get("board")||"",integrationEmbedded=integrationParams.get("embedded")==="1";
 state.realtimeClientId=uid();
 const esc = value => String(value ?? "").replace(/[&<>\"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-function isImageUrl(url){return /\.(?:png|jpe?g|gif|webp|avif)(?:[?#]|$)/i.test(url)||/[?&]format=(?:png|jpe?g|gif|webp|avif)(?:&|$)/i.test(url)||/(?:i\.imgur\.com|cdn\.discordapp\.com|media\.discordapp\.net|pbs\.twimg\.com|files\.catbox\.moe|oaiusercontent\.com)/i.test(url)}
-function commentBodyHtml(value){const urlPattern=/(https:\/\/[^\s<>"']+)/g;return String(value||"").replace(/\r\n?/g,"\n").replace(/\n[ \t]*\n(?:[ \t]*\n)+/g,"\n\n").split(urlPattern).map(part=>{if(!/^https:\/\//.test(part))return JijinLogFormat.render(part);const safe=esc(part),embedded=state.archiveImages?.[part];return isImageUrl(part)?`<img class="comment-image url-image" data-expand-image src="${esc(embedded||part)}" alt="引用画像" loading="lazy" referrerpolicy="no-referrer">`:`<a class="comment-link" href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`}).join("")}
+function isImageUrl(value){
+  let url;try{url=new URL(value)}catch{return false}
+  return /\.(?:png|jpe?g|gif|webp|avif|svg|bmp)$/i.test(url.pathname)||
+    /^(?:png|jpe?g|gif|webp|avif)$/i.test(url.searchParams.get('format')||'')||
+    ['i.imgur.com','cdn.discordapp.com','media.discordapp.net','pbs.twimg.com','files.catbox.moe'].includes(url.hostname)||
+    url.hostname.endsWith('.oaiusercontent.com');
+}
+function commentBodyHtml(value){
+  const urlPattern=/(https:\/\/[^\s<>"'「」『』。、]+)/g;
+  return String(value||"").replace(/\r\n?/g,"\n").replace(/\n[ \t]*\n(?:[ \t]*\n)+/g,"\n\n").split(urlPattern).map(part=>{
+    if(!part.startsWith("https://"))return JijinLogFormat.render(part);
+    let url;
+    try{url=new URL(part)}catch{return JijinLogFormat.render(part)}
+    const safe=esc(part),link=`<a class="comment-link" href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`;
+    if(/\.(?:mp4|webm|ogv|ogg|mov)$/i.test(url.pathname)){
+      return `<video class="comment-video" src="${safe}" preload="none" controls playsinline></video>${link}`;
+    }
+    const host=url.hostname.replace(/^www\./,'');
+    let videoId='';
+    if(host==='youtu.be')videoId=url.pathname.split('/')[1]||'';
+    if(['youtube.com','m.youtube.com','music.youtube.com'].includes(host)){
+      videoId=url.pathname==='/watch'?url.searchParams.get('v')||'':url.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)/)?.[1]||'';
+    }
+    if(/^[A-Za-z0-9_-]{11}$/.test(videoId)){
+      return `<iframe class="comment-video" src="https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1" title="YouTube 動画" loading="lazy" allowfullscreen></iframe>${link}`;
+    }
+    if(isImageUrl(part)){
+      const image=esc(state.archiveImages?.[part]||part);
+      return `<img class="comment-image url-image" data-expand-image src="${image}" alt="引用画像" loading="lazy" referrerpolicy="no-referrer">${link}`;
+    }
+    return link;
+  }).join("");
+}
 state.archiveMode=false;state.deleteTarget=null;state.archiveImages={};
 const safeFilename=value=>(String(value||"TRPGログ").replace(/[\\/:*?"<>|]/g,"_").trim()||"TRPGログ").slice(0,80);
 function archiveData(room,annotations,personas=[]){return{format:"trpg-log-marker",version:2,exportedAt:new Date().toISOString(),theme:document.documentElement.classList.contains("dark")?"dark":"light",room:{title:room.title||"TRPG LOG",createdAt:room.createdAt||"",tabs:room.tabs||[],messages:room.messages||[]},annotations:(annotations||[]).map(({liked_by_me,...item})=>item),personas}}
@@ -632,7 +663,7 @@ for(const ev of ["dragenter","dragover"]){$("#dropzone").addEventListener(ev,e=>
 for(const ev of ["dragleave","drop"]){$("#dropzone").addEventListener(ev,e=>{e.preventDefault();e.currentTarget.classList.remove("drag")})}
 $("#dropzone").addEventListener("drop",e=>e.dataTransfer.files[0]&&handleFile(e.dataTransfer.files[0]));
 $("#createRoomBtn").onclick=createRoom; $("#profileBtn").onclick=openProfile; $("#commentForm").onsubmit=postComment;
-document.addEventListener("click",e=>{if(e.target.matches("[data-close]"))e.target.closest("dialog").close();const image=e.target.closest("[data-expand-image]");if(image){e.stopPropagation();$("#expandedCommentImage").src=image.src;$("#imageDialog").showModal();return}const like=e.target.closest("[data-like-comment]");if(like){e.stopPropagation();toggleLike(like.dataset.likeComment,like);return}const edit=e.target.closest("[data-edit-comment]");if(edit){e.stopPropagation();const annotation=state.annotations.find(item=>item.id===edit.dataset.editComment);openEditDialog(annotation,edit.closest(".comment-card").getBoundingClientRect());return}const typing=e.target.closest("[data-typing-target]");if(typing){jumpToMessage(typing.dataset.typingTarget);return} const mark=e.target.closest("mark[data-ann]");if(mark)jumpToComment(mark.dataset.ann);const reply=e.target.closest("[data-reply-comment]");if(reply){const annotation=state.annotations.find(item=>item.id===reply.dataset.replyComment);openReplyDialog(annotation,reply.closest(".comment-card").getBoundingClientRect())} const card=e.target.closest(".comment-card");if(card&&!reply)jumpToMessage(card.dataset.target,card.id.replace("comment-","")); const count=e.target.closest("[data-message-comments]");if(count){const a=state.annotations.find(x=>x.message_id===count.dataset.messageComments&&!x.parent_id);if(a)jumpToComment(a.id)} const page=e.target.closest("[data-page]");if(page)switchLogPage(page.dataset.page==="next"?1:-1)});
+document.addEventListener("click",e=>{if(e.target.matches("[data-close]"))e.target.closest("dialog").close();const image=e.target.closest("[data-expand-image]");if(image){e.stopPropagation();$("#expandedCommentImage").src=image.src;$("#imageDialog").showModal();return}const like=e.target.closest("[data-like-comment]");if(like){e.stopPropagation();toggleLike(like.dataset.likeComment,like);return}const edit=e.target.closest("[data-edit-comment]");if(edit){e.stopPropagation();const annotation=state.annotations.find(item=>item.id===edit.dataset.editComment);openEditDialog(annotation,edit.closest(".comment-card").getBoundingClientRect());return}const typing=e.target.closest("[data-typing-target]");if(typing){jumpToMessage(typing.dataset.typingTarget);return} const mark=e.target.closest("mark[data-ann]");if(mark)jumpToComment(mark.dataset.ann);const reply=e.target.closest("[data-reply-comment]");if(reply){const annotation=state.annotations.find(item=>item.id===reply.dataset.replyComment);openReplyDialog(annotation,reply.closest(".comment-card").getBoundingClientRect())} const card=e.target.closest(".comment-card");if(card&&!reply&&!e.target.closest("a,video,iframe"))jumpToMessage(card.dataset.target,card.id.replace("comment-","")); const count=e.target.closest("[data-message-comments]");if(count){const a=state.annotations.find(x=>x.message_id===count.dataset.messageComments&&!x.parent_id);if(a)jumpToComment(a.id)} const page=e.target.closest("[data-page]");if(page)switchLogPage(page.dataset.page==="next"?1:-1)});
 document.addEventListener("click",e=>{const tab=e.target.closest("[data-tab-index]");if(tab)goToTab(Number(tab.dataset.tabIndex))});
 // Double-click retains the existing per-PL hidden-tab toggle; navigation never hides tabs.
 document.addEventListener("dblclick",e=>{const tab=e.target.closest(".tab-rail [data-tab-index]");if(!tab)return;e.preventDefault();e.stopPropagation();toggleTabVisibility(Number(tab.dataset.tabIndex))});
