@@ -221,6 +221,13 @@ export async function handleLogStream(request,env,logId,action,arg){
   if(action==='find'){
     const messageId=decodeURIComponent(String(arg||''));if(!messageId)return json({error:'message id is required'},400);let globalIndex=0;
     for(const tab of tabs){for(const chunk of await chunkRows(env,tab.tab_id)){const messages=await readChunk(env,chunk,tab.tab_name);if(messages.some(message=>String(message?.id||'')===messageId))return json({index:Number(chunk.chunk_index),globalIndex,tab:tab.tab_name,tabId:tab.tab_id});globalIndex++}}
+    const missing=tabs.filter(tab=>!Number(tab.chunk_count));
+    if(missing.length){
+      for(const chunk of await unindexedChunks(env,row.room_id,logId,missing)){
+        const messages=await readChunk(env,chunk,chunk.tab);
+        if(messages.some(message=>String(message?.id||'')===messageId))return json({index:chunk.index,tab:chunk.tab,tabId:chunk.tabId});
+      }
+    }
     return json({index:-1,globalIndex:-1});
   }
   return json({error:'Not found'},404);

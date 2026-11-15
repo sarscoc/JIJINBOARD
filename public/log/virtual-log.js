@@ -233,6 +233,7 @@
     el.querySelector(".annotation-count")?.style.setProperty("--flash-color", color);
     el.classList.remove("flash");
     pulseLogMarker(el, annotationId);
+    return true;
   };
 
   queueMicrotask(mountAllPanels);

@@ -196,7 +196,16 @@
   async function ensureMessageLoaded(messageId){
     if(!streamState()||!messageId)return false;if(state.room.messages.some(message=>message.id===messageId))return true;
     if(window.JijinDesktop)return ensureDesktopMessage(messageId);
-    try{const response=await streamFetch(streamPath(state.roomId||startupRoom,`find/${encodeURIComponent(messageId)}`));if(!response.ok)return false;const data=await response.json(),index=Number(data.index),tab=String(data.tab||'');return Number.isInteger(index)&&index>=0&&tab?loadChunk(index,tab):false}catch{return false}
+    const room=state.room;
+    try{
+      const response=await streamFetch(streamPath(state.roomId||startupRoom,`find/${encodeURIComponent(messageId)}`));
+      const data=await response.json(),tab=String(data.tab||''),index=Number(data.index);
+      if(state.room!==room||!tab||!Number.isInteger(index)||index<0)return false;
+      const recovered=streamInfo(tab)?.recoveredIndexes;
+      const position=recovered?recovered.indexOf(index):index;
+      await loadChunk(position,tab);
+      return state.room===room&&room.messages.some(message=>message.id===messageId);
+    }catch{return false}
   }
   async function fullRoom(room){if(!room?.stream?.streamed)return room;const response=await streamFetch(streamPath(room.id||state.roomId||startupRoom,'full'));if(!response.ok)throw new Error('保存用ログ全文を取得できませんでした');return response.json()}
 
@@ -206,7 +215,7 @@
     const rawRender=renderLog;renderLog=function(...args){remember();const result=rawRender.apply(this,args);queueMicrotask(()=>{bindScroll();if(!pumping)pump()});return result};
     if(typeof goToTab==='function'){const raw=goToTab;goToTab=function(...args){const result=raw.apply(this,args);queueMicrotask(()=>ensureActiveTab().catch(()=>{}));return result}}
     if(typeof switchLogPage==='function'){const raw=switchLogPage;switchLogPage=function(...args){const result=raw.apply(this,args);queueMicrotask(()=>ensureActiveTab().catch(()=>{}));return result}}
-    if(typeof jumpToMessage==='function'){const raw=jumpToMessage;let navigation=0;jumpToMessage=function(id,...args){const request=++navigation;if(!streamState()||state.room.messages.some(message=>message.id===id)){if(window.JijinDesktop){const status=navigationStatus();if(status)status.textContent=''}return raw.call(this,id,...args)}const status=navigationStatus();if(window.JijinDesktop&&status)status.textContent='移動先を読み込み中…';ensureMessageLoaded(id).then(ok=>{if(request!==navigation)return;if(ok){if(window.JijinDesktop&&status)status.textContent='';raw.call(this,id,...args)}else if(window.JijinDesktop&&status)status.textContent='移動先が見つかりません。タブの表示設定を確認してください。'}).catch(()=>{if(window.JijinDesktop&&request===navigation&&status)status.textContent='移動先の読み込みに失敗しました。もう一度コメントをクリックしてください。'})}}
+    if(typeof jumpToMessage==='function'){const raw=jumpToMessage;let navigation=0;jumpToMessage=function(id,...args){const request=++navigation;if(!streamState()||state.room.messages.some(message=>message.id===id)){if(window.JijinDesktop){const status=navigationStatus();if(status)status.textContent=''}return raw.call(this,id,...args)}const status=navigationStatus();if(window.JijinDesktop&&status)status.textContent='移動先を読み込み中…';return ensureMessageLoaded(id).then(ok=>{if(request!==navigation)return;if(ok){if(window.JijinDesktop&&status)status.textContent='';return raw.call(this,id,...args)}else if(window.JijinDesktop&&status)status.textContent='移動先が見つかりません。タブの表示設定を確認してください。'}).catch(()=>{if(window.JijinDesktop&&request===navigation&&status)status.textContent='移動先の読み込みに失敗しました。もう一度コメントをクリックしてください。'})}}
     if(typeof downloadArchive==='function'){const raw=downloadArchive;downloadArchive=async function(room,...args){return raw.call(this,await fullRoom(room),...args)}}
     const search=document.getElementById('searchInput');if(search&&!search.dataset.jijinFullSearch){search.dataset.jijinFullSearch='1';search.addEventListener('input',()=>{if(search.value.trim())pump(true)})}
     document.getElementById('viewMode')?.addEventListener('change',()=>pump());

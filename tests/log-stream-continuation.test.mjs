@@ -60,3 +60,27 @@ test('desktop first paint waits for the opening tab without waiting for other ta
  assert.equal(w.state.room.stream.loadedByTab.Other,undefined);
  releaseOther();await tick();
 });
+
+test('phone jump waits for the recovered chunk before reporting success',async t=>{
+ const {window:w}=new JSDOM('<p id="roomStatus"></p>',{url:'https://test/log/?room=log',runScripts:'outside-only'});
+ t.after(()=>w.close());
+ w.Request=Request;w.Response=Response;w.renderLog=()=>{};
+ w.state={roomId:'log',room:{messages:[],stream:{streamed:true,tabStreams:[{tabName:'HO',chunkCount:1,recoveredIndexes:[4]}]}}};
+ let release,requested;
+ w.jumpToMessage=id=>w.state.room.messages.some(message=>message.id===id);
+ w.fetch=async path=>{
+   if(path.includes('/find/'))return Response.json({index:4,tab:'HO'});
+   requested=path;
+   await new Promise(resolve=>{release=resolve});
+   return Response.json({messages:[{id:'target',tab:'HO'}]});
+ };
+ w.eval(code);w.dispatchEvent(new w.Event('DOMContentLoaded'));
+ let complete=false;
+ const jump=w.jumpToMessage('target').then(result=>{complete=true;return result});
+ await tick();
+ assert.equal(complete,false);
+ assert.match(requested,/chunk\/4\?/);
+ assert.match(requested,/recovered=1/);
+ release();
+ assert.equal(await jump,true);
+});
