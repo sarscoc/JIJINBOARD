@@ -589,9 +589,12 @@ async function resizeCommentImage(file){if(!file)return"";const bitmap=await cre
 function clearCommentImage(){state.commentImage=""}
 window.jijinOpenActivity=async ({id,target})=>{
   if(state.roomId!==target.logId||!state.room||!state.annotations.some(comment=>comment.id===id))return false;
-  if(!await jumpToMessage(target.messageId,id))return false;
-  jumpToComment(id);
-  return !!document.getElementById('comment-'+id);
+  const moved=await jumpToMessage(target.messageId,id);
+  if(!moved)return 'not-found';
+  // The phone comment drawer scrolls independently and can shift the visible log.
+  // The marker jump already selects the comment, even when its card is offscreen.
+  if(window.JijinDesktop)jumpToComment(id);
+  return true;
 };
 function jumpToComment(id) { const el=$("#comment-"+CSS.escape(id)); if(!el)return; if(innerWidth<=800){$("#commentsPane").classList.add("open");window.dispatchEvent(new Event("jijin-log-comment-open"));} el.scrollIntoView({behavior:"smooth",block:"center"}); focusCommentChain(id); }
 

@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261115-activity-jump/);
+  assert.match(html,/app\.js\?v=20261115-notice-jump/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
@@ -83,4 +83,24 @@ test('cross-tab marker navigation requires no remote fetch and updates script ca
   assert.match(body,/state\.room\?\.messages\.find/);
   assert.doesNotMatch(body,/fetch\(|\bapi\(/);
   assert.match(html,/virtual-log\.js\?v=20261115-local-tab-jump/);
+});
+
+test('a phone notification succeeds when its marker is shown and the comment card is offscreen',async()=>{
+  const start=source.indexOf('window.jijinOpenActivity=');
+  const end=source.indexOf('\nfunction jumpToComment',start);
+  const context={
+    window:{},
+    state:{roomId:'log',room:{},annotations:[{id:'comment'}]},
+    jumpToMessage:async (id,comment)=>{
+      assert.equal(id,'message');
+      assert.equal(comment,'comment');
+      return true;
+    },
+    jumpToComment:()=>assert.fail('phone notification should not scroll a second pane')
+  };
+  vm.runInNewContext(source.slice(start,end),context);
+  const row={id:'comment',target:{logId:'log',messageId:'message'}};
+  assert.equal(await context.window.jijinOpenActivity(row),true);
+  context.jumpToMessage=async()=>false;
+  assert.equal(await context.window.jijinOpenActivity(row),'not-found');
 });

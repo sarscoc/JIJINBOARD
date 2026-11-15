@@ -147,7 +147,11 @@
     for(let attempt=0;attempt<40&&token===navigation&&state.tool===tool;attempt++){
       if(tool==='log'&&state.activeRoom!==target.logId)return;
       if(frame.dataset.ready==='1'){
-        try{if(await frame.contentWindow?.jijinOpenActivity?.(row))return}catch{}
+        try{
+          const result=await frame.contentWindow?.jijinOpenActivity?.(row);
+          if(result===true)return;
+          if(result==='not-found')break;
+        }catch{}
       }
       await new Promise(resolve=>setTimeout(resolve,200));
     }
