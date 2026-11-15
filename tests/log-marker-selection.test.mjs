@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261115-phone-tab/);
+  assert.match(html,/app\.js\?v=20261115-phone-marker/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
@@ -118,4 +118,19 @@ test('phone tab changes render the destination directly',()=>{
   context.matchMedia=()=>({matches:false});
   assert.equal(context.showPhoneLogTab(1,'12:31'),false);
   assert.equal(state.activeTabIndex,2);
+});
+
+test('phone marker jump centers the marker in its log pane without a second scroll',()=>{
+  const start=source.indexOf('let markerNavigation=');
+  const end=source.indexOf('\nfunction jumpToMessage(',start);
+  const calls=[];
+  const scroll={clientHeight:200,scrollTop:400,getBoundingClientRect:()=>({top:20}),scrollTo:options=>calls.push({...options})};
+  const marker={getBoundingClientRect:()=>({top:170,height:20})};
+  const element={closest:()=>scroll,querySelector:()=>marker,scrollIntoView:()=>assert.fail('must scroll only the log pane')};
+  const context={state:{annotations:[{id:'comment'}]},CSS:{escape:id=>id},groupAnnotations:()=>({}),focusCommentChain:()=>{},
+    document:{documentElement:{dataset:{mobileWorkspace:'log'}},querySelectorAll:()=>[],getElementById:()=>null},matchMedia:()=>({matches:true})};
+  vm.runInNewContext(source.slice(start,end),context);
+  context.pulseLogMarker(element,'comment');
+  assert.deepEqual(calls,[{top:460,behavior:'instant'}]);
+  assert.equal(context.state.activeMarkerId,'comment');
 });

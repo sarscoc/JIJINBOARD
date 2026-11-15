@@ -198,7 +198,7 @@ async function openRoom(id) {
   $("#roomStatus").textContent = "ログを読み込んでいます…";
   try {
     const comments=refreshAnnotations().catch(error=>console.warn("Comment loading failed",error));
-    const localFirst=!!window.JijinDesktop&&integrationEmbedded;
+    const localFirst=integrationEmbedded;
     const readRoom=()=>api(`/api/rooms/${encodeURIComponent(id)}`);
     let fresh=localFirst?null:readRoom();
     // Bound the cache lookup so a blocked browser database cannot hold startup.
@@ -565,6 +565,17 @@ function pulseLogMarker(element,id){
     if(message&&text)text.innerHTML=markedText(message,grouped[message.id]||[]);
   }
   focusCommentChain(clickedId);
+  if(document.documentElement.dataset.mobileWorkspace==="log"&&matchMedia("(max-width:760px)").matches){
+    // Keep the jump inside the log pane. Its rows may be replaced as chunks arrive.
+    document.getElementById("jijin-marker-navigation-hide")?.remove();
+    const scroll=element.closest(".page-scroll");
+    if(scroll){
+      const marker=element.querySelector(`mark[data-ann="${CSS.escape(id)}"]`)||element;
+      const bounds=scroll.getBoundingClientRect(),target=marker.getBoundingClientRect();
+      scroll.scrollTo({top:scroll.scrollTop+target.top-bounds.top-(scroll.clientHeight-target.height)/2,behavior:"instant"});
+      return;
+    }
+  }
   let hiding=document.getElementById("jijin-marker-navigation-hide");
   if(!hiding){hiding=document.createElement("style");hiding.id="jijin-marker-navigation-hide";document.head.append(hiding)}
   const selector=`mark[data-ann="${CSS.escape(id)}"]`;

@@ -126,7 +126,7 @@
     button.addEventListener('click',()=>{button.remove();pump()});scroll.append(button);
   }
   function paintMore(){
-    if(window.JijinDesktop&&state.viewMode!=='timeline'&&window.JijinVirtualLog?.append())return;
+    if(state.viewMode!=='timeline'&&window.JijinVirtualLog?.append())return;
     const scroll=activeScroll(),top=scroll?.scrollTop||0,tab=activeTab();
     let anchor=typeof currentReadingTime==='function'?currentReadingTime():'';
     if(state.viewMode==='timeline'&&anchor.startsWith('@slot:'))anchor=decodeURIComponent(anchor.slice(anchor.indexOf('|')+1));
