@@ -65,3 +65,27 @@ test('reconnected board merges missed updates by event time without marking dupl
   assert.deepEqual(rows.map(row=>[row.id,row.at,row.unread]),[['live',3000,false],['missed',2000,true]]);
   assert.ok(button.classList.contains('unread'));
 });
+
+test('one notification tap waits for the phone log layout before jumping',async t=>{
+  const {window:w}=new JSDOM('<button id="boardActivityButton"></button><section id="boardActivity" hidden><p role="status"></p><ol></ol></section><iframe id="logFrame" data-ready="1"></iframe>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
+  t.after(()=>w.close());
+  w.boardId='room';
+  w.state={tool:'matrix',board:{logs:[{roomId:'log',title:'LOG'}]}};
+  w.matchMedia=()=>({matches:true});
+  w.openLog=async id=>Object.assign(w.state,{activeRoom:id,tool:'log'});
+  const frame=w.document.querySelector('iframe');
+  let jumps=0,retry;
+  w.setTimeout=callback=>{retry=callback};
+  frame.contentWindow.jijinOpenActivity=()=>{jumps++;return true};
+  for(const file of ['public/shared/comment-target.js','public/board/board-activity.js'])w.eval(readFileSync(file,'utf8'));
+  const target=w.JijinCommentTarget.log('room','log',{messageId:'line',startOffset:0,endOffset:1});
+  w.dispatchEvent(new w.CustomEvent('jijinboard-activity',{detail:{kind:'comment',id:'comment',target}}));
+  w.document.querySelector('#boardActivityButton').click();
+  w.document.querySelector('li button').click();
+  await new Promise(setImmediate);
+  assert.equal(jumps,0);
+  frame.dataset.phoneReady='1';
+  retry();
+  await new Promise(setImmediate);
+  assert.equal(jumps,1);
+});

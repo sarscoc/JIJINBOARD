@@ -38,7 +38,7 @@
       const oldTabs=cached?.stream?.tabStreams||[];
       for(const info of meta.tabStreams||[]){
         const prior=oldTabs.find(old=>old.tabId===info.tabId&&old.tabName===info.tabName);
-        if(!tabs.includes(info.tabName)||!prior||prior.recoveredIndexes||info.recoveredIndexes||prior.chunkCount!==info.chunkCount)continue;
+        if(!tabs.includes(info.tabName)||!prior||JSON.stringify(prior.recoveredIndexes||[])!==JSON.stringify(info.recoveredIndexes||[])||prior.chunkCount!==info.chunkCount)continue;
         const loaded=cached.stream.loadedByTab?.[info.tabName];
         if(!loaded?.length)continue;
         loadedByTab[info.tabName]=loaded;
@@ -47,7 +47,8 @@
       if(!loadedByTab[tab]?.includes(0)&&meta.first?.tab===tab){
         messages=mergeMessages(messages,meta.first.messages);loadedByTab[tab]=[...new Set([...(loadedByTab[tab]||[]),0])];
       }else if(tab&&!loadedByTab[tab]?.includes(0)){
-        const response=await streamFetch(chunkUrl(roomId,0,tab));if(!response.ok)throw new Error('stream unavailable');
+        const recovered=meta.tabStreams?.find(info=>info.tabName===tab)?.recoveredIndexes;
+        const response=await streamFetch(chunkUrl(roomId,recovered?.[0]??0,tab)+(recovered?'&recovered=1':''));if(!response.ok)throw new Error('stream unavailable');
         const chunk=await response.json();messages=mergeMessages(messages,Array.isArray(chunk.messages)?chunk.messages:[]);loadedByTab[tab]=[...new Set([...(loadedByTab[tab]||[]),0])];
       }
       const room={id:meta.id||roomId,title:meta.title||'TRPG LOG',createdAt:meta.createdAt||'',tabs,messages,stream:{streamed:true,chunkSize:Number(meta.chunkSize)||120,tabStreams:Array.isArray(meta.tabStreams)?meta.tabStreams:[],loadedByTab}};
@@ -189,7 +190,7 @@
   async function loadNextIfNeeded(){return pump()}
   function bindScroll(){document.querySelectorAll('.log-page .page-scroll').forEach(scroll=>{if(scroll.dataset.jijinChunkStream)return;scroll.dataset.jijinChunkStream='1';scroll.addEventListener('scroll',()=>loadNextIfNeeded().catch(()=>{}),{passive:true})})}
 
-  async function ensureDesktopMessage(messageId){
+  async function seekMessageInChunks(messageId){
     const room=state.room,tab=activeTab(),tabs=(streamState()?.tabStreams||[]).map(info=>info.tabName).filter(name=>state.room.tabs.includes(name));tabs.sort((a,b)=>a===tab?-1:b===tab?1:0);
     let failed=false;
     const found=()=>room.messages.some(message=>String(message.id)===String(messageId));
@@ -213,17 +214,21 @@
   }
   async function ensureMessageLoaded(messageId){
     if(!streamState()||!messageId)return false;if(state.room.messages.some(message=>message.id===messageId))return true;
-    if(window.JijinDesktop)return ensureDesktopMessage(messageId);
+    if(window.JijinDesktop)return seekMessageInChunks(messageId);
     const room=state.room;
     try{
       const response=await streamFetch(streamPath(state.roomId||startupRoom,`find/${encodeURIComponent(messageId)}`));
       const data=await response.json(),tab=String(data.tab||''),index=Number(data.index);
-      if(state.room!==room||!tab||!Number.isInteger(index)||index<0)return false;
-      const recovered=streamInfo(tab)?.recoveredIndexes;
-      const position=recovered?recovered.indexOf(index):index;
-      await loadChunk(position,tab);
-      return state.room===room&&room.messages.some(message=>message.id===messageId);
-    }catch{return false}
+      if(state.room!==room)return false;
+      if(tab&&Number.isInteger(index)&&index>=0){
+        const recovered=streamInfo(tab)?.recoveredIndexes;
+        await loadChunk(recovered?recovered.indexOf(index):index,tab,{render:false});
+        if(state.room!==room)return false;
+        persistProgress(room);
+        if(room.messages.some(message=>message.id===messageId))return true;
+      }
+    }catch(error){if(state.room!==room)return false;console.warn('Log target lookup failed',error)}
+    return seekMessageInChunks(messageId);
   }
   async function fullRoom(room){if(!room?.stream?.streamed)return room;const response=await streamFetch(streamPath(room.id||state.roomId||startupRoom,'full'));if(!response.ok)throw new Error('保存用ログ全文を取得できませんでした');return response.json()}
 
@@ -233,7 +238,7 @@
     const rawRender=renderLog;renderLog=function(...args){remember();const result=rawRender.apply(this,args);queueMicrotask(()=>{bindScroll();if(!pumping)pump()});return result};
     if(typeof goToTab==='function'){const raw=goToTab;goToTab=function(...args){const result=raw.apply(this,args);queueMicrotask(()=>ensureActiveTab().catch(()=>{}));return result}}
     if(typeof switchLogPage==='function'){const raw=switchLogPage;switchLogPage=function(...args){const result=raw.apply(this,args);queueMicrotask(()=>ensureActiveTab().catch(()=>{}));return result}}
-    if(typeof jumpToMessage==='function'){const raw=jumpToMessage;let navigation=0;jumpToMessage=function(id,...args){const request=++navigation;if(!streamState()||state.room.messages.some(message=>message.id===id)){if(window.JijinDesktop){const status=navigationStatus();if(status)status.textContent=''}return raw.call(this,id,...args)}const status=navigationStatus();if(window.JijinDesktop&&status)status.textContent='移動先を読み込み中…';return ensureMessageLoaded(id).then(ok=>{if(request!==navigation)return;if(ok){if(window.JijinDesktop&&status)status.textContent='';return raw.call(this,id,...args)}else if(window.JijinDesktop&&status)status.textContent='移動先が見つかりません。タブの表示設定を確認してください。'}).catch(()=>{if(window.JijinDesktop&&request===navigation&&status)status.textContent='移動先の読み込みに失敗しました。もう一度コメントをクリックしてください。'})}}
+    if(typeof jumpToMessage==='function'){const raw=jumpToMessage;let navigation=0;jumpToMessage=function(id,...args){const request=++navigation;if(!streamState()||state.room.messages.some(message=>message.id===id)){{const status=navigationStatus();if(status)status.textContent=''}return raw.call(this,id,...args)}const status=navigationStatus();if(status)status.textContent='移動先を読み込み中…';return ensureMessageLoaded(id).then(ok=>{if(request!==navigation)return;if(ok){if(status)status.textContent='';return raw.call(this,id,...args)}else if(status)status.textContent='移動先が見つかりません。タブの表示設定を確認してください。'}).catch(()=>{if(request===navigation&&status)status.textContent='移動先の読み込みに失敗しました。もう一度コメントをクリックしてください。'})}}
     if(typeof downloadArchive==='function'){const raw=downloadArchive;downloadArchive=async function(room,...args){return raw.call(this,await fullRoom(room),...args)}}
     const search=document.getElementById('searchInput');if(search&&!search.dataset.jijinFullSearch){search.dataset.jijinFullSearch='1';search.addEventListener('input',()=>{if(search.value.trim())pump(true)})}
     document.getElementById('viewMode')?.addEventListener('change',()=>pump());

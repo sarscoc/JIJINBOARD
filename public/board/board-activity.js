@@ -146,7 +146,9 @@
     // Wait for the existing iframe and its data to finish loading.
     for(let attempt=0;attempt<40&&token===navigation&&state.tool===tool;attempt++){
       if(tool==='log'&&state.activeRoom!==target.logId)return;
-      if(frame.dataset.ready==='1'){
+      const phoneLog=tool==='log'&&window.matchMedia?.('(max-width:760px)').matches;
+      // The phone layout is installed after the log's own ready signal.
+      if(frame.dataset.ready==='1'&&(!phoneLog||frame.dataset.phoneReady==='1')){
         try{
           const result=await frame.contentWindow?.jijinOpenActivity?.(row);
           if(result===true)return;

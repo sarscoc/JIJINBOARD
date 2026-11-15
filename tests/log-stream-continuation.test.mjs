@@ -66,7 +66,8 @@ test('phone jump waits for the recovered chunk before reporting success',async t
  t.after(()=>w.close());
  w.Request=Request;w.Response=Response;w.renderLog=()=>{};
  w.state={roomId:'log',room:{messages:[],stream:{streamed:true,tabStreams:[{tabName:'HO',chunkCount:1,recoveredIndexes:[4]}]}}};
- let release,requested;
+ let release,requested,saved;
+ w.logTextCache={write:(id,room)=>{saved=structuredClone(room)}};
  w.jumpToMessage=id=>w.state.room.messages.some(message=>message.id===id);
  w.fetch=async path=>{
    if(path.includes('/find/'))return Response.json({index:4,tab:'HO'});
@@ -83,6 +84,7 @@ test('phone jump waits for the recovered chunk before reporting success',async t
  assert.match(requested,/recovered=1/);
  release();
  assert.equal(await jump,true);
+ assert.equal(saved.messages[0].id,'target');
 });
 
 test('PC marker navigation survives a failed chunk before the target tab',async t=>{
