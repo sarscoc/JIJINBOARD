@@ -208,21 +208,33 @@
       state.hiddenTabs.delete(message.tab);
       localStorage.setItem(`hiddenTabs:${state.roomId}`, JSON.stringify([...state.hiddenTabs]));
     }
-    if (index !== state.activeTabIndex || state.isSliding) {
+    const search = document.getElementById("searchInput");
+    const filtered = !!(annotationId && search?.value.trim());
+    if (filtered) search.value = "";
+    if (filtered || index !== state.activeTabIndex || state.isSliding) {
       state.isSliding = false;
       state.slideQueue = 0;
       state.activeTabIndex = index;
       // A full local render avoids reading a stale/blank animated carousel panel.
       renderLog(message.time);
     }
-    const panel = typeof hydratePanel === "function"
+    const currentPanel = () => typeof hydratePanel === "function"
       ? hydratePanel(state.carouselPosition)
       : document.querySelector(`.log-page[data-track-index="${state.carouselPosition}"]`);
-    const meta = metaFor(panel);
+    const findIndex = meta => !meta ? -1 : meta.mode === "timeline"
+      ? meta.items.findIndex(slot => (slot.byTab.get(message.tab) || []).some(m => m.id === id))
+      : meta.items.findIndex(m => m.id === id);
+    let panel = currentPanel();
+    let meta = metaFor(panel);
+    let virtualIndex = findIndex(meta);
+    // A newly loaded message can be in room data before the current panel is rebuilt.
+    if (meta && virtualIndex < 0 && !meta.search) {
+      renderLog(message.time);
+      panel = currentPanel();
+      meta = metaFor(panel);
+      virtualIndex = findIndex(meta);
+    }
     if (meta) {
-      const virtualIndex = meta.mode === "timeline"
-        ? meta.items.findIndex(slot => (slot.byTab.get(message.tab) || []).some(m => m.id === id))
-        : meta.items.findIndex(m => m.id === id);
       if (virtualIndex >= 0) revealIndex(panel, virtualIndex);
     }
     const el = panel?.querySelector(`[data-message="${CSS.escape(id)}"]`);

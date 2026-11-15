@@ -45,13 +45,14 @@ test('cross-tab marker navigation uses local message metadata and reveals destin
   const start=virtual.indexOf('  jumpToMessage = function(id, annotationId) {');
   const end=virtual.indexOf('\n  queueMicrotask(mountAllPanels)',start);
   assert.ok(start>=0&&end>start);
-  const calls=[],stored=[];
+  const calls=[],stored=[],search={value:'unrelated'};
   const message={id:'target',tab:'B',time:'10:42',text:'remote marker'};
   const state={roomId:'room',room:{tabs:['A','B'],messages:[message]},activeTabIndex:0,hiddenTabs:new Set(['B']),isSliding:true,slideQueue:1,carouselPosition:1,annotations:[]};
   const element={style:{setProperty:(...args)=>calls.push(['style',...args])},querySelector:()=>null,classList:{remove:()=>{}}};
   const panel={querySelector:()=>element};
   const context={
     state,
+    document:{getElementById:()=>search},
     localStorage:{setItem:(...args)=>stored.push(args)},
     renderLog:time=>{calls.push(['render',time]);state.carouselPosition=2},
     hydratePanel:position=>{calls.push(['hydrate',position]);return panel},
@@ -63,6 +64,7 @@ test('cross-tab marker navigation uses local message metadata and reveals destin
   };
   vm.runInNewContext(virtual.slice(start,end),context);
   context.jumpToMessage('target','annotation');
+  assert.equal(search.value,'');
   assert.equal(state.activeTabIndex,1);
   assert.equal(state.hiddenTabs.has('B'),false);
   assert.equal(state.isSliding,false);
