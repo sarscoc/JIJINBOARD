@@ -52,12 +52,14 @@ export async function handleMatrixPoint(request,env,roomId,logId,itemId,executio
     WHERE (? AND COALESCE(json_extract(matrix_point.point_settings,'$.placementRevision'),0)=?)
        OR (NOT ? AND COALESCE(json_extract(matrix_point.point_settings,'$.placementRevision'),0)=0)
     RETURNING is_placed,point_x,point_y,template_x,template_y,scale_base_width,coordinate_version,
-      json_extract(point_settings,'$.placementRevision') AS placement_revision, json_extract(point_settings,'$.justPlaced') AS just_placed`)
+      json_extract(point_settings,'$.placementRevision') AS placement_revision, json_extract(point_settings,'$.justPlaced') AS just_placed,
+      (SELECT CASE WHEN json_valid(template_definition) THEN json_type(template_definition,'$.alternate')='true' ELSE 0 END
+       FROM matrix_template WHERE room_id=? AND template_id=?) AS alternate_template`)
     .bind(roomId,templateId,itemId,ch?.character_id||null,placed?1:0,x,y,templateX,templateY,scale,version,guarded?1:0,placed?1:0,
-      roomId,templateId,base,roomId,templateId,itemId,guarded?1:0,guarded?1:0,base,guarded?1:0).first();
+      roomId,templateId,base,roomId,templateId,itemId,guarded?1:0,guarded?1:0,base,guarded?1:0,roomId,templateId).first();
   if(!row)return json({code:'MATRIX_POINT_CONFLICT',error:'配置が他の画面で変わりました。最新の位置を表示します。',point:savedPoint(await readPoint(),itemId,templateId)},409);
   let activity=null;
-  if(row.just_placed){
+  if(row.just_placed&&!row.alternate_template){
     activity={templateId,itemId,authorName};
     const tokenName=ch?.character_name||String(body?.tokenName||'').trim().slice(0,120);
     const submittedIcon=String(body?.tokenIcon||'');

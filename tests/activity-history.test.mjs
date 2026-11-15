@@ -22,6 +22,12 @@ test('a new RoomHub instance replays the most recent 50 updates saved with nobod
     const activity={kind:'placement',id:String(id),templateId:'map',itemId:'pc'};
     await hub.fetch(new Request('https://room/notify',{method:'POST',body:JSON.stringify({action:'matrix-point',activity})}));
   }
+  const live=[];
+  hub.broadcast=message=>live.push(message.type);
+  await hub.fetch(new Request('https://room/notify',{method:'POST',body:JSON.stringify({
+    action:'comment:create',suppressActivity:true,data:{comment:{id:'alternate'}}
+  })}));
+  assert.deepEqual(live,['comment-change']);
   const restarted=new RoomHub(ctx);
   let received;
   const socket={send:raw=>{received=JSON.parse(raw)}};

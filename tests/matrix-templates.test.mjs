@@ -173,4 +173,9 @@ test('placement activity is emitted only when the point enters the board',async(
  assert.equal(await place(true,1),null);
  assert.equal(await place(false,2),null);
  assert.ok(await place(true,3));
+ const [current]=await f.list();
+ assert.equal((await f.call('PUT',{baseRevision:current.record.revision,record:{name:'Alternate',alternate:true}})).status,200);
+ assert.equal(await place(false,4),null);
+ assert.equal(await place(true,5),null);
+ assert.equal((await f.list())[0].templateState.items.new.placed,true);
 });

@@ -1,5 +1,6 @@
 import {playerKey,localId,iconPrefix,playerIconUrl} from './player-address.js';
 import '../public/shared/comment-target.js';
+import {parseDefinition} from './matrix-templates.js';
 import {randomToken, ensurePlIdentity, resolveCharacterIdentity, storeImage, verifyRoomAdmin} from './data-model.js';
 
 export const targets = globalThis.JijinCommentTarget;
@@ -54,8 +55,9 @@ function conditions(scope, exact=false) {
 async function validateTarget(db, board, t, write=false) {
   if(t.kind==='log' && !await db.prepare('SELECT 1 FROM log WHERE log_id=? AND room_id=?').bind(t.logId,board).first())fail('この自陣にないログです',404);
   if(write && t.kind==='matrix' && t.templateId){
-    const page=await db.prepare('SELECT template_image_key FROM matrix_template WHERE room_id=? AND template_id=?').bind(board,t.templateId).first();
+    const page=await db.prepare('SELECT template_image_key,template_definition FROM matrix_template WHERE room_id=? AND template_id=?').bind(board,t.templateId).first();
     if(!page || page.template_image_key==='__deleted__')fail('テンプレートが見つかりません',404);
+    return parseDefinition(page.template_definition).alternate===true;
   }
 }
 async function identity(env,b,board) {
@@ -73,10 +75,10 @@ async function identity(env,b,board) {
   if(!character || character.pl_id!==plId)fail('発言者情報を確認してください',403);
   return {plId,characterId:character.character_id};
 }
-export async function notifyComments(request,env,board,action,data,executionContext) {
+export async function notifyComments(request,env,board,action,data,executionContext,suppressActivity=false) {
   if(!env.ROOMS)return;
   const hub=env.ROOMS.get(env.ROOMS.idFromName(board));
-  const notification=hub.fetch('https://room/notify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,data:{boardId:board,...data},excludeClientId:request.headers.get('x-realtime-client')||''})}).catch(error=>console.warn('Comment notification failed',error));
+  const notification=hub.fetch('https://room/notify',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({action,suppressActivity,data:{boardId:board,...data},excludeClientId:request.headers.get('x-realtime-client')||''})}).catch(error=>console.warn('Comment notification failed',error));
   if(executionContext?.waitUntil)executionContext.waitUntil(notification);else await notification;
 }
 async function version(db,board) {
@@ -145,7 +147,7 @@ export async function handleComments(request,env,board,id='',action='',execution
       const b=await bodyOf(request),target=targets.parse(b.target,board),stored=targets.storage(target),text=clean(b.body).trim(),parent=clean(b.parentId,120);
       if(!matches(target))fail('コメントの対象と範囲が一致しません');
       if(!text&&!b.imageData)fail('感想または画像を入力してください');
-      await validateTarget(env.DB,board,target,true);
+      const suppressActivity=await validateTarget(env.DB,board,target,true);
       if(parent){const row=await one(env.DB,board,parent);if(!row)fail('返信先が見つかりません',404);if(targets.fromStorage(board,row)!==target.address)fail('返信先とコメント対象が一致しません')}
       const who=await identity(env,b,board),cid=randomToken(16),imageKey=b.imageData?await storeImage(env.LOGS,b.imageData,iconPrefix(board,'comment-images')):'';
       if(!text&&!imageKey)fail('画像を読み込めません');
@@ -153,7 +155,7 @@ export async function handleComments(request,env,board,id='',action='',execution
       if(target.kind==='log')writes.push(env.DB.prepare('INSERT INTO log_comment_range(comment_id,start_line_id,start_character_offset,end_line_id,end_character_offset,selected_text,marker_color) VALUES(?,?,?,?,?,?,?)').bind(cid,target.messageId,target.startOffset,target.endMessageId,target.endOffset,clean(b.quote,2000),clean(b.color||'yellow',40)));
       writes.push(bump(env.DB,board));await env.DB.batch(writes);
       const comment=item(board,await one(env.DB,board,cid,who.plId)),v=await version(env.DB,board);
-      await notifyComments(request,env,board,'comment:create',{target:comment.target,comment,annotation:comment,logId:comment.room_id,version:v},executionContext);
+      await notifyComments(request,env,board,'comment:create',{target:comment.target,comment,annotation:comment,logId:comment.room_id,version:v},executionContext,suppressActivity);
       return json({id:cid,comment,annotation:comment,version:v},201);
     }
     const row=id?await one(env.DB,board,id,url.searchParams.get('authorId')?playerKey(board,clean(url.searchParams.get('authorId'),120)):''):null;

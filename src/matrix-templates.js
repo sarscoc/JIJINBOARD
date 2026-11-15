@@ -12,7 +12,7 @@ const conflict=()=>json({error:'テンプレートが別の画面で更新され
 const imageUrl=(roomId,templateId)=>`/api/boards/${encodeURIComponent(roomId)}/matrix/templates/${encodeURIComponent(templateId)}/image`;
 const POINT_FIELDS=new Set(['placed','x','y','templateX','templateY','scaleBaseWidth','coordVersion','comment','commentPosition','placementRevision','justPlaced']);
 
-function parseDefinition(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'?value:{}}catch{return{}}}
+export function parseDefinition(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'?value:{}}catch{return{}}}
 function parseSettings(text){try{const value=JSON.parse(text||'{}');return value&&typeof value==='object'&&!Array.isArray(value)?value:{}}catch{return{}}}
 const cleanState=value=>value&&typeof value==='object'&&!Array.isArray(value)?value:{};
 const cloneObject=value=>{try{return JSON.parse(JSON.stringify(cleanState(value)))}catch{return{}}};

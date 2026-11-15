@@ -22,7 +22,7 @@ export class RoomHub extends DurableObject{
         const comment=action==='comment:create'?message.data?.comment:null;
         const activity=comment?.id?{kind:'comment',id:comment.id,target:comment.target,
           authorName:comment.persona_name||comment.author_name,authorId:comment.author_id,icon:comment.persona_icon,reply:!!comment.parent_id,at:comment.created_at}:message.activity;
-        if(activity?.id){
+        if(!message.suppressActivity&&activity?.id){
           activity.at=Date.now();
           const added=await this.ctx.storage.transaction(async storage=>{
             const rows=await storage.get(ACTIVITY_KEY)||[];

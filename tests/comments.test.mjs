@@ -123,3 +123,17 @@ test('versioned comment images are reusable locally, and obsolete versions remai
  const cached=await handleComments(new Request('https://test/image?v='+encodeURIComponent(version)),f.env,'board',comment.id,'image');assert.match(cached.headers.get('cache-control'),/immutable/);
  const unknown=await handleComments(new Request('https://test/image?v=old'),f.env,'board',comment.id,'image');assert.match(unknown.headers.get('cache-control'),/no-cache/);
 });
+
+test('alternate matrix comments and replies still sync with activity suppressed',async t=>{
+  const f=fixture(t);
+  f.db.exec(`UPDATE matrix_template SET template_definition='{"alternate":true}' WHERE room_id='board' AND template_id='template'`);
+  const address=targets.matrix('board','template','pc');
+  const response=await f.create(address);
+  assert.equal(response.status,201);
+  const {comment}=await response.json();
+  const reply=await f.call('POST',{target:address,parentId:comment.id,authorId:'other',body:'reply'});
+  assert.equal(reply.status,201);
+  assert.deepEqual(f.notifications.map(({action,suppressActivity})=>[action,suppressActivity]),
+    [['comment:create',true],['comment:create',true]]);
+  assert.equal((await f.list(address)).length,2);
+});
