@@ -84,3 +84,14 @@ test('phone jump waits for the recovered chunk before reporting success',async t
  release();
  assert.equal(await jump,true);
 });
+
+test('PC marker navigation survives a failed chunk before the target tab',async t=>{
+ const {window:w}=new JSDOM('<p id="roomStatus"></p>',{url:'https://test/log/?room=log',runScripts:'outside-only'});
+ t.after(()=>w.close());
+ w.JijinDesktop={};w.Request=Request;w.Response=Response;w.renderLog=()=>{};
+ w.state={roomId:'log',room:{tabs:['Main','HO'],messages:[],stream:{streamed:true,tabStreams:[{tabName:'Main',chunkCount:1},{tabName:'HO',chunkCount:1}]}}};
+ w.jumpToMessage=id=>w.state.room.messages.some(message=>message.id===id);
+ w.fetch=async path=>path.includes('tab=Main')?new Response(null,{status:503}):Response.json({messages:[{id:'target',tab:'HO'}]});
+ w.eval(code);w.dispatchEvent(new w.Event('DOMContentLoaded'));
+ assert.equal(await w.jumpToMessage('target','comment'),true);
+});

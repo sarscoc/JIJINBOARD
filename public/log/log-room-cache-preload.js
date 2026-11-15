@@ -191,7 +191,25 @@
 
   async function ensureDesktopMessage(messageId){
     const room=state.room,tab=activeTab(),tabs=(streamState()?.tabStreams||[]).map(info=>info.tabName).filter(name=>state.room.tabs.includes(name));tabs.sort((a,b)=>a===tab?-1:b===tab?1:0);
-    for(const name of tabs){const count=Number(streamInfo(name)?.chunkCount)||0;for(let index=0;index<count;index+=3){if(state.room!==room)return false;if(room.messages.some(m=>String(m.id)===String(messageId)))return true;const results=await Promise.all(Array.from({length:Math.min(3,count-index)},(_,i)=>loadChunk(index+i,name,{render:false})));if(results.some(ok=>!ok))throw Error('移動先のログを取得できませんでした');if(room.messages.some(m=>String(m.id)===String(messageId))){if(activeTab()===name)paintMore();return true}}}return room.messages.some(m=>String(m.id)===String(messageId));
+    let failed=false;
+    const found=()=>room.messages.some(message=>String(message.id)===String(messageId));
+    for(const name of tabs){
+      const count=Number(streamInfo(name)?.chunkCount)||0;
+      for(let index=0;index<count;index+=3){
+        if(state.room!==room)return false;
+        if(found())return true;
+        const results=await Promise.allSettled(Array.from({length:Math.min(3,count-index)},(_,i)=>loadChunk(index+i,name,{render:false})));
+        if(state.room!==room)return false;
+        persistProgress(room);
+        if(found()){
+          if(activeTab()===name)paintMore();
+          return true;
+        }
+        if(results.some(result=>result.status!=='fulfilled'||!result.value))failed=true;
+      }
+    }
+    if(failed)throw Error('移動先のログを取得できませんでした');
+    return false;
   }
   async function ensureMessageLoaded(messageId){
     if(!streamState()||!messageId)return false;if(state.room.messages.some(message=>message.id===messageId))return true;
