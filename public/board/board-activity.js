@@ -13,9 +13,6 @@
     }catch{}
     return [];
   }
-  const activityDate=new Intl.DateTimeFormat('ja-JP',{
-    month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'
-  });
   let rows=read(),navigation=0;
   function save(){
     try{localStorage.setItem(key,JSON.stringify({generation:generation(),rows}))}catch{}
@@ -34,7 +31,7 @@
       const at=Number.isFinite(data.at)&&data.at>0&&data.at<=8640000000000000?data.at:Date.now();
       return {kind:data.kind,id:data.id,target,
         tokenName:String(data.tokenName||'').slice(0,120),icon:String(data.icon||'').slice(0,500),
-        authorId:String(data.authorId||''),author:String(data.authorName||'').slice(0,80),reply:!!data.reply,at,unread:panel.hidden};
+        authorId:String(data.authorId||''),author:String(data.authorName||'').slice(0,80),reply:!!data.reply,at,unread:true};
     }catch{return null}
   }
   function receive(event){
@@ -95,7 +92,7 @@
     list.replaceChildren();
     const people=savedPeople();
     for(const row of rows){
-      const item=document.createElement('li'),open=document.createElement('button'),time=document.createElement('time');
+      const item=document.createElement('li'),open=document.createElement('button');
       const log=row.target.kind==='log'&&state.board?.logs?.find(item=>item.roomId===row.target.logId);
       const unopened=log?.spoiler&&!state.opened[row.target.logId];
       const area=row.target.kind==='log'?(unopened?'LOG':log?.scenarioTitle||log?.title||'LOG'):
@@ -105,10 +102,11 @@
       open.type='button';
       const label=document.createElement('span');
       label.textContent=area+' · '+(!unopened&&row.author?row.author+'が':'')+action;
-      const date=new Date(row.at);
-      time.dateTime=date.toISOString();
-      time.textContent=activityDate.format(date);
-      open.title=label.textContent+' · '+date.toLocaleString('ja-JP');
+      open.title=label.textContent;
+      if(row.unread){
+        open.classList.add('unread');
+        open.setAttribute('aria-label','未読: '+label.textContent);
+      }
       open.addEventListener('click',()=>navigate(row));
       const avatar=document.createElement('span');
       avatar.className='board-activity-avatar';
@@ -121,7 +119,7 @@
         image.src=icon;
         avatar.append(image);
       }
-      open.append(avatar,label,time);
+      open.append(avatar,label);
       item.append(open);
       list.append(item);
     }
@@ -151,7 +149,13 @@
       if(frame.dataset.ready==='1'&&(!phoneLog||frame.dataset.phoneReady==='1')){
         try{
           const result=await frame.contentWindow?.jijinOpenActivity?.(row);
-          if(result===true)return;
+          if(result===true){
+            const latest=read();
+            rows=(latest.length?latest:rows).map(entry=>entry.id===row.id?{...entry,unread:false}:entry);
+            save();
+            if(!panel.hidden)render();
+            return;
+          }
           if(result==='not-found')break;
         }catch{}
       }
@@ -166,8 +170,6 @@
   button.addEventListener('click',()=>{
     navigation++;
     if(!panel.hidden){setOpen(false);return}
-    rows=rows.map(row=>({...row,unread:false}));
-    save();
     render();
     setOpen(true);
   });

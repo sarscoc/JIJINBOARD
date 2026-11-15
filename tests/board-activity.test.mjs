@@ -36,7 +36,8 @@ test('recent updates persist locally and open the saved destination without fetc
   assert.match(updates[1].textContent,/返信/);
   assert.match(updates[2].textContent,/MM · sarsが禊彦のコマを配置/);
   assert.match(updates[2].title,/sarsが禊彦のコマを配置/);
-  assert.match(updates[2].querySelector('time').textContent,/^\d{2}\/\d{2}\s+\d{2}:\d{2}$/);
+  assert.equal(panel.querySelector('time'),null);
+  assert.equal(panel.querySelectorAll('li button.unread').length,3);
   assert.match(updates[1].querySelector('img').src,/character-icons/);
   assert.match(updates[2].querySelector('img').src,/matrix-icons/);
   assert.match(updates[0].querySelector('img').src,/pl-icons/);
@@ -45,10 +46,15 @@ test('recent updates persist locally and open the saved destination without fetc
   assert.equal(opened.id,'reply');
   assert.equal(opened.target.pointId,'pc');
   assert.equal(w.state.tool,'matrix');
-  assert.equal(JSON.parse(w.localStorage.getItem('jijinboardActivity:room')).rows.length,3);
+  receive({kind:'comment',id:'reply',target:'/boards/room/matrix/map/points/pc'});
+  button.click();
+  assert.equal(panel.querySelectorAll('li button.unread').length,2);
+  assert.equal(panel.querySelectorAll('li button')[1].classList.contains('unread'),false);
+  receive({kind:'placement',id:'new',templateId:'map',itemId:'pc'});
+  assert.equal(panel.querySelectorAll('li button.unread').length,3);
 });
 
-test('reconnected board merges missed updates by event time without marking duplicates unread',t=>{
+test('reconnected board merges missed updates by event time without duplicating updates',t=>{
   const {window:w}=new JSDOM('<button id="boardActivityButton"></button><section id="boardActivity" hidden><p role="status"></p><ol></ol></section>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
   t.after(()=>w.close());
   w.boardId='room';
@@ -62,7 +68,7 @@ test('reconnected board merges missed updates by event time without marking dupl
   button.click();
   receive([update('live',3000),update('missed',2000)]);
   const {rows}=JSON.parse(w.localStorage.getItem('jijinboardActivity:room'));
-  assert.deepEqual(rows.map(row=>[row.id,row.at,row.unread]),[['live',3000,false],['missed',2000,true]]);
+  assert.deepEqual(rows.map(row=>[row.id,row.at,row.unread]),[['live',3000,true],['missed',2000,true]]);
   assert.ok(button.classList.contains('unread'));
 });
 
