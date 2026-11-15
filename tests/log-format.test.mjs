@@ -75,6 +75,7 @@ test('dice blank lines are visually collapsed without changing stored text or so
 
 test('comments collapse excessive pasted paragraph spacing while preserving a blank line and markup',t=>{
  const w=fixture(t);w.esc=s=>String(s);w.state={archiveImages:{}};w.isImageUrl=()=>false;
+ w.eval(source('shared/comment-media.js'));
  const app=source('log/app.js'),start=app.indexOf('function commentBodyHtml('),end=app.indexOf('state.archiveMode=',start);
  w.eval(app.slice(start,end));const host=w.document.createElement('div');host.innerHTML=w.commentBodyHtml('first\r\n\r\n\r\n\r\n**second**');
  assert.equal(host.textContent,'first\n\nsecond');assert.equal(host.querySelector('strong').textContent,'second');
