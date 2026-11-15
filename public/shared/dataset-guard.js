@@ -41,7 +41,14 @@
     if(failureRedirected||location.pathname.startsWith('/read-only'))return;
     failureRedirected=true;
     blocked=true;
-    const destination='/read-only.html?reason='+encodeURIComponent(reason)+'&return='+encodeURIComponent(location.pathname+location.search+location.hash);
+    const screen=location.pathname+location.search+location.hash;
+    let destination='/read-only.html?reason='+encodeURIComponent(reason)+'&return='+encodeURIComponent(screen);
+    try{
+      const topUrl=window.top.location;
+      if(window.top!==window&&topUrl.origin===location.origin){
+        destination='/read-only.html?'+new URLSearchParams({reason,return:topUrl.pathname+topUrl.search+topUrl.hash,screen});
+      }
+    }catch{}
     // Capture what was already rendered, then stop. Do not fetch anything.
     Promise.race([storeScreen().catch(()=>{}),new Promise(resolve=>setTimeout(resolve,600))])
       .finally(()=>{try{window.top.location.assign(destination)}catch{location.assign(destination)}});

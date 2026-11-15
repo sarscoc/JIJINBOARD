@@ -21,17 +21,37 @@
 <h1>現在、閲覧専用モードです</h1>
 <p id="reason">APIの利用制限、または通信障害が発生した可能性があります。編集や保存を続けず、復旧をお待ちください。</p>
 <div class="note"><strong>データについて</strong><p>この画面では編集を行いません。サーバーに保存済みの内容は削除されませんが、保存できなかった変更が反映されているとは限りません。元の画面に戻る前に、未保存の編集がないか確認してください。</p><p>通信が制限されている間は、新しいデータを取得できない場合があります。</p></div>
-<section class="screen-preview" id="screenPreview" hidden><h2>最後に表示していた画面</h2><p>表示内容をそのまま保存した閲覧用の画面です。編集・通信はできません。</p><iframe id="screenFrame" title="保存された自陣ボードの画面" sandbox="" referrerpolicy="no-referrer"></iframe></section><section class="snapshots"><h2>この端末に残っている最終取得データ</h2><p class="empty" id="snapshotStatus">ローカルデータを確認しています…</p><div id="snapshotList"></div></section><div class="actions"><button class="primary" id="back" type="button">元の画面に戻る</button><button id="copy" type="button">元のURLをコピー</button></div>
-<small>※ このページは制限時の案内画面です。自動復旧や全ページ共通の編集ロックは別途実装が必要です。</small>
+<section class="screen-preview" id="screenPreview" hidden><h2>最後に表示していた画面</h2><p>表示内容をそのまま保存した閲覧用の画面です。編集・通信はできません。</p><iframe id="screenFrame" title="保存された自陣ボードの画面" sandbox="" referrerpolicy="no-referrer"></iframe></section><section class="snapshots"><h2>この端末に残っている最終取得データ</h2><p class="empty" id="snapshotStatus">ローカルデータを確認しています…</p><div id="snapshotList"></div></section><div class="actions"><button class="primary" id="back" type="button">接続を確認して戻る</button><button id="copy" type="button">元のURLをコピー</button></div>
+<small id="recoveryStatus" role="status"></small>
 </main>
 <script>
 (()=>{
  const params=new URLSearchParams(location.search);
  const raw=params.get('return')||'';
  let target='/';
- try{const url=new URL(raw,location.origin);if(url.origin===location.origin&&!url.pathname.startsWith('/read-only'))target=url.pathname+url.search+url.hash}catch{}
- document.getElementById('back').addEventListener('click',()=>{location.assign(target)});
- document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(new URL(target,location.origin).href);document.getElementById('copy').textContent='コピーしました'}catch{document.getElementById('copy').textContent='コピーできませんでした'}});
+ try{const url=new URL(raw,location.origin);if(url.origin===location.origin&&!url.pathname.startsWith('/read-only')&&!url.pathname.startsWith('//'))target=url.pathname+url.search+url.hash}catch{}
+ let returnTo=target,screen=target;
+ try{
+   const captured=new URL(params.get('screen')||target,location.origin);
+   if(captured.origin===location.origin)screen=captured.pathname+captured.search;
+   const url=new URL(target,location.origin),board=url.searchParams.get('board');
+   if(url.searchParams.get('embedded')==='1'&&board)returnTo='/board/?'+new URLSearchParams({id:board});
+ }catch{}
+ const back=document.getElementById('back'),recovery=document.getElementById('recoveryStatus');
+ back.addEventListener('click',async()=>{
+   back.disabled=true;
+   recovery.textContent='接続を確認しています…';
+   try{
+     const response=await fetch('/api/dataset',{cache:'no-store',signal:AbortSignal.timeout(8000)});
+     const data=response.ok?await response.json():null;
+     if(typeof data?.generation!=='string'||!data.generation)throw Error('接続確認に失敗しました');
+     recovery.textContent='元の画面に戻ります…';
+     location.replace(returnTo);
+   }catch{
+     recovery.textContent='まだ接続できません。時間をおいて、もう一度お試しください。';
+   }finally{back.disabled=false}
+ });
+ document.getElementById('copy').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(new URL(returnTo,location.origin).href);document.getElementById('copy').textContent='コピーしました'}catch{document.getElementById('copy').textContent='コピーできませんでした'}});
  const node=(tag,text,cls)=>{const el=document.createElement(tag);if(text!==undefined)el.textContent=String(text);if(cls)el.className=cls;return el};
  function renderValue(value,container,depth=0){
    if(depth>6){container.append(node('span','…'));return}
@@ -79,7 +99,7 @@
    request.onsuccess=()=>{
      const db=request.result;
      const tx=db.transaction('screens','readonly');
-     const key=new URL(target,location.origin);
+     const key=new URL(screen,location.origin);
      const lookup=tx.objectStore('screens').get(key.pathname+key.search);
      lookup.onsuccess=()=>{
        const saved=lookup.result;
