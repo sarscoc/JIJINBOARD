@@ -15,7 +15,7 @@
       try{url=new URL(part)}catch{return text(part)}
       const safe=esc(part),link=`<a class="comment-link" href="${safe}" target="_blank" rel="noopener noreferrer">${safe}</a>`;
       if(/\.(?:mp4|webm|ogv|ogg|mov)$/i.test(url.pathname)){
-        return `<video class="comment-video" src="${safe}" preload="none" controls playsinline></video>${link}`;
+        return `<video class="comment-video" src="${safe}" preload="none" controls playsinline></video>`;
       }
       const host=url.hostname.replace(/^www\./,'');
       let videoId='';
@@ -24,11 +24,11 @@
         videoId=url.pathname==='/watch'?url.searchParams.get('v')||'':url.pathname.match(/^\/(?:shorts|embed|live)\/([^/]+)/)?.[1]||'';
       }
       if(/^[A-Za-z0-9_-]{11}$/.test(videoId)){
-        return `<iframe class="comment-video" src="https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1" title="YouTube 動画" loading="lazy" allowfullscreen></iframe>${link}`;
+        return `<iframe class="comment-video" src="https://www.youtube-nocookie.com/embed/${videoId}?playsinline=1" title="YouTube 動画" loading="lazy" allowfullscreen></iframe>`;
       }
       if(isImageUrl(part)){
         const image=esc(archiveImages[part]||part);
-        return `<img class="comment-image url-image" ${expandImage?'data-expand-image':''} src="${image}" alt="引用画像" loading="lazy" referrerpolicy="no-referrer">${link}`;
+        return `<img class="comment-image url-image" ${expandImage?'data-expand-image':''} src="${image}" alt="引用画像" loading="lazy" referrerpolicy="no-referrer">`;
       }
       return link;
     }).join("");
