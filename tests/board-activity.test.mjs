@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import {JSDOM} from 'jsdom';
 
 test('recent updates persist locally and open the saved destination without fetching history',async t=>{
-  const {window:w}=new JSDOM('<button id="boardActivityButton"></button><section id="boardActivity" hidden><p role="status"></p><ol></ol></section><iframe id="matrixFrame" data-ready="1"></iframe>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
+  const {window:w}=new JSDOM('<button id="boardActivityButton"></button><section id="boardActivity" hidden><p role="status"></p><button id="boardActivityReadAll" disabled></button><ol></ol></section><iframe id="matrixFrame" data-ready="1"></iframe>',{url:'https://test/board/?id=room',runScripts:'outside-only'});
   t.after(()=>w.close());
   w.boardId='room';
   w.state={tool:'log',board:{participants:[{authorId:'pl',personaId:'pc',name:'禊彦',matrixIcon:'/api/boards/room/player-icons/matrix-icons/'+'a'.repeat(20)}]}};
@@ -52,6 +52,19 @@ test('recent updates persist locally and open the saved destination without fetc
   assert.equal(panel.querySelectorAll('li button')[1].classList.contains('unread'),false);
   receive({kind:'placement',id:'new',templateId:'map',itemId:'pc'});
   assert.equal(panel.querySelectorAll('li button.unread').length,3);
+  const readAll=panel.querySelector('#boardActivityReadAll');
+  assert.equal(readAll.disabled,false);
+  readAll.click();
+  assert.equal(panel.hidden,false);
+  assert.equal(panel.querySelectorAll('li button').length,4);
+  assert.equal(panel.querySelectorAll('li button.unread').length,0);
+  assert.equal(button.classList.contains('unread'),false);
+  assert.equal(readAll.disabled,true);
+  const saved=JSON.parse(w.localStorage.getItem('jijinboardActivity:room'));
+  assert.ok(saved.rows.every(row=>!row.unread));
+  receive({kind:'placement',id:'later',templateId:'map',itemId:'pc'});
+  assert.equal(panel.querySelectorAll('li button.unread').length,1);
+  assert.equal(readAll.disabled,false);
 });
 
 test('reconnected board merges missed updates by event time without duplicating updates',t=>{

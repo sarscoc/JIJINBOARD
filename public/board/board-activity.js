@@ -3,6 +3,7 @@
   const button=document.getElementById('boardActivityButton');
   const panel=document.getElementById('boardActivity');
   if(!button||!panel||!boardId)return;
+  const readAll=panel.querySelector('#boardActivityReadAll');
   const list=panel.querySelector('ol'),status=panel.querySelector('[role="status"]');
   const key='jijinboardActivity:'+encodeURIComponent(boardId);
   const generation=()=>localStorage.getItem('jijin.dataset.generation.v1');
@@ -16,7 +17,18 @@
   let rows=read(),navigation=0;
   function save(){
     try{localStorage.setItem(key,JSON.stringify({generation:generation(),rows}))}catch{}
-    button.classList.toggle('unread',rows.some(row=>row.unread));
+    updateUnread();
+  }
+  function updateUnread(){
+    const unread=rows.some(row=>row.unread);
+    button.classList.toggle('unread',unread);
+    if(readAll)readAll.disabled=!unread;
+  }
+  function markRead(matches){
+    const latest=read();
+    rows=(latest.length?latest:rows).map(row=>row.unread&&matches(row)?{...row,unread:false}:row);
+    save();
+    if(!panel.hidden)render();
   }
   function setOpen(open){
     panel.hidden=!open;
@@ -150,10 +162,7 @@
         try{
           const result=await frame.contentWindow?.jijinOpenActivity?.(row);
           if(result===true){
-            const latest=read();
-            rows=(latest.length?latest:rows).map(entry=>entry.id===row.id?{...entry,unread:false}:entry);
-            save();
-            if(!panel.hidden)render();
+            markRead(entry=>entry.id===row.id);
             return;
           }
           if(result==='not-found')break;
@@ -167,6 +176,7 @@
       status.textContent='更新先が見つかりませんでした。';
     }
   }
+  readAll?.addEventListener('click',()=>markRead(()=>true));
   button.addEventListener('click',()=>{
     navigation++;
     if(!panel.hidden){setOpen(false);return}
@@ -185,6 +195,6 @@
     if(document.activeElement?.tagName==='IFRAME')setOpen(false);
   });
   addEventListener('jijinboard-activity',receive);
-  addEventListener('storage',event=>{if(event.key===key){rows=read();button.classList.toggle('unread',rows.some(row=>row.unread));if(!panel.hidden)render()}});
-  button.classList.toggle('unread',rows.some(row=>row.unread));
+  addEventListener('storage',event=>{if(event.key===key){rows=read();updateUnread();if(!panel.hidden)render()}});
+  updateUnread();
 })();
