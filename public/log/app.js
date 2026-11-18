@@ -549,6 +549,9 @@ function focusCommentChain(id){
   }
 }
 let markerNavigation=0;
+function isPhoneLog(){
+  return document.documentElement.dataset.mobileWorkspace==="log"&&matchMedia("(max-width:760px)").matches;
+}
 function pulseLogMarker(element,id){
   if(!id){element.scrollIntoView({behavior:"smooth",block:"center"});return}
   const token=++markerNavigation;
@@ -567,7 +570,9 @@ function pulseLogMarker(element,id){
     if(message&&text)text.innerHTML=markedText(message,grouped[message.id]||[]);
   }
   focusCommentChain(clickedId);
-  if(document.documentElement.dataset.mobileWorkspace==="log"&&matchMedia("(max-width:760px)").matches){
+  if(isPhoneLog()){
+    // Restore space for the log before measuring the marker.
+    window.dispatchEvent(new Event("jijin-log-marker-jump"));
     // Keep the jump inside the log pane. Its rows may be replaced as chunks arrive.
     document.getElementById("jijin-marker-navigation-hide")?.remove();
     const scroll=element.closest(".page-scroll");

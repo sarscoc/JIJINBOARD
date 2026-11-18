@@ -204,19 +204,21 @@
     if (!message) return;
     const index = state.room.tabs.indexOf(message.tab);
     if (index < 0) return;
-    if (state.hiddenTabs.has(message.tab)) {
+    const wasHidden = state.hiddenTabs.has(message.tab);
+    if (wasHidden) {
       state.hiddenTabs.delete(message.tab);
       localStorage.setItem(`hiddenTabs:${state.roomId}`, JSON.stringify([...state.hiddenTabs]));
     }
     const search = document.getElementById("searchInput");
     const filtered = !!(annotationId && search?.value.trim());
     if (filtered) search.value = "";
-    if (filtered || index !== state.activeTabIndex || state.isSliding) {
+    const phoneMarker = annotationId && isPhoneLog();
+    if (filtered || wasHidden || index !== state.activeTabIndex || state.isSliding) {
       state.isSliding = false;
       state.slideQueue = 0;
       state.activeTabIndex = index;
       // A full local render avoids reading a stale/blank animated carousel panel.
-      renderLog(message.time);
+      renderLog(phoneMarker ? "" : message.time);
     }
     const currentPanel = () => typeof hydratePanel === "function"
       ? hydratePanel(state.carouselPosition)
@@ -229,15 +231,16 @@
     let virtualIndex = findIndex(meta);
     // A newly loaded message can be in room data before the current panel is rebuilt.
     if (meta && virtualIndex < 0 && !meta.search) {
-      renderLog(message.time);
+      renderLog(phoneMarker ? "" : message.time);
       panel = currentPanel();
       meta = metaFor(panel);
       virtualIndex = findIndex(meta);
     }
-    if (meta) {
-      if (virtualIndex >= 0) revealIndex(panel, virtualIndex);
+    const selector = `[data-message="${CSS.escape(id)}"]`;
+    if (virtualIndex >= 0 && (!phoneMarker || !panel?.querySelector(selector))) {
+      revealIndex(panel, virtualIndex);
     }
-    const el = panel?.querySelector(`[data-message="${CSS.escape(id)}"]`);
+    const el = panel?.querySelector(selector);
     if (!el) return;
     const annotation = annotationId && state.annotations.find(item => item.id === annotationId);
     const color = markerColor(annotation?.color || "#ffe66b");

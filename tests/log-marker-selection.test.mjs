@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261115-shared-media/);
+  assert.match(html,/app\.js\?v=20261118-phone-jump/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
@@ -52,6 +52,7 @@ test('cross-tab marker navigation uses local message metadata and reveals destin
   const panel={querySelector:()=>element};
   const context={
     state,
+    isPhoneLog:()=>false,
     document:{getElementById:()=>search},
     localStorage:{setItem:(...args)=>stored.push(args)},
     renderLog:time=>{calls.push(['render',time]);state.carouselPosition=2},
@@ -73,6 +74,13 @@ test('cross-tab marker navigation uses local message metadata and reveals destin
   assert.equal(calls.some(call=>call[0]==='pulse'),true);
   assert.equal(stored.length,1);
   assert.equal(stored[0][0],'hiddenTabs:room');
+  calls.length=0;
+  context.isPhoneLog=()=>true;
+  state.activeTabIndex=0;
+  assert.equal(context.jumpToMessage('target','annotation'),true);
+  assert.deepEqual(calls.filter(call=>call[0]==='render'),[['render','']]);
+  assert.equal(calls.some(call=>call[0]==='reveal'),false);
+  assert.equal(calls.some(call=>call[0]==='pulse'),true);
 });
 
 test('cross-tab marker navigation requires no remote fetch and updates script cache',()=>{
@@ -82,7 +90,7 @@ test('cross-tab marker navigation requires no remote fetch and updates script ca
   const body=virtual.slice(start,end);
   assert.match(body,/state\.room\?\.messages\.find/);
   assert.doesNotMatch(body,/fetch\(|\bapi\(/);
-  assert.match(html,/virtual-log\.js\?v=20261115-local-tab-jump/);
+  assert.match(html,/virtual-log\.js\?v=20261118-phone-jump/);
 });
 
 test('a phone notification succeeds when its marker is shown and the comment card is offscreen',async()=>{
@@ -128,10 +136,11 @@ test('phone marker jump centers the marker in its log pane without a second scro
   const marker={getBoundingClientRect:()=>({top:170,height:20})};
   const element={closest:()=>scroll,querySelector:()=>marker,scrollIntoView:()=>assert.fail('must scroll only the log pane')};
   const context={state:{annotations:[{id:'comment'}]},CSS:{escape:id=>id},groupAnnotations:()=>({}),focusCommentChain:()=>{},
+    window:{dispatchEvent:event=>calls.push(event.type)},Event,
     document:{documentElement:{dataset:{mobileWorkspace:'log'}},querySelectorAll:()=>[],getElementById:()=>null},matchMedia:()=>({matches:true})};
   vm.runInNewContext(source.slice(start,end),context);
   context.pulseLogMarker(element,'comment');
-  assert.deepEqual(calls,[{top:460,behavior:'instant'}]);
+  assert.deepEqual(calls,['jijin-log-marker-jump',{top:460,behavior:'instant'}]);
   assert.equal(context.state.activeMarkerId,'comment');
 });
 
