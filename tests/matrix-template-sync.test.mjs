@@ -4,7 +4,7 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const source=readFileSync(new URL('../public/matrix/matrix-template-sync.js',import.meta.url),'utf8');
 const tick=async()=>{for(let i=0;i<12;i++)await new Promise(setImmediate)};
-function fixture(){
+function fixture(overrides={}){
   let states={},live={display:{color:'white'},items:{}},remoteApplying=false;
   const records=new Map(),timers=new Map(),listeners=new Map(),storage=new Map(),calls=[],alerts=[];
   const remote={record:{id:'tpl',name:'server',revision:'r1',dataUrl:''},templateState:{display:{color:'blue'},items:{pc:{placed:true,x:12}}}};
@@ -20,6 +20,7 @@ function fixture(){
     matrixBoardContext:{roomId:'log',profile:()=>({id:'pl',plName:'PL'}),isApplyingRemote:()=>remoteApplying,notifyChange(){},async api(path,options={}){calls.push({path,...options});if(options.method==='PUT')return putHandler(JSON.parse(options.body));return /\/templates\/[^/]+$/.test(path)?structuredClone(remote):{templates:[structuredClone(remote)]}}},
     addEventListener(name,fn){listeners.set(name,fn)}
   };
+  Object.assign(context,overrides);
   context.window=context;
   vm.runInNewContext(source,context);
   return {context,calls,alerts,storage,remote,setLive:state=>{live=structuredClone(state)},setRemoteApplying:value=>{remoteApplying=value},setPutHandler:fn=>{putHandler=fn},async edit(color){live.display.color=color;context.saveCurrentTemplateState();await tick()},async flush(){for(const [id,timer] of [...timers]){timers.delete(id);timer.fn()}await tick()},refresh:()=>listeners.get('matrix-board-comments-changed')({detail:{action:'matrix-template-state'}}),puts:()=>calls.filter(c=>c.method==='PUT').map(c=>JSON.parse(c.body))};
@@ -107,5 +108,23 @@ test('a point received during template hydration survives the older snapshot',as
   assert.equal(f.context.templateStates().tpl.items.pc.placed,false);
   assert.equal(f.context.templateStates().tpl.items.pc.x,95);
   assert.equal(f.context.templateStates().tpl.display.color,'blue');
+  assert.equal(f.puts().length,0);
+});
+
+
+test('template URL is restored after hydration and published without saving',async()=>{
+  const opened=[],posted=[];
+  const f=fixture({
+    location:{href:'https://test/matrix/?board=board&room=log&template=tpl',origin:'https://test'},
+    parent:{postMessage:(data,origin)=>posted.push({data,origin})},
+    switchTemplate:async(id,options)=>opened.push({id,options})
+  });
+  await tick();
+  assert.equal(opened.length,1);
+  assert.equal(opened[0].id,'tpl');
+  assert.equal(opened[0].options.localOnly,true);
+  assert.equal(posted.at(-1).data.templateId,'tpl');
+  assert.equal(posted.at(-1).origin,'https://test');
+  await f.flush();
   assert.equal(f.puts().length,0);
 });

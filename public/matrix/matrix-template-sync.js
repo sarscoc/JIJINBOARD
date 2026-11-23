@@ -6,6 +6,7 @@
   if(window.__jijinMatrixTemplateSyncStarted)return;
   window.__jijinMatrixTemplateSyncStarted=true;
 
+  let requestedTemplate=params.get("template")||"";
   let lastLogId=params.get("room")||boardId;
   let applying=false,hydrated=false,hydratedLogId="",hydratePromise=null,hydratingLogId="",hydrateSeq=0,rehydrateQueued=false;
   const saveTimers=new Map(),pendingSaves=new Map(),savingIds=new Set(),revisions=new Map();
@@ -341,13 +342,18 @@
         applying=true;
         try{
           const selected=String(window.currentTemplateId?.()||"");
-          if(selected)await window.restoreTemplate?.();
+          if(requestedTemplate){
+            const requested=requestedTemplate;requestedTemplate="";
+            if(remote.some(row=>row.record?.id===requested))await window.switchTemplate?.(requested,{localOnly:true});
+            else await window.restoreTemplate?.();
+          }else if(selected)await window.restoreTemplate?.();
           else await window.renderTemplateTabs?.();
           rebindItemsForRender();
           window.renderLibrary?.();
           window.renderPlaced?.();
         }catch(error){console.warn("MATRIX template redraw failed",error)}finally{applying=false}
         hydrated=true;hydratedLogId=target;
+        publishTemplate();
         if(typeof CustomEvent!=="undefined")window.dispatchEvent(new CustomEvent("matrix-template-hydrated"));
         // Never upload historical local records merely because hydration found them.
         return true;
@@ -415,6 +421,17 @@
   window.addEventListener("matrix-editor-finished",refreshWhenIdle);
   window.addEventListener("pagehide",()=>{
     for(const [key,timer] of saveTimers){clearTimeout(timer);saveTimers.delete(key);putRemote(key)}
+  });
+
+  function publishTemplate(){
+    if(!hydrated)return;
+    const templateId=String(window.currentTemplateId?.()||"");
+    if(window.parent&&window.parent!==window)window.parent.postMessage({type:"jijinboard-template-selected",templateId},location.origin);
+  }
+  window.addEventListener("matrix-template-selected",publishTemplate);
+  window.addEventListener("message",event=>{
+    if(event.origin===location.origin&&event.source===window.parent&&
+       event.data?.type==="jijinboard-matrix-active"&&event.data.active)publishTemplate();
   });
 
   const initialLogId=currentLogId();

@@ -116,6 +116,10 @@ function requestOpen(roomId){const item=state.board.logs.find(item=>item.roomId=
 async function openLog(roomId,title=""){if($("#spoilerDialog").open)closeSpoiler();const item=state.board.logs.find(item=>item.roomId===roomId);if(title)state.opened[roomId]=title;else if(!state.opened[roomId])state.opened[roomId]=item?.title||(await summary(roomId)).title;saveOpened();state.activeRoom=roomId;state.profile=null;hydrateProfile(roomId);renderLogs();const url=new URL(location.href);url.searchParams.set("id",boardId);url.searchParams.set("room",roomId);history.replaceState(null,"",url.pathname+url.search);$("#welcome").classList.add("hidden");const frame=$("#logFrame"),src=`/log/?room=${encodeURIComponent(roomId)}&embedded=1&board=${encodeURIComponent(boardId)}`;if(frame.dataset.room!==roomId){setToolFrameLoading(frame);frame.dataset.room=roomId;frame.src=src}selectTool("log")}
 function selectTool(tool){
   state.tool=tool;if(tool!=="log")closeSpoiler();
+  const toolUrl=new URL(location.href);
+  toolUrl.searchParams.set("tool",tool);
+  if(tool!=="matrix")toolUrl.searchParams.delete("template");
+  history.replaceState(history.state,"",toolUrl.pathname+toolUrl.search+toolUrl.hash);
   document.querySelectorAll("[data-tool]").forEach(button=>button.classList.toggle("active",button.dataset.tool===tool));
   const frames={log:$("#logFrame"),matrix:$("#matrixFrame"),spreadsheet:$("#spreadsheetFrame")},hasLog=!!frames.log.getAttribute("src");
   Object.entries(frames).forEach(([name,frame])=>frame.classList.toggle("hidden",name!==tool||(name==="log"&&!hasLog)));
@@ -124,7 +128,7 @@ function selectTool(tool){
   $(".board-layout").classList.toggle("matrix-open",tool==="matrix");
   if(tool==="matrix"&&!frames.matrix.getAttribute("src")){
     setToolFrameLoading(frames.matrix);
-    frames.matrix.src=`/matrix/?embedded=1&board=${encodeURIComponent(boardId)}&room=${encodeURIComponent(state.activeRoom||boardId)}`;
+    frames.matrix.src=`/matrix/?embedded=1&board=${encodeURIComponent(boardId)}&room=${encodeURIComponent(state.activeRoom||boardId)}${params.get("template")?"&template="+encodeURIComponent(params.get("template")):""}`;
   }
   if(tool==="spreadsheet"&&!frames.spreadsheet.getAttribute("src")){
     setToolFrameLoading(frames.spreadsheet);
@@ -148,7 +152,7 @@ function showBoardConnectionIssue(error){
  let notice=document.getElementById('boardConnectionIssue');if(!notice){notice=document.createElement('div');notice.id='boardConnectionIssue';notice.setAttribute('role','status');notice.style.cssText='position:fixed;bottom:12px;left:12px;z-index:250;max-width:380px;padding:10px 14px;border:1px solid #eadfec;border-radius:14px;background:#fff;color:#88728e;font:12px/1.5 system-ui;box-shadow:0 4px 16px #55446612';document.body.append(notice)}
  notice.replaceChildren();const text=document.createElement('span');text.textContent='部屋情報を取得できませんでした。表示と下書きはそのままです。 ';const retry=document.createElement('button');retry.type='button';retry.className='quiet';retry.textContent='再接続';retry.onclick=async()=>{retry.disabled=true;try{const data=await loadBoard();state.board=data;showBoardTitle(data.name);renderLogs();notice.remove()}catch(error){console.warn(error);retry.disabled=false}};notice.append(text,retry);console.warn(error);
 }
-async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{state.opened=loadOpened();restoreNavigation();const pendingBoard=loadBoard();pendingBoard.catch(()=>{});await loadBoardTitle().catch(error=>{if(!window.JijinDesktop)throw error;console.warn(error)});await window.JijinBoardReady?.image;state.opened=loadOpened();state.board=await pendingBoard.catch(error=>{if(window.JijinDesktop&&state.board?.id===boardId&&Array.isArray(state.board.logs)){showBoardConnectionIssue(error);return state.board}throw error});showBoardTitle(state.board.name);const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);renderLogs();const url=new URL(location.href);if(url.searchParams.has("room")){url.searchParams.delete("room");history.replaceState(null,"",url.pathname+url.search)}}catch(error){if(window.JijinDesktop){showBoardConnectionIssue(error);return}document.body.innerHTML=`<div role="alert" style="margin:40px auto;padding:24px;max-width:400px;border:1px solid #eadfec;border-radius:16px;background:#fff;color:#88728e"><p>${esc(error.message)}</p><button type="button" id="boardStartupReload" class="quiet">再読み込み</button></div>`;document.getElementById("boardStartupReload").onclick=()=>location.reload()}}
+async function init(){if(!boardId){document.body.innerHTML='<p style="padding:30px">部屋URLが正しくありません。</p>';return}try{state.opened=loadOpened();restoreNavigation();const pendingBoard=loadBoard();pendingBoard.catch(()=>{});await loadBoardTitle().catch(error=>{if(!window.JijinDesktop)throw error;console.warn(error)});await window.JijinBoardReady?.image;state.opened=loadOpened();state.board=await pendingBoard.catch(error=>{if(window.JijinDesktop&&state.board?.id===boardId&&Array.isArray(state.board.logs)){showBoardConnectionIssue(error);return state.board}throw error});showBoardTitle(state.board.name);const owner=!!adminToken();$("#ownerTopLink").classList.toggle("hidden",!owner);$("#guestBrand").classList.toggle("hidden",owner);$("#addLogButton").classList.toggle("hidden",!owner);renderLogs();if(params.get("tool")==="matrix"||params.get("template"))selectTool("matrix");const url=new URL(location.href);if(url.searchParams.has("room")){url.searchParams.delete("room");history.replaceState(null,"",url.pathname+url.search)}}catch(error){if(window.JijinDesktop){showBoardConnectionIssue(error);return}document.body.innerHTML=`<div role="alert" style="margin:40px auto;padding:24px;max-width:400px;border:1px solid #eadfec;border-radius:16px;background:#fff;color:#88728e"><p>${esc(error.message)}</p><button type="button" id="boardStartupReload" class="quiet">再読み込み</button></div>`;document.getElementById("boardStartupReload").onclick=()=>location.reload()}}
 
 document.querySelectorAll("[data-tool]").forEach(button=>button.onclick=()=>selectTool(button.dataset.tool));
 $("#confirmOpen").onclick=async()=>{const room=state.pendingRoom,title=$("#spoilerTitle").textContent;closeSpoiler();if(room)await openLog(room,title)};
@@ -240,3 +244,13 @@ if(refreshBoardMeta){
  window.addEventListener('jijinboard-resource-change',event=>{if(['board-meta','log-delete'].includes(event.detail?.action))refreshBoardMeta().catch(console.warn)});
  window.addEventListener('jijinboard-reconnected',()=>refreshBoardMeta().catch(console.warn));
 }
+
+addEventListener("message",event=>{
+  if(event.origin!==location.origin||event.source!==document.getElementById("matrixFrame")?.contentWindow||
+     event.data?.type!=="jijinboard-template-selected"||state.tool!=="matrix")return;
+  const url=new URL(location.href),id=event.data.templateId;
+  if(typeof id!=="string")return;
+  if(id)url.searchParams.set("template",id);else url.searchParams.delete("template");
+  url.searchParams.set("tool","matrix");
+  history.replaceState(history.state,"",url.pathname+url.search+url.hash);
+});
