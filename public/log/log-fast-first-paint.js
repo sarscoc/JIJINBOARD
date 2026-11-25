@@ -28,9 +28,11 @@
         if(annotation.parent_id)return;
         const start=messageIndex.get(annotation.message_id),end=messageIndex.get(annotation.end_message_id||annotation.message_id);
         if(start==null)return;
+        const tab=state.room.messages[start].tab;
+        if(end!=null&&(end<start||state.room.messages[end].tab!==tab))return;
         for(let index=start;index<=(end??start);index++){
           const message=state.room.messages[index];
-          if(message)(map[message.id]||=[]).push(annotation);
+          if(message&&message.tab===tab)(map[message.id]||=[]).push(annotation);
         }
       });
       return map;
@@ -44,7 +46,7 @@
       const current=messageIndex.get(message.id);
       const ranges=[...annotations].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(annotation=>{
         const startIndex=messageIndex.get(annotation.message_id),endIndex=messageIndex.get(annotation.end_message_id||annotation.message_id)??startIndex;
-        if(current<startIndex||current>endIndex)return null;
+        if(startIndex==null||endIndex==null||current==null||endIndex<startIndex||current<startIndex||current>endIndex||state.room.messages[startIndex].tab!==message.tab||state.room.messages[endIndex].tab!==message.tab)return null;
         return {
           start:current===startIndex?Math.max(0,annotation.start_offset):0,
           end:current===endIndex?Math.min(message.text.length,annotation.end_offset):message.text.length,
