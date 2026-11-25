@@ -16,7 +16,7 @@
     let failure;
     for(let attempt=0;attempt<2;attempt++){
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
-      try{const response=await nativeFetch(path,{signal:controller.signal});if(!response.ok)throw Error(`ログの取得に失敗しました (${response.status})`);return response}
+      try{await window.JijinDataset?.retry?.();const response=await nativeFetch(path,{signal:controller.signal});if(!response.ok)throw Error(`ログの取得に失敗しました (${response.status})`);return response}
       catch(error){failure=error}finally{clearTimeout(timer)}
     }
     throw failure;
@@ -55,7 +55,7 @@
       parentCache?.set(roomId,room);return room;
     }catch(error){
       console.warn('Chunked log fallback',error);
-      if(cached?.id===roomId&&cached.tabs?.length&&cached.messages?.length)return cached;
+      if(cached?.id===roomId&&cached.tabs?.length&&cached.messages?.length&&(!window.JijinDataset||!window.JijinDataset.blocked))return cached;
       throw error;
     }
   }
