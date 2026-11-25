@@ -9,7 +9,7 @@
       (async()=>{
         const response=await fetch(`/api/boards/${encodeURIComponent(board)}/comments${suffix}`,{...options,signal:options.signal||controller.signal,cache:'no-store',headers:{'content-type':'application/json','x-realtime-client':clientId,...(options.headers||{})}});
         const data=await response.json().catch(()=>({}));
-        if(!response.ok)throw Object.assign(Error(data.error||'コメントの通信に失敗しました'),{status:response.status,point:data.point});return data;
+        if(!response.ok)throw Object.assign(Error(data.error||`コメントの通信に失敗しました (HTTP ${response.status})`),{status:response.status,point:data.point});return data;
       })(),
       new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('コメントの通信がタイムアウトしました。入力内容はそのまま残しています。'))},15000)})
     ])}finally{clearTimeout(timer)}
@@ -87,7 +87,7 @@
       });
       return refreshTask;
     };
-    function retry() { clearTimeout(timer); if (!active || window.JijinDataset?.blocked) return; if(attempts>=4){window.JijinDataset?.enterReadOnly?.('network');return} timer = setTimeout(connect, Math.min(15000, 500 * 2 ** attempts++)); }
+    function retry() { clearTimeout(timer); if (!active || window.JijinDataset?.blocked) return; if(attempts>=4){window.dispatchEvent(new CustomEvent('jijinboard-connection-issue',{detail:{reason:'comment-socket'}}));return} timer = setTimeout(connect, Math.min(15000, 500 * 2 ** attempts++)+Math.floor(Math.random()*500)); }
     async function connect() {
       clearTimeout(timer);
       if (!active || window.JijinDataset?.blocked || connecting || !room() || socket?.readyState < 2) return;
@@ -129,8 +129,8 @@
       if (socket?.readyState !== WebSocket.OPEN) return;
       socket.send(JSON.stringify({type:'change', action:'comment:typing', data:{clientId, target:address, name:person?.name || 'PL', icon:String(person?.icon || '').slice(0,3000), typing:!!on}}));
     }
-    window.addEventListener('online', () => { if (active) connect(); });
-    document.addEventListener('visibilitychange', () => { if (active && !document.hidden) connect(); });
+    window.addEventListener('online', () => { if (active){attempts=0;connect();} });
+    document.addEventListener('visibilitychange', () => { if (active && !document.hidden){attempts=0;connect();} });
     window.addEventListener('pagehide', () => { resume=active;setActive(false); });
     window.addEventListener('pageshow', () => { if(resume){resume=false;setActive(true);} });
     return {setActive, typing, refresh:update};
