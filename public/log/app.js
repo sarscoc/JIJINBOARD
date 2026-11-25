@@ -252,7 +252,7 @@ function setTyping(value){clearTimeout(state.typingTimer);if(state.isTyping!==va
 
 function groupAnnotations() {
   const map = {}, indexes = new Map(state.room.messages.map((m,i)=>[m.id,i]));
-  state.annotations.forEach(a => { if(a.parent_id)return;const start=indexes.get(a.message_id), end=indexes.get(a.end_message_id || a.message_id); if(start==null)return; for(let i=start;i<=(end??start);i++)(map[state.room.messages[i].id] ||= []).push(a); });
+  state.annotations.forEach(a => { if(a.parent_id)return;const start=indexes.get(a.message_id), end=indexes.get(a.end_message_id || a.message_id); if(start==null)return;const tab=state.room.messages[start].tab;if(end!=null&&(end<start||state.room.messages[end].tab!==tab))return; for(let i=start;i<=(end??start);i++){const message=state.room.messages[i];if(message.tab===tab)(map[message.id] ||= []).push(a);} });
   return map;
 }
 function annotationMarkerColor(annotation){
@@ -273,7 +273,7 @@ function markedText(message, anns) {
   const indexes = new Map(state.room.messages.map((m,i)=>[m.id,i])), messageIndex=indexes.get(message.id);
   const ranges = [...anns].sort((a,b)=>String(a.created_at||"").localeCompare(String(b.created_at||""))).map(a => {
     const startIndex=indexes.get(a.message_id),endIndex=indexes.get(a.end_message_id||a.message_id)??startIndex;
-    if(startIndex===undefined||endIndex===undefined||endIndex<startIndex||messageIndex<startIndex||messageIndex>endIndex)return null;
+    if(startIndex===undefined||endIndex===undefined||endIndex<startIndex||messageIndex<startIndex||messageIndex>endIndex||state.room.messages[startIndex].tab!==message.tab||state.room.messages[endIndex].tab!==message.tab)return null;
     return {start:messageIndex===startIndex?Math.max(0,a.start_offset):0,end:messageIndex===endIndex?Math.min(message.text.length,a.end_offset):message.text.length,id:a.id,color:annotationMarkerColor(a)};
   }).filter(r=>r&&r.end>r.start);
   const edges=[...new Set([0,message.text.length,...ranges.flatMap(r=>[r.start,r.end])])].sort((a,b)=>a-b);
@@ -481,7 +481,7 @@ function selectionInfo() {
   if(!startMessage||!endMessage||!$("#logPane").contains(startMessage)||!$("#logPane").contains(endMessage))return null;
   const startText=startMessage.querySelector(".message-text"),endText=endMessage.querySelector(".message-text");if(!startText||!endText)return null;
   const textOffset=(textEl,node,offset,edge)=>{if(textEl.contains(node)){return JijinLogFormat.sourceOffset(textEl,node,offset,edge)}if(parent(node)?.closest?.(".speaker"))return 0;return edge==="start"?0:Number(textEl.dataset.sourceLength)||0};
-  const rects=[...range.getClientRects()].filter(r=>r.width||r.height),focusAtEnd=selection.focusNode===range.endContainer&&selection.focusOffset===range.endOffset,rect=(focusAtEnd?rects[rects.length-1]:rects[0])||range.getBoundingClientRect();const startOffset=textOffset(startText,range.startContainer,range.startOffset,"start"),endOffset=textOffset(endText,range.endContainer,range.endOffset,"end"),messages=state.room.messages,first=messages.findIndex(m=>m.id===startMessage.dataset.message),last=messages.findIndex(m=>m.id===endMessage.dataset.message);if(first<0||last<first||!Number.isFinite(startOffset)||!Number.isFinite(endOffset)||(first===last&&endOffset<=startOffset))return null;const quote=messages.slice(first,last+1).map((m,i)=>JijinLogFormat.plain(m.text,i===0?startOffset:0,first+i===last?endOffset:m.text.length)).join("\n");return {messageId:startMessage.dataset.message,endMessageId:endMessage.dataset.message,startOffset,endOffset,quote,anchorLeft:rect.left,anchorRight:rect.right,anchorTop:rect.top,anchorBottom:rect.bottom};
+  const rects=[...range.getClientRects()].filter(r=>r.width||r.height),focusAtEnd=selection.focusNode===range.endContainer&&selection.focusOffset===range.endOffset,rect=(focusAtEnd?rects[rects.length-1]:rects[0])||range.getBoundingClientRect();const startOffset=textOffset(startText,range.startContainer,range.startOffset,"start"),endOffset=textOffset(endText,range.endContainer,range.endOffset,"end"),messages=state.room.messages,first=messages.findIndex(m=>m.id===startMessage.dataset.message),last=messages.findIndex(m=>m.id===endMessage.dataset.message);if(first<0||last<first||messages[first].tab!==messages[last].tab||!Number.isFinite(startOffset)||!Number.isFinite(endOffset)||(first===last&&endOffset<=startOffset))return null;const quote=messages.slice(first,last+1).filter(m=>m.tab===messages[first].tab).map(m=>JijinLogFormat.plain(m.text,m.id===messages[first].id?startOffset:0,m.id===messages[last].id?endOffset:m.text.length)).join("\n");return {messageId:startMessage.dataset.message,endMessageId:endMessage.dataset.message,startOffset,endOffset,quote,anchorLeft:rect.left,anchorRight:rect.right,anchorTop:rect.top,anchorBottom:rect.bottom};
 }
 let selectingLog=false;
 function showSelection() {
