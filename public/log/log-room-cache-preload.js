@@ -55,7 +55,8 @@
       parentCache?.set(roomId,room);return room;
     }catch(error){
       console.warn('Chunked log fallback',error);
-      return null;
+      if(cached?.id===roomId&&cached.tabs?.length&&cached.messages?.length)return cached;
+      throw error;
     }
   }
 
@@ -63,12 +64,12 @@
     if(initialAnnotationsStarted)return null;
     initialAnnotationsStarted=true;
     nativeFetch(input,init).then(async response=>{
-      if(!response.ok)return;
-      const data=await response.clone().json().catch(()=>null);if(!data)return;
+      if(!response.ok)throw Error(`コメントの取得に失敗しました (${response.status})`);
+      const data=await response.clone().json().catch(()=>null);if(!data||!Array.isArray(data.annotations))throw Error('コメントの応答形式が正しくありません');
       const detail={roomId,data};
       window.__jijinInitialAnnotations=detail;
       window.dispatchEvent(new CustomEvent('jijinboard-initial-annotations',{detail}));
-    }).catch(error=>console.warn('Initial comments deferred',error));
+    }).catch(error=>{console.warn('Initial comments deferred',error);const status=document.getElementById('roomStatus');if(status){const button=document.createElement('button');button.type='button';button.textContent='コメントを再取得';button.onclick=async()=>{button.disabled=true;try{await window.JijinDataset?.retry?.();await refreshAnnotations(true);button.remove()}catch{button.disabled=false}};status.after(button)}});
     return jsonResponse({annotations:[],version:0});
   }
 
@@ -135,14 +136,14 @@
   }
   async function pump(all=false){
     if(!streamState())return;
-    const needsAll=all||!!window.JijinDesktop||state.viewMode==='timeline'||!!document.getElementById('searchInput')?.value.trim();
+    const needsAll=all||state.viewMode==='timeline'||!!document.getElementById('searchInput')?.value.trim();
     if(pumping){queuedAll||=needsAll;return pumping}
     const startRoom=state.room,tab=activeTab(),tabs=needsAll?(streamState().tabStreams||[]).map(info=>info.tabName).filter(name=>!window.JijinDesktop||state.room.tabs.includes(name)):[tab];if(window.JijinDesktop)tabs.sort((a,b)=>(a===tab?-1:b===tab?1:0));
     let changed=false,failed=false;
     const task=(async()=>{
       try{
         for(const nextTab of tabs){
-          if(window.JijinDesktop){while(state.room===startRoom){const count=Number(streamInfo(nextTab)?.chunkCount)||0,missing=Array.from({length:count},(_,i)=>i).filter(i=>!loadedSet(nextTab).has(i)).slice(0,3);if(!missing.length)break;const results=await Promise.all(missing.map(i=>loadChunk(i,nextTab,{render:false})));if(state.room!==startRoom)return;if(results.some(Boolean)&&(activeTab()===nextTab||state.viewMode==='timeline'))changed=true;if(results.some(ok=>!ok))throw Error('ログの続きが取得できませんでした')}
+          if(window.JijinDesktop){while(state.room===startRoom){const count=Number(streamInfo(nextTab)?.chunkCount)||0,missing=Array.from({length:count},(_,i)=>i).filter(i=>!loadedSet(nextTab).has(i)).slice(0,1);if(!missing.length)break;const results=await Promise.all(missing.map(i=>loadChunk(i,nextTab,{render:false})));if(state.room!==startRoom)return;if(results.some(Boolean)&&(activeTab()===nextTab||state.viewMode==='timeline'))changed=true;if(results.some(ok=>!ok))throw Error('ログの続きが取得できませんでした')}
             if(changed&&state.viewMode!=='timeline'){paintMore();changed=false}
             if(nextTab===tab){
               persistProgress(startRoom);
