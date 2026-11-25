@@ -70,9 +70,23 @@ test('isolated runtime API failures do not redirect or block local storage',asyn
  await assert.rejects(w.fetch('/api/network'),/offline/);
  assert.equal(w.JijinDataset.blocked,false);w.localStorage.setItem('board:draft','saved');assert.equal(w.localStorage.getItem('board:draft'),'saved');
 });
-test('confirmed 429 still activates read-only protection',async t=>{
+test('explicit daily quota response still activates read-only protection',async t=>{
  const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
  Object.assign(w,{Request,Response,Headers});w.localStorage.setItem('jijin.dataset.generation.v1','current');
- w.fetch=async path=>path==='/api/dataset'?Response.json({generation:'current'}):new Response('limited',{status:429});
+ w.fetch=async path=>path==='/api/dataset'?Response.json({generation:'current'}):new Response('daily API limit exceeded',{status:429});
  w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;await w.fetch('/api/boards/one');assert.equal(w.JijinDataset.blocked,true);
+});
+
+
+test('startup failure does not navigate and does not permit unverified writes',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ Object.assign(w,{Request,Response,Headers});w.localStorage.setItem('jijin.dataset.generation.v1','current');let calls=0;
+ w.fetch=async()=>{calls++;return Response.json({error:'temporary'},{status:503})};
+ w.eval(source('shared/dataset-guard.js'));await assert.rejects(w.JijinDataset.ready);await assert.rejects(w.fetch('/api/write',{method:'POST'}));assert.equal(calls,2);assert.equal(w.JijinDataset.blocked,false);
+});
+test('generic rate limit does not force a global read-only redirect',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ Object.assign(w,{Request,Response,Headers});w.localStorage.setItem('jijin.dataset.generation.v1','current');
+ w.fetch=async path=>path==='/api/dataset'?Response.json({generation:'current'}):new Response('Too Many Requests',{status:429});
+ w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;await w.fetch('/api/boards/one');assert.equal(w.JijinDataset.blocked,false);
 });
