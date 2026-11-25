@@ -60,7 +60,7 @@
     };
     selectTool=function(tool){
       rawSelect(tool);
-      if(tool==="log"&&frame.getAttribute("src")&&frame.dataset.ready!=="1")keepLoading();
+      if(tool==="log"&&frame.getAttribute("src")&&frame.dataset.ready!=="1"&&frame.dataset.fallbackVisible!=="1")keepLoading();
     };
 
     const warm=()=>{
