@@ -16,11 +16,10 @@
     const entry=!old||now-old.last>60000?{first:now,last:now,count:1}:old;
     if(old===entry&&now-entry.last>=2000){entry.count++;entry.last=now;}
     failures.set(id,entry);
-    if(entry.count>=3&&now-entry.first>=8000)enterReadOnly(reason);
+    if(entry.count>=3&&now-entry.first>=8000)window.dispatchEvent(new CustomEvent('jijinboard-connection-issue',{detail:{reason,path:id}}));
   }
   async function quotaResponse(response){
-    if(response.status===429)return true;
-    if(response.status<500)return false;
+    if(response.status!==429&&response.status<500)return false;
     const body=await response.clone().text().catch(()=> '');
     return /D1_ERROR[^\n]{0,200}(?:daily (?:limit|quota)|exceeded[^\n]{0,80}(?:limit|quota))|(?:daily|account) (?:API |D1 )?(?:usage |request |read |write )?(?:limit|quota) (?:has been )?(?:exceeded|reached)/i.test(body);
   }
@@ -141,7 +140,7 @@
       if(response.status!==503||data?.code!=='DATASET_RESETTING')break;
       await new Promise(resolve=>setTimeout(resolve,2000));
     }
-    if(!response.ok){if(response.status===429)enterReadOnly('quota');throw Error('保存データの世代を確認できません');}
+    if(!response.ok){if((response.status===429||response.status>=500)&&await quotaResponse(response))enterReadOnly('quota');throw Error('保存データの世代を確認できません');}
     if(typeof data.generation!=='string'||!data.generation)throw Error('保存データの世代が不正です');
     if(stored!==data.generation){await invalidate(data.generation);throw Error('保存データを読み直しています');}
     generation=data.generation;
@@ -152,7 +151,8 @@
     // A generation change already blocks writes and schedules a clean reload.
     if(blocked)return;
     console.warn('Dataset guard',error);
-    enterReadOnly('server');
+    // Keep the current page; ready remains rejected so no unverified API write can proceed.
+    window.dispatchEvent(new CustomEvent('jijinboard-connection-issue',{detail:{reason:'startup'}}));
   });
   window.fetch=async function(input,init){
     const url=new URL(input instanceof Request?input.url:String(input),location.href);
@@ -172,7 +172,8 @@
       if(error?.name!=='AbortError')observeFailure(url,method,'network');
       throw error;
     }
-    if(response.status===429||(response.status>=500&&await quotaResponse(response)))enterReadOnly('quota');
+    if((response.status===429||response.status>=500)&&await quotaResponse(response))enterReadOnly('quota');
+    else if(response.status===429)observeFailure(url,method,'rate-limit');
     else if(response.status>=500){
       // Dataset-reset responses are expected during an intentional reset.
       const data=response.status===503?await response.clone().json().catch(()=>null):null;
