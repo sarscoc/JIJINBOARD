@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261118-phone-jump/);
+  assert.match(html,/app\.js\?v=20261125-recovery3/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
