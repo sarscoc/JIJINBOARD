@@ -172,7 +172,7 @@
       if(error?.name!=='AbortError')observeFailure(url,method,'network');
       throw error;
     }
-    if(await quotaResponse(response))enterReadOnly('quota');
+    if(response.status===429||(response.status>=500&&await quotaResponse(response)))enterReadOnly('quota');
     else if(response.status>=500){
       // Dataset-reset responses are expected during an intentional reset.
       const data=response.status===503?await response.clone().json().catch(()=>null):null;
