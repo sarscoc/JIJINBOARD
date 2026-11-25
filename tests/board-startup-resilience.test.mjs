@@ -59,3 +59,20 @@ test('a successful room read reaches the board and saves a generation-scoped sna
  assert.equal(new URL(copy.url).searchParams.get('path'),'/api/boards/one');
  assert.deepEqual(await copy.response.json(),room);
 });
+
+
+test('isolated runtime API failures do not redirect or block local storage',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ Object.assign(w,{Request,Response,Headers});w.localStorage.setItem('jijin.dataset.generation.v1','current');
+ w.fetch=async path=>{if(path==='/api/dataset')return Response.json({generation:'current'});if(path==='/api/network')throw Error('offline');return new Response('temporary',{status:503})};
+ w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;
+ await Promise.all(['/api/boards/one','/api/rooms/one','/api/theme'].map(path=>w.fetch(path)));
+ await assert.rejects(w.fetch('/api/network'),/offline/);
+ assert.equal(w.JijinDataset.blocked,false);w.localStorage.setItem('board:draft','saved');assert.equal(w.localStorage.getItem('board:draft'),'saved');
+});
+test('confirmed 429 still activates read-only protection',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ Object.assign(w,{Request,Response,Headers});w.localStorage.setItem('jijin.dataset.generation.v1','current');
+ w.fetch=async path=>path==='/api/dataset'?Response.json({generation:'current'}):new Response('limited',{status:429});
+ w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;await w.fetch('/api/boards/one');assert.equal(w.JijinDataset.blocked,true);
+});
