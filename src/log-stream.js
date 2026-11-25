@@ -32,7 +32,7 @@ async function mapConcurrent(items,limit,worker){
 async function logRow(env,logId){return env.DB.prepare('SELECT log_id,room_id,log_name,created_at FROM log WHERE log_id=?').bind(logId).first()}
 async function tabRows(env,logId){const result=await env.DB.prepare(`SELECT t.tab_id,t.tab_name,t.tab_sort_order,t.tab_hidden,COUNT(c.chunk_id) AS chunk_count FROM log_tab t LEFT JOIN log_chunk c ON c.tab_id=t.tab_id WHERE t.log_id=? GROUP BY t.tab_id ORDER BY t.tab_sort_order,t.created_at`).bind(logId).all();return result.results||[]}
 async function chunkRows(env,tabId){const result=await env.DB.prepare('SELECT chunk_id,chunk_index,chunk_r2_key FROM log_chunk WHERE tab_id=? ORDER BY chunk_index').bind(tabId).all();return result.results||[]}
-async function readChunk(env,row,tabName){if(!env.LOGS)throw new Error('R2ログストレージが接続されていません');const object=await env.LOGS.get(row.chunk_r2_key);if(!object)return[];const payload=JSON.parse(await object.text());const lines=Array.isArray(payload)?payload:Array.isArray(payload?.lines)?payload.lines:[];return lines.map(line=>messageFromLine(line,tabName))}
+async function readChunk(env,row,tabName){if(!env.LOGS)throw new Error('R2ログストレージが接続されていません');const object=await env.LOGS.get(row.chunk_r2_key);if(!object)throw Error('ログの分割データが保存先に見つかりません');const payload=JSON.parse(await object.text());const lines=Array.isArray(payload)?payload:payload?.lines;if(!Array.isArray(lines))throw Error('ログの分割データの形式が不正です');return lines.map(line=>messageFromLine(line,tabName))}
 
 function buildUploadPlan(roomId,logId,tabs,grouped){
   const tabRows=[],chunks=[];
@@ -166,7 +166,7 @@ async function directChunk(request,env,logId,index){
     const tab=await env.DB.prepare(`SELECT l.room_id,t.tab_id,t.tab_name FROM log_tab t JOIN log l ON l.log_id=t.log_id WHERE t.log_id=? AND ${where} LIMIT 1`).bind(logId,value).first();
     if(tab)row={...tab,chunk_r2_key:chunkKey(tab.room_id,logId,tab.tab_id,index)};
   }
-  if(!row)return json({index,tab:requestedTab,tabId:requestedTabId,messages:[]});
+  if(!row)return json({error:'指定されたログの分割データが見つかりません'},404);
   const messages=await readChunk(env,row,row.tab_name),response=json({index,tab:row.tab_name,tabId:row.tab_id,messages});
   response.headers.set('cache-control','no-store');return response;
 }

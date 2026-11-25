@@ -28,8 +28,8 @@ test('timeline mode loads other tabs so the shared timeline contains every saved
  const {w}=await fixture(t);w.state.viewMode='timeline';w.document.getElementById('viewMode').dispatchEvent(new w.Event('change'));await tick();assert.equal(w.state.room.messages.length,4);assert.deepEqual([...w.state.room.stream.loadedByTab['情報']],[0]);
 });
 
-test('PC progressively loads every visible tab without requiring a scroll',async t=>{
- const {w,requests}=await fixture(t,{desktop:true});assert.equal(w.state.room.messages.length,4);assert.ok(requests.some(path=>path.includes('tab='+encodeURIComponent('情報'))));assert.ok(!requests.some(path=>path.includes('/find/')));
+test('PC loads only the active tab in compact mode',async t=>{
+ const {w,requests}=await fixture(t,{desktop:true});assert.equal(w.state.room.messages.length,3);assert.ok(!requests.some(path=>path.includes('tab='+encodeURIComponent('情報'))));assert.ok(!requests.some(path=>path.includes('/find/')));
 });
 test('PC missing-message navigation uses chunk loading, reports failure and ignores stale clicks',async t=>{
  const dom=new JSDOM('<p id="roomStatus"></p><div class="log-page" data-track-index="1" data-real-index="0"><div class="page-scroll"></div></div>',{url:'https://test/log/?room=log',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;w.JijinDesktop={};w.Request=Request;w.Response=Response;w.requestAnimationFrame=fn=>w.setTimeout(fn,0);w.currentReadingTime=()=>'';w.renderLog=()=>{};let navigated=[];w.jumpToMessage=(id,annotation)=>navigated.push([id,annotation]);w.state={roomId:'log',room:{id:'log',tabs:['メイン'],messages:[{id:'existing',tab:'メイン'}],stream:{streamed:true,tabStreams:[{tabName:'メイン',chunkCount:2}],loadedByTab:{'メイン':[0]}}},carouselPosition:1,activeTabIndex:0,viewMode:'compact'};

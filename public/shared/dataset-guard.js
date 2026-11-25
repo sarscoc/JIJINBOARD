@@ -119,7 +119,7 @@
     if(next)set.call(localStorage,key,next);
     location.reload();
   }
-  const ready=(async()=>{
+  async function verify(){
     let response,data;
     for(let attempt=0;attempt<90;attempt++){
       let failure;
@@ -145,7 +145,11 @@
     if(stored!==data.generation){await invalidate(data.generation);throw Error('保存データを読み直しています');}
     generation=data.generation;
     return generation;
-  })();
+  }
+  let ready=verify(),verificationFailed=false;
+  function watchReady(task){task.catch(()=>{if(ready===task)verificationFailed=true});return task;}
+  watchReady(ready);
+  function retry(){if(blocked)return ready;if(verificationFailed){verificationFailed=false;ready=watchReady(verify());}return ready;}
   // Failed bootstrap must never permit writes, even if application code catches its error.
   ready.catch(error=>{
     // A generation change already blocks writes and schedules a clean reload.
@@ -191,6 +195,6 @@
     return response;
   };
   addEventListener('storage',event=>{if(event.key===key&&event.newValue!==generation){blocked=true;location.reload()}});
-  window.JijinDataset={ready,get blocked(){return blocked},enterReadOnly};
+  window.JijinDataset={get ready(){return ready},retry,get blocked(){return blocked},enterReadOnly};
 })();
 

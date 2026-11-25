@@ -230,7 +230,7 @@ async function openRoom(id) {
     }).catch(error=>{if(state.roomId===id)$("#roomStatus").textContent=error.message});
     connectRealtime();
     if (!state.profile.plName) openProfile();
-  } catch (e) { $("#roomStatus").textContent = e.message; }
+  } catch (e) { const status=$("#roomStatus");status.textContent=e.message+" ";const retry=document.createElement("button");retry.type="button";retry.textContent="ログを再取得";retry.onclick=async()=>{retry.disabled=true;try{await window.JijinDataset?.retry?.();await openRoom(id)}catch(error){status.textContent=error.message;status.append(retry);retry.disabled=false}};status.append(retry); }
 }
 function openArchiveData(data){if(data?.format!=="trpg-log-marker"||!data.room?.messages?.length)throw new Error("LOGCOMMENTSの保存ファイルではありません");disconnectRealtime();state.archiveMode=true;state.archiveImages=data.archiveImages||{};state.roomId="archive";state.room={...data.room,id:"archive"};state.annotations=data.annotations||[];state.presence=[];state.profile.personas=data.personas||state.profile.personas;state.hiddenTabs=new Set();state.activeTabIndex=0;state.carouselPosition=1;if(data.theme==="dark"||data.theme==="light")applyTheme(data.theme);$("#homeView").classList.add("hidden");$("#roomView").classList.remove("hidden");$("#profileBtn").classList.add("hidden");$("#shareBtn").classList.add("hidden");$("#roomTitle").textContent=state.room.title;$("#roomStatus").textContent="";renderComments();renderLog();document.title=`${state.room.title} | 保存版`}
 async function openArchiveFile(file){try{openArchiveData(await readArchiveFile(file))}catch(error){$("#homeStatus").textContent=error.message}}

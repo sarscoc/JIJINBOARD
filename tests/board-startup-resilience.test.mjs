@@ -90,3 +90,11 @@ test('generic rate limit does not force a global read-only redirect',async t=>{
  w.fetch=async path=>path==='/api/dataset'?Response.json({generation:'current'}):new Response('Too Many Requests',{status:429});
  w.eval(source('shared/dataset-guard.js'));await w.JijinDataset.ready;await w.fetch('/api/boards/one');assert.equal(w.JijinDataset.blocked,false);
 });
+
+
+test('explicit retry restores API access after failed startup without allowing stale writes',async t=>{
+ const dom=new JSDOM('',{url:'https://test/board/?id=one',runScripts:'outside-only'});t.after(()=>dom.window.close());const w=dom.window;
+ Object.assign(w,{Request,Response,Headers});w.localStorage.setItem('jijin.dataset.generation.v1','current');let online=false;
+ w.fetch=async path=>path==='/api/dataset'?(online?Response.json({generation:'current'}):Response.json({error:'temporary'},{status:503})):Response.json({ok:true});
+ w.eval(source('shared/dataset-guard.js'));await assert.rejects(w.JijinDataset.ready);online=true;await w.JijinDataset.retry();assert.equal((await w.fetch('/api/boards/one')).ok,true);
+});

@@ -114,12 +114,13 @@
     posting=true;setTyping(false);
     try{
       if(shared&&board()&&!state.editingCommentId)payload.target=state.annotations.find(a=>a.id===payload.parentId)?.target||shared.target.log(board(),state.roomId,payload);
+      await window.JijinDataset?.retry?.();
       const editingId=state.editingCommentId,result=await api(editingId?`/api/rooms/${encodeURIComponent(state.roomId)}/annotations/${encodeURIComponent(editingId)}`:`/api/rooms/${encodeURIComponent(state.roomId)}/annotations`,{method:editingId?'PATCH':'POST',body:JSON.stringify(payload)});
       const action=editingId?'comment:edit':'comment:create';changes?.accept(action,result);
       const apply=()=>{if(changes&&!changes.newer(result))return;setVersion(result.version);if(editingId)patchAnnotation(result.patch||result.comment);else insertAnnotation(result.annotation||result.comment)};
       if(result.annotation||result.comment||result.patch){if(refreshLoader)refreshLoader.patch(apply);else apply()}else refreshAnnotations(true).catch(console.warn);
       setTyping(false);document.getElementById('commentDialog').close();state.pendingSelection=null;state.selection=null;state.replyTo=null;state.editingCommentId=null;getSelection()?.removeAllRanges();if(!payload.parentId&&!editingId)jumpToMessage(payload.messageId,(result.annotation||result.comment)?.id||result.id);
-    }catch(error){alert(error.message)}finally{posting=false}
+    }catch(error){alert(`${error.message}\n入力内容は残しています。送信済みの可能性もあるため、コメント一覧を確認してから再送してください。`);refreshAnnotations(true).catch(console.warn)}finally{posting=false}
   }
 
   async function fastDeleteComment(id,confirmed=false){

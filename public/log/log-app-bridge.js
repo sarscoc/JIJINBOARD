@@ -21,6 +21,14 @@
       }catch{}
       localMessage({type:"jijinboard-set-room-theme",displayMode:mode});
     },
+    async recover(){
+      await window.JijinDataset?.retry?.();
+      const id=bridge.getRoomId();if(!id)return;
+      if(typeof state!=='undefined'&&!state.room&&typeof openRoom==='function')await openRoom(id);
+      else if(typeof refreshAnnotations==='function')await refreshAnnotations(true);
+      if(typeof state!=='undefined'&&!state.room)throw Error('ログの取得に失敗しました');
+      if(typeof state!=='undefined'&&state.room)window.connectRealtime?.();
+    },
     getRoomId(){try{return typeof state!=="undefined"?String(state.roomId||""):""}catch{return""}},
     destroy(){try{window.disconnectRealtime?.()}catch{}},
   };
