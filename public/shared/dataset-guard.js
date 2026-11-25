@@ -7,6 +7,23 @@
   // A terminal API/server failure must not trigger endless reconnect loops.
   // Navigate once to a static page that does not require D1 or WebSockets.
   let failureRedirected=false;
+  // Only repeated failures of the same GET over time indicate a sustained outage.
+  // Parallel failures across unrelated endpoints must not count as retries.
+  const failures=new Map();
+  function observeFailure(url,method,reason){
+    if(method!=='GET')return;
+    const id=url.pathname,now=Date.now(),old=failures.get(id);
+    const entry=!old||now-old.last>60000?{first:now,last:now,count:1}:old;
+    if(old===entry&&now-entry.last>=2000){entry.count++;entry.last=now;}
+    failures.set(id,entry);
+    if(entry.count>=3&&now-entry.first>=8000)enterReadOnly(reason);
+  }
+  async function quotaResponse(response){
+    if(response.status===429)return true;
+    if(response.status<500)return false;
+    const body=await response.clone().text().catch(()=> '');
+    return /D1_ERROR[^\n]{0,200}(?:daily (?:limit|quota)|exceeded[^\n]{0,80}(?:limit|quota))|(?:daily|account) (?:API |D1 )?(?:usage |request |read |write )?(?:limit|quota) (?:has been )?(?:exceeded|reached)/i.test(body);
+  }
   const snapshotDb='jijinboard-readonly-screen-v1';
   function openSnapshotDb(){
     return new Promise((resolve,reject)=>{
@@ -114,7 +131,9 @@
             (async()=>{const response=await nativeFetch('/api/dataset',{cache:'no-store',signal:controller.signal});return {response,data:await response.json()}})(),
             new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('起動確認がタイムアウトしました'))},10000)})
           ]);
-          response=result.response;data=result.data;failure=null;break;
+          response=result.response;data=result.data;failure=null;
+          if(response.status>=500&&data?.code!=='DATASET_RESETTING'&&retry===0)continue;
+          break;
         }catch(error){failure=error}
         finally{clearTimeout(timer)}
       }
@@ -122,7 +141,7 @@
       if(response.status!==503||data?.code!=='DATASET_RESETTING')break;
       await new Promise(resolve=>setTimeout(resolve,2000));
     }
-    if(!response.ok)throw Error('保存データの世代を確認できません');
+    if(!response.ok){if(response.status===429)enterReadOnly('quota');throw Error('保存データの世代を確認できません');}
     if(typeof data.generation!=='string'||!data.generation)throw Error('保存データの世代が不正です');
     if(stored!==data.generation){await invalidate(data.generation);throw Error('保存データを読み直しています');}
     generation=data.generation;
@@ -150,15 +169,15 @@
     try{response=await nativeFetch(input,options)}
     catch(error){
       // Aborts can be intentional (tab changes, superseded requests).
-      if(error?.name!=='AbortError')enterReadOnly('network');
+      if(error?.name!=='AbortError')observeFailure(url,method,'network');
       throw error;
     }
-    if(response.status>=500){
+    if(await quotaResponse(response))enterReadOnly('quota');
+    else if(response.status>=500){
       // Dataset-reset responses are expected during an intentional reset.
       const data=response.status===503?await response.clone().json().catch(()=>null):null;
-      if(data?.code!=='DATASET_RESETTING')enterReadOnly('server');
-    }
-    if(response.status===429)enterReadOnly('quota');
+      if(data?.code!=='DATASET_RESETTING')observeFailure(url,method,'server');
+    }else if(response.ok)failures.delete(url.pathname);
     if(method==='GET'&&response.ok)rememberSnapshot(url,response).catch(()=>{});
     if(response.status===409){
       const data=await response.clone().json().catch(()=>null);
