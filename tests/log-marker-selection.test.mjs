@@ -37,7 +37,7 @@ test('LOG marker rendering ignores missing or reversed endpoints',()=>{
 });
 
 test('LOG HTML loads the updated marker-selection code',()=>{
-  assert.match(html,/app\.js\?v=20261125-recovery3/);
+  assert.match(html,/app\.js\?v=20261125-tab-scope/);
 });
 
 test('cross-tab marker navigation uses local message metadata and reveals destination',()=>{
@@ -154,4 +154,32 @@ test('LOG comment URL rendering distinguishes images and video on CDN hosts',()=
   assert.match(context.commentBodyHtml('https://files.catbox.moe/example.mp4'),/<video /);
   assert.match(context.commentBodyHtml('https://youtu.be/abcdefghijk'),/youtube-nocookie\.com\/embed\/abcdefghijk/);
   assert.doesNotMatch(context.commentBodyHtml('https://example.test/?next=youtu.be/abcdefghijk'),/<iframe /);
+});
+
+
+test('multi-line markers never spill onto interleaved tabs, including fast rendering',()=>{
+  const messages=[{id:'a',tab:'Main',text:'hello'},{id:'x',tab:'HO',text:'secret'},{id:'b',tab:'Main',text:'world'}];
+  const annotation={id:'mark',message_id:'a',end_message_id:'b',start_offset:1,end_offset:3};
+  const rendered=[];
+  const context={state:{room:{messages},annotations:[annotation]},window:{addEventListener:()=>{}},JijinLogFormat:{render:(text,segments)=>{rendered.push(segments);return text}},annotationMarkerColor:()=> '#abc'};
+  const start=source.indexOf('function groupAnnotations()');
+  const end=source.indexOf('\nfunction annotationMarkerColor',start);
+  const markStart=source.indexOf('function markedText(message, anns) {');
+  const markEnd=source.indexOf('\nfunction markerColor(',markStart);
+  vm.runInNewContext(source.slice(start,end)+'\n'+source.slice(markStart,markEnd),context);
+  function verify(){
+    const groups=context.groupAnnotations();
+    assert.deepEqual(Object.keys(groups),['a','b']);
+    context.markedText(messages[1],[annotation]);
+    assert.ok(rendered.at(-1).every(segment=>!segment.winner));
+    context.markedText(messages[0],[annotation]);
+    assert.ok(rendered.at(-1).some(segment=>segment.winner?.id==='mark'));
+    context.markedText(messages[2],[annotation]);
+    assert.ok(rendered.at(-1).some(segment=>segment.winner?.id==='mark'));
+  }
+  verify();
+  vm.runInNewContext(readFileSync(new URL('../public/log/log-fast-first-paint.js',import.meta.url),'utf8'),context);
+  verify();
+  context.state.annotations=[{...annotation,end_message_id:'x'}];
+  assert.deepEqual(Object.keys(context.groupAnnotations()),[]);
 });
